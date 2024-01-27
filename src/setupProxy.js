@@ -5,6 +5,9 @@ module.exports = function(app) {
         '/tilamisu',
         createProxyMiddleware({
           target: 'https://valkeakoski.tilamisu.fi',
+          headers: {
+            Connection: 'keep-alive',
+          },
           changeOrigin: true,
           pathRewrite: {
             '^/tilamisu': ''
