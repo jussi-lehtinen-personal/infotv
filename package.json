@@ -2,7 +2,6 @@
   "name": "infotv",
   "version": "0.1.0",
   "private": true,
-  "proxy": "https://valkeakoski.tilamisu.fi",
   "dependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@testing-library/jest-dom": "^5.17.0",

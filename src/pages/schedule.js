@@ -13,7 +13,7 @@ class Schedule extends React.Component {
     }
 
     componentDidMount() {
-        const server = '' //'/tilamisu' //'https://valkeakoski.tilamisu.fi'
+        const server = '/tilamisu' //'https://valkeakoski.tilamisu.fi'
         const requestUri = '/fi/locations/836/reservations.json?timeshift=-120&from=2024-01-15&to=2024-01-22'
 
         fetch(server + requestUri, 
