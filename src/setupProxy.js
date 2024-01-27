@@ -12,7 +12,7 @@ module.exports = function(app) {
           pathRewrite: {
             '^/tilamisu': ''
           },
-      
+          secure: false  
         })
       );
 };
