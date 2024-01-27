@@ -9,12 +9,12 @@ class Schedule extends React.Component {
         const uri = 'https://valkeakoski.tilamisu.fi/fi/locations/836/reservations.json?timeshift=-120&from=2024-01-15&to=2024-01-22'
 
         let headers = new Headers();
-        headers.append('Access-Control-Allow-Origin', 'http://localhost:3000')
+        headers.append('Access-Control-Allow-Origin', '*')
         headers.append('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
         //headers.append('Accept', 'application/json');
         //headers.append('Origin','http://localhost:3000');
 
-        fetch(uri/*, {headers: headers}*/)
+        fetch(uri, {headers: headers})
             .then(response => response.json())
             .then(data => {
                 console.log(data) 
