@@ -13,18 +13,7 @@ class Schedule extends React.Component {
     }
 
     componentDidMount() {
-        const server = '/tilamisu' //'https://valkeakoski.tilamisu.fi'
-        const requestUri = '/fi/locations/836/reservations.json?timeshift=-120&from=2024-01-15&to=2024-01-22'
-
-        fetch(server + requestUri, 
-            { 
-                method: 'GET', 
-                headers : {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-                    'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization',
-                }
-            })
+        fetch('api/schedule')
             .then(response => response.json())
             .then(data => {
                 this.setState({ items: data })
