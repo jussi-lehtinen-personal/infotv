@@ -1,0 +1,29 @@
+/*
+.fc {
+    background-color: #111111;
+    color: #6b6b6b;
+}
+
+.table-bordered th, .table-bordered td {
+    border: 1px solid #6b6b6b;
+}
+
+.fc tr {
+    color: #d8d8d8;
+    border: 1px solid #222222;
+}
+
+.fc td {
+    color: #d8d8d8;
+    border: 1px solid #444444;
+}
+
+.fc th {
+    color: #d8d8d8;
+    border: 1px solid #777777;
+}
+
+:root {
+    --fc-page-bg-color: black;
+}
+*/
