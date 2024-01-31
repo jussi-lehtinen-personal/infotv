@@ -59,16 +59,7 @@ class Schedule extends React.Component {
 
             events.push(event)
         }
-
-        function renderEventContent(eventInfo) {
-            return (
-                <div>
-                    <strong>{eventInfo.timeText}</strong>
-                    <p>{eventInfo.event.title}</p>
-                </div>
-            )
-        }
-
+        
         return (
             <Fragment>
             <div style={{margin: '100px 0px 0px 0px'}}>
