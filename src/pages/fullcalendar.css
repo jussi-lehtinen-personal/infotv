@@ -1,3 +1,14 @@
+.fc-timegrid-event .fc-event-time {
+    font-weight: bold;
+}
+
+.fc-direction-ltr .fc-timegrid-col-events {
+    margin-top: 0px;
+    margin-right: 2px;
+    margin-bottom: 0px;
+    margin-left: 2px;
+}
+
 /*
 .fc {
     background-color: #111111;

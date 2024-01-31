@@ -1,0 +1,1 @@
+swa start build --api-location api
