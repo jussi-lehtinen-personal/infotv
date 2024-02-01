@@ -1,14 +1,14 @@
 import {
     BrowserRouter as Router,
     Routes,
-    Route,
+    Route
 } from "react-router-dom";
 import './App.css';
 import Home from "./pages";
 import Schedule from "./pages/schedule";
 import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
-import Contact from "./pages/contact";
+import ThisWeek from "./pages/this_week";
 
 function App() {
   return (
@@ -20,8 +20,8 @@ function App() {
                 element={<Schedule />}
             />
             <Route
-                path="/contact"
-                element={<Contact />}
+                path="/this_week"
+                element={<ThisWeek />}
             />
             <Route path="/blogs" element={<Blogs />} />
             <Route

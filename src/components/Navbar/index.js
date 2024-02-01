@@ -1,27 +1,24 @@
 // Filename - "./components/Navbar.js
 
 import React from "react";
-import { Nav, NavLink, NavMenu } from "./NavbarElements";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
 	return (
 		<>
-			<Nav>
-				<NavMenu>
-					<NavLink to="/schedule" activeStyle>
-						Jäävuorokalenteri
-					</NavLink>
-					<NavLink to="/contact" activeStyle>
-						Contact Us
-					</NavLink>
-					<NavLink to="/blogs" activeStyle>
-						Blogs
-					</NavLink>
-					<NavLink to="/sign-up" activeStyle>
-						Sign Up
-					</NavLink>
-				</NavMenu>
-			</Nav>
+            <h2>Info-TV</h2>
+            <ul>
+                <li>
+                    <Link to={"/schedule"}>
+                        Jäävuorokalenteri
+                    </Link>
+                </li>
+                <li>
+                    <Link to={"/this_week"}>
+                        Tulevat ottelut
+                    </Link>
+                </li>
+            </ul>
 		</>
 	);
 };
