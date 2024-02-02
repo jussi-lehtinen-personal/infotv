@@ -38,8 +38,8 @@ class ThisWeek extends React.Component {
         const awayteam = { 'font-size': '2.5em', display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777' }
         const level = { 'font-size': '2.5em', display: 'flex', justifyContent: 'center', alignItems: 'center' }
         const style = { 'font-size': '1.6em', display: 'flex', justifyContent: 'center', alignItems: 'center' }
-        const dayStyle = { margin: '10% 0% -10% 0%', 'font-size': '2em', display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777' }
-        const monthStyle = { 'font-size': '1em', display: 'flex', justifyContent: 'center', alignItems: 'center' }
+        const dayStyle = { margin: '5% 0% -20% 0%', 'font-size': '2em', display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777' }
+        const monthStyle = { 'font-size': '1.3em', display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777'  }
 
         const gamesList = items.map((data) => {
             return (
