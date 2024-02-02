@@ -4,6 +4,7 @@ import {
     Route
 } from "react-router-dom";
 import './App.css';
+
 import Home from "./pages";
 import Schedule from "./pages/schedule";
 import Blogs from "./pages/blogs";
