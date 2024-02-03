@@ -8,12 +8,29 @@ import 'moment/locale/fi'  // without this line it didn't work
 var moment = require('moment');
 moment.locale('fi')
 
+const styles = {
+    font: {
+        'font-family': 'Bebas Neue'
+    },
+
+    textShadow: {
+        'text-shadow': '0 0 2px #777777'
+    },
+
+    flex: {
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+    },
+
+}
+
 class ThisWeek extends React.Component {
 
     constructor(props) {
         super(props);
         this.state = {
-            items: []
+            matches: []
         }
     }
 
@@ -21,58 +38,101 @@ class ThisWeek extends React.Component {
         fetch('api/getGames')
         .then(response => response.json())
         .then(data => {
-            this.setState({ items: data })
+            this.setState({ matches: data })
         }).catch(error => {
             console.log('Error occurred! ', error);
         });
     }
 
     render() {
-        const { items } = this.state
-        const imageSize = '120'
-        //const items = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
+        const { matches } = this.state
+        //const matches = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
 
-        const big_font = '4vw'
-        const medium_font = '2vw'
-        const date_font = '2.6vw'
-        const small_font = '1.5vw'
-        const smaller_font = '1.7vw'
+        const imageSize = 120
+
+        var dataItems = []
+        matches.map((data) => { return dataItems.push(data) })
+
+        if (dataItems.length > 6) {
+            dataItems = matches.slice(0, 5)
+        } else {
+            while (dataItems.length < 6) {
+                dataItems.push({
+                    date: "",
+                    home: "",
+                    home_logo: "",
+                    away: "",
+                    away_logo: "",
+                    rink: "",
+                    level: ""
+                })
+            }
+        }
         
-        const title = { 'font-size': big_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
-        const team = { 'font-size': medium_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
-        const level = { 'font-size': medium_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
-        const style = { 'font-size': small_font }
-        const small = { 'font-size': small_font, display: 'flex', justifyContent: 'center', alignItems: 'center' }
-        const dayStyle = { margin: '0px 0px -10px 0px', 'font-size': date_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
-        const monthStyle = { margin: '0px 0px 0px 0px', 'font-size': smaller_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777'  }
+        const dateBoxStyle = Object.assign({}, {
+            alignContent: 'center',
+            justifyItems: 'center',
+            alignSelf: 'center',
+            aspectRatio: 1,
+            height: {imageSize},
+            width: {imageSize}, 
+            'box-shadow': '0px 5px 15px #BBBBBB', 
+            background: "orange", 
+            justifyContent: 'center', 'alignItems': 'center'
+        })
 
-        const gamesList = items.map((data) => {
+        const smallTextStyle = Object.assign({}, styles.flex, { 'font-size': '1.5vw' })
+        const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {'font-size': '4vw'})
+        const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { 'font-size': '2vw' })
+        const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px -10px 0px', 'font-size': '2.6vw' })
+        const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', 'font-size': '1.9vw'})
+
+        const gamesList = dataItems.map((data) => {
+            const isValidItem = data.home.length > 0
+
             return (
-                <Row style={{'padding': 5}}>
-                    <Col xs={1}>
-                        <Ratio style={{height: '100%', 'box-shadow': '0px 5px 15px #BBBBBB', background: 'orange', justifyContent: 'center', 'alignItems': 'center'}}>
+                <Row style={{'padding': 5, opacity: isValidItem ? 1 : 0.5}}>
+                    <Col xs={1} style={{
+                            alignSelf: 'center',
+                            justifyContent: 'center', 'alignItems': 'center'
+                            }}>
+                        {/* Date / time box */}
+                        <Ratio style={dateBoxStyle}>
                             <Container> 
-                                <Row style={dayStyle}>{moment(data.date).format('D.M')}</Row>
-                                <Row style={monthStyle}>{moment(data.date).format('HH:mm')}</Row>
+                                <Row style={dayStyle}>{isValidItem ? moment(data.date).format('dd') : ""}</Row>
+                                <Row style={timeStyle}>{isValidItem ? moment(data.date).format('HH:mm') : ""}</Row>
                             </Container>
                         </Ratio>
                     </Col>
-                    <Col style={team}>{data.home}</Col>
-                    <Col xs={0.1} style={style}><img src={data.home_logo} width={imageSize} height={imageSize} alt="LOGO"/></Col>
-                    <Col xs={1} style={small}>vs.</Col>
-                    <Col xs={0.1} style={style}><img src={data.away_logo} width={imageSize} height={imageSize} alt="LOGO"/></Col>
-                    <Col style={team}>{data.away}</Col>
-                    <Col xs={2} style={level}>{data.level}</Col>
+                    <Col hidden={isValidItem ? false : true} style={normalTextStyle}>{data.home}</Col>
+                    <Col xs={0.1} hidden={isValidItem ? false : true}>
+                        <img src={data.home_logo} width={imageSize} height={imageSize} alt=""/>
+                    </Col>
+                    <Col hidden={isValidItem ? false : true} xs={1} style={smallTextStyle}>vs.</Col>
+                    <Col xs={0.1} hidden={isValidItem ? false : true}>
+                        <img src={data.away_logo} width={imageSize} height={imageSize} alt=""/>
+                    </Col>
+                    <Col style={normalTextStyle}>{data.away}</Col>
+                    <Col xs={2} style={normalTextStyle}>{data.level}</Col>
                 </Row>
             )
           })
 
         // Define the layout configuration for each grid item
+        const now = new Date()
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 1)
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(endOfWeek.getDate() + 6)
+
+        const start = moment(startOfWeek).format('D.M')
+        const end = moment(endOfWeek).format('D.M')
+
+        const week = start + ' - ' + end
         return (
             <Fragment>
-                <div style={{'font-family': 'Bebas Neue', padding: 20}}>
+                <div style={Object.assign({}, styles.font, {padding: 20})}>
                     <Container style={{paddingBottom:50}}>
-                        <div style={title}>KIEKKO-AHMA - TULEVAT KOTIOTTELUT</div>
+                        <div style={titleTextStyle}>TULEVAT KOTIOTTELUT ({week})</div>
                         <div style={{height: '5px', width: '100%', 'box-shadow': '0px 5px 15px #BBBBBB', 'border-top': '1px solid orange', background: 'orange', aspectRatio: 1, justifyContent: 'center', 'alignItems': 'center'}}></div>
                     </Container>
                     { gamesList }

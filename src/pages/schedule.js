@@ -75,11 +75,11 @@ class Schedule extends React.Component {
             <Fragment>
                 <Container style={{'font-family': 'Bebas Neue', padding: 20}}>
                     <Row>
-                    <Col xs={0.1}><img src={ahmaLogo} width={imageSize} height={imageSize} alt="LOGO"/></Col>
+                    <Col hidden='true' xs={0.1}><img src={ahmaLogo} width={imageSize} height={imageSize} alt=""/></Col>
                     <Col>
                         <div style={title}>JÄÄVUOROT</div>
                     </Col>
-                    <Col xs={0.1}><img src={bldLogo} width={imageSize} height={imageSize} alt="LOGO"/></Col>
+                    <Col hidden='true' xs={0.1}><img src={bldLogo} width={imageSize} height={imageSize} alt=""/></Col>
                     </Row>
                 </Container>
 
