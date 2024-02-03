@@ -44,7 +44,7 @@ class ThisWeek extends React.Component {
         const style = { 'font-size': small_font }
         const small = { 'font-size': small_font, display: 'flex', justifyContent: 'center', alignItems: 'center' }
         const dayStyle = { margin: '0px 0px -10px 0px', 'font-size': date_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
-        const monthStyle = { 'font-size': smaller_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777'  }
+        const monthStyle = { margin: '0px 0px 0px 0px', 'font-size': smaller_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 3px #777777'  }
 
         const gamesList = items.map((data) => {
             return (

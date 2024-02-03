@@ -2,9 +2,14 @@
 
 import React, { Fragment } from 'react'
 import FullCalendar from '@fullcalendar/react'
+import Container from 'react-bootstrap/Container';
+import {Row, Col } from 'react-bootstrap';
+
 import timeGridPlugin from '@fullcalendar/timegrid'
 import bootstrapPlugin from '@fullcalendar/bootstrap';
 import allLocales from '@fullcalendar/core/locales-all';
+
+import "@fontsource/bebas-neue"; // Defaults to weight 400
 
 import 'bootstrap/dist/css/bootstrap.css';
 import '@fortawesome/fontawesome-free/css/all.css'; // needs additional webpack config!
@@ -33,6 +38,9 @@ class Schedule extends React.Component {
         const { items } = this.state
         var events = [];
 
+        const big_font = '4vw'
+        const title = { 'font-size': big_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
+
         for (let i = 0; i < items.length; i++) {
             var item = items[i]
 
@@ -60,9 +68,22 @@ class Schedule extends React.Component {
             events.push(event)
         }
         
+        const imageSize = 120
+        const ahmaLogo = 'https://static.jopox.fi/kiekko-ahma/logos/logo-300.png'
+        const bldLogo = 'https://pbs.twimg.com/profile_images/648931227672580096/uLN1Orat_400x400.jpg'
         return (
             <Fragment>
-            <div style={{margin: '100px 0px 0px 0px'}}>
+                <Container style={{'font-family': 'Bebas Neue', padding: 20}}>
+                    <Row>
+                    <Col xs={0.1}><img src={ahmaLogo} width={imageSize} height={imageSize} alt="LOGO"/></Col>
+                    <Col>
+                        <div style={title}>JÄÄVUOROT</div>
+                    </Col>
+                    <Col xs={0.1}><img src={bldLogo} width={imageSize} height={imageSize} alt="LOGO"/></Col>
+                    </Row>
+                </Container>
+
+            <div>
                 <FullCalendar
                         plugins={[ bootstrapPlugin, timeGridPlugin ]}
                         initialView="timeGridWeek"

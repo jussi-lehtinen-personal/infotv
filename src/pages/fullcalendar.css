@@ -9,6 +9,19 @@
     margin-left: 2px;
 }
 
+.fc .fc-timegrid-now-indicator-line {
+    opacity: .7;
+    position: absolute;
+    z-index: 4;
+    left: 0;    
+    right: 0;
+    margin-top: -2px;    
+    border-style: solid;    
+    border-color: red;    
+    border-color: var( — fc-now-indicator-color,red);    
+    border-width: 5px 0 0;
+}
+
 /*
 .fc {
     background-color: #111111;
