@@ -27,7 +27,10 @@ app.http('getGames', {
             //context.log('Processing date: ' + formattedDate);
 
             // Look from all areas (0-9)
-            for (var area = 0; area < 10; area++) {
+            // Home games only
+            var firstArea = 2
+            var lastArea = 2
+            for (var area = firstArea; area <= lastArea; area++) {
                 var uri = requestUri
                 uri += '&districtid=' + area 
                 uri += '&dog=' + formattedDate
@@ -49,8 +52,7 @@ app.http('getGames', {
                             if (game.RinkName.includes('Valkeakoski')) {
                                 if (game.HomeTeamAbbrv.includes('Kiekko-Ahma') || game.AwayTeamAbbrv.includes('Kiekko-Ahma')) {
                                     matches.push({
-                                        date: game.GameDateDB,
-                                        time: game.GameTime,
+                                        date: game.GameDateDB + ' ' + game.GameTime,
                                         home: game.HomeTeamAbbrv,
                                         home_logo: imageUri + game.HomeImg,
                                         away: game.AwayTeamAbbrv,
@@ -67,6 +69,10 @@ app.http('getGames', {
 
             date.setDate(date.getDate() + 1);
         }
+        
+        matches.sort(function(a,b){
+            return new Date(a.date) - new Date(b.date);
+        });
 
         for (let matchIndex = 0; matchIndex < matches.length; matchIndex++) {
             var match = matches[matchIndex]
