@@ -6,7 +6,7 @@ import {Row, Col, Ratio } from 'react-bootstrap';
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
 
-import background from '../assets/background.jpg'; // Tell webpack this JS file uses this image
+var background = '/background.jpg'
 
 var moment = require('moment');
 moment.locale('fi')
