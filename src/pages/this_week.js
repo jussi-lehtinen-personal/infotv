@@ -179,13 +179,13 @@ const ThisWeek = () => {
                 </Col>
                 <Col xs={1} />
                 <Col style={Object.assign({}, highlightTextStyle, {justifyContent: 'end'})}>{data.home}</Col>
-                <Col md='auto' hidden={isValidItem ? false : true}>
+                <Col xs={1} hidden={isValidItem ? false : true}>
                     <Ratio style={imageContainerStyle} >
                         <img style={imageStyle} src={data.home_logo} alt=""/>
                     </Ratio>
                 </Col>
                 <Col hidden={isValidItem ? false : true} md='auto' style={smallTextStyle}>vs</Col>
-                <Col md='auto' hidden={isValidItem ? false : true}>
+                <Col xs={1} hidden={isValidItem ? false : true}>
                     <Ratio style={imageContainerStyle} >
                         <img style={imageStyle} src={data.away_logo} alt=""/>
                     </Ratio>
