@@ -2,6 +2,19 @@ const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
 var moment = require('moment');
 
+
+const getMonday = (date) => {
+    if (date.getDay() === 1) {
+        return date
+    }
+
+    while (date.getDay() === 1) {
+        date.setDate(date.getDate() - 1)
+    }
+
+    return date
+}
+
 app.http('getGames', {
     methods: ['GET', 'POST'],
     authLevel: 'anonymous',
@@ -11,10 +24,18 @@ app.http('getGames', {
         // Prototype of REST API call to find all games of a day for a given area.
         // https://tulospalvelu.leijonat.fi/helpers/getGames.php?season=0&districtid=2&dog=2024-02-03
 
-        const now = new Date()
+        var now = new Date()
 
-        var startOfWeek = new Date()
-        startOfWeek.setDate(now.getDate() - (now.getDay() + 6) % 7);
+        if (request.query) {
+            if (request.query.has('date')) {
+                var date = request.query.get('date')
+                now = new Date(date)
+            }
+        }
+
+        const startOfWeek = getMonday(now)        
+        console.log("requested day:" +now)
+        console.log("monday: " + startOfWeek)
 
         const requestUri = 'https://tulospalvelu.leijonat.fi/helpers/getGames.php?season=0'
         const imageUri = 'https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/'
@@ -37,7 +58,7 @@ app.http('getGames', {
                 uri += '&districtid=' + area 
                 uri += '&dog=' + formattedDate
 
-                //context.log('Perform fetch: ' + uri);
+                context.log('Perform fetch: ' + uri);
 
                 // Perform fetch
                 const response = await fetch(uri)
@@ -76,10 +97,10 @@ app.http('getGames', {
             return new Date(a.date) - new Date(b.date);
         });
 
-        for (let matchIndex = 0; matchIndex < matches.length; matchIndex++) {
-            var match = matches[matchIndex]
-            console.log( match.home + " vs. " + match.away + ' (' + match.level + ') @ ' + match.rink)
-        }
+        //for (let matchIndex = 0; matchIndex < matches.length; matchIndex++) {
+        //    var match = matches[matchIndex]
+        //    console.log( match.home + " vs. " + match.away + ' (' + match.level + ') @ ' + match.rink)
+        //}
 
         return { body: JSON.stringify(matches) };
     }

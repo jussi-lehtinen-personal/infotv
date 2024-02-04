@@ -4,6 +4,7 @@ import {React, useState, useEffect} from "react";
 import Container from 'react-bootstrap/Container';
 import {Row, Col, Ratio } from 'react-bootstrap';
 import { useOrientation } from 'react-use';
+import { useParams } from "react-router-dom";
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
@@ -39,8 +40,8 @@ const styles = {
 
 }
 
-const ThisWeek = () => {
-
+const ThisWeek = (props) => {
+    const {date} = useParams();
     const {type} = useOrientation(); 
     const [state, setState] = useState({
         matches: []
@@ -70,13 +71,21 @@ const ThisWeek = () => {
         setState({ matches: dataItems })
     }
 
-    useEffect(() => {
-        fetch('api/getGames')
+    useEffect((date) => {
+        var uri = '/api/getGames'
+        console.log('found date: ' + date)
+        if (date) {            
+            uri += '?date=' + date
+            console.log(uri)
+        }
+
+        fetch(uri)
         .then(response => response.json())
         .then(data => {
             setMatchData(data)
         }).catch(error => {
-            const data = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
+            //const data = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
+            const data = []
             setMatchData(data)
             console.log('Error occurred! ', error);
         });
@@ -212,6 +221,18 @@ const ThisWeek = () => {
         );
     }
 
+    const getMonday = (date) => {
+        if (date.getDay() === 1) {
+            return date
+        }
+
+        while (date.getDay() === 1) {
+            date.setDate(date.getDate() - 1)
+        }
+
+        return date
+    }
+
     const Content = () => {
         const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {fontSize: '4vw'})
         const lineStyle = Object.assign({}, styles.boxShadow, {
@@ -222,10 +243,12 @@ const ThisWeek = () => {
             background: 'orange'})
 
         // Define the layout configuration for each grid item
-        const now = new Date()
-        var startOfWeek = new Date()
-        startOfWeek.setDate(now.getDate() - (now.getDay() + 6) % 7);
+        var now = new Date()
+        if (date) {
+            now = new Date(date)
+        }
 
+        const startOfWeek = getMonday(now)
         const endOfWeek = new Date(startOfWeek)
         endOfWeek.setDate(endOfWeek.getDate() + 6)
 

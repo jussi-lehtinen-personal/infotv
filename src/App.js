@@ -24,6 +24,10 @@ function App() {
                 path="/this_week"
                 element={<ThisWeek />}
             />
+            <Route
+                path="/week/:date"
+                element={<ThisWeek />}
+            />
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"
