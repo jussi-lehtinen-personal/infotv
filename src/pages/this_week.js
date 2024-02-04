@@ -226,7 +226,7 @@ const ThisWeek = (props) => {
             return date
         }
 
-        while (date.getDay() === 1) {
+        while (date.getDay() !== 1) {
             date.setDate(date.getDate() - 1)
         }
 
