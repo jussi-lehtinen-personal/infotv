@@ -76,11 +76,44 @@ const ThisWeek = () => {
         .then(data => {
             setMatchData(data)
         }).catch(error => {
-            //const data = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
-            //setMatchData(data)
+            const data = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
+            setMatchData(data)
             console.log('Error occurred! ', error);
         });
       }, [])
+
+      const DateBox = ({valid, date, size, landscape}) => {
+        const dateBoxStyle = Object.assign({}, {
+            alignContent: 'center',
+            justifyItems: 'center',
+            alignSelf: 'center',
+            aspectRatio: 1.0,
+            height: '100%',
+            width: size,
+            borderRadius: '5px',
+            boxShadow: '0px 5px 15px #000000', 
+            background: "orange", 
+            justifyContent: 'center', 'alignItems': 'center'
+        })
+
+        const dayStyle = landscape ?  
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2.6vw' }) : 
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '4.6vw' })
+        
+            const timeStyle = landscape ?  
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.9vw'}) :
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '4.4vw'})
+
+        return (
+            <Ratio style={dateBoxStyle}>
+                <Container>
+                    <Row style={dayStyle}>{valid ? moment(date).format('dd') : ""}</Row>
+                    <Row style={timeStyle}>{valid ? moment(date).format('HH:mm') : ""}</Row>
+                </Container>
+            </Ratio>
+        );
+    }
+
 
       const gamesListPortrait = state.matches.map((data, index) => {
         const imageSize = '14wv'
@@ -88,24 +121,9 @@ const ThisWeek = () => {
         const isValidItem = data.home.length > 0
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '3.5vw' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '4vw' })
-        const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', fontSize: '4.6vw' })
-        const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', fontSize: '4.4vw'})
         const imageContainerStyle = Object.assign({}, styles.flex, {height: imageSize, width: imageSize})
         const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', height: '14vw', width: '14vw', borderRadius: '10%', objectFit: 'contain' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
-
-        const dateBoxStyle = Object.assign({}, {
-            alignContent: 'center',
-            justifyItems: 'center',
-            alignSelf: 'center',
-            aspectRatio: 1.0,
-            height: '100%',
-            width: imageSize,
-            borderRadius: '5px',
-            boxShadow: '0px 5px 15px #000000', 
-            background: "orange", 
-            justifyContent: 'center', 'alignItems': 'center'
-        })
 
         return (
             <Row key={index} style={{paddingBottom: '10px', opacity: isValidItem ? 1 : 0.5}}>
@@ -114,29 +132,24 @@ const ThisWeek = () => {
                         display: 'flex',
                         height: '100%',
                         width: '14vw',
-                        aspectRatio: 1,                            
+                        aspectRatio: 1,
                         justifyContent: 'center', 'alignItems': 'center'
                         }}>
-                    {/* Date / time box */}
-                    <Ratio style={dateBoxStyle}>
-                        <Container> 
-                            <Row style={dayStyle}>{isValidItem ? moment(data.date).format('dd') : ""}</Row>
-                            <Row style={timeStyle}>{isValidItem ? moment(data.date).format('HH:mm') : ""}</Row>
-                        </Container>
-                    </Ratio>
+                    <DateBox size={imageSize} valid={isValidItem} date={data.date}  landscape={false}/>
                 </Col>
-                <Col hidden={isValidItem ? false : true}>
+                <Col xs={1} />
+                <Col xs={3} hidden={isValidItem ? false : true}>
                     <Ratio style={imageContainerStyle} >
                         <img style={imageStyle} src={data.home_logo} alt=""/>
                     </Ratio>
                 </Col>
-                <Col hidden={isValidItem ? false : true} md='auto' style={smallTextStyle}>vs</Col>
-                <Col hidden={isValidItem ? false : true}>
+                <Col xs={1} hidden={isValidItem ? false : true} style={smallTextStyle}>vs</Col>
+                <Col xs={3} hidden={isValidItem ? false : true}>
                     <Ratio style={imageContainerStyle} >
                         <img style={imageStyle} src={data.away_logo} alt=""/>
                     </Ratio>
                 </Col>
-                <Col md={3} style={levelTextStyle}>{data.level}</Col>
+                <Col xs={2} style={levelTextStyle}>{data.level}</Col>
             </Row>
         )
       })
@@ -148,28 +161,13 @@ const ThisWeek = () => {
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2vw' })
         const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { fontSize: '2vw', color: 'orange' })
-        const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', fontSize: '2.6vw' })
-        const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', fontSize: '1.9vw'})
         const imageContainerStyle = Object.assign({}, styles.flex, {height: imageSize, width: imageSize})
         const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', height: '7vw', width: '7vw', borderRadius: '10%', objectFit: 'contain' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
 
-        const dateBoxStyle = Object.assign({}, {
-            alignContent: 'center',
-            justifyItems: 'center',
-            alignSelf: 'center',
-            aspectRatio: 1.0,
-            height: '100%',
-            width: imageSize,
-            borderRadius: '5px',
-            boxShadow: '0px 5px 15px #000000', 
-            background: "orange", 
-            justifyContent: 'center', 'alignItems': 'center'
-        })
-
         return (
             <Row key={index} style={{paddingBottom: '10px', opacity: isValidItem ? 1 : 0.5}}>
-                <Col md='auto' style={{
+                <Col xs={1} style={{
                         alignSelf: 'center',
                         display: 'flex',
                         height: '100%',
@@ -177,14 +175,9 @@ const ThisWeek = () => {
                         aspectRatio: 1,                            
                         justifyContent: 'center', 'alignItems': 'center'
                         }}>
-                    {/* Date / time box */}
-                    <Ratio style={dateBoxStyle}>
-                        <Container> 
-                            <Row style={dayStyle}>{isValidItem ? moment(data.date).format('dd') : ""}</Row>
-                            <Row style={timeStyle}>{isValidItem ? moment(data.date).format('HH:mm') : ""}</Row>
-                        </Container>
-                    </Ratio>
+                    <DateBox size={imageSize} valid={isValidItem} date={data.date} landscape={true}/>
                 </Col>
+                <Col xs={1} />
                 <Col style={Object.assign({}, highlightTextStyle, {justifyContent: 'end'})}>{data.home}</Col>
                 <Col md='auto' hidden={isValidItem ? false : true}>
                     <Ratio style={imageContainerStyle} >
