@@ -1,20 +1,32 @@
 // Filename - pages/this_week.js
 
-import React, { Fragment } from "react";
+import React from "react";
 import Container from 'react-bootstrap/Container';
 import {Row, Col, Ratio } from 'react-bootstrap';
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
+
+import background from '../assets/background.jpg'; // Tell webpack this JS file uses this image
+
 var moment = require('moment');
 moment.locale('fi')
 
 const styles = {
     font: {
-        'font-family': 'Bebas Neue'
+        'font-family': 'Bebas Neue',
+        'color': '#EEEEEE'
+    },
+    
+    textShadow: {
+        'text-shadow': '0 3px 5px #000000'
     },
 
-    textShadow: {
-        'text-shadow': '0 0 2px #777777'
+    textHighlight: {
+        'text-shadow': '0 3px 2px #000000'
+    },
+
+    boxShadow: {
+        'box-shadow': '0px 3px 15px #000000'
     },
 
     flex: {
@@ -76,7 +88,7 @@ class ThisWeek extends React.Component {
             aspectRatio: 1,
             height: {imageSize},
             width: {imageSize}, 
-            'box-shadow': '0px 5px 15px #BBBBBB', 
+            'box-shadow': '0px 5px 15px #000000', 
             background: "orange", 
             justifyContent: 'center', 'alignItems': 'center'
         })
@@ -84,8 +96,10 @@ class ThisWeek extends React.Component {
         const smallTextStyle = Object.assign({}, styles.flex, { 'font-size': '1.5vw' })
         const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {'font-size': '4vw'})
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { 'font-size': '2vw' })
+        const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { 'font-size': '2vw', color: 'orange' })
         const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px -10px 0px', 'font-size': '2.6vw' })
         const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', 'font-size': '1.9vw'})
+        const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', borderRadius: '10%', objectFit: 'contain' })
 
         const gamesList = dataItems.map((data) => {
             const isValidItem = data.home.length > 0
@@ -104,13 +118,13 @@ class ThisWeek extends React.Component {
                             </Container>
                         </Ratio>
                     </Col>
-                    <Col hidden={isValidItem ? false : true} style={normalTextStyle}>{data.home}</Col>
+                    <Col hidden={isValidItem ? false : true} style={highlightTextStyle}>{data.home}</Col>
                     <Col xs={0.1} hidden={isValidItem ? false : true}>
-                        <img src={data.home_logo} width={imageSize} height={imageSize} alt=""/>
+                        <img style={imageStyle} src={data.home_logo} width={imageSize} height={imageSize} alt=""/>
                     </Col>
-                    <Col hidden={isValidItem ? false : true} xs={1} style={smallTextStyle}>vs.</Col>
+                    <Col hidden={isValidItem ? false : true} xs={1} style={smallTextStyle}>vs</Col>
                     <Col xs={0.1} hidden={isValidItem ? false : true}>
-                        <img src={data.away_logo} width={imageSize} height={imageSize} alt=""/>
+                        <img style={imageStyle} src={data.away_logo} width={imageSize} height={imageSize} alt=""/>
                     </Col>
                     <Col style={normalTextStyle}>{data.away}</Col>
                     <Col xs={2} style={normalTextStyle}>{data.level}</Col>
@@ -120,7 +134,9 @@ class ThisWeek extends React.Component {
 
         // Define the layout configuration for each grid item
         const now = new Date()
-        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 1)
+        var startOfWeek = new Date()
+        startOfWeek.setDate(now.getDate() - (now.getDay() + 6) % 7);
+
         const endOfWeek = new Date(startOfWeek)
         endOfWeek.setDate(endOfWeek.getDate() + 6)
 
@@ -128,16 +144,30 @@ class ThisWeek extends React.Component {
         const end = moment(endOfWeek).format('D.M')
 
         const week = start + ' - ' + end
+
+        const lineStyle = Object.assign({}, styles.boxShadow, {
+            height: '5px', 
+            width: '100%', 
+            'box-shadow': '0px 5px 15px #000000', 
+            'border-top': '1px solid orange', 
+            background: 'orange'})
+
         return (
-            <Fragment>
-                <div style={Object.assign({}, styles.font, {padding: 20})}>
-                    <Container style={{paddingBottom:50}}>
-                        <div style={titleTextStyle}>TULEVAT KOTIOTTELUT ({week})</div>
-                        <div style={{height: '5px', width: '100%', 'box-shadow': '0px 5px 15px #BBBBBB', 'border-top': '1px solid orange', background: 'orange', aspectRatio: 1, justifyContent: 'center', 'alignItems': 'center'}}></div>
-                    </Container>
-                    { gamesList }
-                </div>
-            </Fragment>
+            <div style={{ height: "100vh", background: "#000000" }}>
+                <Col style={{
+                    background: `linear-gradient( rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 1.0) ), url(${background})`, 
+                    backgroundSize: 'cover',
+                    backgroundColor: '#000000',
+                    backgroundRepeat: 'no-repeat' }}>
+                    <div style={Object.assign({}, styles.font, {padding: '0px 0px 0px 50px'})}>
+                        <Container style={{paddingBottom:50}}>
+                            <div style={titleTextStyle}>TULEVAT KOTIOTTELUT ({week})</div>
+                            <div style={lineStyle}></div>
+                        </Container>
+                        { gamesList }
+                    </div>
+                </Col>
+            </div>
         );
     }
 }

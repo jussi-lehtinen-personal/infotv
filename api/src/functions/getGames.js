@@ -12,7 +12,9 @@ app.http('getGames', {
         // https://tulospalvelu.leijonat.fi/helpers/getGames.php?season=0&districtid=2&dog=2024-02-03
 
         const now = new Date()
-        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 1)
+
+        var startOfWeek = new Date()
+        startOfWeek.setDate(now.getDate() - (now.getDay() + 6) % 7);
 
         const requestUri = 'https://tulospalvelu.leijonat.fi/helpers/getGames.php?season=0'
         const imageUri = 'https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/'

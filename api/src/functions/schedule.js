@@ -9,7 +9,10 @@ app.http('schedule', {
         context.log(`Http function processed request for url "${request.url}"`);
 
         const now = new Date()
-        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 1)
+
+        var startOfWeek = new Date()
+        startOfWeek.setDate(now.getDate() - (now.getDay() + 6) % 7);
+
         const endOfWeek = new Date(now.getFullYear(), now.getMonth(), startOfWeek.getDate() + 7)
 
         var formattedStart = moment(startOfWeek).format('YYYY-MM-DD')
