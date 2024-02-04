@@ -25,7 +25,7 @@ function App() {
                 element={<ThisWeek />}
             />
             <Route
-                path="/week/:date"
+                path="/week/:timestamp"
                 element={<ThisWeek />}
             />
             <Route path="/blogs" element={<Blogs />} />

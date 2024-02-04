@@ -41,10 +41,15 @@ const styles = {
 }
 
 const ThisWeek = (props) => {
-    const {date} = useParams();
-    const {type} = useOrientation(); 
+    const {timestamp} = useParams();
+    const {type} = useOrientation();
+
     const [state, setState] = useState({
-        matches: []
+        matches: [],
+    });
+
+    const [query, setQuery] = useState({
+        date: timestamp
     });
 
     const setMatchData = (d) => {
@@ -71,11 +76,17 @@ const ThisWeek = (props) => {
         setState({ matches: dataItems })
     }
 
-    useEffect((date) => {
+    useEffect(() => {
+        setQuery({date: timestamp})
+    }, [timestamp])
+
+
+    useEffect(() => {
         var uri = '/api/getGames'
-        console.log('found date: ' + date)
-        if (date) {            
-            uri += '?date=' + date
+        console.log('found date: ' + query.date)
+        if (query.date) {            
+            var formattedDate = moment(query.date).format('YYYY-MM-DD')
+            uri += '?date=' + formattedDate
             console.log(uri)
         }
 
@@ -89,7 +100,7 @@ const ThisWeek = (props) => {
             setMatchData(data)
             console.log('Error occurred! ', error);
         });
-      }, [])
+      }, [query.date])
 
       const DateBox = ({valid, date, size, landscape}) => {
         const dateBoxStyle = Object.assign({}, {
@@ -221,16 +232,16 @@ const ThisWeek = (props) => {
         );
     }
 
-    const getMonday = (date) => {
-        if (date.getDay() === 1) {
-            return date
+    const getMonday = (d) => {
+        if (d.getDay() === 1) {
+            return d
         }
-
-        while (date.getDay() !== 1) {
-            date.setDate(date.getDate() - 1)
+    
+        while (d.getDay() !== 1) {
+            d.setDate(d.getDate() - 1)
         }
-
-        return date
+    
+        return d
     }
 
     const Content = () => {
@@ -244,11 +255,13 @@ const ThisWeek = (props) => {
 
         // Define the layout configuration for each grid item
         var now = new Date()
-        if (date) {
-            now = new Date(date)
+        if (query.date) {
+            now = new Date(query.date)
         }
 
         const startOfWeek = getMonday(now)
+        console.log(query.date)
+        console.log(startOfWeek)
         const endOfWeek = new Date(startOfWeek)
         endOfWeek.setDate(endOfWeek.getDate() + 6)
 

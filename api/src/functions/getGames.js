@@ -3,16 +3,16 @@ const fetch = require("node-fetch");
 var moment = require('moment');
 
 
-const getMonday = (date) => {
-    if (date.getDay() === 1) {
-        return date
+const getMonday = (d) => {
+    if (d.getDay() === 1) {
+        return d
     }
 
-    while (date.getDay() !== 1) {
-        date.setDate(date.getDate() - 1)
+    while (d.getDay() !== 1) {
+        d.setDate(d.getDate() - 1)
     }
 
-    return date
+    return d
 }
 
 app.http('getGames', {
