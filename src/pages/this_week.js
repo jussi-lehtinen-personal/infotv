@@ -57,10 +57,10 @@ class ThisWeek extends React.Component {
     }
 
     render() {
-        const { matches } = this.state
-        //const matches = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
+        //const { matches } = this.state
+        const matches = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
 
-        const imageSize = 120
+        const imageSize = '7wv'
 
         var dataItems = []
         matches.map((data) => { return dataItems.push(data) })
@@ -85,9 +85,11 @@ class ThisWeek extends React.Component {
             alignContent: 'center',
             justifyItems: 'center',
             alignSelf: 'center',
-            aspectRatio: 1,
-            height: {imageSize},
-            width: {imageSize}, 
+            aspectRatio: 1.0,
+            height: '100%',
+            margin: '5px',
+            width: imageSize,
+            borderRadius: '5px',
             'box-shadow': '0px 5px 15px #000000', 
             background: "orange", 
             justifyContent: 'center', 'alignItems': 'center'
@@ -97,17 +99,30 @@ class ThisWeek extends React.Component {
         const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {'font-size': '4vw'})
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { 'font-size': '2vw' })
         const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { 'font-size': '2vw', color: 'orange' })
-        const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px -10px 0px', 'font-size': '2.6vw' })
+        const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', 'font-size': '2.6vw' })
         const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', 'font-size': '1.9vw'})
-        const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', borderRadius: '10%', objectFit: 'contain' })
+        const imageContainerStyle = Object.assign({}, styles.flex, {height: imageSize, width: imageSize})
+        const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', height: '7vw', width: '7vw', borderRadius: '10%', objectFit: 'contain' })
+        const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
+
+        const lineStyle = Object.assign({}, styles.boxShadow, {
+            height: '5px', 
+            width: '100%', 
+            'box-shadow': '0px 5px 15px #000000', 
+            'border-top': '1px solid orange', 
+            background: 'orange'})
 
         const gamesList = dataItems.map((data) => {
             const isValidItem = data.home.length > 0
 
             return (
-                <Row style={{'padding': 5, opacity: isValidItem ? 1 : 0.5}}>
-                    <Col xs={1} style={{
+                <Row style={{paddingBottom: '2px', opacity: isValidItem ? 1 : 0.5}}>
+                    <Col md='auto' style={{
                             alignSelf: 'center',
+                            display: 'flex',
+                            height: '100%',
+                            width: '7vw',
+                            aspectRatio: 1,                            
                             justifyContent: 'center', 'alignItems': 'center'
                             }}>
                         {/* Date / time box */}
@@ -118,16 +133,20 @@ class ThisWeek extends React.Component {
                             </Container>
                         </Ratio>
                     </Col>
-                    <Col hidden={isValidItem ? false : true} style={highlightTextStyle}>{data.home}</Col>
-                    <Col xs={0.1} hidden={isValidItem ? false : true}>
-                        <img style={imageStyle} src={data.home_logo} width={imageSize} height={imageSize} alt=""/>
+                    <Col style={Object.assign({}, normalTextStyle, {justifyContent: 'end'})}>{data.home}</Col>
+                    <Col md='auto' hidden={isValidItem ? false : true}>
+                        <Ratio style={imageContainerStyle} >
+                            <img style={imageStyle} src={data.home_logo} alt=""/>
+                        </Ratio>
                     </Col>
-                    <Col hidden={isValidItem ? false : true} xs={1} style={smallTextStyle}>vs</Col>
-                    <Col xs={0.1} hidden={isValidItem ? false : true}>
-                        <img style={imageStyle} src={data.away_logo} width={imageSize} height={imageSize} alt=""/>
+                    <Col hidden={isValidItem ? false : true} md='auto' style={smallTextStyle}>vs</Col>
+                    <Col md='auto' hidden={isValidItem ? false : true}>
+                        <Ratio style={imageContainerStyle} >
+                            <img style={imageStyle} src={data.away_logo} alt=""/>
+                        </Ratio>
                     </Col>
-                    <Col style={normalTextStyle}>{data.away}</Col>
-                    <Col xs={2} style={normalTextStyle}>{data.level}</Col>
+                    <Col style={Object.assign({}, normalTextStyle, {justifyContent: 'start'})}>{data.away}</Col>
+                    <Col md={2} style={levelTextStyle}>{data.level}</Col>
                 </Row>
             )
           })
@@ -145,22 +164,15 @@ class ThisWeek extends React.Component {
 
         const week = start + ' - ' + end
 
-        const lineStyle = Object.assign({}, styles.boxShadow, {
-            height: '5px', 
-            width: '100%', 
-            'box-shadow': '0px 5px 15px #000000', 
-            'border-top': '1px solid orange', 
-            background: 'orange'})
-
         return (
-            <div style={{ height: "100vh", background: "#000000" }}>
+            <div style={{height: "100vh", background: "#000000" }}>
                 <Col style={{
                     background: `linear-gradient( rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 1.0) ), url(${background})`, 
                     backgroundSize: 'cover',
                     backgroundColor: '#000000',
                     backgroundRepeat: 'no-repeat' }}>
-                    <div style={Object.assign({}, styles.font, {padding: '0px 0px 0px 50px'})}>
-                        <Container style={{paddingBottom:50}}>
+                    <div style={Object.assign({}, styles.font, {margin: '0px 5vw 0px 5vw'})}>
+                        <Container style={{paddingBottom: '6vh'}}>
                             <div style={titleTextStyle}>TULEVAT KOTIOTTELUT ({week})</div>
                             <div style={lineStyle}></div>
                         </Container>
