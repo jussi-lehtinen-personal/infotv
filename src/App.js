@@ -10,6 +10,7 @@ import Schedule from "./pages/schedule";
 import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
+import Ads from "./pages/ads";
 
 function App() {
   return (
@@ -28,6 +29,15 @@ function App() {
                 path="/week/:timestamp"
                 element={<ThisWeek />}
             />
+            <Route
+                path="/ads"
+                element={<Ads />}
+            />
+            <Route
+                path="/ads/:timestamp"
+                element={<Ads />}
+            />
+
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"

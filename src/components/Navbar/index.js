@@ -18,6 +18,11 @@ const Navbar = () => {
                         Tulevat ottelut
                     </Link>
                 </li>
+                <li>
+                    <Link to={"/ads"}>
+                        SoMe mainokset
+                    </Link>
+                </li>
             </ul>
 		</>
 	);
