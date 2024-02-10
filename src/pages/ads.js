@@ -3,7 +3,6 @@
 import {React, useState, useEffect, useRef} from "react";
 import Container from 'react-bootstrap/Container';
 import {Row, Col, Ratio } from 'react-bootstrap';
-import { useOrientation } from 'react-use';
 import { useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 
@@ -65,7 +64,6 @@ const styles = {
 const Ads = (props) => {
     const exportRef = useRef();
     const {timestamp} = useParams();
-    const {type} = useOrientation();
 
     const [state, setState] = useState({
         matches: [],
@@ -120,7 +118,7 @@ const Ads = (props) => {
             alignSelf: 'center',
             aspectRatio: 1.0,
             height: '100%',
-            borderRadius: '5px',
+            borderRadius: '0px',
             boxShadow: '0px 5px 15px #000000', 
             background: "orange", 
             justifyContent: 'center', 
@@ -141,22 +139,20 @@ const Ads = (props) => {
     }
 
 
-      const gamesListLandscape = state.matches.map((data, index) => {
+      const gamesList = state.matches.map((data, index) => {
 
-        const imageSize = '7wv'
-
-        const isValidItem = data.home.length > 0
         const fullHeight = Object.assign({}, styles.flex, { height: '100%' })
         const smallTextStyle = Object.assign({}, styles.flex, fullHeight, { fontSize: '1.5vw' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2vw' })
         const homeTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textHighlight, { textAlign: 'center', fontSize: '1.8vw', color: 'orange', justifyContent: 'center'})
         const awayTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textShadow, {  textAlign: 'center', fontSize: '1.8vw', justifyContent: 'center'})
-        const imageStyle = Object.assign({}, styles.boxShadow, { aspectRatio: 1.0, backgroundColor: 'white', padding: '5px', height: '100%', borderRadius: '10%', objectFit: 'contain' })
+        const imageContainerStyle = Object.assign({}, styles.boxShadow, { aspectRatio: 1.0, backgroundColor: 'white', padding: '5px', height: '100%', overflow: 'hidden', borderRadius: '50%', objectFit: 'contain' })
+        const imageStyle = Object.assign({}, { aspectRatio: 1.0, backgroundColor: 'white', padding: '5px', height: '100%', objectFit: 'contain' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'center', textAlign: 'center'})
 
         return (
             <Row key={index} style={{ 
-                borderRadius: '10px', 
+                borderRadius: '0px', 
                 padding:'10px', 
                 background: `linear-gradient( rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25) )`,
                 marginBottom: '20px', 
@@ -168,11 +164,15 @@ const Ads = (props) => {
                     <div style={homeTeamStyle}>{data.home}</div>
                 </Col>
                 <Col xs='auto' style={{height: '100%'}}>
-                    <img style={imageStyle} src={data.home_logo} alt=""/>
+                    <div style={imageContainerStyle}>
+                        <img style={imageStyle} src={data.home_logo} alt=""/>
+                    </div>
                 </Col>
                 <Col xs="auto" style={smallTextStyle}>VS</Col>
                 <Col xs='auto' style={{height: '100%'}}>
-                    <img style={imageStyle} src={data.away_logo} alt=""/>
+                <div style={imageContainerStyle}>
+                        <img style={imageStyle} src={data.away_logo} alt=""/>
+                    </div>
                 </Col>
                 <Col xs={2} style={{height: '100%'}}>
                     <div style={awayTeamStyle}>{data.away}</div>
@@ -182,10 +182,10 @@ const Ads = (props) => {
         )
       })
 
-    const LandscapeContent = () => {
+    const GamesList = () => {
         return (
             <div>
-                { gamesListLandscape }
+                { gamesList }
             </div>
         );
     }
@@ -242,7 +242,7 @@ const Ads = (props) => {
                             <div style={lineStyle}></div>
                         </Container>
 
-                        <LandscapeContent/>
+                        <GamesList/>
                     </div>
                 </Col>
             </div>
