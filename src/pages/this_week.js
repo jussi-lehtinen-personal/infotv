@@ -194,8 +194,8 @@ const ThisWeek = (props) => {
             height: '5px', 
             width: '100%', 
             boxShadow: '0px 5px 15px #000000', 
-            borderTop: '1px solid orange', 
-            background: 'orange'})
+            background: `radial-gradient( white, orange, black )`, 
+            })
 
         // Define the layout configuration for each grid item
         var now = new Date()

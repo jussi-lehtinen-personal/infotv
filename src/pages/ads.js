@@ -139,7 +139,8 @@ const Ads = (props) => {
             height: '5px', 
             width: '100%',
             boxShadow: '0px 3px 10px #000000',
-            background: 'orange'})
+            background: `radial-gradient( white, orange, black )`, 
+        })
 
         // Define the layout configuration for each grid item
         var now = new Date()

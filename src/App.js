@@ -11,6 +11,7 @@ import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
 import Ads from "./pages/ads";
+import GameAds from "./pages/game_ads";
 
 function App() {
   return (
@@ -36,6 +37,10 @@ function App() {
             <Route
                 path="/ads/:timestamp"
                 element={<Ads />}
+            />
+            <Route
+                path="/ads/game/:gameId"
+                element={<GameAds />}
             />
 
             <Route path="/blogs" element={<Blogs />} />
