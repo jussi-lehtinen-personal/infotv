@@ -19,6 +19,7 @@ import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
 
 var background = '/background.jpg'
+var metal_bg = '/metal_grid_bg2.jpg'
 
 var moment = require('moment');
 moment.locale('fi')
@@ -138,7 +139,7 @@ const Ads = (props) => {
         const lineStyle = Object.assign({}, styles.boxShadow, {
             height: '5px', 
             width: '100%',
-            boxShadow: '0px 3px 10px #000000',
+            boxShadow: '0px 8px 10px 5px #000000',
             background: `radial-gradient( white, orange, black )`, 
         })
 
@@ -166,29 +167,28 @@ const Ads = (props) => {
         return (            
             <div style={{
                 height: "1080px",
-                width: "1080px",
-                background: `linear-gradient( rgba(85, 107, 47, 0.9), rgba(0, 0, 0, 1.0) ), url(${background})`, 
-                backgroundSize: 'cover',
-                backgroundColor: '#000000',
-                backgroundRepeat: 'no-repeat'}}>
+                width: "1080px"}}>
                 <div style={Object.assign({}, 
                     styles.font,
                     {
                         height: '100%'
                     })}>
                     <div style={Object.assign({}, styles.flex, {
-                        height: '128px'
+                        height: '128px',
+                        background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 1.0), rgba(32, 32, 32, 1.0) )` 
                         })}>
                         <div style={Object.assign({}, styles.flex, titleTextStyle)}>KOTIOTTELUT {week}</div>
                     </div>
-                    <div style={Object.assign({}, {
+                    <div style={Object.assign({}, styles.flex, {
                         height: '5px'
                         })}>
                         <div style={lineStyle}></div>
                     </div>
                     <div style={Object.assign({}, {
                             height: '900px',
-                            background: `linear-gradient( rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.35) )`
+                            backgroundSize: 'contain',
+                            backgroundRepeat: 'no-repeat',
+                            background: `linear-gradient( rgba(16, 16, 16, 0.8), rgba(64, 64, 64, 0.8) ), url(${metal_bg})`
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
                             <div style={{height: '20px'}} />

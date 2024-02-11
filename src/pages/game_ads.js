@@ -113,18 +113,16 @@ const GameAds = (props) => {
                 height: '250px'}}>
                 <div style={Object.assign({}, {width: '20%'})}>
                     <div style={Object.assign({}, styles.boxShadow, {
-                            background: '#0F0F0F',
+                            background: '#202020',
                             boxShadow: '0px 3px 25px 10px #000000', 
                             height: '100%'
                         })}>
                         <div className="col" style={{padding: '10%', height: '100%'}}>
-                            <div style={Object.assign({}, infoTextPrimaryStyle, {
+                            <div style={Object.assign({}, styles.textShadow, infoTextPrimaryStyle, {
                                 height: '50%',
-                                textShadow: '0 0px 15px orange'
                             })}>{moment(data.date).format('dd D.M')}</div>
-                            <div style={Object.assign({}, infoTextSecondaryStyle, {
+                            <div style={Object.assign({}, styles.textShadow, infoTextSecondaryStyle, {
                                 height: '50%', 
-                                textShadow: '0 0px 15px white'
                             })}>{moment(data.date).format('HH:mm')}</div>
                         </div>
                     </div>
@@ -224,7 +222,7 @@ const GameAds = (props) => {
                     <div style={Object.assign({}, { 
                             height: '180px',
                             //background: "#0F0F0F"
-                            background: `linear-gradient( rgba(15, 15, 15, 1.0), rgba(32, 32, 32, 1.0), rgba(15, 15, 15, 1.0) )` 
+                            background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 1.0), rgba(32, 32, 32, 1.0) )` 
                         })}>
                         <div style={Object.assign({}, { height: '15px' })}>
                             <div style={lineStyle}></div>
@@ -241,7 +239,7 @@ const GameAds = (props) => {
                     </div>
                     <div style={Object.assign({}, {
                             height: '300px',
-                            background: `linear-gradient( rgba(0, 0, 0, 0.98), rgba(0, 0, 0, 0.7) ), url(${metal_bg})`
+                            background: `linear-gradient( rgba(0, 0, 0, 0.8), rgba(32, 32, 32, 0.9) ), url(${metal_bg})`
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
                             <div style={{height: '20px'}} />
