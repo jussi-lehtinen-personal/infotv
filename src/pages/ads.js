@@ -18,7 +18,6 @@ import {
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
 
-var background = '/background.jpg'
 var metal_bg = '/metal_grid_bg2.jpg'
 
 var moment = require('moment');
