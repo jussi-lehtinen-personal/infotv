@@ -5,6 +5,15 @@ import Container from 'react-bootstrap/Container';
 import {Row, Col, Ratio } from 'react-bootstrap';
 import { useOrientation } from 'react-use';
 import { useParams } from "react-router-dom";
+import { 
+    getMockGameData,
+    getMonday,
+    styles,
+    componentStyles,
+    processIncomingDataEvents, 
+    buildGamesQueryUri 
+} from "../Util";
+
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
@@ -13,32 +22,6 @@ var background = '/background.jpg'
 
 var moment = require('moment');
 moment.locale('fi')
-
-const styles = {
-    font: {
-        fontFamily: 'Bebas Neue',
-        color: '#EEEEEE'
-    },
-    
-    textShadow: {
-        textShadow: '0 3px 5px #000000'
-    },
-
-    textHighlight: {
-        textShadow: '0 3px 2px #000000'
-    },
-
-    boxShadow: {
-        boxShadow: '0px 3px 15px #000000'
-    },
-
-    flex: {
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-    },
-
-}
 
 const ThisWeek = (props) => {
     const {timestamp} = useParams();
@@ -52,83 +35,57 @@ const ThisWeek = (props) => {
         date: timestamp
     });
 
-    const setMatchData = (d) => {
-
-        var dataItems = []
-        d.map((data) => { return dataItems.push(data) })
-
-        if (dataItems.length > 6) {
-            dataItems = d.slice(0, 5)
-        }
-
-        while (dataItems.length < 6) {
-            dataItems.push({
-                date: "",
-                home: "",
-                home_logo: "",
-                away: "",
-                away_logo: "",
-                rink: "",
-                level: ""
-            })
-        }
-
-        setState({ matches: dataItems })
-    }
-
     useEffect(() => {
         setQuery({date: timestamp})
     }, [timestamp])
 
-
     useEffect(() => {
-        var uri = '/api/getGames'
-        console.log('found date: ' + query.date)
-        if (query.date) {            
-            var formattedDate = moment(query.date).format('YYYY-MM-DD')
-            uri += '?date=' + formattedDate
-            console.log(uri)
-        }
+        var uri = buildGamesQueryUri(query.date)
+
+        const setMatchData = (d) => {
+
+            var dataItems = processIncomingDataEvents(d)    
+            setState({ matches: dataItems })
+        }    
 
         fetch(uri)
         .then(response => response.json())
         .then(data => {
             setMatchData(data)
         }).catch(error => {
-            //const data = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
-            const data = []
+            const data = getMockGameData()
             setMatchData(data)
             console.log('Error occurred! ', error);
         });
       }, [query.date])
 
-      const DateBox = ({valid, date, size, landscape}) => {
+      const DateBox = ({date, size, landscape}) => {
         const dateBoxStyle = Object.assign({}, {
             alignContent: 'center',
             justifyItems: 'center',
             alignSelf: 'center',
             aspectRatio: 1.0,
             height: '100%',
-            width: size,
-            borderRadius: '5px',
+            borderRadius: '0px',
             boxShadow: '0px 5px 15px #000000', 
             background: "orange", 
-            justifyContent: 'center', 'alignItems': 'center'
+            justifyContent: 'center', 
+            alignItems: 'center'
         })
 
         const dayStyle = landscape ?  
             Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2.6vw' }) : 
-            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '4.6vw' })
+            Object.assign({}, styles.flex, styles.textShadow, { margin: '2px 0px 0px 0px', fontSize: '3.6vw' })
         
             const timeStyle = landscape ?  
             Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.9vw'}) :
-            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '4.4vw'})
+            Object.assign({}, styles.flex, styles.textShadow, { margin: '-0px 0px 0px 0px', fontSize: '3.4vw'})
 
         return (
             <Ratio style={dateBoxStyle}>
                 <Container>
-                    <Row style={dayStyle}>{valid ? moment(date).format('dd') : ""}</Row>
-                    <Row style={timeStyle}>{valid ? moment(date).format('HH:mm') : ""}</Row>
+                    <Row style={dayStyle}>{moment(date).format('dd')}</Row>
+                    <Row style={timeStyle}>{moment(date).format('HH:mm')}</Row>
                 </Container>
             </Ratio>
         );
@@ -138,15 +95,15 @@ const ThisWeek = (props) => {
       const gamesListPortrait = state.matches.map((data, index) => {
         const imageSize = '14wv'
 
-        const isValidItem = data.home.length > 0
-        const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '3.5vw' })
-        const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '4vw' })
-        const imageContainerStyle = Object.assign({}, styles.flex, {height: imageSize, width: imageSize})
-        const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', height: '14vw', width: '14vw', borderRadius: '10%', objectFit: 'contain' })
+        const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '3vw' })
+        const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '3vw' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
 
         return (
-            <Row key={index} style={{paddingBottom: '10px', opacity: isValidItem ? 1 : 0.5}}>
+            <Row key={index} style={{
+                paddingBottom: '10px',
+                height: '16vw'
+                }}>
                 <Col md='auto' style={{
                         alignSelf: 'center',
                         display: 'flex',
@@ -155,21 +112,20 @@ const ThisWeek = (props) => {
                         aspectRatio: 1,
                         justifyContent: 'center', 'alignItems': 'center'
                         }}>
-                    <DateBox size={imageSize} valid={isValidItem} date={data.date}  landscape={false}/>
+                    <DateBox size={imageSize} date={data.date}  landscape={false}/>
                 </Col>
-                <Col xs={1} />
-                <Col xs={3} hidden={isValidItem ? false : true}>
-                    <Ratio style={imageContainerStyle} >
-                        <img style={imageStyle} src={data.home_logo} alt=""/>
-                    </Ratio>
+                <Col xs='auto' style={{height: '100%'}}>
+                    <div style={componentStyles.logoContainer}>
+                        <img style={componentStyles.logo} src={data.home_logo} alt=""/>
+                    </div>
                 </Col>
-                <Col xs={1} hidden={isValidItem ? false : true} style={smallTextStyle}>vs</Col>
-                <Col xs={3} hidden={isValidItem ? false : true}>
-                    <Ratio style={imageContainerStyle} >
-                        <img style={imageStyle} src={data.away_logo} alt=""/>
-                    </Ratio>
+                <Col xs='auto' style={smallTextStyle}>vs</Col>
+                <Col xs='auto' style={{height: '100%'}}>
+                    <div style={componentStyles.logoContainer}>
+                        <img style={componentStyles.logo} src={data.away_logo} alt=""/>
+                    </div>
                 </Col>
-                <Col xs={2} style={levelTextStyle}>{data.level}</Col>
+                <Col xs="auto" style={levelTextStyle}>{data.level}</Col>
             </Row>
         )
       })
@@ -177,16 +133,16 @@ const ThisWeek = (props) => {
       const gamesListLandscape = state.matches.map((data, index) => {
         const imageSize = '7wv'
 
-        const isValidItem = data.home.length > 0
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw' })
-        const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2vw' })
-        const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { fontSize: '2vw', color: 'orange' })
-        const imageContainerStyle = Object.assign({}, styles.flex, {height: imageSize, width: imageSize})
-        const imageStyle = Object.assign({}, styles.boxShadow, { backgroundColor: 'white', padding: '5px', height: '7vw', width: '7vw', borderRadius: '10%', objectFit: 'contain' })
+        const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '2vw', justifyContent: 'center' })
+        const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '2vw', color: 'orange', justifyContent: 'center' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
 
         return (
-            <Row key={index} style={{paddingBottom: '10px', opacity: isValidItem ? 1 : 0.5}}>
+            <Row key={index} style={{
+                paddingBottom: '10px',
+                height: '8vw',
+                }}>
                 <Col xs={1} style={{
                         alignSelf: 'center',
                         display: 'flex',
@@ -195,23 +151,23 @@ const ThisWeek = (props) => {
                         aspectRatio: 1,                            
                         justifyContent: 'center', 'alignItems': 'center'
                         }}>
-                    <DateBox size={imageSize} valid={isValidItem} date={data.date} landscape={true}/>
+                    <DateBox size={imageSize} date={data.date} landscape={true}/>
                 </Col>
                 <Col xs={1} />
-                <Col style={Object.assign({}, highlightTextStyle, {justifyContent: 'end'})}>{data.home}</Col>
-                <Col xs={1} hidden={isValidItem ? false : true}>
-                    <Ratio style={imageContainerStyle} >
-                        <img style={imageStyle} src={data.home_logo} alt=""/>
-                    </Ratio>
+                <Col style={Object.assign({}, highlightTextStyle)}>{data.home}</Col>
+                <Col xs='auto' style={{height: '100%'}}>
+                    <div style={componentStyles.logoContainer}>
+                        <img style={componentStyles.logo} src={data.home_logo} alt=""/>
+                    </div>
                 </Col>
-                <Col hidden={isValidItem ? false : true} md='auto' style={smallTextStyle}>vs</Col>
-                <Col xs={1} hidden={isValidItem ? false : true}>
-                    <Ratio style={imageContainerStyle} >
-                        <img style={imageStyle} src={data.away_logo} alt=""/>
-                    </Ratio>
+                <Col xs='auto' style={smallTextStyle}>vs</Col>
+                <Col xs='auto' style={{height: '100%'}}>
+                    <div style={componentStyles.logoContainer}>
+                        <img style={componentStyles.logo} src={data.away_logo} alt=""/>
+                    </div>
                 </Col>
-                <Col style={Object.assign({}, normalTextStyle, {justifyContent: 'start'})}>{data.away}</Col>
-                <Col md={2} style={levelTextStyle}>{data.level}</Col>
+                <Col style={Object.assign({}, normalTextStyle)}>{data.away}</Col>
+                <Col xs={2} style={levelTextStyle}>{data.level}</Col>
             </Row>
         )
       })
@@ -230,18 +186,6 @@ const ThisWeek = (props) => {
                 { gamesListLandscape }
             </div>
         );
-    }
-
-    const getMonday = (d) => {
-        if (d.getDay() === 1) {
-            return d
-        }
-    
-        while (d.getDay() !== 1) {
-            d.setDate(d.getDate() - 1)
-        }
-    
-        return d
     }
 
     const Content = () => {

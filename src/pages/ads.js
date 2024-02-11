@@ -1,9 +1,18 @@
 // Filename - pages/ads.js
 
 import {React, useState, useEffect, useRef} from "react";
-import Container from 'react-bootstrap/Container';
-import {Row, Col, Ratio } from 'react-bootstrap';
+import {Row, Col } from 'react-bootstrap';
 import { useParams } from "react-router-dom";
+import { 
+    getMockGameData,
+    getMonday,
+    DateBox, 
+    styles,
+    componentStyles,
+    processIncomingDataEvents,
+    buildGamesQueryUri
+} from "../Util";
+
 //import html2canvas from "html2canvas";
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
@@ -40,32 +49,6 @@ const downloadImage = (blob, fileName) => {
 };
 */
 
-const styles = {
-    font: {
-        fontFamily: 'Bebas Neue',
-        color: '#EEEEEE'
-    },
-    
-    textShadow: {
-        textShadow: '0 3px 5px #000000'
-    },
-
-    textHighlight: {
-        textShadow: '0 3px 2px #000000'
-    },
-
-    boxShadow: {
-        boxShadow: '0px 5px 20px #000000'
-    },
-
-    flex: {
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-    },
-
-}
-
 const Ads = (props) => {
     const exportRef = useRef();
     const {timestamp} = useParams();
@@ -78,43 +61,17 @@ const Ads = (props) => {
         date: timestamp
     });
 
-    const replaceAll = function(str, strReplace, strWith) {
-        // See http://stackoverflow.com/a/3561711/556609
-        var esc = strReplace.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        var reg = new RegExp(esc, 'ig');
-        return str.replace(reg, strWith);
-    };
-
     useEffect(() => {
         setQuery({date: timestamp})
     }, [timestamp])
 
 
     useEffect(() => {
-        var uri = '/api/getGames'
-        console.log('found date: ' + query.date)
-        if (query.date) {            
-            var formattedDate = moment(query.date).format('YYYY-MM-DD')
-            uri += '?date=' + formattedDate
-            console.log(uri)
-        }
+        var uri = buildGamesQueryUri(query.date)
 
         const setMatchData = (d) => {
 
-            var dataItems = []
-            d.map((data) => 
-            {
-                data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
-                data.level = replaceAll(data.level, 'U11 sarja', 'U11')
-                data.level = replaceAll(data.level, 'U12 sarja', 'U12')
-    
-                return dataItems.push(data) 
-            })
-    
-            if (dataItems.length > 6) {
-                dataItems = d.slice(0, 5)
-            }
-    
+            var dataItems = processIncomingDataEvents(d)    
             setState({ matches: dataItems })
         }    
 
@@ -123,40 +80,11 @@ const Ads = (props) => {
         .then(data => {
             setMatchData(data)
         }).catch(error => {
-            // const data = [{"date":"2024-02-14 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-02-17 17:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Pelicans Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/11019913.png","rink":"Valkeakoski","level":"U14 AA"},{"date":"2024-02-17 19:30","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Spirit","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50017455.png","rink":"Valkeakoski","level":"U20 Suomi-sarja"},{"date":"2024-02-18 13:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles VALKOINEN","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-18 14:25","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles Keltainen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"}]
-            const data = []
+            const data = getMockGameData()
             setMatchData(data)
             console.log('Error occurred! ', error);
         });
       }, [query.date])
-
-      const DateBox = ({date}) => {
-        const dateBoxStyle = Object.assign({}, {
-            alignContent: 'center',
-            justifyItems: 'center',
-            alignSelf: 'center',
-            aspectRatio: 1.0,
-            height: '100%',
-            borderRadius: '0px',
-            boxShadow: '0px 5px 15px #000000', 
-            background: "orange", 
-            justifyContent: 'center', 
-            alignItems: 'center'
-        })
-
-        const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px 0px 0px 0px', color: 'white', fontSize: '40px' })        
-        const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '-5px 0px 0px 0px', color: 'white', fontSize: '30px'})
-
-        return (
-            <Ratio style={dateBoxStyle}>
-                <Container>
-                    <Row style={dayStyle}>{moment(date).format('dd')}</Row>
-                    <Row style={timeStyle}>{moment(date).format('HH:mm')}</Row>
-                </Container>
-            </Ratio>
-        );
-    }
-
 
       const gamesList = state.matches.map((data, index) => {
 
@@ -165,8 +93,6 @@ const Ads = (props) => {
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '30px' })
         const homeTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textHighlight, { textAlign: 'center', fontSize: '30px', color: 'orange', justifyContent: 'center'})
         const awayTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textShadow, {  textAlign: 'center', fontSize: '30px', justifyContent: 'center'})
-        const imageContainerStyle = Object.assign({}, styles.boxShadow, { aspectRatio: 1.0, backgroundColor: 'white', padding: '5px', height: '100%', overflow: 'hidden', borderRadius: '50%', objectFit: 'contain' })
-        const imageStyle = Object.assign({}, { aspectRatio: 1.0, padding: '5px', height: '100%', objectFit: 'contain' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'center', textAlign: 'center'})
 
         return (
@@ -181,14 +107,14 @@ const Ads = (props) => {
                     <div style={homeTeamStyle}>{data.home}</div>
                 </Col>
                 <Col xs='auto' style={{height: '100%'}}>
-                    <div style={imageContainerStyle}>
-                        <img style={imageStyle} src={data.home_logo} alt=""/>
+                    <div style={componentStyles.logoContainer}>
+                        <img style={componentStyles.logo} src={data.home_logo} alt=""/>
                     </div>
                 </Col>
                 <Col xs="auto" style={smallTextStyle}>VS</Col>
                 <Col xs='auto' style={{height: '100%'}}>
-                <div style={imageContainerStyle}>
-                        <img style={imageStyle} src={data.away_logo} alt=""/>
+                    <div style={componentStyles.logoContainer}>
+                        <img style={componentStyles.logo} src={data.away_logo} alt=""/>
                     </div>
                 </Col>
                 <Col xs={2} style={{height: '100%'}}>
@@ -205,18 +131,6 @@ const Ads = (props) => {
                 { gamesList }
             </div>
         );
-    }
-
-    const getMonday = (d) => {
-        if (d.getDay() === 1) {
-            return d
-        }
-    
-        while (d.getDay() !== 1) {
-            d.setDate(d.getDate() - 1)
-        }
-    
-        return d
     }
 
     const Content = () => {
