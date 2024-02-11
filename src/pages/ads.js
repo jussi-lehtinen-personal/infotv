@@ -55,7 +55,7 @@ const styles = {
     },
 
     boxShadow: {
-        boxShadow: '0px 3px 15px #000000'
+        boxShadow: '0px 5px 20px #000000'
     },
 
     flex: {
@@ -78,17 +78,12 @@ const Ads = (props) => {
         date: timestamp
     });
 
-    const setMatchData = (d) => {
-
-        var dataItems = []
-        d.map((data) => { return dataItems.push(data) })
-
-        if (dataItems.length > 6) {
-            dataItems = d.slice(0, 5)
-        }
-
-        setState({ matches: dataItems })
-    }
+    const replaceAll = function(str, strReplace, strWith) {
+        // See http://stackoverflow.com/a/3561711/556609
+        var esc = strReplace.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        var reg = new RegExp(esc, 'ig');
+        return str.replace(reg, strWith);
+    };
 
     useEffect(() => {
         setQuery({date: timestamp})
@@ -104,12 +99,31 @@ const Ads = (props) => {
             console.log(uri)
         }
 
+        const setMatchData = (d) => {
+
+            var dataItems = []
+            d.map((data) => 
+            {
+                data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
+                data.level = replaceAll(data.level, 'U11 sarja', 'U11')
+                data.level = replaceAll(data.level, 'U12 sarja', 'U12')
+    
+                return dataItems.push(data) 
+            })
+    
+            if (dataItems.length > 6) {
+                dataItems = d.slice(0, 5)
+            }
+    
+            setState({ matches: dataItems })
+        }    
+
         fetch(uri)
         .then(response => response.json())
         .then(data => {
             setMatchData(data)
         }).catch(error => {
-            //const data = [{"date":"2024-02-03 14:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HPK Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114740.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 15:25","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"LeKi Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/100025201.png","rink":"Valkeakoski","level":"U13 AA"},{"date":"2024-02-03 16:50","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers Valkoiset","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-03 18:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"K-Karhut","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114546.png","rink":"Valkeakoski","level":"U14 AA"}]
+            // const data = [{"date":"2024-02-14 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-02-17 17:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Pelicans Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/11019913.png","rink":"Valkeakoski","level":"U14 AA"},{"date":"2024-02-17 19:30","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Spirit","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50017455.png","rink":"Valkeakoski","level":"U20 Suomi-sarja"},{"date":"2024-02-18 13:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles VALKOINEN","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-18 14:25","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles Keltainen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"}]
             const data = []
             setMatchData(data)
             console.log('Error occurred! ', error);
@@ -210,7 +224,7 @@ const Ads = (props) => {
         const lineStyle = Object.assign({}, styles.boxShadow, {
             height: '5px', 
             width: '100%',
-            borderTop: '1px solid orange', 
+            boxShadow: '0px 3px 10px #000000',
             background: 'orange'})
 
         // Define the layout configuration for each grid item
@@ -238,7 +252,7 @@ const Ads = (props) => {
             <div style={{
                 height: "1080px",
                 width: "1080px",
-                background: `linear-gradient( rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 1.0) ), url(${background})`, 
+                background: `linear-gradient( rgba(85, 107, 47, 0.9), rgba(0, 0, 0, 1.0) ), url(${background})`, 
                 backgroundSize: 'cover',
                 backgroundColor: '#000000',
                 backgroundRepeat: 'no-repeat'}}>
@@ -259,7 +273,7 @@ const Ads = (props) => {
                     </div>
                     <div style={Object.assign({}, {
                             height: '900px',
-                            background: `linear-gradient( rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25) )`
+                            background: `linear-gradient( rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.35) )`
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
                             <div style={{height: '20px'}} />
