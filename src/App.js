@@ -39,7 +39,7 @@ function App() {
                 element={<Ads />}
             />
             <Route
-                path="/ads/game/:gameId"
+                path="/ads/:timestamp/:gameId"
                 element={<GameAds />}
             />
 

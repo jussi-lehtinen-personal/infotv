@@ -7,7 +7,7 @@ import {
     getMockGameData,
     styles,
     componentStyles,
-    processIncomingDataEvents,
+    processIncomingDataEventsDoNotStrip,
     buildGamesQueryUri
 } from "../Util";
 
@@ -51,14 +51,14 @@ const downloadImage = (blob, fileName) => {
 
 const GameAds = (props) => {
     const exportRef = useRef();
-    const {timestamp} = useParams();
+    const {timestamp, gameId} = useParams();
 
     const [state, setState] = useState({
         match: {},
     });
 
     const [query, setQuery] = useState({
-        date: timestamp
+        date: timestamp,
     });
 
     useEffect(() => {
@@ -69,22 +69,31 @@ const GameAds = (props) => {
     useEffect(() => {
         var uri = buildGamesQueryUri(query.date)
 
-        const setMatchData = (d) => {
+        var g_id = 0       
+        if (gameId) {
+            g_id = gameId
+        }
 
-            var dataItems = processIncomingDataEvents(d)    
-            setState({ match: dataItems[0] })
+        const setMatchData = (d, g_id) => {
+
+            var dataItems = processIncomingDataEventsDoNotStrip(d)
+            if (dataItems.length > g_id) {
+                setState({ match: dataItems[g_id] })
+            } else {
+                // Do nothing.
+            }
         }    
 
         fetch(uri)
         .then(response => response.json())
         .then(data => {
-            setMatchData(data)
+            setMatchData(data, g_id)
         }).catch(error => {
             const data = getMockGameData()
-            setMatchData(data)
+            setMatchData(data, g_id)
             console.log('Error occurred! ', error);
         });
-      }, [query.date])
+      }, [query.date, gameId])
 
     const gamesList = (data) => {
 
@@ -251,7 +260,9 @@ const GameAds = (props) => {
                             height: '60px',
                             background: `black`
                         })}>
-                        <div style={Object.assign({}, styles.flex, footerStyle)}>LIPUT 5 EUR | ALLE 15V. ILMAISEKSI SISÄÄN </div>
+                        <div style={Object.assign({}, styles.flex, footerStyle)}>
+                            <div hidden={state.match.isFree}>LIPUT 5 EUR | ALLE 15V. ILMAISEKSI SISÄÄN</div>
+                        </div>
                     </div>
                 </div>
             </div>
