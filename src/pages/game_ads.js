@@ -16,7 +16,17 @@ import {
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
 
-var background = '/background3.jpg'
+var backgrounds = [
+    '/background.jpg',
+    '/background2.jpg',
+    '/background3.jpg',
+    '/background4.jpg',
+    '/background5.jpg',
+    '/background6.jpg',
+]
+
+const randomBackground = Math.floor(Math.random() * backgrounds.length)
+
 var metal_bg = '/metal_grid_bg.jpg'
 var vs_img = '/vs.png'
 
@@ -210,7 +220,7 @@ const GameAds = (props) => {
             <div style={{
                 height: "1080px",
                 width: "1080px",
-                background: `linear-gradient( rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 1.0) ), url(${background})`,
+                background: `linear-gradient( rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 1.0) ), url(${backgrounds[randomBackground]})`,
                 backgroundSize: 'contain',
                 backgroundColor: '#000000',
                 backgroundRepeat: 'no-repeat'}}>
@@ -261,7 +271,8 @@ const GameAds = (props) => {
                             background: `black`
                         })}>
                         <div style={Object.assign({}, styles.flex, footerStyle)}>
-                            <div hidden={state.match.isFree}>LIPUT 5 EUR | ALLE 15V. ILMAISEKSI SISÄÄN</div>
+                            <div hidden={state.match.isFree}>OTTELU PELATAAN WAREENASSA | LIPUT 5 EUR | ALLE 15V. ILMAISEKSI SISÄÄN</div>
+                            <div hidden={!state.match.isFree}>OTTELU PELATAAN WAREENASSA | ILMAINEN SISÄÄNPÄÄSY</div>
                         </div>
                     </div>
                 </div>

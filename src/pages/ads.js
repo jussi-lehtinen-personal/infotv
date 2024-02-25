@@ -134,8 +134,8 @@ const Ads = (props) => {
     }
 
     const Content = () => {
-        const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '70px', fontSize: '70px'})
-        const titleText2Style = Object.assign({}, styles.flex, styles.textShadow, {height: '40px', fontSize: '40px'})
+        const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '60px', fontSize: '60px'})
+        const titleText2Style = Object.assign({}, styles.flex, styles.textShadow, {color: 'orange', height: '45px', fontSize: '45px'})
         const lineStyle = Object.assign({}, styles.boxShadow, {
             height: '5px', 
             width: '100%',
@@ -178,8 +178,8 @@ const Ads = (props) => {
                         background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 1.0), rgba(32, 32, 32, 1.0) )` 
                         })}>
                         <div>
-                            <div style={Object.assign({}, titleTextStyle)}>KOTIOTTELUT {week}</div>
-                            <div style={Object.assign({}, titleText2Style)}>WAREENA</div>
+                            <div style={Object.assign({}, titleTextStyle)}>KOTIOTTELUT WAREENASSA</div>
+                            <div style={Object.assign({}, titleText2Style)}>{week}</div>
                         </div>
                     </div>
                     <div style={Object.assign({}, styles.flex, {
