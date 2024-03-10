@@ -97,8 +97,7 @@ const Ads = (props) => {
 
         return (
             <Row key={index} style={{ 
-                padding:'10px',
-                margin: '10px 10px 10px 10px',
+                padding:'12px',
                 height: '128px'}}>
                 <Col xs={2} style={{justifyContent: 'center', height: '100%'}}>
                     <DateBox date={data.date}/>
@@ -166,7 +165,7 @@ const Ads = (props) => {
 
         return (            
             <div style={{
-                height: "1080px",
+                minHeight: "1080px",
                 width: "1080px"}}>
                 <div style={Object.assign({}, 
                     styles.font,
@@ -188,13 +187,12 @@ const Ads = (props) => {
                         <div style={lineStyle}></div>
                     </div>
                     <div style={Object.assign({}, {
-                            height: '900px',
+                            minHeight: '900px',
                             backgroundSize: 'contain',
                             backgroundRepeat: 'no-repeat',
                             background: `linear-gradient( rgba(16, 16, 16, 0.8), rgba(64, 64, 64, 0.8) ), url(${metal_bg})`
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
-                            <div style={{height: '20px'}} />
                             <GamesList/>
                         </div>
                     </div>
@@ -218,8 +216,8 @@ const Ads = (props) => {
     */
 
     return ( 
-        <div style={{height: "1080px", width: "1080px", background: "#000000" }} ref={exportRef} >
-            <Content style={{height: "1080px", width: "1080px"}}/>
+        <div style={{minHeight: "1080px", width: "1080px", background: "#000000" }} ref={exportRef} >
+            <Content style={{minHeight: "1080px", width: "1080px"}}/>
         </div>
     )
 }

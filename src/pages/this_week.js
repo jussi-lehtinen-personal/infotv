@@ -74,11 +74,11 @@ const ThisWeek = (props) => {
         })
 
         const dayStyle = landscape ?  
-            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2.6vw' }) : 
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2.0vw' }) : 
             Object.assign({}, styles.flex, styles.textShadow, { margin: '2px 0px 0px 0px', fontSize: '3.6vw' })
         
             const timeStyle = landscape ?  
-            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.9vw'}) :
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.5vw'}) :
             Object.assign({}, styles.flex, styles.textShadow, { margin: '-0px 0px 0px 0px', fontSize: '3.4vw'})
 
         return (
@@ -131,7 +131,7 @@ const ThisWeek = (props) => {
       })
 
       const gamesListLandscape = state.matches.map((data, index) => {
-        const imageSize = '7wv'
+        const imageSize = '6wv'
 
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '2vw', justifyContent: 'center' })
@@ -141,7 +141,7 @@ const ThisWeek = (props) => {
         return (
             <Row key={index} style={{
                 paddingBottom: '10px',
-                height: '8vw',
+                height: '6vw',
                 }}>
                 <Col xs={1} style={{
                         alignSelf: 'center',
@@ -221,7 +221,7 @@ const ThisWeek = (props) => {
                     backgroundColor: '#000000',
                     backgroundRepeat: 'no-repeat' }}>
                     <div style={Object.assign({}, styles.font, {margin: '0px 5vw 0px 5vw'})}>
-                        <Container style={{paddingBottom: '6vh'}}>
+                        <Container style={{paddingBottom: '2vh'}}>
                             <div style={Object.assign({}, styles.flex, titleTextStyle)}>TULEVAT KOTIOTTELUT ({week})</div>
                             <div style={lineStyle}></div>
                         </Container>
