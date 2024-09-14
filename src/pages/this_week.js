@@ -213,6 +213,8 @@ const ThisWeek = (props) => {
         const end = moment(endOfWeek).format('D.M')
 
         const week = start + ' - ' + end
+        const title = query.date ? "TULEVAT KOTIOTTELUT (" + week + ")" : "KOTIOTTELUT TÄLLÄ VIIKOLLA"
+
         return (
             <div style={{height: "100vh", background: "#000000" }}>
                 <Col style={{
@@ -222,7 +224,7 @@ const ThisWeek = (props) => {
                     backgroundRepeat: 'no-repeat' }}>
                     <div style={Object.assign({}, styles.font, {margin: '0px 5vw 0px 5vw'})}>
                         <Container style={{paddingBottom: '2vh'}}>
-                            <div style={Object.assign({}, styles.flex, titleTextStyle)}>TULEVAT KOTIOTTELUT ({week})</div>
+                            <div style={Object.assign({}, styles.flex, titleTextStyle)}>{title}</div>
                             <div style={lineStyle}></div>
                         </Container>
 
