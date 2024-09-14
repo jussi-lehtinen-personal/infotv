@@ -2,9 +2,9 @@
 
 import {React, useState, useEffect} from "react";
 import Container from 'react-bootstrap/Container';
-import {Row, Col, Ratio } from 'react-bootstrap';
+import {Row, Col, Ratio, Button } from 'react-bootstrap';
 import { useOrientation } from 'react-use';
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { 
     getMockGameData,
     getMonday,
@@ -24,6 +24,7 @@ var moment = require('moment');
 moment.locale('fi')
 
 const ThisWeek = (props) => {
+    const navigate = useNavigate();
     const {timestamp} = useParams();
     const {type} = useOrientation();
 
@@ -130,14 +131,21 @@ const ThisWeek = (props) => {
         )
       })
 
+      const navigateToAd = (index, data) => {
+        console.log("Navigate to " + index)
+        var formattedDate = moment(data.date).format('YYYY-MM-DD')
+        navigate("/ads/" + formattedDate + "/" + index);
+      }
+
       const gamesListLandscape = state.matches.map((data, index) => {
         const imageSize = '6wv'
 
+        const buttonStyle = Object.assign({}, styles.flex, {width: '100%', height: '100%', padding:'0px 0px 0px 0px'} )
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '2vw', justifyContent: 'center' })
         const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '2vw', color: 'orange', justifyContent: 'center' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
-
+    
         return (
             <Row key={index} style={{
                 paddingBottom: '10px',
@@ -151,7 +159,9 @@ const ThisWeek = (props) => {
                         aspectRatio: 1,                            
                         justifyContent: 'center', 'alignItems': 'center'
                         }}>
-                    <DateBox size={imageSize} date={data.date} landscape={true}/>
+                    <div style={buttonStyle} onClick={() => {navigateToAd(index, data)}}>
+                        <DateBox size={imageSize} date={data.date} landscape={true}/>
+                    </div>
                 </Col>
                 <Col xs={1} />
                 <Col style={Object.assign({}, highlightTextStyle)}>{data.home}</Col>
