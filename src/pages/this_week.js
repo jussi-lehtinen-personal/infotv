@@ -74,17 +74,17 @@ const ThisWeek = (props) => {
         })
 
         const dayStyle = landscape ?  
-            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '2.0vw' }) : 
-            Object.assign({}, styles.flex, styles.textShadow, { margin: '2px 0px 0px 0px', fontSize: '3.6vw' })
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.6vw' }) : 
+            Object.assign({}, styles.flex, styles.textShadow, { margin: '2px -10px 0px -10px', fontSize: '3.6vw' })
         
             const timeStyle = landscape ?  
-            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.5vw'}) :
+            Object.assign({}, styles.flex, styles.textShadow, { fontSize: '1.4vw'}) :
             Object.assign({}, styles.flex, styles.textShadow, { margin: '-0px 0px 0px 0px', fontSize: '3.4vw'})
 
         return (
             <Ratio style={dateBoxStyle}>
                 <Container>
-                    <Row style={dayStyle}>{moment(date).format('dd')}</Row>
+                    <Row style={dayStyle}>{moment(date).format('dd D.M')}</Row>
                     <Row style={timeStyle}>{moment(date).format('HH:mm')}</Row>
                 </Container>
             </Ratio>
