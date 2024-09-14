@@ -3,6 +3,9 @@ import {Container, Row, Ratio } from 'react-bootstrap';
 var moment = require('moment');
 moment.locale('fi')
 
+// Enable this in order to use mock-data and request images directly from external services.
+var dev = false //true
+
 export const styles = {
     font: {
         fontFamily: 'Bebas Neue',
@@ -62,6 +65,10 @@ export const processIncomingDataEvents = (events) => {
     var dataItems = []
     events.map((data) => 
     {
+        if (!dev) {
+            data.home_logo = "/api/getImage?uri=" + data.home_logo;
+            data.away_logo = "/api/getImage?uri=" + data.away_logo;
+        }
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
         data.level = replaceAll(data.level, 'U11 sarja', 'U11')
         data.level = replaceAll(data.level, 'U12 sarja', 'U12')
@@ -79,6 +86,11 @@ export const processIncomingDataEventsDoNotStrip = (events) => {
     var dataItems = []
     events.map((data) => 
     {
+        if (!dev) {
+            data.home_logo = "/api/getImage?uri=" + data.home_logo;
+            data.away_logo = "/api/getImage?uri=" + data.away_logo;
+        }
+
         data.isFree = data.level.includes('II-divisioona') === false
         return dataItems.push(data) 
     })
@@ -87,10 +99,13 @@ export const processIncomingDataEventsDoNotStrip = (events) => {
 
 
 export const getMockGameData = () => {
-    // const data = [{"date":"2024-02-14 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-02-17 17:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Pelicans Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/11019913.png","rink":"Valkeakoski","level":"U14 AA"},{"date":"2024-02-17 19:30","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Spirit","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50017455.png","rink":"Valkeakoski","level":"U20 Suomi-sarja"},{"date":"2024-02-18 13:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles VALKOINEN","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-18 14:25","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles Keltainen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"}]
-    // const data = [{"date":"2024-03-13 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HiHo","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114355.png","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-03-14 18:50","home":"Kiekko-Ahma Valk","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Pingviinit ","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114517.png","rink":"Valkeakoski","level":"U15 A"},{"date":"2024-03-16 15:15","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"VaPS Sininen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114122.png","rink":"Valkeakoski","level":"U12 sarja"},{"date":"2024-03-16 16:45","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Tappara Oranssi","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114562.png","rink":"Valkeakoski","level":"U14 AA"},{"date":"2024-03-16 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U18 Suomi-sarja"},{"date":"2024-03-17 13:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HC Nokia Mustat","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10635371.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-03-17 14:25","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Fortuna ","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114766.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-03-17 17:30","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HiHo","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114355.png","rink":"Valkeakoski","level":"II-divisioona"}]; 
-    const data = []
-    return data
+    // const data = [{"date":"2024-02-14 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-02-17 17:15","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Pelicans Valkoinen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/11019913.png","rink":"Valkeakoski","level":"U14 AA"},{"date":"2024-02-17 19:30","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Spirit","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50017455.png","rink":"Valkeakoski","level":"U20 Suomi-sarja"},{"date":"2024-02-18 13:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles VALKOINEN","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-02-18 14:25","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Kisa-Eagles Keltainen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/50003291.png","rink":"Valkeakoski","level":"U11 sarja001"}]
+
+    var data = []
+    if (dev) {
+        data = [{"date":"2024-03-13 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HiHo","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114355.png","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-03-14 18:50","home":"Kiekko-Ahma Valk","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Pingviinit ","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114517.png","rink":"Valkeakoski","level":"U15 A"},{"date":"2024-03-16 15:15","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"VaPS Sininen","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114122.png","rink":"Valkeakoski","level":"U12 sarja"},{"date":"2024-03-16 16:45","home":"Kiekko-Ahma Valk.","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Tappara Oranssi","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114562.png","rink":"Valkeakoski","level":"U14 AA"},{"date":"2024-03-16 19:00","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Uplakers","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10658853.png","rink":"Valkeakoski","level":"U18 Suomi-sarja"},{"date":"2024-03-17 13:00","home":"Kiekko-Ahma sininen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HC Nokia Mustat","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10635371.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-03-17 14:25","home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"Fortuna ","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114766.png","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-03-17 17:30","home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114407.png","away":"HiHo","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2024/10114355.png","rink":"Valkeakoski","level":"II-divisioona"}]; 
+    }
+    return data    
 }
 
 export const getMonday = (d) => {

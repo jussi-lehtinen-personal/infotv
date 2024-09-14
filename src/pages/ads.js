@@ -1,7 +1,7 @@
 // Filename - pages/ads.js
 
 import {React, useState, useEffect, useRef} from "react";
-import {Row, Col } from 'react-bootstrap';
+import {Row, Col, Container } from 'react-bootstrap';
 import { useParams } from "react-router-dom";
 import { 
     getMockGameData,
@@ -13,6 +13,8 @@ import {
     buildGamesQueryUri
 } from "../Util";
 
+import { toPng } from 'html-to-image';
+
 //import html2canvas from "html2canvas";
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
@@ -22,6 +24,7 @@ var metal_bg = '/metal_grid_bg2.jpg'
 
 var moment = require('moment');
 moment.locale('fi')
+
 
 /*
 const exportAsImage = async (element, imageFileName) => {
@@ -51,6 +54,7 @@ const downloadImage = (blob, fileName) => {
 
 const Ads = (props) => {
     const exportRef = useRef();
+
     const {timestamp} = useParams();
 
     const [state, setState] = useState({
@@ -132,6 +136,20 @@ const Ads = (props) => {
         );
     }
 
+    const htmlToImageConvert = () => {
+        toPng(exportRef.current, { cacheBust: false })
+          .then((dataUrl) => {
+            const link = document.createElement("a");
+            link.download = "my-image-name.png";
+            link.href = dataUrl;
+            link.click();
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      };
+    
+
     const Content = () => {
         const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '60px', fontSize: '60px'})
         const titleText2Style = Object.assign({}, styles.flex, styles.textShadow, {color: 'orange', height: '45px', fontSize: '45px'})
@@ -207,17 +225,20 @@ const Ads = (props) => {
             </div>
         ) 
     }
-
-    /*
-    {
-        <div style={{height: '20px'}}></div>
-        <button onClick={() => exportAsImage(exportRef.current, "GamesAd")}>Save Image</button>
-    }
-    */
+    
 
     return ( 
-        <div style={{minHeight: "1080px", width: "1080px", background: "#000000" }} ref={exportRef} >
-            <Content style={{minHeight: "1080px", width: "1080px"}}/>
+        <div>
+            <div style={{minHeight: "1080px", width: "1080px", background: "#000000" }} ref={exportRef} >
+                <Content style={{minHeight: "1080px", width: "1080px"}}/>
+            </div>
+            <div style={{height: '20px'}}/>
+            <Container>
+                <Row>
+                    <button onClick={() => htmlToImageConvert()}>Downloag Image (PNG, 1080 x 1080)</button>
+                </Row>
+            </Container>        
+            <div style={{height: '20px'}}/>
         </div>
     )
 }
