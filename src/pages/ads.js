@@ -13,7 +13,7 @@ import {
     buildGamesQueryUri
 } from "../Util";
 
-import { toPng } from 'html-to-image';
+import { toJpeg } from 'html-to-image';
 
 //import html2canvas from "html2canvas";
 
@@ -137,10 +137,10 @@ const Ads = (props) => {
     }
 
     const htmlToImageConvert = () => {
-        toPng(exportRef.current, { cacheBust: false })
+        toJpeg(exportRef.current, { cacheBust: false })
           .then((dataUrl) => {
             const link = document.createElement("a");
-            link.download = "my-image-name.png";
+            link.download = "kiekko-ahma-ad.jpg";
             link.href = dataUrl;
             link.click();
           })
@@ -235,7 +235,7 @@ const Ads = (props) => {
             <div style={{height: '20px'}}/>
             <Container>
                 <Row>
-                    <button onClick={() => htmlToImageConvert()}>Downloag Image (PNG, 1080 x 1080)</button>
+                    <button onClick={() => htmlToImageConvert()}>Downloag Image (JPG, 1080 x 1080)</button>
                 </Row>
             </Container>        
             <div style={{height: '20px'}}/>
