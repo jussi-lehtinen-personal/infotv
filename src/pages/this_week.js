@@ -2,7 +2,7 @@
 
 import {React, useState, useEffect} from "react";
 import Container from 'react-bootstrap/Container';
-import {Row, Col, Ratio, Button } from 'react-bootstrap';
+import {Row, Col, Ratio } from 'react-bootstrap';
 import { useOrientation } from 'react-use';
 import { useParams, useNavigate } from "react-router-dom";
 import { 
