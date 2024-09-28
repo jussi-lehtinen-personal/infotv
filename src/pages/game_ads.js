@@ -1,17 +1,16 @@
 // Filename - pages/game_ads.js
 
 import {React, useState, useEffect, useRef} from "react";
-import {Row, Col} from 'react-bootstrap';
+import {Row, Col, Container} from 'react-bootstrap';
 import { useParams } from "react-router-dom";
 import { 
     getMockGameData,
     styles,
     componentStyles,
     processIncomingDataEventsDoNotStrip,
-    buildGamesQueryUri
+    buildGamesQueryUri,
+    htmlToImageConvert
 } from "../Util";
-
-//import html2canvas from "html2canvas";
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
@@ -32,32 +31,6 @@ var vs_img = '/vs.png'
 
 var moment = require('moment');
 moment.locale('fi')
-
-/*
-const exportAsImage = async (element, imageFileName) => {
-    const canvas = await html2canvas(element, {
-        allowTaint: true,
-        useCORS: true
-    });
-    const image = canvas.toDataURL("image/png", 1.0);
-
-    downloadImage(image, imageFileName);
-};
-
-const downloadImage = (blob, fileName) => {
-    const fakeLink = window.document.createElement("a");
-    fakeLink.style = "display:none;";
-    fakeLink.download = fileName;
-    
-    fakeLink.href = blob;
-    
-    document.body.appendChild(fakeLink);
-    fakeLink.click();
-    document.body.removeChild(fakeLink);
-    
-    fakeLink.remove();
-};
-*/
 
 const GameAds = (props) => {
     const exportRef = useRef();
@@ -280,16 +253,18 @@ const GameAds = (props) => {
         ) 
     }
 
-    /*
-    {
-        <div style={{height: '20px'}}></div>
-        <button onClick={() => exportAsImage(exportRef.current, "GamesAd")}>Save Image</button>
-    }
-    */
-
     return ( 
-        <div style={{height: "1080px", width: "1080px", background: "#000000" }} ref={exportRef} >
-            <Content style={{height: "1080px", width: "1080px"}}/>
+        <div>
+            <div style={{height: "1080px", width: "1080px", background: "#000000" }} ref={exportRef} >
+                <Content style={{height: "1080px", width: "1080px"}}/>
+            </div>
+            <div style={{height: '20px'}}/>
+            <Container>
+                <Row>
+                    <button onClick={() => htmlToImageConvert(exportRef.current)}>Downloag Image (JPG, 1080 x 1080)</button>
+                </Row>
+            </Container>        
+            <div style={{height: '20px'}}/>
         </div>
     )
 }

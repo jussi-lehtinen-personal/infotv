@@ -2,7 +2,7 @@
 
 import {React, useState, useEffect, useRef} from "react";
 import {Row, Col, Container } from 'react-bootstrap';
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { 
     getMockGameData,
     getMonday,
@@ -10,12 +10,10 @@ import {
     styles,
     componentStyles,
     processIncomingDataEvents,
-    buildGamesQueryUri
+    buildGamesQueryUri,
+    getAdsUri,
+    htmlToImageConvert
 } from "../Util";
-
-import { toJpeg } from 'html-to-image';
-
-//import html2canvas from "html2canvas";
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
@@ -26,34 +24,9 @@ var moment = require('moment');
 moment.locale('fi')
 
 
-/*
-const exportAsImage = async (element, imageFileName) => {
-    const canvas = await html2canvas(element, {
-        allowTaint: true,
-        useCORS: true
-    });
-    const image = canvas.toDataURL("image/png", 1.0);
-
-    downloadImage(image, imageFileName);
-};
-
-const downloadImage = (blob, fileName) => {
-    const fakeLink = window.document.createElement("a");
-    fakeLink.style = "display:none;";
-    fakeLink.download = fileName;
-    
-    fakeLink.href = blob;
-    
-    document.body.appendChild(fakeLink);
-    fakeLink.click();
-    document.body.removeChild(fakeLink);
-    
-    fakeLink.remove();
-};
-*/
-
 const Ads = (props) => {
     const exportRef = useRef();
+    const navigate = useNavigate();
 
     const {timestamp} = useParams();
 
@@ -100,33 +73,35 @@ const Ads = (props) => {
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'center', textAlign: 'center'})
 
         return (
+            <div style={{fullHeight}} onClick={() => {navigate(getAdsUri(index, data))}}>
             <Row key={index} style={{ 
                 padding:'12px',
                 height: '128px'}}>
                 <Col xs={2} style={{justifyContent: 'center', height: '100%'}}>
-                    <DateBox date={data.date}/>
-                </Col>
-                <Col xs={2} style={{height: '100%'}}>
-                    <div style={homeTeamStyle}>{data.home}</div>
-                </Col>
-                <Col xs='auto' style={{height: '100%'}}>
-                    <div style={componentStyles.logoContainer}>
-                        <img style={componentStyles.logo} src={data.home_logo} alt=""/>
-                    </div>
-                </Col>
-                <Col xs="auto" style={smallTextStyle}>VS</Col>
-                <Col xs='auto' style={{height: '100%'}}>
-                    <div style={componentStyles.logoContainer}>
-                        <img style={componentStyles.logo} src={data.away_logo} alt=""/>
-                    </div>
-                </Col>
-                <Col xs={2} style={{height: '100%'}}>
-                    <div style={awayTeamStyle}>{data.away}</div>
-                </Col>
-                <Col xs={2} style={levelTextStyle}>{data.level}</Col>
-            </Row>
+                        <DateBox date={data.date}/>
+                    </Col>
+                    <Col xs={2} style={{height: '100%'}}>
+                        <div style={homeTeamStyle}>{data.home}</div>
+                    </Col>
+                    <Col xs='auto' style={{height: '100%'}}>
+                        <div style={componentStyles.logoContainer}>
+                            <img style={componentStyles.logo} src={data.home_logo} alt=""/>
+                        </div>
+                    </Col>
+                    <Col xs="auto" style={smallTextStyle}>VS</Col>
+                    <Col xs='auto' style={{height: '100%'}}>
+                        <div style={componentStyles.logoContainer}>
+                            <img style={componentStyles.logo} src={data.away_logo} alt=""/>
+                        </div>
+                    </Col>
+                    <Col xs={2} style={{height: '100%'}}>
+                        <div style={awayTeamStyle}>{data.away}</div>
+                    </Col>
+                    <Col xs={2} style={levelTextStyle}>{data.level}</Col>
+                </Row>
+            </div>
         )
-      })
+    })
 
     const GamesList = () => {
         return (
@@ -134,21 +109,7 @@ const Ads = (props) => {
                 { gamesList }
             </div>
         );
-    }
-
-    const htmlToImageConvert = () => {
-        toJpeg(exportRef.current, { cacheBust: false })
-          .then((dataUrl) => {
-            const link = document.createElement("a");
-            link.download = "kiekko-ahma-ad.jpg";
-            link.href = dataUrl;
-            link.click();
-          })
-          .catch((err) => {
-            console.log(err);
-          });
-      };
-    
+    }    
 
     const Content = () => {
         const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '60px', fontSize: '60px'})
@@ -235,7 +196,7 @@ const Ads = (props) => {
             <div style={{height: '20px'}}/>
             <Container>
                 <Row>
-                    <button onClick={() => htmlToImageConvert()}>Downloag Image (JPG, 1080 x 1080)</button>
+                    <button onClick={() => htmlToImageConvert(exportRef.current)}>Downloag Image (JPG, 1080 x 1080)</button>
                 </Row>
             </Container>        
             <div style={{height: '20px'}}/>

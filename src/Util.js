@@ -1,4 +1,5 @@
 import {Container, Row, Ratio } from 'react-bootstrap';
+import { toJpeg } from 'html-to-image';
 
 var moment = require('moment');
 moment.locale('fi')
@@ -53,6 +54,26 @@ export const componentStyles = {
         }
     ),
 }
+
+export const getAdsUri = (index, data) => {
+    console.log("Navigate to " + index)
+    var formattedDate = moment(data.date).format('YYYY-MM-DD')
+    return "/ads/" + formattedDate + "/" + index;
+}
+
+export const htmlToImageConvert = (exp) => {
+    toJpeg(exp, { cacheBust: false })
+      .then((dataUrl) => {
+        const link = document.createElement("a");
+        link.download = "kiekko-ahma-ad.jpg";
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
 
 const replaceAll = function(str, strReplace, strWith) {
     // See http://stackoverflow.com/a/3561711/556609

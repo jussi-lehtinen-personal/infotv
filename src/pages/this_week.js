@@ -11,14 +11,15 @@ import {
     styles,
     componentStyles,
     processIncomingDataEvents, 
-    buildGamesQueryUri 
+    buildGamesQueryUri,
+    getAdsUri
 } from "../Util";
 
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
 
-var background = '/background.jpg'
+var background = '/background.jpg'  
 
 var moment = require('moment');
 moment.locale('fi')
@@ -131,54 +132,48 @@ const ThisWeek = (props) => {
         )
       })
 
-      const navigateToAd = (index, data) => {
-        console.log("Navigate to " + index)
-        var formattedDate = moment(data.date).format('YYYY-MM-DD')
-        navigate("/ads/" + formattedDate + "/" + index);
-      }
-
       const gamesListLandscape = state.matches.map((data, index) => {
         const imageSize = '6wv'
 
-        const buttonStyle = Object.assign({}, styles.flex, {width: '100%', height: '100%', padding:'0px 0px 0px 0px'} )
+        const fullHeight = Object.assign({},{ height: '6vw', width:'100%' })
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '2vw', justifyContent: 'center' })
         const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '2vw', color: 'orange', justifyContent: 'center' })
         const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'start' })
     
         return (
-            <Row key={index} style={{
-                paddingBottom: '10px',
-                height: '6vw',
-                }}>
-                <Col xs={1} style={{
-                        alignSelf: 'center',
-                        display: 'flex',
-                        height: '100%',
-                        width: '7vw',
-                        aspectRatio: 1,                            
-                        justifyContent: 'center', 'alignItems': 'center'
-                        }}>
-                    <div style={buttonStyle} onClick={() => {navigateToAd(index, data)}}>
+            <div style={fullHeight} onClick={() => {navigate(getAdsUri(index, data))}}>
+                <Row key={index} style={{
+                    paddingBottom: '10px',
+                    height: '6vw',
+                    }}>
+                    <Col xs={1} style={{
+                            alignSelf: 'center',
+                            display: 'flex',
+                            height: '100%',
+                            width: '7vw',
+                            aspectRatio: 1,                            
+                            justifyContent: 'center', 'alignItems': 'center'
+                            }}>
                         <DateBox size={imageSize} date={data.date} landscape={true}/>
-                    </div>
-                </Col>
-                <Col xs={1} />
-                <Col style={Object.assign({}, highlightTextStyle)}>{data.home}</Col>
-                <Col xs='auto' style={{height: '100%'}}>
-                    <div style={componentStyles.logoContainer}>
-                        <img style={componentStyles.logo} src={data.home_logo} alt=""/>
-                    </div>
-                </Col>
-                <Col xs='auto' style={smallTextStyle}>vs</Col>
-                <Col xs='auto' style={{height: '100%'}}>
-                    <div style={componentStyles.logoContainer}>
-                        <img style={componentStyles.logo} src={data.away_logo} alt=""/>
-                    </div>
-                </Col>
-                <Col style={Object.assign({}, normalTextStyle)}>{data.away}</Col>
-                <Col xs={2} style={levelTextStyle}>{data.level}</Col>
-            </Row>
+                    </Col>
+                    <Col xs={1} />
+                    <Col style={Object.assign({}, highlightTextStyle)}>{data.home}</Col>
+                    <Col xs='auto' style={{height: '100%'}}>
+                        <div style={componentStyles.logoContainer}>
+                            <img style={componentStyles.logo} src={data.home_logo} alt=""/>
+                        </div>
+                    </Col>
+                    <Col xs='auto' style={smallTextStyle}>vs</Col>
+                    <Col xs='auto' style={{height: '100%'}}>
+                        <div style={componentStyles.logoContainer}>
+                            <img style={componentStyles.logo} src={data.away_logo} alt=""/>
+                        </div>
+                    </Col>
+                    <Col style={Object.assign({}, normalTextStyle)}>{data.away}</Col>
+                    <Col xs={2} style={levelTextStyle}>{data.level}</Col>
+                </Row>
+            </div>
         )
       })
 
