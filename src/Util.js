@@ -93,7 +93,7 @@ export const processIncomingDataEvents = (events) => {
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
         data.level = replaceAll(data.level, 'U11 sarja', 'U11')
         data.level = replaceAll(data.level, 'U12 sarja', 'U12')
-        data.isFree = data.level.includes('II-divisioona') === false
+        data.isFree = data.level !== 'II-divisioona'
         return dataItems.push(data) 
     })
 
@@ -112,7 +112,7 @@ export const processIncomingDataEventsDoNotStrip = (events) => {
             data.away_logo = "/api/getImage?uri=" + data.away_logo;
         }
 
-        data.isFree = data.level.includes('II-divisioona') === false
+        data.isFree = data.level !== 'II-divisioona'
         return dataItems.push(data) 
     })
     return dataItems
