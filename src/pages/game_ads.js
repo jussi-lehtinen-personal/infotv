@@ -1,6 +1,6 @@
 // Filename - pages/game_ads.js
 
-import {React, useState, useEffect, useRef, useId} from "react";
+import {React, useState, useEffect, useRef} from "react";
 import {Row, Col, Container} from 'react-bootstrap';
 import { useParams } from "react-router-dom";
 import { 
