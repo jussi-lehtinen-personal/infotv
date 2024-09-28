@@ -1,6 +1,6 @@
 // Filename - pages/game_ads.js
 
-import {React, useState, useEffect, useRef} from "react";
+import {React, useState, useEffect, useRef, useId} from "react";
 import {Row, Col, Container} from 'react-bootstrap';
 import { useParams } from "react-router-dom";
 import { 
@@ -9,7 +9,8 @@ import {
     componentStyles,
     processIncomingDataEventsDoNotStrip,
     buildGamesQueryUri,
-    htmlToImageConvert
+    htmlToImageConvert,
+    getImageUri
 } from "../Util";
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
@@ -37,7 +38,11 @@ const GameAds = (props) => {
     const {timestamp, gameId} = useParams();
 
     const [state, setState] = useState({
-        match: {},
+        match: {}
+    });
+
+    const [visuals, setVisuals] = useState({
+        background: backgrounds[randomBackground]
     });
 
     const [query, setQuery] = useState({
@@ -57,11 +62,13 @@ const GameAds = (props) => {
             g_id = gameId
         }
 
+        setVisuals({background: backgrounds[randomBackground]})
+
         const setMatchData = (d, g_id) => {
 
             var dataItems = processIncomingDataEventsDoNotStrip(d)
             if (dataItems.length > g_id) {
-                setState({ match: dataItems[g_id] })
+                setState({ match: dataItems[g_id]})
             } else {
                 // Do nothing.
             }
@@ -70,7 +77,7 @@ const GameAds = (props) => {
         fetch(uri)
         .then(response => response.json())
         .then(data => {
-            setMatchData(data, g_id)
+            setMatchData(data, g_id)            
         }).catch(error => {
             const data = getMockGameData()
             setMatchData(data, g_id)
@@ -189,11 +196,16 @@ const GameAds = (props) => {
             alignItems: 'center'
         })
 
+        var bgImage = visuals.background
+        if (!bgImage.startsWith('/')) {
+            bgImage = getImageUri(visuals.background)
+        }
+
         return (            
             <div style={{
                 height: "1080px",
                 width: "1080px",
-                background: `linear-gradient( rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 1.0) ), url(${backgrounds[randomBackground]})`,
+                background: `linear-gradient( rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 1.0) ), url(${bgImage})`,
                 backgroundSize: 'contain',
                 backgroundColor: '#000000',
                 backgroundRepeat: 'no-repeat'}}>
@@ -259,11 +271,47 @@ const GameAds = (props) => {
                 <Content style={{height: "1080px", width: "1080px"}}/>
             </div>
             <div style={{height: '20px'}}/>
-            <Container>
-                <Row>
-                    <button onClick={() => htmlToImageConvert(exportRef.current)}>Downloag Image (JPG, 1080 x 1080)</button>
-                </Row>
-            </Container>        
+            <div style={{width: '1080px'}}>
+                <Container fluid>
+                    <Row>
+                    <Col xs={2} ><label htmlFor={state.homeTeamId}>Home Team:</label></Col>
+                    <Col><input style={{width: '100%'}} id={state.homeTeamId} name="home" value={state.match.home} onChange={e => {
+                                state.match.home = e.target.value
+                                setState({ match: state.match })
+                                }
+                            }/></Col>
+                    </Row>
+                    <Row>
+                        <Col xs={2} ><label htmlFor={state.awayTeamId}>Away Team:</label></Col>
+                        <Col><input style={{width: '100%'}} id={state.awayTeamId} name="away" value={state.match.away} onChange={e => {
+                                    state.match.away = e.target.value
+                                    setState({ match: state.match })
+                                    }
+                                }/></Col>
+                    </Row>
+                    <Row>
+                        <Col xs={2} ><label htmlFor={state.levelId}>League:</label></Col>
+                        <Col><input style={{width: '100%'}} id={state.levelId} name="level" value={state.match.level} onChange={e => {
+                                    state.match.level = e.target.value
+                                    setState({ match: state.match })
+                                    }
+                                }/></Col>
+                    </Row>
+                    <Row>
+                        <Col xs={2} ><label htmlFor={state.imageId}>Image:</label></Col>
+                        <Col><input style={{width: '100%'}} id={state.imageId} name="background" value={visuals.background} onChange={e => {
+                                    state.background = e.target.value
+                                    setVisuals({ background: state.background })
+                                    }
+                                }/></Col>
+                    </Row>
+                    <Row>
+                        <Col>
+                            <button style={{width: '100%'}} onClick={() => htmlToImageConvert(exportRef.current)}>Downloag Image (JPG, 1080 x 1080)</button>
+                        </Col>
+                    </Row>
+                </Container>
+                </div>
             <div style={{height: '20px'}}/>
         </div>
     )

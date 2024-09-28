@@ -82,6 +82,14 @@ const replaceAll = function(str, strReplace, strWith) {
     return str.replace(reg, strWith);
 };
 
+export const getImageUri = (uri) => {
+    var result = uri
+    if (!dev) {
+        result = "/api/getImage?uri=" + uri;
+    }
+    return result
+}
+
 export const processIncomingDataEvents = (events) => {
     var dataItems = []
     events.map((data) => 
