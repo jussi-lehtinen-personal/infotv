@@ -89,52 +89,31 @@ const GameAds = (props) => {
 
         const fullHeight = Object.assign({}, styles.flex, { height: '100%' })
         const smallTextStyle = Object.assign({}, styles.flex, fullHeight, { fontSize: '40px' })
-        const infoTextPrimaryStyle = Object.assign({}, styles.flex, styles.textShadow, { color: 'orange', fontSize: '60px' })
+        const infoTextPrimaryStyle = Object.assign({}, styles.flex, styles.textShadow, { color: 'white', fontSize: '50px' })
         const infoTextSecondaryStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '50px' })
         const homeTeamStyle = Object.assign({}, styles.textHighlight, { 
             textAlign: 'center', 
             fontSize: '50px', 
             color: 'orange', 
-            justifyContent: 'center', 
-            textShadow: '0 0px 15px orange'
+            justifyContent: 'center'
         })
         const awayTeamStyle = Object.assign({}, styles.textShadow, { 
             textAlign: 'center', 
             fontSize: '50px', 
-            justifyContent: 'center',
-            textShadow: '0 0px 15px white'
+            justifyContent: 'center'
         })
 
         return (
             <Row style={{ 
                 padding:'10px',
                 margin: '10px 10px 10px 10px',
-                height: '250px'}}>
-                <div style={Object.assign({}, {width: '20%'})}>
-                    <div style={Object.assign({}, styles.boxShadow, {
-                            background: '#202020',
-                            boxShadow: '0px 3px 25px 10px #000000', 
-                            height: '100%'
-                        })}>
-                        <div className="col" style={{padding: '10%', height: '100%'}}>
-                            <div style={Object.assign({}, styles.textShadow, infoTextPrimaryStyle, {
-                                height: '50%',
-                            })}>{moment(data.date).format('dd D.M')}</div>
-                            <div style={Object.assign({}, styles.textShadow, infoTextSecondaryStyle, {
-                                height: '50%', 
-                            })}>{moment(data.date).format('HH:mm')}</div>
-                        </div>
-                    </div>
-                </div>
+                height: '240px'}}>
                 <div className="col" style={Object.assign({}, {width: '100%', height: '100%'})}>
                     <div className="row" style={Object.assign({}, {
                             display: 'flex', 
                             justifyContent: 'center', 
                             height: '70%'})}>
-                        <div style={Object.assign({}, componentStyles.logoContainer, {
-                            boxShadow: '0px 3px 15px 15px #000000', 
-                            height: '100%'
-                            })}>
+                        <div style={componentStyles.logoContainer}>
                             <img style={componentStyles.logo} src={data.home_logo} alt=""/>
                         </div>
                     </div>
@@ -145,18 +124,39 @@ const GameAds = (props) => {
                         <div style={homeTeamStyle}>{data.home}</div>
                     </div>
                 </div>
-                <Col xs={1} style={Object.assign({}, smallTextStyle, {aspectRatio: 1.0, borderRadius:'50%'})}>
-                <img style={{height: '75px'}} src={vs_img} alt=""/>
+                <Col xs={4} style={Object.assign({}, smallTextStyle, {aspectRatio: 1.0, borderRadius:'50%'})}>
+                <div>
+                    <div style={Object.assign({}, {height: '100%'})}>
+                        <div style={Object.assign({}, styles.boxShadow, {
+                                background: 'rgba(255, 165, 0, 0.8)'
+                            })}>
+                            <div className="col">
+                                <div style={Object.assign({}, styles.textShadow, infoTextPrimaryStyle)}>{moment(data.date).format('dd D.M')}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={Object.assign({}, styles.textShadow, infoTextSecondaryStyle, {
+                                    height: '50%', 
+                                })}>-</div>
+                    <div style={Object.assign({}, {width: '100%'})}>
+                        <div style={Object.assign({}, styles.boxShadow, {
+                                background: 'rgba(32, 32, 32, 0.9)',
+                                height: '80%'
+                            })}>
+                                <div style={Object.assign({}, styles.textShadow, infoTextSecondaryStyle, {
+                                    height: '50%', 
+                                })}>{moment(data.date).format('HH:mm')}
+                                </div>
+                        </div>
+                    </div>
+                </div>
                 </Col>
                 <div className="col" style={Object.assign({}, {width: '100%', height: '100%'})}>
                     <div className="row" style={Object.assign({}, {
                             display: 'flex', 
                             justifyContent: 'center', 
                             height: '70%'})}>
-                        <div style={Object.assign({}, componentStyles.logoContainer, {
-                            boxShadow: '0px 3px 15px 15px #000000', 
-                            height: '100%'
-                            })}>
+                        <div style={componentStyles.logoContainer}>
                             <img style={componentStyles.logo} src={data.away_logo} alt=""/>
                         </div>
                     </div>
@@ -206,13 +206,13 @@ const GameAds = (props) => {
                 height: "1080px",
                 width: "1080px",
                 background: `linear-gradient( rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 1.0) ), url(${bgImage})`,
-                backgroundSize: 'contain',
+                backgroundSize: 'cover',
                 backgroundColor: '#000000',
                 backgroundRepeat: 'no-repeat'}}>
                 <div style={Object.assign({}, styles.flex, {
                             width: '100%',
                             height: '50px',
-                            background: `black`
+                            background: `rgba(16, 16, 16, 0.5)`
                         })}>
                     <div style={Object.assign({}, styles.font, styles.flex, footerStyle)}>WWW.KIEKKO-AHMA.FI</div>
                 </div>
@@ -222,11 +222,11 @@ const GameAds = (props) => {
                         height: '100%'
                     })}>
 
-                    <div style={Object.assign({}, { height: '500px' })} />
+                    <div style={Object.assign({}, { height: '520px' })} />
                     <div style={Object.assign({}, { 
-                            height: '180px',
+                            height: '160px',
                             //background: "#0F0F0F"
-                            background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 1.0), rgba(32, 32, 32, 1.0) )` 
+                            background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 0.5), rgba(32, 32, 32, 0.5) )` 
                         })}>
                         <div style={Object.assign({}, { height: '15px' })}>
                             <div style={lineStyle}></div>
@@ -243,7 +243,7 @@ const GameAds = (props) => {
                     </div>
                     <div style={Object.assign({}, {
                             height: '300px',
-                            background: `linear-gradient( rgba(0, 0, 0, 0.8), rgba(32, 32, 32, 0.9) ), url(${metal_bg})`
+                            background: `linear-gradient( rgba(64, 64, 64, 0.0), rgba(0, 0, 0, 1.0) )`
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
                             <div style={{height: '20px'}} />
@@ -253,7 +253,7 @@ const GameAds = (props) => {
                     <div style={Object.assign({}, styles.flex, {
                             width: '100%',
                             height: '60px',
-                            background: `black`
+                            background: "#0F0F0F"
                         })}>
                         <div style={Object.assign({}, styles.flex, footerStyle)}>
                             <div hidden={state.match.isFree}>OTTELU PELATAAN WAREENASSA | LIPUT 5 EUR | ALLE 15V. ILMAISEKSI SISÄÄN</div>

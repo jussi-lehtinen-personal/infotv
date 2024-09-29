@@ -152,12 +152,11 @@ const Ads = (props) => {
                         height: '100%'
                     })}>
                     <div style={Object.assign({}, styles.flex, {
-                        height: '128px',
+                        height: '108px',
                         background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 1.0), rgba(32, 32, 32, 1.0) )` 
                         })}>
                         <div>
-                            <div style={Object.assign({}, titleTextStyle)}>KOTIOTTELUT WAREENASSA</div>
-                            <div style={Object.assign({}, titleText2Style)}>{week}</div>
+                            <div style={Object.assign({}, titleTextStyle)}>KOTIOTTELUT TÄLLÄ VIIKOLLA</div>
                         </div>
                     </div>
                     <div style={Object.assign({}, styles.flex, {
@@ -166,12 +165,11 @@ const Ads = (props) => {
                         <div style={lineStyle}></div>
                     </div>
                     <div style={Object.assign({}, {
-                            minHeight: '900px',
-                            backgroundSize: 'contain',
-                            backgroundRepeat: 'no-repeat',
-                            background: `linear-gradient( rgba(16, 16, 16, 0.8), rgba(64, 64, 64, 0.8) ), url(${metal_bg})`
+                            minHeight: '920px',
+                            background: `linear-gradient( rgba(24, 24, 24, 1.0), rgba(64, 64, 64, 1.0) )`
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
+                            <div style={Object.assign({}, styles.flex, {height: '20px'})} />
                             <GamesList/>
                         </div>
                     </div>

@@ -1,4 +1,18 @@
 {
+    "routes": [
+        {
+            "route": "/api/getImage/*",
+            "headers": {
+              "Cache-Control": "public, max-age=604800, immutable"
+            }
+        },
+        {
+            "route": "/api/getGames/*",
+            "headers": {
+              "Cache-Control": "public, max-age=3600, immutable"
+            }
+        }
+    ],
     "navigationFallback": {
        "rewrite": "index.html",
        "exclude": ["/static/media/*.{png,jpg,jpeg,gif,bmp}",   "/static/css/*"]
