@@ -27,9 +27,6 @@ var backgrounds = [
 
 const randomBackground = Math.floor(Math.random() * backgrounds.length)
 
-var metal_bg = '/metal_grid_bg.jpg'
-var vs_img = '/vs.png'
-
 var moment = require('moment');
 moment.locale('fi')
 
@@ -137,7 +134,7 @@ const GameAds = (props) => {
                     </div>
                     <div style={Object.assign({}, styles.textShadow, infoTextSecondaryStyle, {
                                     height: '50%', 
-                                })}>-</div>
+                                })}>-   </div>
                     <div style={Object.assign({}, {width: '100%'})}>
                         <div style={Object.assign({}, styles.boxShadow, {
                                 background: 'rgba(32, 32, 32, 0.9)',

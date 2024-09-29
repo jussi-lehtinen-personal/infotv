@@ -5,7 +5,6 @@ import {Row, Col, Container } from 'react-bootstrap';
 import { useParams, useNavigate } from "react-router-dom";
 import { 
     getMockGameData,
-    getMonday,
     DateBox, 
     styles,
     componentStyles,
@@ -17,8 +16,6 @@ import {
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
-
-var metal_bg = '/metal_grid_bg2.jpg'
 
 var moment = require('moment');
 moment.locale('fi')
@@ -113,28 +110,12 @@ const Ads = (props) => {
 
     const Content = () => {
         const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '60px', fontSize: '60px'})
-        const titleText2Style = Object.assign({}, styles.flex, styles.textShadow, {color: 'orange', height: '45px', fontSize: '45px'})
         const lineStyle = Object.assign({}, styles.boxShadow, {
             height: '5px', 
             width: '100%',
             boxShadow: '0px 8px 10px 5px #000000',
             background: `radial-gradient( white, orange, black )`, 
         })
-
-        // Define the layout configuration for each grid item
-        var now = new Date()
-        if (query.date) {
-            now = new Date(query.date)
-        }
-
-        const startOfWeek = getMonday(now)
-        const endOfWeek = new Date(startOfWeek)
-        endOfWeek.setDate(endOfWeek.getDate() + 6)
-
-        const start = moment(startOfWeek).format('D.M')
-        const end = moment(endOfWeek).format('D.M')
-
-        const week = start + ' - ' + end
 
         const footerStyle = Object.assign({}, {
             fontSize: '30px',
