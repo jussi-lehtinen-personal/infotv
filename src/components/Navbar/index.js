@@ -26,6 +26,11 @@ const Navbar = () => {
                     </Link>
                 </li>
                 <li>
+                    <Link to={"/current_game"}>
+                        Käynnissä olevat pelitapahtumat
+                    </Link>
+                </li>
+                <li>
                     <Link to={"/ads"}>
                         SoMe mainokset
                     </Link>

@@ -75,11 +75,18 @@ app.http('getGames', {
                             if (game.RinkName.includes('Valkeakoski')) {
                                 if (game.HomeTeamAbbrv.includes('Kiekko-Ahma') || game.AwayTeamAbbrv.includes('Kiekko-Ahma')) {
                                     matches.push({
+                                        id: game.GameId,
                                         date: game.GameDateDB + ' ' + game.GameTime,
+                                        league: game.StatGroupName,
+                                        periods: game.PeriodSummary,
                                         home: game.HomeTeamAbbrv,
                                         home_logo: imageUri + game.HomeImg,
+                                        home_goals: game.HomeGoals,                                        
                                         away: game.AwayTeamAbbrv,
                                         away_logo: imageUri + game.AwayImg,
+                                        away_goals: game.AwayGoals,
+                                        period: game.GameStatus,
+                                        finished: game.FinishedType,
                                         rink: game.RinkName,
                                         level: level.LevelName
                                     })
