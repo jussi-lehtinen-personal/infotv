@@ -17,8 +17,6 @@ import {
 import "@fontsource/bebas-neue"; // Defaults to weight 400
 import 'moment/locale/fi'  // without this line it didn't work
 
-var background = '/background.jpg'  
-
 var moment = require('moment');
 moment.locale('fi')
 
@@ -60,7 +58,7 @@ const ThisWeek = (props) => {
 
       const gamesListLandscape = state.matches.map((data, index) => {
 
-        const fullHeight = Object.assign({},{ height: '6vw', width:'100%' })
+        const fullHeight = Object.assign({},{ height: '5.5vw', width:'100%' })
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw', color: '#000000ff' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '2vw', justifyContent: 'start', color: '#000000ff' })
         const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '2vw', color: 'orange', justifyContent: 'end' })
@@ -77,10 +75,10 @@ const ThisWeek = (props) => {
                 <Row key={index} style={{
                     paddingTop: '10px',
                     paddingBottom: '10px',
-                    height: '6vw',
+                    height: '5.5vw',
                     }}>
-                    <Col xs='auto' style={normalTextStyle}>{moment(data.date).format('dd D.M')}</Col>
-                    <Col xs='auto' style={highlightTextStyle}>{moment(data.date).format('HH:mm')}</Col>
+                    <Col xs={1} style={normalTextStyle}>{moment(data.date).format('dd D.M')}</Col>
+                    <Col xs="auto" style={highlightTextStyle}>{moment(data.date).format('HH:mm')}</Col>
 
                     <Col xs={3} style={Object.assign({}, highlightTextStyle)}>{data.home}</Col>
                     <Col xs='auto' style={{height: '100%'}}>
@@ -106,8 +104,8 @@ const ThisWeek = (props) => {
                             <img style={componentStyles.logo} src={data.away_logo} alt=""/>
                         </div>
                     </Col>
-                    <Col style={Object.assign({}, normalTextStyle)}>{data.away}</Col>
-                    <Col xs={2} style={levelTextStyle}>{data.level}</Col>
+                    <Col xs={3} style={Object.assign({}, normalTextStyle)}>{data.away}</Col>
+                    <Col xs="auto" style={levelTextStyle}>{data.level}</Col>
                 </Row>
                 <div style={lineStyle}></div>
             </div>

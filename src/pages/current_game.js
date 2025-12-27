@@ -2,7 +2,7 @@
 
 import {React, useState, useEffect} from "react";
 import Container from 'react-bootstrap/Container';
-import {Row, Col } from 'react-bootstrap';
+import {Col } from 'react-bootstrap';
 import { useParams } from "react-router-dom";
 import { 
     getMockGameData,
