@@ -99,6 +99,7 @@ export const processIncomingDataEvents = (events) => {
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
         //data.level = replaceAll(data.level, 'U11 sarja', 'U11')
         //data.level = replaceAll(data.level, 'U12 sarja', 'U12')
+        data.level = replaceAll(data.level, 'Harjoitusottelut', 'Harj.')
         data.level = replaceAll(data.level, 'Divisioona', 'Div')
         data.isFree = data.level !== 'II-divisioona'
         return dataItems.push(data) 
