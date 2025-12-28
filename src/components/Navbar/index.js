@@ -26,6 +26,11 @@ const Navbar = () => {
                     </Link>
                 </li>
                 <li>
+                    <Link to={"/week/" + getUpcomingWeek(-1)}>
+                    Viime viikon tulokset (-1 viikko)
+                    </Link>
+                </li>
+                <li>
                     <Link to={"/current_game"}>
                         Käynnissä olevat pelitapahtumat
                     </Link>
@@ -37,7 +42,7 @@ const Navbar = () => {
                 </li>
             </ul>
 
-            <h4>Tulevat ottelut</h4>
+            <h4>Tulevat Ottelut</h4>
             <ul>
                 <li>
                     <Link to={"/week/" + getUpcomingWeek(1)}>

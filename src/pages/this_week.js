@@ -120,9 +120,8 @@ const ThisWeek = (props) => {
             background: `radial-gradient( orange, orange, orange )`
             })
 
-        // Define the layout configuration for each grid item
         var now = new Date()
-        if (query.date) {
+        if (query.date) {            
             now = new Date(query.date)
         }
 
@@ -136,7 +135,16 @@ const ThisWeek = (props) => {
         const end = moment(endOfWeek).format('D.M')
 
         const week = start + ' - ' + end
-        const title = query.date ? "TULEVAT KOTIOTTELUT (" + week + ")" : "KOTIOTTELUT TÄLLÄ VIIKOLLA"
+
+        // Determine date range
+        var title = "KOTIOTTELUT TÄLLÄ VIIKOLLA"
+        
+        const currentWeekMonday = getMonday(new Date())
+        if (startOfWeek < currentWeekMonday) {
+            title = "PELATUT KOTIOTTELUT (" + week + ")"
+        } else if (query.date) {
+            title = "TULEVAT KOTIOTTELUT (" + week + ")"
+        }
 
         return (
             <div style={{height: "100vh", background: "#ffffffff" }}>
