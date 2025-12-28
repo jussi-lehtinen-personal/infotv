@@ -63,17 +63,22 @@ const Ads = (props) => {
       const gamesList = state.matches.map((data, index) => {
 
         const fullHeight = Object.assign({}, styles.flex, { height: '100%' })
-        const smallTextStyle = Object.assign({}, styles.flex, fullHeight, { fontSize: '20px' })
+        const smallTextStyle = Object.assign({}, styles.flex, fullHeight, { fontSize: '20px', color: '#000000' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { fontSize: '30px' })
         const homeTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textHighlight, { textAlign: 'center', fontSize: '30px', color: 'orange', justifyContent: 'center'})
-        const awayTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textShadow, {  textAlign: 'center', fontSize: '30px', justifyContent: 'center'})
-        const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'center', textAlign: 'center'})
+        const awayTeamStyle = Object.assign({}, styles.flex, fullHeight, styles.textShadow, {  textAlign: 'center', fontSize: '30px', color: '#000000', justifyContent: 'center'})
+        const levelTextStyle = Object.assign({}, normalTextStyle, { justifyContent: 'center', textAlign: 'center', color: '#000000'})
+
+        const lineStyle = Object.assign({}, {
+            height: '3px', 
+            width: '100%', 
+            background: '#f0f0f0ff'})
 
         return (
             <div style={{fullHeight}} onClick={() => {navigate(getAdsUri(index, data))}}>
             <Row key={index} style={{ 
                 padding:'12px',
-                height: '128px'}}>
+                height: '125px'}}>
                 <Col xs={2} style={{justifyContent: 'center', height: '100%'}}>
                         <DateBox date={data.date}/>
                     </Col>
@@ -96,6 +101,7 @@ const Ads = (props) => {
                     </Col>
                     <Col xs={2} style={levelTextStyle}>{data.level}</Col>
                 </Row>
+                <div style={lineStyle}></div>
             </div>
         )
     })
@@ -109,12 +115,11 @@ const Ads = (props) => {
     }    
 
     const Content = () => {
-        const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '60px', fontSize: '60px'})
+        const titleTextStyle = Object.assign({}, styles.flex, styles.textShadow, {height: '60px', fontSize: '60px', color: '#000000' })
         const lineStyle = Object.assign({}, styles.boxShadow, {
             height: '5px', 
             width: '100%',
-            boxShadow: '0px 8px 10px 5px #000000',
-            background: `radial-gradient( white, orange, black )`, 
+            background: `radial-gradient( orange, orange, orange )`, 
         })
 
         const footerStyle = Object.assign({}, {
@@ -134,7 +139,7 @@ const Ads = (props) => {
                     })}>
                     <div style={Object.assign({}, styles.flex, {
                         height: '108px',
-                        background: `linear-gradient( rgba(32, 32, 32, 1.0), rgba(48, 48, 48, 1.0), rgba(32, 32, 32, 1.0) )` 
+                        background: '#ffffff' 
                         })}>
                         <div>
                             <div style={Object.assign({}, titleTextStyle)}>KOTIOTTELUT TÄLLÄ VIIKOLLA</div>
@@ -147,7 +152,7 @@ const Ads = (props) => {
                     </div>
                     <div style={Object.assign({}, {
                             minHeight: '920px',
-                            background: `linear-gradient( rgba(24, 24, 24, 1.0), rgba(64, 64, 64, 1.0) )`
+                            background: '#ffffff' 
                         })}>
                         <div style={Object.assign({}, {width: '100%'})}>
                             <div style={Object.assign({}, styles.flex, {height: '20px'})} />

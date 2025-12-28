@@ -166,14 +166,13 @@ export const DateBox = ({date}) => {
         aspectRatio: 1.0,
         height: '100%',
         borderRadius: '0px',
-        boxShadow: '0px 5px 15px #000000', 
-        background: "orange",
+        background: "white",
         justifyContent: 'center', 
         alignItems: 'center'
     })
 
-    const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px -10px 0px -10px', color: 'white', fontSize: '30px' })        
-    const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '-0px 0px 0px 0px', color: 'white', fontSize: '25px'})
+    const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px -10px 0px -10px', color: 'black', fontSize: '30px' })        
+    const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '-0px 0px 0px 0px', color: 'orange', fontSize: '25px'})
 
     return (
         <Ratio style={dateBoxStyle}>
