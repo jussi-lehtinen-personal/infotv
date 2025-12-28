@@ -139,11 +139,13 @@ const ThisWeek = (props) => {
         // Determine date range
         var title = "KOTIOTTELUT TÄLLÄ VIIKOLLA"
         
-        const currentWeekMonday = getMonday(new Date())
-        if (startOfWeek < currentWeekMonday) {
-            title = "PELATUT KOTIOTTELUT (" + week + ")"
-        } else if (query.date) {
-            title = "TULEVAT KOTIOTTELUT (" + week + ")"
+        if (query.date) {
+            const currentWeekMonday = getMonday(new Date())
+            if (startOfWeek < currentWeekMonday) {
+                title = "PELATUT KOTIOTTELUT (" + week + ")"
+            } else {
+                title = "TULEVAT KOTIOTTELUT (" + week + ")"
+            }
         }
 
         return (
