@@ -43,6 +43,18 @@ export const componentStyles = {
         }
     ),
 
+    roundLogoContainer: Object.assign({}, 
+        { 
+            aspectRatio: 1.0, 
+            backgroundColor: 'white', 
+            padding: '10px', 
+            borderRadius: '50%',
+            height: '100%',
+            overflow: 'hidden', 
+            objectFit: 'contain' 
+        }
+    ),
+
     logo: Object.assign({}, 
         { 
             aspectRatio: 1.0, 

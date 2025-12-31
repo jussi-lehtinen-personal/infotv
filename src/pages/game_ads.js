@@ -110,7 +110,7 @@ const GameAds = (props) => {
                             display: 'flex', 
                             justifyContent: 'center', 
                             height: '70%'})}>
-                        <div style={componentStyles.logoContainer}>
+                        <div style={componentStyles.roundLogoContainer}>
                             <img style={componentStyles.logo} src={data.home_logo} alt=""/>
                         </div>
                     </div>
@@ -153,7 +153,7 @@ const GameAds = (props) => {
                             display: 'flex', 
                             justifyContent: 'center', 
                             height: '70%'})}>
-                        <div style={componentStyles.logoContainer}>
+                        <div style={componentStyles.roundLogoContainer}>
                             <img style={componentStyles.logo} src={data.away_logo} alt=""/>
                         </div>
                     </div>
