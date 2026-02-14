@@ -159,7 +159,7 @@ const ThisWeek = () => {
     <div className="tw-root">
       <style>{css}</style>
 
-      <Container className="tw-container">
+      <Container fluid className="tw-container">
         <div className="tw-topbar">
           <div className="tw-title">{header.title}</div>
         </div>
@@ -196,21 +196,19 @@ function MatchRow({ match, onClick }) {
     <div className="tw-row" onClick={onClick} role="button" tabIndex={0}>
       <div className="tw-time">{timeStr}</div>
 
-      <div className="tw-teams">
+        <div className="tw-mid">
         <div className="tw-teamline">
-          <img className="tw-logo" src={match.home_logo} alt="" />
-          <span className="tw-teamname">{match.home}</span>
+            <img className="tw-logo" src={match.home_logo} alt="" />
+            <span className="tw-teamname">{match.home}</span>
         </div>
-        <div className="tw-teamline">
-          <img className="tw-logo" src={match.away_logo} alt="" />
-          <span className="tw-teamname">{match.away}</span>
-        </div>
-      </div>
-
-      <div className="tw-goalcol">
         <div className="tw-goal">{homeGoals}</div>
+
+        <div className="tw-teamline">
+            <img className="tw-logo" src={match.away_logo} alt="" />
+            <span className="tw-teamname">{match.away}</span>
+        </div>
         <div className="tw-goal">{awayGoals}</div>
-      </div>
+        </div>
 
       <div className={statusClass}>{status}</div>
     </div>
@@ -232,13 +230,16 @@ function simplifyLevel(level) {
 
 const css = `
 .tw-root{
-  background:#f6f7f9;
   min-height:100vh;
-  color:#0f172a;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255,180,80,0.25), transparent 60%),
+    linear-gradient(135deg, #d97706 0%, #7c2d12 100%);
 }
 
 .tw-container{
-  padding: 14px 12px;
+  max-width: none !important;   /* ohita bootstrapin max-width */
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
 /* Top bar (compact, TV-safe) */
@@ -246,34 +247,33 @@ const css = `
   position: sticky;
   top: 0;
   z-index: 5;
-  background: linear-gradient(#f6f7f9 70%, rgba(246,247,249,0));
-  padding-top: 6px;
-  margin-bottom: 8px;
-}
+  padding-top: 12px;
+  margin-bottom: 12px;
+}  
 .tw-title{
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: 0.2px;
-  font-size: clamp(16px, 1.6vw, 24px);
   line-height: 1.15;
   padding: 8px 10px;
   border-radius: 12px;
-  background: #ffffff;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  background:#fffaf5;
+  font-size: clamp(18px, 1.8vw, 32px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
 
 /* List blocks (default = one column) */
 .tw-list{
   display:flex;
   flex-direction:column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* Two column layout for InfoTV landscape (when enabled in JS) */
 .tw-twoCol{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 28px;
   align-items:start;
 }
 
@@ -284,16 +284,27 @@ const css = `
   gap: 10px;
 }
 
+.tw-mid{
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 36px;  /* name area | goals */
+  grid-template-rows: auto auto;    /* 2 rows */
+  column-gap: 8px;
+  row-gap: 6px;                     /* sama väli kuin ennen team-gap */
+  align-items: center;
+}
+
 /* Day header like Flashscore section */
 .tw-dayheader{
   display:flex;
   align-items:center;
   gap:8px;
   padding: 8px 10px;
-  font-weight: 650;
-  font-size: clamp(13px, 1.2vw, 18px);
-  color:#334155;
+  font-size: clamp(18px, 1.6vw, 24px);
+  color: #ffffff;
+  font-weight: 500;
 }
+
 .tw-dayheader-date{
   opacity:0.9;
 }
@@ -302,40 +313,31 @@ const css = `
 .tw-row{
   display:grid;
   grid-template-columns:
-    clamp(50px, 6vw, 80px)  /* time */
-    1fr                     /* teams */
-    36px                    /* goals (kapea, lähellä nimiä) */
-    minmax(90px, 14vw);     /* level */
+    clamp(50px, 6vw, 80px)
+    1fr
+    0.2fr
+    auto;
   gap: 6px;
   align-items:center;
 
   padding: 10px 10px;
-  background:#fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   margin-bottom: clamp(4px, 0.6vw, 10px);
 
   cursor:pointer;
   user-select:none;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-}
-
-.tw-goalcol{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-end;      /* oikealle linjaan */
-  justify-content:center;
-  gap: 4px;
+  background:#fffaf5;  /* lämmin valkoinen */
+  box-shadow: 0 10px 28px rgba(0,0,0,0.25);
 }
 
 .tw-goal{
-  width: 36px;
-  text-align:right;
-  font-weight: 1000;
+  text-align: right;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(12px, 1.35vw, 18px);
+  font-size: clamp(16px, 1.5vw, 22px);
   color:#0f172a;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .tw-row:hover{
@@ -344,7 +346,7 @@ const css = `
 
 .tw-time{
   font-weight: 900;
-  font-size: clamp(12px, 1.3vw, 18px);
+  font-size: clamp(16px, 1.5vw, 22px);
   color:#334155;
   text-align:left;
 }
@@ -365,8 +367,8 @@ const css = `
 }
 
 .tw-logo{
-  height: clamp(14px, 2.2vw, 22px);
-  width:  clamp(14px, 2.2vw, 22px);
+  height: clamp(16px, 2.4vw, 28px);
+  width:  clamp(16px, 2.4vw, 28px);
   object-fit: contain;
 }
 
@@ -377,7 +379,7 @@ const css = `
   white-space: nowrap;
 
   font-weight: 650;
-  font-size: clamp(12px, 1.35vw, 18px);
+  font-size: clamp(16px, 1.5vw, 22px);
   color:#0f172a;
 
   text-transform: uppercase;
@@ -394,9 +396,9 @@ const css = `
 /* Status / level */
 .tw-status{
   justify-self:end;
-  font-weight: 900;
-  font-size: clamp(10px, 1.1vw, 14px);
-  color:#94a3b8;
+  font-weight: 750;
+  font-size: clamp(16px, 1.5vw, 22px);
+  color: #1f29378f;
   text-align:right;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -407,7 +409,7 @@ const css = `
 
 @media (max-width: 380px){
   .tw-row{
-    grid-template-columns: 40px 1fr 28px 0px; /* level pois */
+    grid-template-columns: 40px 1fr 0px 0px; /* level pois */
     gap: 6px;
   }
   .tw-status{ display:none; }
@@ -433,14 +435,23 @@ const css = `
   .tw-row{
     grid-template-columns:
       80px      /* time */
-      1fr       /* teams */
-      32px      /* goals */
-      0.6fr       /* spacer */
+      0.6fr       /* teams */
+      1fr       /* spacer */
       auto
   }
-  .tw-logo{
-    height: 22px;
-    width: 22px;
+
+  /* TWO COLUMN MODE */
+  .tw-twoCol .tw-row{
+    grid-template-columns:
+      70px      /* time vähän pienempi */
+      1fr
+      0.25fr    /* spacer pienempi */
+      auto;
+  }
+
+  .tw-container{
+    padding-left: 48px;
+    padding-right: 48px;
   }
 }
 `;
