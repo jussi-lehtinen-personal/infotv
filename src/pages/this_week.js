@@ -186,17 +186,11 @@ export default ThisWeek;
 function MatchRow({ match, onClick }) {
   const timeStr = moment(match.date).format("HH:mm");
 
-  const scoreStr = match.finished
-    ? `${match.home_goals ?? ""}-${match.away_goals ?? ""}`
-    : "";
-
-  const shortLevel =
-    window.innerWidth < 420 && match.level?.length > 12
-      ? match.level.slice(0, 12) + "…"
-      : match.level;
-
-  const status = simplifyLevel(shortLevel);
+  const status = simplifyLevel(match.level ?? "");
   const statusClass = "tw-status";
+
+  const homeGoals = match.finished ? (match.home_goals ?? "") : "";
+  const awayGoals = match.finished ? (match.away_goals ?? "") : "";
 
   return (
     <div className="tw-row" onClick={onClick} role="button" tabIndex={0}>
@@ -213,7 +207,10 @@ function MatchRow({ match, onClick }) {
         </div>
       </div>
 
-      <div className="tw-score">{scoreStr}</div>
+      <div className="tw-goalcol">
+        <div className="tw-goal">{homeGoals}</div>
+        <div className="tw-goal">{awayGoals}</div>
+      </div>
 
       <div className={statusClass}>{status}</div>
     </div>
@@ -305,11 +302,11 @@ const css = `
 .tw-row{
   display:grid;
   grid-template-columns:
-    clamp(50px, 6vw, 80px)
-    1fr
-    clamp(60px, 2vw, 100px)
-    minmax(100px, 0.9vw);
-  gap: 10px;
+    clamp(50px, 6vw, 80px)  /* time */
+    1fr                     /* teams */
+    36px                    /* goals (kapea, lähellä nimiä) */
+    minmax(90px, 14vw);     /* level */
+  gap: 6px;
   align-items:center;
 
   padding: 10px 10px;
@@ -323,6 +320,24 @@ const css = `
   box-shadow: 0 2px 10px rgba(0,0,0,0.03);
 }
 
+.tw-goalcol{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;      /* oikealle linjaan */
+  justify-content:center;
+  gap: 4px;
+}
+
+.tw-goal{
+  width: 36px;
+  text-align:right;
+  font-weight: 1000;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(12px, 1.35vw, 18px);
+  color:#0f172a;
+  line-height: 1.1;
+}
+
 .tw-row:hover{
   box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }
@@ -334,14 +349,6 @@ const css = `
   text-align:left;
 }
 
-.tw-score{
-  font-weight: 1000;
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(12px, 1.6vw, 20px);
-  text-align:center;
-  color:#0f172a;
-}
-
 /* Teams block */
 .tw-teams{
   min-width: 0;
@@ -351,24 +358,23 @@ const css = `
 }
 
 .tw-teamline{
-  min-width:0;
-  display:flex;
-  align-items:center;
+  display: flex;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .tw-logo{
-  flex: 0 0 auto;
-  height: clamp(14px, 2.2vw, 20px);
-  width: clamp(14px, 2.2vw, 20px);
+  height: clamp(14px, 2.2vw, 22px);
+  width:  clamp(14px, 2.2vw, 22px);
   object-fit: contain;
 }
 
 .tw-teamname{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   font-weight: 650;
   font-size: clamp(12px, 1.35vw, 18px);
@@ -377,6 +383,8 @@ const css = `
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
+
+
 
 /* Kotijoukkue = ensimmäinen teamline */
 .tw-teamline:first-child .tw-teamname{
@@ -397,25 +405,38 @@ const css = `
   line-height: 1.1;
 }
 
-/* Narrow: hide status completely */
 @media (max-width: 380px){
   .tw-row{
-    grid-template-columns:
-      44px
-      1fr
-      52px
-      0px;
+    grid-template-columns: 40px 1fr 28px 0px; /* level pois */
+    gap: 6px;
   }
-  .tw-status{
-    display:none;
+  .tw-status{ display:none; }
+
+  .tw-logo{
+    height: 16px;
+    width: 16px;
   }
+
+  .tw-teamname{
+    font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+
+  .tw-goal{ width: 28px; font-size: 12px; }
 }
 
+
+
+
 /* Very big screens (InfoTV): slightly larger */
-@media (min-width: 1600px){
+@media (min-width: 1000px){
   .tw-row{
-    padding: 14px 14px;
-    border-radius: 14px;
+    grid-template-columns:
+      80px      /* time */
+      1fr       /* teams */
+      32px      /* goals */
+      0.6fr       /* spacer */
+      auto
   }
   .tw-logo{
     height: 22px;
