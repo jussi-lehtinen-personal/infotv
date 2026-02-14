@@ -19,6 +19,28 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function useViewport() {
+  const get = () => ({
+    w: window.innerWidth,
+    h: window.innerHeight,
+  });
+
+  const [v, setV] = React.useState(get);
+
+  React.useEffect(() => {
+    const onChange = () => setV(get());
+    window.addEventListener("resize", onChange);
+    window.addEventListener("orientationchange", onChange);
+    return () => {
+      window.removeEventListener("resize", onChange);
+      window.removeEventListener("orientationchange", onChange);
+    };
+  }, []);
+
+  return v;
+}
+
+
 const ThisWeek = () => {
   const navigate = useNavigate();
   const { timestamp } = useParams();
@@ -34,30 +56,29 @@ const ThisWeek = () => {
       .catch(() => setMatches(processIncomingDataEvents(getMockGameData())));
   }, [timestamp]);
 
-  // Title / date range (kevyesti, ei vie tilaa)
-const header = useMemo(() => {
-  const now = timestamp ? new Date(timestamp) : new Date();
+  // Header title based on week relation
+  const header = useMemo(() => {
+    const now = timestamp ? new Date(timestamp) : new Date();
 
-  const selectedWeekStart = getMonday(now);
-  const currentWeekStart = getMonday(new Date());
+    const selectedWeekStart = getMonday(now);
+    const currentWeekStart = getMonday(new Date());
 
-  const selected = moment(selectedWeekStart);
-  const current = moment(currentWeekStart);
+    const selected = moment(selectedWeekStart);
+    const current = moment(currentWeekStart);
 
-  let title;
+    let title;
+    if (selected.isSame(current, "day")) {
+      title = "TÄMÄN VIIKON KOTIOTTELUT";
+    } else if (selected.isAfter(current)) {
+      title = "TULEVAT KOTIOTTELUT";
+    } else {
+      title = "PELATUT KOTIOTTELUT";
+    }
 
-  if (selected.isSame(current, "day")) {
-    title = "TÄMÄN VIIKON KOTIOTTELUT";
-  } else if (selected.isAfter(current)) {
-    title = "TULEVAT KOTIOTTELUT";
-  } else {
-    title = "PELATUT KOTIOTTELUT";
-  }
+    return { title };
+  }, [timestamp]);
 
-  return { title };
-}, [timestamp]);
-
-  // Optional: group by day like Flashscore sections (compact)
+  // Group by day like Flashscore sections (compact)
   const groups = useMemo(() => {
     const map = new Map();
     for (const m of matches) {
@@ -65,14 +86,74 @@ const header = useMemo(() => {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(m);
     }
-    // sort days
+
     const days = Array.from(map.keys()).sort((a, b) => (a < b ? -1 : 1));
-    // sort matches inside day by time
     for (const day of days) {
       map.get(day).sort((a, b) => new Date(a.date) - new Date(b.date));
     }
+
     return days.map((day) => ({ day, items: map.get(day) }));
   }, [matches]);
+
+  const totalGames = useMemo(
+    () => groups.reduce((sum, g) => sum + (g.items?.length ?? 0), 0),
+    [groups]
+  );
+
+    const { w, h } = useViewport();
+    const isLandscape = w >= h;
+
+    // 2-col jos: landscape + riittävän leveä + pelejä > 7
+    const twoCol = isLandscape && w >= 1000 && totalGames > 7;
+
+  const { leftGroups, rightGroups } = useMemo(() => {
+    if (!twoCol) return { leftGroups: groups, rightGroups: [] };
+
+    // Split by cumulative match count (keep day blocks intact)
+    const target = Math.ceil(totalGames / 2);
+
+    const left = [];
+    const right = [];
+
+    let count = 0;
+    for (const g of groups) {
+      const nextCount = count + (g.items?.length ?? 0);
+
+      if (left.length === 0 || nextCount <= target) {
+        left.push(g);
+        count = nextCount;
+      } else {
+        right.push(g);
+      }
+    }
+
+    // edge case: if right ends empty (e.g. one huge day), force split by day count
+    if (right.length === 0 && left.length > 1) {
+      const mid = Math.ceil(left.length / 2);
+      return { leftGroups: left.slice(0, mid), rightGroups: left.slice(mid) };
+    }
+
+    return { leftGroups: left, rightGroups: right };
+  }, [twoCol, groups, totalGames]);
+
+  const renderDayBlock = (g) => (
+    <div key={g.day} className="tw-dayblock">
+      <div className="tw-dayheader">
+        <span className="tw-dayheader-date">
+          <strong>{capitalize(moment(g.day).format("dddd"))}</strong>{" "}
+          <span>{moment(g.day).format("D.M")}</span>
+        </span>
+      </div>
+
+      {g.items.map((m, idx) => (
+        <MatchRow
+          key={`${g.day}-${idx}`}
+          match={m}
+          onClick={() => navigate(getAdsUri(idx, m))}
+        />
+      ))}
+    </div>
+  );
 
   return (
     <div className="tw-root">
@@ -83,28 +164,14 @@ const header = useMemo(() => {
           <div className="tw-title">{header.title}</div>
         </div>
 
-        <div className="tw-list">
-          {groups.map((g) => (
-            <div key={g.day} className="tw-dayblock">
-              <div className="tw-dayheader">
-                <span className="tw-dayheader-date">
-                    <strong>{capitalize(moment(g.day).format("dddd"))}</strong>{" "}
-                    <span>
-                        {moment(g.day).format("D.M")}
-                    </span>
-                </span>
-              </div>
+        {!twoCol && <div className="tw-list">{groups.map(renderDayBlock)}</div>}
 
-              {g.items.map((m, idx) => (
-                <MatchRow
-                  key={`${g.day}-${idx}`}
-                  match={m}
-                  onClick={() => navigate(getAdsUri(idx, m))}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
+        {twoCol && (
+          <div className="tw-list tw-twoCol">
+            <div className="tw-col">{leftGroups.map(renderDayBlock)}</div>
+            <div className="tw-col">{rightGroups.map(renderDayBlock)}</div>
+          </div>
+        )}
       </Container>
     </div>
   );
@@ -119,19 +186,17 @@ export default ThisWeek;
 function MatchRow({ match, onClick }) {
   const timeStr = moment(match.date).format("HH:mm");
 
-  // Score display
-    const scoreStr = match.finished
+  const scoreStr = match.finished
     ? `${match.home_goals ?? ""}-${match.away_goals ?? ""}`
     : "";
 
-  // Status badge: you can tweak logic if you have "live" field later
-    const shortLevel =
+  const shortLevel =
     window.innerWidth < 420 && match.level?.length > 12
-        ? match.level.slice(0, 12) + "…"
-        : match.level;
+      ? match.level.slice(0, 12) + "…"
+      : match.level;
 
-    const status = shortLevel;
-    const statusClass = "tw-status";
+  const status = simplifyLevel(shortLevel);
+  const statusClass = "tw-status";
 
   return (
     <div className="tw-row" onClick={onClick} role="button" tabIndex={0}>
@@ -153,6 +218,15 @@ function MatchRow({ match, onClick }) {
       <div className={statusClass}>{status}</div>
     </div>
   );
+}
+
+// If level starts with Uxx -> show only Uxx (e.g. "U16 AAA SM" -> "U16")
+function simplifyLevel(level) {
+  if (!level) return "";
+  const s = String(level).trim();
+  const m = s.match(/^u\s*(\d{1,2})\b/i);
+  if (m) return `U${m[1]}`;
+  return s;
 }
 
 /* ============================= */
@@ -191,8 +265,23 @@ const css = `
   box-shadow: 0 2px 10px rgba(0,0,0,0.04);
 }
 
-/* List blocks */
+/* List blocks (default = one column) */
 .tw-list{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+}
+
+/* Two column layout for InfoTV landscape (when enabled in JS) */
+.tw-twoCol{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items:start;
+}
+
+/* Each column is a vertical stack */
+.tw-col{
   display:flex;
   flex-direction:column;
   gap: 10px;
@@ -212,7 +301,7 @@ const css = `
   opacity:0.9;
 }
 
-/* The row: single universal grid, responsive via clamp + overflow rules */
+/* Row grid */
 .tw-row{
   display:grid;
   grid-template-columns:
@@ -253,9 +342,9 @@ const css = `
   color:#0f172a;
 }
 
-/* Teams block (2 lines + tiny level line if space) */
+/* Teams block */
 .tw-teams{
-  min-width: 0; /* enables ellipsis */
+  min-width: 0;
   display:flex;
   flex-direction:column;
   gap: 4px;
@@ -291,14 +380,10 @@ const css = `
 
 /* Kotijoukkue = ensimmäinen teamline */
 .tw-teamline:first-child .tw-teamname{
-  color: #f59e0b;  /* Ahma-oranssi */
+  color: #f59e0b;
 }
 
-
-/* Level: show only when there is room (desktop/TV).
-   On mobile it stays hidden -> less clutter. */
-
-/* Status */
+/* Status / level */
 .tw-status{
   justify-self:end;
   font-weight: 900;
@@ -307,9 +392,12 @@ const css = `
   text-align:right;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+
+  /* if it wraps, keep it centered-ish vertically */
+  line-height: 1.1;
 }
 
-/* If really narrow screen, drop status column visually by shrinking it */
+/* Narrow: hide status completely */
 @media (max-width: 380px){
   .tw-row{
     grid-template-columns:
@@ -323,7 +411,7 @@ const css = `
   }
 }
 
-/* Make rows slightly larger on very big screens (InfoTV) */
+/* Very big screens (InfoTV): slightly larger */
 @media (min-width: 1600px){
   .tw-row{
     padding: 14px 14px;
@@ -334,5 +422,4 @@ const css = `
     width: 22px;
   }
 }
-
 `;
