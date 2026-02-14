@@ -100,6 +100,19 @@ export const getImageUri = (uri) => {
     return result
 }
 
+function simplifyLevel(level) {
+  if (!level) return "";
+
+  // Trim & normalize
+  const s = String(level).trim();
+
+  // If it starts with U + digits (e.g. U16, u18, U 20), return just "Uxx"
+  const m = s.match(/^u\s*(\d{1,2})\b/i);
+  if (m) return `U${m[1]}`;
+
+  return s;
+}
+
 export const processIncomingDataEvents = (events) => {
     var dataItems = []
     events.map((data) => 
@@ -108,7 +121,14 @@ export const processIncomingDataEvents = (events) => {
             data.home_logo = "/api/getImage?uri=" + data.home_logo;
             data.away_logo = "/api/getImage?uri=" + data.away_logo;
         }
+        data.level = simplifyLevel(data.level)
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
+        //data.level = replaceAll(data.level, 'Sininen/A', '')
+        //data.level = replaceAll(data.level, 'Valkoinen/B', '')
+        //data.level = replaceAll(data.level, 'Keltainen/C', '')
+        //data.level = replaceAll(data.level, 'Sininen', '')
+        //data.level = replaceAll(data.level, 'Valkoinen', '')
+        //data.level = replaceAll(data.level, 'Keltainen', '')
         //data.level = replaceAll(data.level, 'U11 sarja', 'U11')
         //data.level = replaceAll(data.level, 'U12 sarja', 'U12')
         data.level = replaceAll(data.level, 'Harjoitusottelut', 'Harj.')

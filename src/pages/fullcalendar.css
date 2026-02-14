@@ -1,25 +1,54 @@
+/* Responsive font sizes using vw for 16:9 scaling */
+
+.fc {
+    font-size: 1vw;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 2vw;
+}
+
+.fc .fc-col-header-cell-cushion {
+    font-size: 1.2vw;
+    padding: 0.3vw;
+}
+
+.fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.9vw;
+    padding: 0.1vw 0.3vw;
+}
+
 .fc-timegrid-event .fc-event-time {
     font-weight: bold;
+    font-size: 0.85vw;
+}
+
+.fc-timegrid-event .fc-event-title {
+    font-size: 0.85vw;
+}
+
+.fc .fc-timegrid-slot {
+    height: 1.5vw;
 }
 
 .fc-direction-ltr .fc-timegrid-col-events {
-    margin-top: 0px;
-    margin-right: 2px;
-    margin-bottom: 0px;
-    margin-left: 2px;
+    margin-top: 0;
+    margin-right: 0.1vw;
+    margin-bottom: 0;
+    margin-left: 0.1vw;
 }
 
 .fc .fc-timegrid-now-indicator-line {
     opacity: .7;
     position: absolute;
     z-index: 4;
-    left: 0;    
+    left: 0;
     right: 0;
-    margin-top: -2px;    
-    border-style: solid;    
-    border-color: red;    
-    border-color: var( — fc-now-indicator-color,red);    
-    border-width: 5px 0 0;
+    margin-top: -0.1vw;
+    border-style: solid;
+    border-color: red;
+    border-color: var( — fc-now-indicator-color,red);
+    border-width: 0.25vw 0 0;
 }
 
 /*

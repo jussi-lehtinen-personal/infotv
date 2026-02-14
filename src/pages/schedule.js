@@ -2,7 +2,6 @@
 
 import React, { Fragment } from 'react'
 import FullCalendar from '@fullcalendar/react'
-import Container from 'react-bootstrap/Container';
 import {Row, Col } from 'react-bootstrap';
 
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -39,7 +38,7 @@ class Schedule extends React.Component {
         var events = [];
 
         const big_font = '4vw'
-        const title = { 'font-size': big_font, display: 'flex', justifyContent: 'center', alignItems: 'center', 'text-shadow': '0 0 2px #777777' }
+        const title = { fontSize: big_font, display: 'flex', justifyContent: 'center', alignItems: 'center', textShadow: '0 0 0.1vw #777777' }
 
         for (let i = 0; i < items.length; i++) {
             var item = items[i]
@@ -68,22 +67,21 @@ class Schedule extends React.Component {
             events.push(event)
         }
         
-        const imageSize = 120
+        const imageSize = '6.25vw'
         const ahmaLogo = 'https://static.jopox.fi/kiekko-ahma/logos/logo-300.png'
         const bldLogo = 'https://pbs.twimg.com/profile_images/648931227672580096/uLN1Orat_400x400.jpg'
         return (
             <Fragment>
-                <Container style={{'font-family': 'Bebas Neue', padding: 20}}>
+                <div style={{fontFamily: 'Bebas Neue', padding: '1vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
                     <Row>
-                    <Col hidden='true' xs={0.1}><img src={ahmaLogo} width={imageSize} height={imageSize} alt=""/></Col>
+                    <Col hidden='true' xs={0.1}><img src={ahmaLogo} style={{width: imageSize, height: imageSize}} alt=""/></Col>
                     <Col>
                         <div style={title}>JÄÄVUOROT</div>
                     </Col>
-                    <Col hidden='true' xs={0.1}><img src={bldLogo} width={imageSize} height={imageSize} alt=""/></Col>
+                    <Col hidden='true' xs={0.1}><img src={bldLogo} style={{width: imageSize, height: imageSize}} alt=""/></Col>
                     </Row>
-                </Container>
 
-            <div>
+            <div style={{flex: 1, minHeight: 0}}>
                 <FullCalendar
                         plugins={[ bootstrapPlugin, timeGridPlugin ]}
                         initialView="timeGridWeek"
@@ -114,9 +112,11 @@ class Schedule extends React.Component {
                         nowIndicator={true}
                         now={null}
 
+                        height="100%"
                         events = {events}
                         //eventContent = {renderEventContent}
                     />
+            </div>
             </div>
             </Fragment>
         );
