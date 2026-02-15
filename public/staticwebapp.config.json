@@ -3,13 +3,13 @@
         {
             "route": "/api/getImage/*",
             "headers": {
-              "Cache-Control": "public, max-age=604800, immutable"
+              "Cache-Control": "public, max-age=604800"
             }
         },
         {
             "route": "/api/getGames/*",
             "headers": {
-              "Cache-Control": "public, max-age=3600, immutable"
+              "Cache-Control": "public, max-age=30, stale-while-revalidate=60"
             }
         }
     ],

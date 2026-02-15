@@ -49,14 +49,17 @@ const ThisWeek = () => {
   const { timestamp } = useParams();
 
   const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     const uri = buildGamesQueryUri(timestamp);
 
     fetch(uri)
       .then((r) => r.json())
       .then((d) => setMatches(processIncomingDataEvents(d)))
-      .catch(() => setMatches(processIncomingDataEvents(getMockGameData())));
+      .catch(() => setMatches(processIncomingDataEvents(getMockGameData())))
+      .finally(() => setLoading(false));
   }, [timestamp]);
 
   // Header title based on week relation
@@ -167,9 +170,16 @@ const ThisWeek = () => {
           <div className="tw-title">{header.title}</div>
         </div>
 
-        {!twoCol && <div className="tw-list">{groups.map(renderDayBlock)}</div>}
+        {loading && (
+          <div className="tw-loading">
+            <div className="tw-spinner" />
+            <div className="tw-loading-text">Ladataan otteluita...</div>
+          </div>
+        )}
 
-        {twoCol && (
+        {!loading && !twoCol && <div className="tw-list">{groups.map(renderDayBlock)}</div>}
+
+        {!loading && twoCol && (
           <div className="tw-list tw-twoCol">
             <div className="tw-col">{leftGroups.map(renderDayBlock)}</div>
             <div className="tw-col">{rightGroups.map(renderDayBlock)}</div>
@@ -434,6 +444,32 @@ const css = `
 
 
 
+
+/* Loading state */
+.tw-loading{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding: 60px 0;
+  gap: 16px;
+}
+.tw-spinner{
+  width: 36px;
+  height: 36px;
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: tw-spin 0.8s linear infinite;
+}
+@keyframes tw-spin{
+  to{ transform: rotate(360deg); }
+}
+.tw-loading-text{
+  color: rgba(255,255,255,0.8);
+  font-size: clamp(14px, 1.4vw, 20px);
+  font-weight: 600;
+}
 
 /* Very big screens (InfoTV): slightly larger */
 @media (min-width: 1000px){
