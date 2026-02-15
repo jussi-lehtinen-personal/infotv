@@ -65,6 +65,14 @@ export const componentStyles = {
     ),
 }
 
+export const getMatchLink = (index, data) => {
+    console.log("Navigate to " + index)
+    var uri = "https://tulospalvelu.leijonat.fi/game/?season=0"
+    uri += "&gameid=" + data.id
+    uri += "&lang=fi"
+    return uri
+}
+
 export const getAdsUri = (index, data) => {
     console.log("Navigate to " + index)
     var formattedDate = moment(data.date).format('YYYY-MM-DD')

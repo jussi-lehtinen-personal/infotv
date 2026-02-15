@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Container } from "react-bootstrap";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -9,10 +9,14 @@ import {
   getMonday,
   processIncomingDataEvents,
   buildGamesQueryUri,
-  getAdsUri
+  getMatchLink
 } from "../Util";
 
 moment.locale("fi");
+
+const goToSite = (uri) => {
+  window.location.href = uri;
+};
 
 function capitalize(str) {
   if (!str) return str;
@@ -42,7 +46,6 @@ function useViewport() {
 
 
 const ThisWeek = () => {
-  const navigate = useNavigate();
   const { timestamp } = useParams();
 
   const [matches, setMatches] = useState([]);
@@ -149,7 +152,7 @@ const ThisWeek = () => {
         <MatchRow
           key={`${g.day}-${idx}`}
           match={m}
-          onClick={() => navigate(getAdsUri(idx, m))}
+          onClick={() => goToSite(getMatchLink(idx, m))}
         />
       ))}
     </div>

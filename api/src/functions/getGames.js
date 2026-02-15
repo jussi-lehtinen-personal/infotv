@@ -75,7 +75,7 @@ app.http('getGames', {
                             if (game.RinkName.includes('Valkeakoski')) {
                                 if (game.HomeTeamAbbrv.includes('Kiekko-Ahma') || game.AwayTeamAbbrv.includes('Kiekko-Ahma')) {
                                     matches.push({
-                                        id: game.GameId,
+                                        id: game.GameID,
                                         date: game.GameDateDB + ' ' + game.GameTime,
                                         league: game.StatGroupName,
                                         periods: game.PeriodSummary,
