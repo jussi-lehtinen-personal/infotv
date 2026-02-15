@@ -187,14 +187,28 @@ export const getMonday = (d) => {
     return d
 }
 
-export const buildGamesQueryUri = (date) => {
-    var uri = '/api/getGames'
-    if (date) {            
-        var formattedDate = moment(date).format('YYYY-MM-DD')
-        uri += '?date=' + formattedDate
-        console.log(uri)
+export const buildGamesQueryUri = (date, options) => {
+    const includeAway = options?.includeAway === true;
+
+    // kerää query-parametrit yhteen paikkaan, jotta ? ja & menee oikein
+    const params = [];
+
+    if (date) {
+        var formattedDate = moment(date).format('YYYY-MM-DD');
+        params.push('date=' + formattedDate);
     }
-    return uri
+
+    if (includeAway) {
+        params.push('includeAway=1');
+    }
+
+    let uri = '/api/getGames';
+    if (params.length > 0) {
+        uri += '?' + params.join('&');
+    }
+
+    console.log(uri);
+    return uri;
 };
 
 

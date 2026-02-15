@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Container } from "react-bootstrap";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -44,25 +44,37 @@ function useViewport() {
   return v;
 }
 
+const parseTruthy = (v) => {
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes" || s === "on";
+};
 
 const ThisWeek = () => {
   const { timestamp } = useParams();
+  const location = useLocation();
+
+  const includeAway = useMemo(() => {
+    const sp = new URLSearchParams(location.search ?? "");
+    return parseTruthy(sp.get("includeAway"));
+  }, [location.search]);
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    const uri = buildGamesQueryUri(timestamp);
+
+    console.log("include away games: " + includeAway);
+    const uri = buildGamesQueryUri(timestamp, { includeAway });
 
     fetch(uri)
       .then((r) => r.json())
       .then((d) => setMatches(processIncomingDataEvents(d)))
       .catch(() => setMatches(processIncomingDataEvents(getMockGameData())))
       .finally(() => setLoading(false));
-  }, [timestamp]);
+  }, [timestamp, includeAway]);
 
-  // Header title based on week relation
   const header = useMemo(() => {
     const now = timestamp ? new Date(timestamp) : new Date();
 
@@ -72,19 +84,20 @@ const ThisWeek = () => {
     const selected = moment(selectedWeekStart);
     const current = moment(currentWeekStart);
 
+    const suffix = includeAway ? "OTTELUT" : "KOTIOTTELUT";
+
     let title;
     if (selected.isSame(current, "day")) {
-      title = "TÄMÄN VIIKON KOTIOTTELUT";
+      title = `TÄMÄN VIIKON ${suffix}`;
     } else if (selected.isAfter(current)) {
-      title = "TULEVAT KOTIOTTELUT";
+      title = `TULEVAT ${suffix}`;
     } else {
-      title = "PELATUT KOTIOTTELUT";
+      title = `PELATUT ${suffix}`;
     }
 
     return { title };
-  }, [timestamp]);
+  }, [timestamp, includeAway]);
 
-  // Group by day like Flashscore sections (compact)
   const groups = useMemo(() => {
     const map = new Map();
     for (const m of matches) {
@@ -106,16 +119,14 @@ const ThisWeek = () => {
     [groups]
   );
 
-    const { w, h } = useViewport();
-    const isLandscape = w >= h;
+  const { w, h } = useViewport();
+  const isLandscape = w >= h;
 
-    // 2-col jos: landscape + riittävän leveä + pelejä > 7
-    const twoCol = isLandscape && w >= 1000 && totalGames > 7;
+  const twoCol = isLandscape && w >= 1000 && totalGames > 7;
 
   const { leftGroups, rightGroups } = useMemo(() => {
     if (!twoCol) return { leftGroups: groups, rightGroups: [] };
 
-    // Split by cumulative match count (keep day blocks intact)
     const target = Math.ceil(totalGames / 2);
 
     const left = [];
@@ -133,7 +144,6 @@ const ThisWeek = () => {
       }
     }
 
-    // edge case: if right ends empty (e.g. one huge day), force split by day count
     if (right.length === 0 && left.length > 1) {
       const mid = Math.ceil(left.length / 2);
       return { leftGroups: left.slice(0, mid), rightGroups: left.slice(mid) };
@@ -165,11 +175,11 @@ const ThisWeek = () => {
     <div className="tw-root">
       <style>{css}</style>
 
-      <Container fluid className="tw-container">
-        <div className="tw-topbar">
-          <div className="tw-title">{header.title}</div>
-        </div>
+      <div className="tw-header">
+        <div className="tw-header-inner">{header.title}</div>
+      </div>
 
+      <Container fluid className="tw-container">
         {loading && (
           <div className="tw-loading">
             <div className="tw-spinner" />
@@ -205,30 +215,45 @@ function MatchRow({ match, onClick }) {
   const homeGoals = match.finished ? (match.home_goals ?? "") : "";
   const awayGoals = match.finished ? (match.away_goals ?? "") : "";
 
+  // Ahma kotona -> korosta home, vieraissa -> korosta away
+  const highlightHome = match.isHomeGame === true;
+  const highlightAway = match.isHomeGame === false;
+
   return (
     <div className="tw-row" onClick={onClick} role="button" tabIndex={0}>
       <div className="tw-time">{timeStr}</div>
 
-        <div className="tw-mid">
+      <div className="tw-mid">
+        {/* HOME */}
         <div className="tw-teamline">
-            <img className="tw-logo" src={match.home_logo} alt="" />
-            <span className="tw-teamname">{match.home}</span>
+          <img className="tw-logo" src={match.home_logo} alt="" />
+          <span
+            className="tw-teamname"
+            style={highlightHome ? { color: "#f59e0b" } : undefined}
+          >
+            {match.home}
+          </span>
         </div>
         <div className="tw-goal">{homeGoals}</div>
 
+        {/* AWAY */}
         <div className="tw-teamline">
-            <img className="tw-logo" src={match.away_logo} alt="" />
-            <span className="tw-teamname">{match.away}</span>
+          <img className="tw-logo" src={match.away_logo} alt="" />
+          <span
+            className="tw-teamname"
+            style={highlightAway ? { color: "#f59e0b" } : undefined}
+          >
+            {match.away}
+          </span>
         </div>
         <div className="tw-goal">{awayGoals}</div>
-        </div>
+      </div>
 
       <div className={statusClass}>{status}</div>
     </div>
   );
 }
 
-// If level starts with Uxx -> show only Uxx (e.g. "U16 AAA SM" -> "U16")
 function simplifyLevel(level) {
   if (!level) return "";
   const s = String(level).trim();
@@ -242,87 +267,112 @@ function simplifyLevel(level) {
 /* ============================= */
 
 const css = `
+/* Match index.js theme */
 .tw-root{
   min-height:100vh;
+
+  padding: 10px 7px 10px 7px;
+
   background:
-    radial-gradient(circle at 50% 0%, rgba(255,180,80,0.25), transparent 60%),
-    linear-gradient(135deg, #d97706 0%, #7c2d12 100%);
+    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
+    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
-.tw-container{
-  max-width: none !important;   /* ohita bootstrapin max-width */
-  padding-left: 24px;
-  padding-right: 24px;
+/* Full width header (non-sticky, no overlap) */
+.tw-header{
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 18px;
+
+  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+
+  margin: 0 auto 10px auto;
+  max-width: none !important;
+
+  /* match container padding feel */
+  padding: 10px 12px;
 }
 
-/* Top bar (compact, TV-safe) */
-.tw-topbar{
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  padding-top: 12px;
-  margin-bottom: 12px;
-}  
-.tw-title{
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  line-height: 1.15;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background:#fffaf5;
+.tw-header-inner{
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+
   font-size: clamp(18px, 1.8vw, 32px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  color: #f59e0b;
+
+  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
 }
 
-/* List blocks (default = one column) */
+/* Container as a lighter "surface" (like ahma-card) */
+.tw-container{
+  max-width: 980px !important;
+  padding: 12px;
+
+  border-radius: 18px;
+
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+}
+
+/* List blocks */
 .tw-list{
   display:flex;
   flex-direction:column;
   gap: 12px;
 }
 
-/* Two column layout for InfoTV landscape (when enabled in JS) */
+/* Two columns */
 .tw-twoCol{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 28px;
+  gap: 18px;
   align-items:start;
 }
 
-/* Each column is a vertical stack */
 .tw-col{
   display:flex;
   flex-direction:column;
   gap: 10px;
 }
 
-.tw-mid{
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 1fr 36px;  /* name area | goals */
-  grid-template-rows: auto auto;    /* 2 rows */
-  column-gap: 8px;
-  row-gap: 6px;                     /* sama väli kuin ennen team-gap */
-  align-items: center;
-}
-
-/* Day header like Flashscore section */
+/* Day header */
 .tw-dayheader{
   display:flex;
   align-items:center;
   gap:8px;
-  padding: 8px 10px;
-  font-size: clamp(18px, 1.6vw, 24px);
-  color: #ffffff;
-  font-weight: 500;
+  padding: 6px 6px 2px 6px;
+  font-size: clamp(16px, 1.4vw, 22px);
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
+}
+
+.tw-dayblock{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;   /* 👈 tämä tekee välin ottelukorttien väliin */
 }
 
 .tw-dayheader-date{
-  opacity:0.9;
+  opacity:0.95;
 }
 
-/* Row grid */
+/* Mid grid: team names + goals */
+.tw-mid{
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 38px;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-items: center;
+}
+
+/* Row card (match index.js ahma-item look) */
 .tw-row{
   display:grid;
   grid-template-columns:
@@ -330,48 +380,34 @@ const css = `
     0.75fr
     0.25fr
     auto;
-  gap: 6px;
+  gap: 8px;
   align-items:center;
 
-  padding: 10px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  margin-bottom: clamp(4px, 0.6vw, 10px);
+  padding: 4px 14px;
+
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+
+  background: rgba(255,255,255,0.05);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.40);
 
   cursor:pointer;
   user-select:none;
-  background:#fffaf5;  /* lämmin valkoinen */
-  box-shadow: 0 10px 28px rgba(0,0,0,0.25);
-}
-
-.tw-goal{
-  text-align: right;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(16px, 1.5vw, 22px);
-  color:#0f172a;
-  line-height: 1.2;
 }
 
 .tw-row:hover{
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  background: rgba(255,255,255,0.20);
+  transform: translateY(-1px);
 }
 
 .tw-time{
   font-weight: 900;
   font-size: clamp(16px, 1.5vw, 22px);
-  color:#334155;
+  color: rgba(255,255,255,0.90);
   text-align:left;
 }
 
-/* Teams block */
-.tw-teams{
-  min-width: 0;
-  display:flex;
-  flex-direction:column;
-  gap: 4px;
-}
-
+/* Team line */
 .tw-teamline{
   display: flex;
   align-items: center;
@@ -380,9 +416,15 @@ const css = `
 }
 
 .tw-logo{
-  height: clamp(16px, 2.4vw, 28px);
-  width:  clamp(16px, 2.4vw, 28px);
+  height: clamp(18px, 2.6vw, 30px);
+  width:  clamp(18px, 2.6vw, 30px);
   object-fit: contain;
+
+  background: linear-gradient(180deg, #ffffff, #f3f4f6);
+  border-radius: 8px;
+  padding: 4px;
+
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
 }
 
 .tw-teamname{
@@ -391,43 +433,74 @@ const css = `
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  font-weight: 650;
+  font-weight: 750;
   font-size: clamp(16px, 1.5vw, 22px);
-  color:#0f172a;
+  color: rgba(255,255,255,0.92);
 
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
-
-
-/* Kotijoukkue = ensimmäinen teamline */
-.tw-teamline:first-child .tw-teamname{
-  color: #f59e0b;
+.tw-goal{
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(16px, 1.5vw, 22px);
+  color: rgba(255,255,255,0.92);
+  line-height: 1.2;
 }
 
 /* Status / level */
 .tw-status{
   justify-self:end;
-  font-weight: 750;
-  font-size: clamp(12px, 1.5vw, 16px);
-  color: #1f29378f;
+  font-weight: 800;
+  font-size: clamp(12px, 1.2vw, 16px);
+  color: rgba(255,255,255,0.55);
   text-align:center;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-
-  /* if it wraps, keep it centered-ish vertically */
+  letter-spacing: 0.6px;
   line-height: 1.1;
 }
 
+/* Loading state */
+.tw-loading{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding: 60px 0;
+  gap: 16px;
+}
+
+.tw-spinner{
+  width: 36px;
+  height: 36px;
+  border: 4px solid rgba(255,255,255,0.18);
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: tw-spin 0.8s linear infinite;
+}
+
+@keyframes tw-spin{
+  to{ transform: rotate(360deg); }
+}
+
+.tw-loading-text{
+  color: rgba(255,255,255,0.78);
+  font-size: clamp(14px, 1.4vw, 20px);
+  font-weight: 700;
+}
+
+/* Small screens */
 @media (max-width: 380px){
   .tw-row{
-    grid-template-columns: 40px 1fr auto; 
-    gap: 6px;
+    grid-template-columns: 40px 1fr auto;
+    gap: 8px;
   }
-  .tw-status{ 
+
+  .tw-status{
     font-size: 10px;
-   }
+  }
 
   .tw-logo{
     height: 16px;
@@ -439,60 +512,29 @@ const css = `
     letter-spacing: 0.2px;
   }
 
-  .tw-goal{ width: 28px; font-size: 12px; }
-}
-
-
-
-
-/* Loading state */
-.tw-loading{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  padding: 60px 0;
-  gap: 16px;
-}
-.tw-spinner{
-  width: 36px;
-  height: 36px;
-  border: 4px solid rgba(255,255,255,0.3);
-  border-top-color: #f59e0b;
-  border-radius: 50%;
-  animation: tw-spin 0.8s linear infinite;
-}
-@keyframes tw-spin{
-  to{ transform: rotate(360deg); }
-}
-.tw-loading-text{
-  color: rgba(255,255,255,0.8);
-  font-size: clamp(14px, 1.4vw, 20px);
-  font-weight: 600;
-}
-
-/* Very big screens (InfoTV): slightly larger */
-@media (min-width: 1000px){
-  .tw-row{
-    grid-template-columns:
-      80px      /* time */
-      0.6fr       /* teams */
-      1fr       /* spacer */
-      auto
+  .tw-goal{
+    width: 28px;
+    font-size: 12px;
   }
+}
 
-  /* TWO COLUMN MODE */
-  .tw-twoCol .tw-row{
-    grid-template-columns:
-      70px      /* time vähän pienempi */
-      1fr
-      0.25fr    /* spacer pienempi */
-      auto;
+/* Tablet / larger */
+@media (min-width: 768px){
+  .tw-root{
+    padding: 8px 26px 28px 26px;
   }
-
+  .tw-header{
+    padding: 10px 16px;
+  }
   .tw-container{
-    padding-left: 48px;
-    padding-right: 48px;
+    max-width: none !important;
+    width: 100%;
+    margin: 0;
+    padding: 4px 26px 16px 26px;
+  }
+
+   .tw-twoCol{
+    width: 100%;
   }
 }
 `;

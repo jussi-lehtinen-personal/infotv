@@ -18,46 +18,47 @@ const Index = () => {
         {/* MENU CARD */}
         <div className="ahma-card">
 
-        {/* HERO */}
+          {/* HERO */}
           <div className="ahma-appTitle">AHMA GAMEZONE</div>
-        <div className="ahma-hero">
-          <img
-            src="/ahma_logo.png"
-            alt="Kiekko-Ahma"
-            className="ahma-logo"
-          />
-        </div>
+          <div className="ahma-hero">
+            <img
+              src="/ahma_logo.png"
+              alt="Kiekko-Ahma"
+              className="ahma-logo"
+            />
+          </div>
 
           <MenuItem
-            to={"/week/" + getWeek(-1)}
+            to={"/week/" + getWeek(-1) + "?includeAway=1"}
             title="VIIME VIIKON TULOKSET"
             subtitle="Viime viikon kotiottelut ja tulokset"
           />
 
           <MenuItem
-            to="/this_week"
+            // Mobile-appissa halutaan koti + vieras:
+            to="/this_week?includeAway=1"
             title="TÄMÄN VIIKON OTTELUT"
-            subtitle="Ajankohtaiset kotipelit"
+            subtitle="Ajankohtaiset koti- ja vieraspelit"
             highlight
           />
 
           <MenuItem
-            to={"/week/" + getWeek(1)}
+            to={"/week/" + getWeek(1) + "?includeAway=1"}
             title="OTTELUT (+1 VIIKKO)"
           />
 
           <MenuItem
-            to={"/week/" + getWeek(2)}
+            to={"/week/" + getWeek(2) + "?includeAway=1"}
             title="OTTELUT (+2 VIIKKOA)"
           />
 
           <MenuItem
-            to={"/week/" + getWeek(3)}
+            to={"/week/" + getWeek(3) + "?includeAway=1"}
             title="OTTELUT (+3 VIIKKOA)"
           />
 
           <MenuItem
-            to={"/week/" + getWeek(4)}
+            to={"/week/" + getWeek(4) + "?includeAway=1"}
             title="OTTELUT (+4 VIIKKOA)"
           />
 
