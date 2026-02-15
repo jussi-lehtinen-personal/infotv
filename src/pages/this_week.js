@@ -317,8 +317,8 @@ const css = `
   display:grid;
   grid-template-columns:
     clamp(50px, 6vw, 80px)
-    1fr
-    0.2fr
+    0.75fr
+    0.25fr
     auto;
   gap: 6px;
   align-items:center;
@@ -400,9 +400,9 @@ const css = `
 .tw-status{
   justify-self:end;
   font-weight: 750;
-  font-size: clamp(16px, 1.5vw, 22px);
+  font-size: clamp(12px, 1.5vw, 16px);
   color: #1f29378f;
-  text-align:right;
+  text-align:center;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 
@@ -412,10 +412,12 @@ const css = `
 
 @media (max-width: 380px){
   .tw-row{
-    grid-template-columns: 40px 1fr 0px 0px; /* level pois */
+    grid-template-columns: 40px 1fr auto; 
     gap: 6px;
   }
-  .tw-status{ display:none; }
+  .tw-status{ 
+    font-size: 10px;
+   }
 
   .tw-logo{
     height: 16px;

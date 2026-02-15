@@ -44,19 +44,21 @@ const Index = () => {
           <MenuItem
             to={"/week/" + getWeek(1)}
             title="OTTELUT (+1 VIIKKO)"
-            subtitle="Tulevat kotipelit"
           />
 
           <MenuItem
             to={"/week/" + getWeek(2)}
             title="OTTELUT (+2 VIIKKOA)"
-            subtitle="Tulevat kotipelit"
           />
 
           <MenuItem
             to={"/week/" + getWeek(3)}
             title="OTTELUT (+3 VIIKKOA)"
-            subtitle="Tulevat kotipelit"
+          />
+
+          <MenuItem
+            to={"/week/" + getWeek(4)}
+            title="OTTELUT (+4 VIIKKOA)"
           />
 
           <MenuItem
