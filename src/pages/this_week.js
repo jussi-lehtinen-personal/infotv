@@ -411,16 +411,16 @@ const css = `
 .tw-teamline{
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
 }
 
 .tw-logo{
-  height: clamp(18px, 2.6vw, 30px);
-  width:  clamp(18px, 2.6vw, 30px);
+  height: clamp(24px, 3vw, 36px);
+  width:  clamp(24px, 3vw, 36px);
   object-fit: contain;
 
-  background: linear-gradient(180deg, #ffffff, #f3f4f6);
+  background: white;
   border-radius: 8px;
   padding: 4px;
 

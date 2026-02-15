@@ -31,7 +31,7 @@ const Index = () => {
           <MenuItem
             to={"/week/" + getWeek(-1) + "?includeAway=1"}
             title="VIIME VIIKON TULOKSET"
-            subtitle="Viime viikon kotiottelut ja tulokset"
+            subtitle="Viime viikon ottelut ja tulokset"
           />
 
           <MenuItem
@@ -39,7 +39,6 @@ const Index = () => {
             to="/this_week?includeAway=1"
             title="TÄMÄN VIIKON OTTELUT"
             subtitle="Ajankohtaiset koti- ja vieraspelit"
-            highlight
           />
 
           <MenuItem
@@ -73,8 +72,8 @@ const Index = () => {
   );
 };
 
-const MenuItem = ({ to, title, subtitle, highlight }) => (
-  <Link to={to} className={`ahma-item ${highlight ? "ahma-highlight" : ""}`}>
+const MenuItem = ({ to, title, subtitle }) => (
+  <Link to={to} className="ahma-item">
     <div>
       <div className="ahma-title">{title}</div>
       {subtitle && <div className="ahma-sub">{subtitle}</div>}
@@ -88,6 +87,14 @@ export default Index;
 /* ================== THEME ================== */
 
 const styles = `
+
+.ahma-item,
+.ahma-item:visited,
+.ahma-item:hover,
+.ahma-item:active{
+  color: rgba(255,255,255,0.95);
+  text-decoration: none;
+}
 
 html, body{
   margin:0;
@@ -171,14 +178,8 @@ html, body{
 
 .ahma-item:hover{
   background: rgba(255,255,255,0.20);
+  color: rgba(255,255,255,0.95);
   transform: translateY(-1px);
-}
-
-/* Highlight (This Week) */
-.ahma-highlight{
-  background: rgba(245,158,11,0.24);
-  border-color: rgba(245,158,11,0.55);
-  color: #ffffff;
 }
 
 .ahma-appTitle{
