@@ -84,14 +84,15 @@ export default Index;
 
 /* ================== THEME ================== */
 
-<link
-  href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap"
-  rel="stylesheet"
-/>
-
 const styles = `
+
+html, body{
+  margin:0;
+  background:#0f1112; /* sama kuin sun gradientin alku */
+}
+
 .ahma-root{
-  height: 100dvh;
+  min-height: 100dvh;
   display:flex;
   flex-direction:column;
   align-items:center;
