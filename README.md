@@ -1,70 +1,85 @@
-# Getting Started with Create React App
+# Kiekko-Ahma InfoTV
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React + Azure Functions -sovellus, joka nayttaa Kiekko-Ahman kotiottelut ja jaavuorot. Deployataan Azure Static Web Apps -palveluun. Toimii myos PWA-sovelluksena (asennettavissa puhelimeen).
 
-## Available Scripts
+## Arkkitehtuuri
 
-In the project directory, you can run:
+```
+src/pages/          React-sivut (this_week, schedule, ads, ...)
+src/Util.js         Jaetut apufunktiot ja tyylit
+api/src/functions/  Azure Functions (getGames, getImage, schedule)
+public/             Staattiset tiedostot, manifest.json, ikonit
+```
 
-### `npm start`
+**Dataflow:** React frontend -> Azure Functions -> tulospalvelu.leijonat.fi / tilamisu
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Kehitys
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Asenna riippuvuudet
 
-### `npm test`
+```bash
+npm install
+cd api && npm install && cd ..
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Aja pelkka frontend (mock-datalla)
 
-### `npm run build`
+Aseta `src/Util.js` tiedostossa `dev = true`, sitten:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm start
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Avautuu osoitteeseen http://localhost:3000
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Aja koko stack (frontend + API)
 
-### `npm run eject`
+Terminaali 1 - frontend:
+```bash
+npm start
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Terminaali 2 - Azure SWA CLI yhdistaa frontendin ja API:n:
+```bash
+npx swa start http://localhost:3000 --api-location api
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Koko sovellus osoitteessa http://localhost:4280
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Build
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Production build
 
-## Learn More
+```bash
+npm run build
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Tuottaa optimoidun buildin `build/`-kansioon. Sisaltaa service workerin (PWA).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Testaa production build lokaalisti
 
-### Code Splitting
+```bash
+npm run build
+npx swa start build --api-location api
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Avautuu osoitteeseen http://localhost:4280 - PWA-asennus ja service worker toimivat.
 
-### Analyzing the Bundle Size
+## Deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Sovellus deployataan Azure Static Web Apps -palveluun. SWA hoitaa automaattisesti:
+- React-buildin servaamisen
+- Azure Functions API:n
+- `staticwebapp.config.json` reitityssaannot ja cache-headerit
 
-### Making a Progressive Web App
+## PWA
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Sovellus on asennettavissa PWA:na (Progressive Web App):
+- Mobilessa: "Lisaa aloitusnayttolle"
+- Desktopissa: Selaimen asennusikoni osoiterivilta
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Service worker cachettaa:
+- Staattiset resurssit (JS/CSS) - precache
+- Pelidata (`/api/getGames`) - NetworkFirst, 5min offline-fallback
+- Joukkuelogot (`/api/getImage`) - CacheFirst, 7 paivaa
+- Jaavuorot (`/api/schedule`) - NetworkFirst, 1h offline-fallback
