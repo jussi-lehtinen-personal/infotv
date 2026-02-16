@@ -49,19 +49,24 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
   const ref = useRef(null);
   const [offsetX, setOffsetX] = useState(0);
   const dragging = useRef(false);
-  const didDrag = useRef(false);
   const startX = useRef(0);
   const startY = useRef(0);
   const locked = useRef(null); // "h" | "v" | null
+  const suppressClick = useRef(false);
+  const maxAbsDx = useRef(0);
+  const lastDx = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+  const CLICK_SUPPRESS_PX = 14; // 8–14px hyvä haarukka
+
 
   // Lock earlier, but keep it robust (ratio-based)
-  const LOCK_DISTANCE = 8;
+  const LOCK_DISTANCE = 14;
   const LOCK_RATIO = 1.2;
 
   const getThreshold = useCallback(() => {
     const w = ref.current?.clientWidth ?? window.innerWidth ?? 1000;
-    // ~22% of container width, clamped
-    return Math.min(220, Math.max(80, w * 0.22));
+    // ~% of container width, clamped
+    return Math.min(160, Math.max(60, w * 0.18));
   }, []);
 
   const onDown = useCallback((e) => {
@@ -69,15 +74,17 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
     if (!e.isPrimary) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
-    // Make sure we keep receiving move/up even if pointer leaves the element bounds
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-
     dragging.current = true;
-    didDrag.current = false;
     locked.current = null;
     startX.current = e.clientX;
     startY.current = e.clientY;
+
+    suppressClick.current = false;
+    maxAbsDx.current = 0;
+
     setOffsetX(0);
+    lastDx.current = 0;
+    setDragActive(true);
   }, []);
 
   const onMove = useCallback((e) => {
@@ -96,9 +103,18 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 
     // Only track horizontal swipes
     if (locked.current === "h") {
-      didDrag.current = true;
-      e.preventDefault(); // prevent scroll while swiping horizontally
-      setOffsetX(dx);
+        const dx = e.clientX - startX.current;
+        lastDx.current = dx;
+        // seuraa suurinta dx:ää koko gesturelle
+        maxAbsDx.current = Math.max(maxAbsDx.current, Math.abs(dx));
+
+        // vasta kun oikeasti “dragattiin”, blokataan click
+        if (maxAbsDx.current >= CLICK_SUPPRESS_PX) {
+            suppressClick.current = true;
+        }
+
+        e.preventDefault();
+        setOffsetX(dx);
     }
   }, []);
 
@@ -106,16 +122,15 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
     dragging.current = false;
     locked.current = null;
     setOffsetX(0);
+    setDragActive(false);
+    setTimeout(() => (suppressClick.current = false), 0);
   }, []);
 
   const onUp = useCallback(
     (e) => {
       if (!dragging.current) return;
 
-      // Release capture (safe even if not captured)
-      e.currentTarget.releasePointerCapture?.(e.pointerId);
-
-      const dx = e.clientX - startX.current;
+      const dx = lastDx.current;
       const threshold = getThreshold();
 
       if (locked.current === "h" && Math.abs(dx) >= threshold) {
@@ -130,8 +145,6 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 
   const onCancel = useCallback(
     (e) => {
-      // Release capture if we had it
-      e?.currentTarget?.releasePointerCapture?.(e.pointerId);
       finish();
     },
     [finish]
@@ -149,12 +162,40 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
     };
   }, [onMove]);
 
+  useEffect(() => {
+    if (!dragActive) return;
+
+    const end = (e) => {
+        if (!dragging.current) return;
+
+        // jos up tapahtui komponentin sisällä, ÄLÄ lopeta täällä
+        // (Reactin onPointerUp hoitaa swipen)
+        const el = ref.current;
+        if (el && e?.target && el.contains(e.target)) return;
+
+        finish(); // vain “ulkopuoliset” upit / focus loss
+    };
+
+
+    window.addEventListener("pointerup", end, true);
+    window.addEventListener("pointercancel", end, true);
+    window.addEventListener("mouseup", end, true);
+    window.addEventListener("blur", end, true);
+
+    return () => {
+        window.removeEventListener("pointerup", end, true);
+        window.removeEventListener("pointercancel", end, true);
+        window.removeEventListener("mouseup", end, true);
+        window.removeEventListener("blur", end, true);
+    };
+    }, [dragActive, finish]);
+
   // Suppress click on child elements (buttons, links) after a drag
   const onClickCapture = useCallback((e) => {
-    if (didDrag.current) {
-      e.stopPropagation();
-      e.preventDefault();
-      didDrag.current = false;
+    if (suppressClick.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        suppressClick.current = false; // ettei seuraavat klikit kuole
     }
   }, []);
 
@@ -235,19 +276,45 @@ const ThisWeek = () => {
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const fetchSeq = useRef(0);
+  const abortRef = useRef(null);
 
-  useEffect(() => {
+    useEffect(() => {
+    const mySeq = ++fetchSeq.current;
+
+    // abort previous in-flight request
+    abortRef.current?.abort?.();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     setLoading(true);
 
-    console.log("include away games: " + includeAway);
     const uri = buildGamesQueryUri(timestamp, { includeAway });
 
-    fetch(uri)
-      .then((r) => r.json())
-      .then((d) => setMatches(processIncomingDataEvents(d)))
-      .catch(() => setMatches(processIncomingDataEvents(getMockGameData())))
-      .finally(() => setLoading(false));
-  }, [timestamp, includeAway]);
+    fetch(uri, { signal: ac.signal })
+        .then((r) => r.json())
+        .then((d) => {
+        // ignore stale responses
+        if (mySeq !== fetchSeq.current) return;
+        setMatches(processIncomingDataEvents(d));
+        })
+        .catch((err) => {
+        // abort is not an error we want to show / fallback for
+        if (err?.name === "AbortError") return;
+        if (mySeq !== fetchSeq.current) return;
+        setMatches(processIncomingDataEvents(getMockGameData()));
+        })
+        .finally(() => {
+        if (mySeq !== fetchSeq.current) return;
+        setLoading(false);
+        });
+
+    // cleanup: abort if this effect is replaced/unmounted
+    return () => {
+        ac.abort();
+    };
+    }, [timestamp, includeAway]);
+
 
   const header = useMemo(() => {
     const now = timestamp ? new Date(timestamp) : new Date();
@@ -377,14 +444,32 @@ const ThisWeek = () => {
     <div className="tw-root" ref={swipeRef} {...swipeHandlers} style={{ touchAction: "pan-y" }}>
       <style>{css}</style>
 
-      <div style={swipeStyle}>
+      <div className="tw-swipePane" style={swipeStyle}>
         <div className="tw-header">
-          <div className="tw-week-nav">
-            <span className="tw-week-arrow" onClick={goPrevWeek}>‹</span>
-            <div className="tw-header-inner">{header.title}</div>
-            <span className="tw-week-range">{weekRange}</span>
-            <span className="tw-week-arrow" onClick={goNextWeek}>›</span>
-          </div>
+            <div className="tw-week-nav">
+                <button
+                    type="button"
+                    className="tw-week-btn"
+                    onClick={goPrevWeek}
+                    aria-label="Edellinen viikko"
+                    >
+                    <span className="material-symbols-rounded">chevron_left</span>
+                </button>
+
+                <div className="tw-title">
+                    <div className="tw-title-main">{header.title}</div>
+                    <div className="tw-title-sub">{weekRange}</div>
+                </div>
+
+                <button
+                    type="button"
+                    className="tw-week-btn"
+                    onClick={goNextWeek}
+                    aria-label="Seuraava viikko"
+                    >
+                    <span className="material-symbols-rounded">chevron_right</span>
+                </button>
+            </div>
         </div>
 
         <Container fluid className="tw-container">
@@ -478,10 +563,15 @@ function simplifyLevel(level) {
 const css = `
 /* Match index.js theme */
 .tw-root{
-  min-height:100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  
+  display: flex;
+  flex-direction: column;
+
   touch-action: pan-y;
   overflow-x: hidden;
-
+ 
   padding: 10px 7px 10px 7px;
 
   background:
@@ -507,53 +597,92 @@ const css = `
   padding: 10px 12px;
 }
 
-.tw-header-inner{
-  font-weight: 900;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  font-size: clamp(14px, 1.8vw, 32px);
-  color: #f59e0b;
-
-  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
-}
-
 /* Week navigation row */
 .tw-week-nav{
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 6px;
+  justify-content: space-between;
+  gap: 12px;
+
+  flex-wrap: nowrap;        /* tärkein */
+  width: 100%;
 }
 
-.tw-week-range{
-  font-size: clamp(13px, 1.2vw, 18px);
-  font-weight: 600;
-  color: rgba(255,255,255,0.65);
-  letter-spacing: 0.5px;
-}
 
-.tw-week-arrow{
-  font-size: clamp(22px, 2vw, 32px);
-  font-weight: 900;
-  color: rgba(255,255,255,0.5);
-  cursor: pointer;
-  user-select: none;
-  padding: 0 8px;
+.material-symbols-rounded {
+  font-size: 34px;
   line-height: 1;
-  transition: color 0.15s;
 }
 
-.tw-week-arrow:hover{
+.tw-week-btn{
+  flex: 0 0 44px;
+  height: 44px;
+  width: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: none;
+  border: none;
+  box-shadow: none;
+
+  color: rgba(255,255,255,0.75);
+  cursor: pointer;
+  padding: 0;
+
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.tw-week-btn:hover {
+  transform: scale(1.2);
+  opacity: 0.85;
+}
+
+.tw-title{
+  flex: 1 1 auto;
+  min-width: 0;             /* kriittinen flex-trikki */
+  text-align: center;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+.tw-title-main{
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+
+  font-size: clamp(14px, 1.8vw, 30px);
   color: #f59e0b;
+  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
+
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.tw-title-sub{
+  font-size: clamp(12px, 1.2vw, 16px);
+  font-weight: 700;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.4px;
+}
+
+.tw-swipePane{
+  flex: 1 1 auto;          /* 👈 tärkein: venyy täyttämään loppuruudun */
+  min-height: 0;           /* 👈 tärkeä flex-scroll/overflow-yhdistelmissä */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Container as a lighter "surface" (like ahma-card) */
 .tw-container{
+flex: 1 1 auto;          /* 👈 surface venyy */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   max-width: 980px !important;
   padding: 12px;
 
@@ -709,11 +838,14 @@ const css = `
 
 /* Loading state */
 .tw-loading{
+  flex: 1 1 auto;
+  padding: 0;              /* optional: pois iso padding */
+  min-height: 0;
+
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding: 60px 0;
   gap: 16px;
 }
 

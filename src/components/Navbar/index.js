@@ -1,12 +1,5 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import moment from "moment";
-
-const getWeek = (offset) => {
-  const now = new Date();
-  const date = new Date(now.setDate(now.getDate() + offset * 7));
-  return moment(date).format("YYYY-MM-DD");
-};
 
 const Index = () => {
   return (
@@ -29,36 +22,10 @@ const Index = () => {
           </div>
 
           <MenuItem
-            to={"/week/" + getWeek(-1) + "?includeAway=1"}
-            title="VIIME VIIKON TULOKSET"
-            subtitle="Viime viikon ottelut ja tulokset"
-          />
-
-          <MenuItem
             // Mobile-appissa halutaan koti + vieras:
             to="/this_week?includeAway=1"
-            title="TÄMÄN VIIKON OTTELUT"
-            subtitle="Ajankohtaiset koti- ja vieraspelit"
-          />
-
-          <MenuItem
-            to={"/week/" + getWeek(1) + "?includeAway=1"}
-            title="OTTELUT (+1 VIIKKO)"
-          />
-
-          <MenuItem
-            to={"/week/" + getWeek(2) + "?includeAway=1"}
-            title="OTTELUT (+2 VIIKKOA)"
-          />
-
-          <MenuItem
-            to={"/week/" + getWeek(3) + "?includeAway=1"}
-            title="OTTELUT (+3 VIIKKOA)"
-          />
-
-          <MenuItem
-            to={"/week/" + getWeek(4) + "?includeAway=1"}
-            title="OTTELUT (+4 VIIKKOA)"
+            title="OTTELUT JA TULOKSET"
+            subtitle="Selaa Ahma-joukkueiden pelejä ja tuloksia"
           />
 
           <MenuItem
@@ -78,7 +45,9 @@ const MenuItem = ({ to, title, subtitle }) => (
       <div className="ahma-title">{title}</div>
       {subtitle && <div className="ahma-sub">{subtitle}</div>}
     </div>
-    <div className="ahma-arrow">›</div>
+    <span className="material-symbols-rounded ahma-arrow">
+        chevron_right
+    </span>
   </Link>
 );
 
@@ -205,9 +174,15 @@ html, body{
 }
 
 .ahma-arrow{
-  font-size: 22px;
-  opacity: 0.45;
+  font-size: 26px;
+  opacity: 0.55;
   line-height: 1;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.ahma-item:hover .ahma-arrow{
+  transform: scale(1.2);
+  opacity: 0.85;
 }
 
 /* ============ TABLET / iPAD ============ */
