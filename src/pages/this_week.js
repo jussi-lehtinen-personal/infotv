@@ -260,7 +260,7 @@ const ThisWeek = () => {
     const timer = setTimeout(() => {
       const nav = pendingNav.current;
       if (!nav) return;
-      navigate(nav.url);
+      navigate(nav.url, { replace: true });
       pendingNav.current = null;
       // Position off-screen on entry side (no transition)
       setSlideState("enter-" + nav.enterFrom);

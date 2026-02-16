@@ -11,6 +11,14 @@ const isLocalhost = Boolean(
 
 export function register(config) {
   if ('serviceWorker' in navigator) {
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+    });
+
     const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
     if (publicUrl.origin !== window.location.origin) {
       return;
@@ -43,7 +51,11 @@ function registerValidSW(swUrl, config) {
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              console.log('New content available; will be used after closing all tabs.');
+              console.log('New content available; activating now...');
+              const target = registration.waiting || installingWorker;
+              target?.postMessage({ type: 'SKIP_WAITING' });
+
+              // optional: edelleen callback jos haluat näyttää toastin
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
