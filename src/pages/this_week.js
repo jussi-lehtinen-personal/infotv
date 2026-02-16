@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "react-bootstrap";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -44,6 +44,111 @@ function useViewport() {
   return v;
 }
 
+// ---- Swipe hook (pointer events = touch + mouse) ----
+function useSwipe(onSwipeLeft, onSwipeRight) {
+  const ref = useRef(null);
+  const [offsetX, setOffsetX] = useState(0);
+  const dragging = useRef(false);
+  const didDrag = useRef(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const locked = useRef(null); // "h" | "v" | null
+
+  const THRESHOLD = 200;
+  const LOCK_DISTANCE = 10;
+
+  const onDown = useCallback((e) => {
+    // Only primary button (touch or left-click)
+    if (e.button !== 0) return;
+    dragging.current = true;
+    didDrag.current = false;
+    locked.current = null;
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    setOffsetX(0);
+  }, []);
+
+  const onMove = useCallback((e) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+
+    // Decide direction lock after small movement
+    if (locked.current === null && (Math.abs(dx) > LOCK_DISTANCE || Math.abs(dy) > LOCK_DISTANCE)) {
+      locked.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+    }
+
+    // Only track horizontal swipes
+    if (locked.current === "h") {
+      didDrag.current = true;
+      e.preventDefault(); // prevent scroll while swiping horizontally
+      setOffsetX(dx);
+    }
+  }, []);
+
+  const onUp = useCallback((e) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    const dx = e.clientX - startX.current;
+
+    if (locked.current === "h" && Math.abs(dx) >= THRESHOLD) {
+      if (dx < 0) onSwipeLeft();
+      else onSwipeRight();
+    }
+
+    setOffsetX(0);
+    locked.current = null;
+  }, [onSwipeLeft, onSwipeRight]);
+
+  const onCancel = useCallback(() => {
+    dragging.current = false;
+    locked.current = null;
+    setOffsetX(0);
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Use non-passive for pointermove so we can preventDefault on horizontal swipe
+    el.addEventListener("pointermove", onMove, { passive: false });
+
+    // Catch pointerup outside the element (e.g. cursor left window)
+    const onDocUp = () => {
+      if (dragging.current) {
+        dragging.current = false;
+        locked.current = null;
+        setOffsetX(0);
+      }
+    };
+    document.addEventListener("pointerup", onDocUp);
+    document.addEventListener("pointercancel", onDocUp);
+
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onDocUp);
+      document.removeEventListener("pointercancel", onDocUp);
+    };
+  }, [onMove]);
+
+  // Suppress click on child elements (buttons, links) after a drag
+  const onClickCapture = useCallback((e) => {
+    if (didDrag.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      didDrag.current = false;
+    }
+  }, []);
+
+  const handlers = {
+    onPointerDown: onDown,
+    onPointerUp: onUp,
+    onPointerCancel: onCancel,
+    onClickCapture,
+  };
+
+  return { ref, offsetX, handlers };
+}
+
 const parseTruthy = (v) => {
   if (v == null) return false;
   const s = String(v).trim().toLowerCase();
@@ -53,11 +158,60 @@ const parseTruthy = (v) => {
 const ThisWeek = () => {
   const { timestamp } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const includeAway = useMemo(() => {
     const sp = new URLSearchParams(location.search ?? "");
     return parseTruthy(sp.get("includeAway"));
   }, [location.search]);
+
+  // Week navigation helpers
+  const getWeekUrl = useCallback((offsetWeeks) => {
+    const base = timestamp ? new Date(timestamp) : new Date();
+    const target = new Date(base);
+    target.setDate(target.getDate() + offsetWeeks * 7);
+    const dateStr = moment(target).format("YYYY-MM-DD");
+    const qs = includeAway ? "?includeAway=1" : "";
+    return `/week/${dateStr}${qs}`;
+  }, [timestamp, includeAway]);
+
+  // Slide animation state: idle → exit-left/exit-right → enter-right/enter-left → idle
+  const [slideState, setSlideState] = useState("idle");
+  const pendingNav = useRef(null);
+
+  const triggerSlide = useCallback((weekOffset, direction) => {
+    if (slideState !== "idle") return;
+    pendingNav.current = {
+      url: getWeekUrl(weekOffset),
+      enterFrom: direction === "left" ? "right" : "left",
+    };
+    setSlideState("exit-" + direction);
+  }, [slideState, getWeekUrl]);
+
+  const goNextWeek = useCallback(() => triggerSlide(1, "left"), [triggerSlide]);
+  const goPrevWeek = useCallback(() => triggerSlide(-1, "right"), [triggerSlide]);
+
+  const { ref: swipeRef, offsetX, handlers: swipeHandlers } = useSwipe(goNextWeek, goPrevWeek);
+
+  // Animation sequence: exit → navigate → enter → idle
+  useEffect(() => {
+    if (!slideState.startsWith("exit-")) return;
+    const timer = setTimeout(() => {
+      const nav = pendingNav.current;
+      if (!nav) return;
+      navigate(nav.url);
+      pendingNav.current = null;
+      // Position off-screen on entry side (no transition)
+      setSlideState("enter-" + nav.enterFrom);
+      // Next two frames: ensure off-screen is painted, then animate to center
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setSlideState("idle");
+        });
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [slideState, navigate]);
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -171,31 +325,66 @@ const ThisWeek = () => {
     </div>
   );
 
+  // Week range for display
+  const weekRange = useMemo(() => {
+    const base = timestamp ? new Date(timestamp) : new Date();
+    const mon = getMonday(new Date(base));
+    const sun = new Date(mon);
+    sun.setDate(sun.getDate() + 6);
+    return moment(mon).format("D.M") + " – " + moment(sun).format("D.M");
+  }, [timestamp]);
+
+  // Slide / swipe transform
+  const swipeStyle = (() => {
+    switch (slideState) {
+      case "exit-left":
+        return { transform: "translateX(-110%)", transition: "transform 0.3s ease-in" };
+      case "exit-right":
+        return { transform: "translateX(110%)", transition: "transform 0.3s ease-in" };
+      case "enter-left":
+        return { transform: "translateX(-110%)", transition: "none" };
+      case "enter-right":
+        return { transform: "translateX(110%)", transition: "none" };
+      default:
+        if (offsetX !== 0) {
+          return { transform: `translateX(${offsetX * 0.8}px)`, transition: "none" };
+        }
+        return { transform: "translateX(0)", transition: "transform 0.3s ease-out" };
+    }
+  })();
+
   return (
-    <div className="tw-root">
+    <div className="tw-root" ref={swipeRef} {...swipeHandlers} style={{ touchAction: "pan-y" }}>
       <style>{css}</style>
 
-      <div className="tw-header">
-        <div className="tw-header-inner">{header.title}</div>
+      <div style={swipeStyle}>
+        <div className="tw-header">
+          <div className="tw-week-nav">
+            <span className="tw-week-arrow" onClick={goPrevWeek}>‹</span>
+            <div className="tw-header-inner">{header.title}</div>
+            <span className="tw-week-range">{weekRange}</span>
+            <span className="tw-week-arrow" onClick={goNextWeek}>›</span>
+          </div>
+        </div>
+
+        <Container fluid className="tw-container">
+          {loading && (
+            <div className="tw-loading">
+              <div className="tw-spinner" />
+              <div className="tw-loading-text">Ladataan otteluita...</div>
+            </div>
+          )}
+
+          {!loading && !twoCol && <div className="tw-list">{groups.map(renderDayBlock)}</div>}
+
+          {!loading && twoCol && (
+            <div className="tw-list tw-twoCol">
+              <div className="tw-col">{leftGroups.map(renderDayBlock)}</div>
+              <div className="tw-col">{rightGroups.map(renderDayBlock)}</div>
+            </div>
+          )}
+        </Container>
       </div>
-
-      <Container fluid className="tw-container">
-        {loading && (
-          <div className="tw-loading">
-            <div className="tw-spinner" />
-            <div className="tw-loading-text">Ladataan otteluita...</div>
-          </div>
-        )}
-
-        {!loading && !twoCol && <div className="tw-list">{groups.map(renderDayBlock)}</div>}
-
-        {!loading && twoCol && (
-          <div className="tw-list tw-twoCol">
-            <div className="tw-col">{leftGroups.map(renderDayBlock)}</div>
-            <div className="tw-col">{rightGroups.map(renderDayBlock)}</div>
-          </div>
-        )}
-      </Container>
     </div>
   );
 };
@@ -270,6 +459,8 @@ const css = `
 /* Match index.js theme */
 .tw-root{
   min-height:100vh;
+  touch-action: pan-y;
+  overflow-x: hidden;
 
   padding: 10px 7px 10px 7px;
 
@@ -300,11 +491,45 @@ const css = `
   font-weight: 900;
   letter-spacing: 3px;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
-  font-size: clamp(18px, 1.8vw, 32px);
+  font-size: clamp(14px, 1.8vw, 32px);
   color: #f59e0b;
 
   text-shadow: 0 6px 18px rgba(0,0,0,0.6);
+}
+
+/* Week navigation row */
+.tw-week-nav{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.tw-week-range{
+  font-size: clamp(13px, 1.2vw, 18px);
+  font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.5px;
+}
+
+.tw-week-arrow{
+  font-size: clamp(22px, 2vw, 32px);
+  font-weight: 900;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  user-select: none;
+  padding: 0 8px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.tw-week-arrow:hover{
+  color: #f59e0b;
 }
 
 /* Container as a lighter "surface" (like ahma-card) */
