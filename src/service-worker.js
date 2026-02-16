@@ -13,7 +13,18 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // SPA: serve index.html for all navigation requests
 const handler = createHandlerBoundToURL(process.env.PUBLIC_URL + '/index.html');
-registerRoute(new NavigationRoute(handler));
+registerRoute(
+  new NavigationRoute(handler, {
+    denylist: [
+      /\/manifest\.json$/,
+      /\/service-worker\.js$/,
+      /\/asset-manifest\.json$/,
+      /\/favicon\.ico$/,
+      /\/robots\.txt$/,
+      /\/apple-touch-icon.*\.png$/,
+    ],
+  })
+);
 
 // API: Game data - NetworkFirst with short timeout
 // Shows fresh data when online, falls back to cache when offline

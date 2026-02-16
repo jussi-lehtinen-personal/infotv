@@ -65,10 +65,11 @@ const styles = `
   text-decoration: none;
 }
 
-html, body{
-  margin:0;
-  background:#0f1112; /* sama kuin sun gradientin alku */
+html, body, #root {
+  height: 100%;
+  background: #111111;
 }
+body { margin: 0; }
 
 .ahma-root{
   min-height: 100dvh;

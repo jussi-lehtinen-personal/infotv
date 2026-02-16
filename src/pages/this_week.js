@@ -561,6 +561,13 @@ function simplifyLevel(level) {
 /* ============================= */
 
 const css = `
+
+html, body, #root{
+  margin: 0;
+  min-height: 100%;
+  background: #111111;
+}
+  
 /* Match index.js theme */
 .tw-root{
   min-height: 100vh;

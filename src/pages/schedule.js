@@ -179,12 +179,11 @@ const styles = {
     minHeight: "100vh",
     display: "grid",
     placeItems: "center",
-    background: "#f6f7f9",
     padding: 24,
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
   },
   unsupportedCard: {
-    background: "#ffffff",
+    background: "#f3f3f3",
     borderRadius: 14,
     padding: "18px 22px",
     boxShadow: "0 10px 24px rgba(0,0,0,0.10)",
@@ -199,19 +198,15 @@ const styles = {
 
 function calendarThemeCss(BRAND) {
   return `
-  html, body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden; /* no browser scrollbar */
-  }
+
 
     .sc-root{
     height:100vh;
     overflow:hidden;
 
     background:
-        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.10), transparent 45%),
-        linear-gradient(135deg, #d97706 0%, #b45309 45%, #7c2d12 100%);
+        radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
+        linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
 
     color:${BRAND.text};
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
