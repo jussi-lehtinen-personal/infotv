@@ -54,12 +54,24 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
   const startY = useRef(0);
   const locked = useRef(null); // "h" | "v" | null
 
-  const THRESHOLD = 200;
-  const LOCK_DISTANCE = 10;
+  // Lock earlier, but keep it robust (ratio-based)
+  const LOCK_DISTANCE = 8;
+  const LOCK_RATIO = 1.2;
+
+  const getThreshold = useCallback(() => {
+    const w = ref.current?.clientWidth ?? window.innerWidth ?? 1000;
+    // ~22% of container width, clamped
+    return Math.min(220, Math.max(80, w * 0.22));
+  }, []);
 
   const onDown = useCallback((e) => {
-    // Only primary button (touch or left-click)
-    if (e.button !== 0) return;
+    // Only primary pointer (avoid multi-touch) and left button for mouse
+    if (!e.isPrimary) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    // Make sure we keep receiving move/up even if pointer leaves the element bounds
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+
     dragging.current = true;
     didDrag.current = false;
     locked.current = null;
@@ -70,12 +82,16 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 
   const onMove = useCallback((e) => {
     if (!dragging.current) return;
+
     const dx = e.clientX - startX.current;
     const dy = e.clientY - startY.current;
 
     // Decide direction lock after small movement
-    if (locked.current === null && (Math.abs(dx) > LOCK_DISTANCE || Math.abs(dy) > LOCK_DISTANCE)) {
-      locked.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+    if (
+      locked.current === null &&
+      (Math.abs(dx) > LOCK_DISTANCE || Math.abs(dy) > LOCK_DISTANCE)
+    ) {
+      locked.current = Math.abs(dx) > Math.abs(dy) * LOCK_RATIO ? "h" : "v";
     }
 
     // Only track horizontal swipes
@@ -86,47 +102,50 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
     }
   }, []);
 
-  const onUp = useCallback((e) => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    const dx = e.clientX - startX.current;
-
-    if (locked.current === "h" && Math.abs(dx) >= THRESHOLD) {
-      if (dx < 0) onSwipeLeft();
-      else onSwipeRight();
-    }
-
-    setOffsetX(0);
-    locked.current = null;
-  }, [onSwipeLeft, onSwipeRight]);
-
-  const onCancel = useCallback(() => {
+  const finish = useCallback(() => {
     dragging.current = false;
     locked.current = null;
     setOffsetX(0);
   }, []);
 
+  const onUp = useCallback(
+    (e) => {
+      if (!dragging.current) return;
+
+      // Release capture (safe even if not captured)
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+
+      const dx = e.clientX - startX.current;
+      const threshold = getThreshold();
+
+      if (locked.current === "h" && Math.abs(dx) >= threshold) {
+        if (dx < 0) onSwipeLeft();
+        else onSwipeRight();
+      }
+
+      finish();
+    },
+    [onSwipeLeft, onSwipeRight, getThreshold, finish]
+  );
+
+  const onCancel = useCallback(
+    (e) => {
+      // Release capture if we had it
+      e?.currentTarget?.releasePointerCapture?.(e.pointerId);
+      finish();
+    },
+    [finish]
+  );
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     // Use non-passive for pointermove so we can preventDefault on horizontal swipe
     el.addEventListener("pointermove", onMove, { passive: false });
 
-    // Catch pointerup outside the element (e.g. cursor left window)
-    const onDocUp = () => {
-      if (dragging.current) {
-        dragging.current = false;
-        locked.current = null;
-        setOffsetX(0);
-      }
-    };
-    document.addEventListener("pointerup", onDocUp);
-    document.addEventListener("pointercancel", onDocUp);
-
     return () => {
       el.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onDocUp);
-      document.removeEventListener("pointercancel", onDocUp);
     };
   }, [onMove]);
 
@@ -148,6 +167,7 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 
   return { ref, offsetX, handlers };
 }
+
 
 const parseTruthy = (v) => {
   if (v == null) return false;
