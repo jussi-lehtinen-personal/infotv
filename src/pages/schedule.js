@@ -5,7 +5,6 @@ import Container from "react-bootstrap/Container";
 
 import timeGridPlugin from "@fullcalendar/timegrid";
 import bootstrapPlugin from "@fullcalendar/bootstrap";
-import { formatDate } from "@fullcalendar/core";
 import allLocales from "@fullcalendar/core/locales-all";
 
 import "bootstrap/dist/css/bootstrap.css";
@@ -18,7 +17,7 @@ class Schedule extends React.Component {
 
     this.calendarRef = React.createRef();
     this.wrapRef = React.createRef();
-
+    this.lastDayMode = null;
     this.didSwipe = false;
 
     this.state = {
@@ -71,12 +70,32 @@ class Schedule extends React.Component {
     );
   }
 
-  onResize() {
-    // swap day/week view on rotation/resizing
-    this.forceUpdate();
+onResize() {
+  const dayMode = this.isDayMode();
+  if (this.lastDayMode === null) this.lastDayMode = dayMode;
+
+  if (dayMode !== this.lastDayMode) {
+    this.lastDayMode = dayMode;
+
+    const api = this.calendarRef.current?.getApi?.();
+    if (api) {
+      api.changeView(dayMode ? "timeGridDay" : "timeGridWeek");
+
+      // pysy samassa päivässä kun näkymä vaihtuu
+      api.gotoDate(this.state.currentDate);
+
+      // jos sinulla on scrollToCurrentTime A-logiikka:
+      if (dayMode) setTimeout(this.scrollToCurrentTime, 0);
+    }
   }
 
+  // pakota rerender varmuuden vuoksi (esim. slot-height css, wrapper-luokat)
+  this.forceUpdate();
+}
+
+
   componentDidMount() {
+    this.lastDayMode = this.isDayMode();
     window.addEventListener("resize", this.onResize);
 
     fetch("api/schedule")
