@@ -25,6 +25,6 @@
   "scope": "/",
   "display": "fullscreen",
   "orientation": "any",
-  "theme_color": "#d97706",
+  "theme_color": "#111111",
   "background_color": "#111111"
 }
