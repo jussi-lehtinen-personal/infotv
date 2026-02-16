@@ -23,7 +23,7 @@
   ],
   "start_url": "/",
   "scope": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#111111",
   "background_color": "#111111"
