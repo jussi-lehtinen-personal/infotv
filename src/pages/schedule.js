@@ -641,12 +641,23 @@ function calendarThemeCss(BRAND) {
       line-height: 1.05;
     }
 
+    /* Isompi eventin kellonaika */
+    .sc-dayMode .fc .fc-event-time {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
     .fc .fc-event-title{
       font-size: 11px;
       font-weight: 550;
       letter-spacing: 0.02px;
       line-height: 1.05;
       color: rgba(17,24,39,0.85);
+    }
+
+    /* Isompi eventin otsikko */
+    .sc-dayMode .fc .fc-event-title {
+      font-size: 15px;
     }
 
     .fc .fc-timegrid-event{
