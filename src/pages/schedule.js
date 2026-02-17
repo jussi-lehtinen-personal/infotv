@@ -682,6 +682,7 @@ function calendarThemeCss(BRAND) {
       font-weight: 800;
       letter-spacing: 0.02px;
       line-height: 1.05;
+      display: block !important;
     }
 
     /* Isompi eventin kellonaika */
@@ -696,6 +697,7 @@ function calendarThemeCss(BRAND) {
       letter-spacing: 0.02px;
       line-height: 1.05;
       color: rgba(17,24,39,0.85);
+      display: block !important;
     }
 
     /* Isompi eventin otsikko */
