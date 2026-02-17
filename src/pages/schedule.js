@@ -418,7 +418,8 @@ scrollToCurrentTime = () => {
       const item = items[i];
 
       const text = item.text ?? "";
-      const isAhmaEvent =
+      const isGameEvent = item.user_group?.name === "Tilapäisvaraus";
+      const isAhmaEvent = 
         (text.includes("Kiekko") && text.includes("Ahma")) || text.includes("KA U");
       const isBLDEvent = text.includes("BLD");
       const isBrand = isAhmaEvent || isBLDEvent;
@@ -428,7 +429,7 @@ scrollToCurrentTime = () => {
         title: text,
         start: item.start_date,
         end: item.end_date,
-        classNames: [isBrand ? "ev-brand" : "ev-normal"],
+        classNames: [isGameEvent ? "ev-game" : isBrand ? "ev-brand" : "ev-normal"],
         backgroundColor: BRAND.card,
         borderColor: "rgba(17,24,39,0.14)",
         textColor: BRAND.text,
@@ -687,8 +688,8 @@ function calendarThemeCss(BRAND) {
 
     /* Isompi eventin kellonaika */
     .sc-dayMode .fc .fc-event-time {
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 16px;
+      font-weight: 750;
     }
 
     .fc .fc-event-title{
@@ -719,6 +720,12 @@ function calendarThemeCss(BRAND) {
     .fc .fc-event.ev-normal .fc-event-main,
     .fc .fc-event.ev-normal .fc-event-time,
     .fc .fc-event.ev-normal .fc-event-title{
+      color: #111827 !important;
+    }
+
+    .fc .fc-event.ev-game{
+      background: #0d84f4 !important;
+      border-color: #0b59a1 !important;
       color: #111827 !important;
     }
 
