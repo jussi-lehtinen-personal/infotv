@@ -25,7 +25,6 @@ class Schedule extends React.Component {
       currentDate: new Date(),
       dragX: 0,
       isDragging: false,
-      headerTitle: "",
       slideState: "idle", // idle | exiting | entering
     };
 
@@ -480,9 +479,6 @@ scrollToCurrentTime = () => {
                   slotDuration="00:30:00"
                   slotMinTime="08:00:00"
                   slotMaxTime="23:30:00"
-                    datesSet={() => {
-                    if (this.isDayMode()) setTimeout(this.scrollToCurrentTime, 0);
-                    }}
                   dayHeaderContent={(arg) => {
                     const text = arg.text;
                     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -504,15 +500,17 @@ scrollToCurrentTime = () => {
                   events={events}
                   themeSystem="bootstrap"
                   height="100%"
-                  headerToolbar={{
-                    left: "",
+                    headerToolbar={{
+                    left: dayMode ? "prevDay" : "",
                     center: "title",
-                    right: "",
+                    right: dayMode ? "nextDay" : "",
                     }}
-                  expandRows={true}
-                  titleFormat={(arg) => {
-                    return ""
+                  customButtons={{
+                    prevDay: { text: "‹", click: () => this.goPrevDay() },
+                    nextDay: { text: "›", click: () => this.goNextDay() },
                   }}
+                  expandRows={true}
+                  titleFormat={() => ""}
                 />
               </div>
             </div>
@@ -573,8 +571,30 @@ function calendarThemeCss(BRAND) {
 
     /* Portrait/day-mode: make hour slots taller => "2 screens" content, scroll inside calendar */
     .sc-dayMode .fc .fc-timegrid-slot{ height: 32px; }
-    .sc-dayMode .fc .fc-scroller-liquid-absolute{ overflow-y: auto !important; }
 
+/* Hide ALL FullCalendar scrollbars (and the little up/down buttons) but keep scrolling */
+
+.fc .fc-scroller::-webkit-scrollbar,
+.fc .fc-scroller-liquid::-webkit-scrollbar,
+.fc .fc-scroller-liquid-absolute::-webkit-scrollbar,
+.fc .fc-scroller-harness::-webkit-scrollbar,
+.fc .fc-scroller-harness-liquid::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.sc-dayMode .fc .fc-timegrid-body table {
+  width: 100% !important;
+}
+
+.sc-dayMode .fc .fc-timegrid-body {
+  width: 100% !important;
+}
+
+/* Varmuuden vuoksi: ei horisontaalista scrollia */
+.sc-dayMode .fc .fc-scroller.fc-scroller-liquid-absolute {
+  overflow-x: hidden !important;
+}
     /* Calendar shell (unchanged look) */
     .fc{
       height:100% !important;
@@ -600,12 +620,18 @@ function calendarThemeCss(BRAND) {
       letter-spacing: 0.18px;
     }
 
-    .fc .fc-col-header-cell-cushion{
-      font-size: 13px;
-      font-weight: 650;
-      letter-spacing: 0.08px;
-      color:${BRAND.text};
-    }
+    .sc-dayMode .fc .fc-col-header {
+  width: 100% !important;
+}
+.sc-dayMode .fc .fc-col-header-cell {
+  padding: 4px 0 !important;
+}
+
+.sc-dayMode .fc .fc-col-header-cell-cushion {
+  padding: 4px 0 !important;
+  font-size: 14px;        /* säädä halutessa */
+  line-height: 1.2;
+}
 
   .fc .fc-customTitle-button{
     background: transparent !important;
@@ -619,6 +645,23 @@ function calendarThemeCss(BRAND) {
     outline: none !important;
     box-shadow: none !important;
     }
+
+    .sc-dayMode .fc .fc-prevDay-button,
+    .sc-dayMode .fc .fc-nextDay-button{
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 12px !important;
+    font-size: 26px !important;
+    font-weight: 700 !important;
+    color: #111827 !important;
+    }
+    .sc-dayMode .fc .fc-prevDay-button:focus,
+    .sc-dayMode .fc .fc-nextDay-button:focus{
+    outline: none !important;
+    box-shadow: none !important;
+    }
+    
 
     .fc .fc-timegrid-axis-cushion,
     .fc .fc-timegrid-slot-label-cushion{
@@ -688,10 +731,17 @@ function calendarThemeCss(BRAND) {
       color: #111827 !important;
     }
 
-    .fc .fc-timegrid-now-indicator-line{ border-color: ${BRAND.accent}; }
-    .fc .fc-timegrid-now-indicator-arrow{
-      width: 0;
-      border-color: ${BRAND.accent};
+    .fc .fc-timegrid-now-indicator-line{ 
+        border-top-width: 3px;                 /* default ~1px */
+        border-color: ${BRAND.accent}; 
+        }
+    .fc .fc-timegrid-now-indicator-arrow {
+        width: 0;
+        height: 0;
+
+        border-top: 6px solid transparent;
+        border-bottom: 6px solid transparent;
+        border-left: 8px solid ${BRAND.accent};
     }
   `;
 }
