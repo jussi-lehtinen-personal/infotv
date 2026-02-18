@@ -8,7 +8,17 @@ const weekCache = new Map();
 // URI-level cache (raw API JSON): { uri: { json, timestamp } }
 const uriCache = new Map();
 
-const CACHE_TTL = 30_000; // 30 seconds
+const TTL_CURRENT = 30_000;           // 30 s  – kuluva viikko, live-tilanne
+const TTL_FUTURE  = 15 * 60_000;      // 15 min – tuleva viikko, aikataulut voivat muuttua
+const TTL_PAST    = 6 * 3_600_000;    // 6 h   – pelattu viikko, tulos ei enää muutu
+
+function getWeekTtl(weekStart) {
+    const weekStr    = moment(weekStart).format('YYYY-MM-DD');
+    const currentStr = moment(getMonday(new Date())).format('YYYY-MM-DD');
+    if (weekStr === currentStr) return TTL_CURRENT;
+    if (weekStr  <  currentStr) return TTL_PAST;
+    return TTL_FUTURE;
+}
 
 const HOME_DISTRICT_ID = 2;
 const DISTRICTS_ALL = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -34,9 +44,9 @@ const isTruthy = (v) => {
     return (s === '1' || s === 'true' || s === 'yes' || s === 'on');
 };
 
-async function fetchJsonCached(uri, context) {
+async function fetchJsonCached(uri, ttl, context) {
     const cached = uriCache.get(uri);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    if (cached && (Date.now() - cached.timestamp) < ttl) {
         context.log('URI cache hit: ' + uri);
         return cached.json;
     }
@@ -52,9 +62,9 @@ async function fetchJsonCached(uri, context) {
 // Fetch games for a single day + district and extract Kiekko-Ahma games.
 // NOTE: This does NOT decide home-only vs include-away; it returns all Ahma games found.
 // Caller can filter by `isHomeGame`.
-async function fetchDay(formattedDate, districtId, context) {
+async function fetchDay(formattedDate, districtId, ttl, context) {
     const uri = requestUri + '&districtid=' + districtId + '&dog=' + formattedDate;
-    const json = await fetchJsonCached(uri, context);
+    const json = await fetchJsonCached(uri, ttl, context);
 
     const dayMatches = [];
     for (let levelIndex = 0; levelIndex < json.length; levelIndex++) {
@@ -117,10 +127,11 @@ app.http('getGames', {
 
         const startOfWeek = getMonday(now);
         const cacheKey = moment(startOfWeek).format('YYYY-MM-DD') + '|' + (includeAway ? 'all' : 'home');
+        const weekTtl = getWeekTtl(startOfWeek);
 
         // Check week-level cache (final response)
         const cachedWeek = weekCache.get(cacheKey);
-        if (cachedWeek && (Date.now() - cachedWeek.timestamp) < CACHE_TTL) {
+        if (cachedWeek && (Date.now() - cachedWeek.timestamp) < weekTtl) {
             context.log('Week cache hit for: ' + cacheKey);
             return { body: cachedWeek.data };
         }
@@ -145,7 +156,7 @@ app.http('getGames', {
         const fetchPromises = [];
         for (const day of dayDates) {
             for (const districtId of districtsToFetch) {
-                fetchPromises.push(fetchDay(day, districtId, context));
+                fetchPromises.push(fetchDay(day, districtId, weekTtl, context));
             }
         }
 
