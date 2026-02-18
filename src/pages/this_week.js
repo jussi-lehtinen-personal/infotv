@@ -513,8 +513,33 @@ function MatchRow({ match, onClick }) {
   const highlightHome = match.isHomeGame === true;
   const highlightAway = match.isHomeGame === false;
 
+  // Voitto/tappio-indikaattori + maalien fonttipaino
+  const hg = parseInt(match.home_goals, 10);
+  const ag = parseInt(match.away_goals, 10);
+  const hasResult = match.finished && !isNaN(hg) && !isNaN(ag);
+  const homeWon = hasResult && hg > ag;
+  const awayWon = hasResult && ag > hg;
+
+  const resultBorderColor = (() => {
+    if (!hasResult) return null;
+    const ahmaGoals = match.isHomeGame ? hg : ag;
+    const oppGoals  = match.isHomeGame ? ag : hg;
+    if (ahmaGoals > oppGoals) return "#22c55e";
+    if (ahmaGoals < oppGoals) return "#ef4444";
+    if (ahmaGoals == oppGoals) return "#e8e8e8"; // tasapeli
+    return null;
+  })();
+
+  const loserGoalStyle = { fontWeight: 400, opacity: 0.85 };
+
   return (
-    <div className="tw-row" onClick={onClick} role="button" tabIndex={0}>
+    <div
+      className="tw-row"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      style={resultBorderColor ? { borderLeft: `4px solid ${resultBorderColor}` } : undefined}
+    >
       <div className="tw-time">{timeStr}</div>
 
       <div className="tw-mid">
@@ -528,7 +553,7 @@ function MatchRow({ match, onClick }) {
             {match.home}
           </span>
         </div>
-        <div className="tw-goal">{homeGoals}</div>
+        <div className="tw-goal" style={awayWon ? loserGoalStyle : undefined}>{homeGoals}</div>
 
         {/* AWAY */}
         <div className="tw-teamline">
@@ -540,7 +565,7 @@ function MatchRow({ match, onClick }) {
             {match.away}
           </span>
         </div>
-        <div className="tw-goal">{awayGoals}</div>
+        <div className="tw-goal" style={homeWon ? loserGoalStyle : undefined}>{awayGoals}</div>
       </div>
 
       <div className={statusClass}>{status}</div>
