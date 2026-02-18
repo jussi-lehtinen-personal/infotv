@@ -526,7 +526,7 @@ function MatchRow({ match, onClick }) {
     const oppGoals  = match.isHomeGame ? ag : hg;
     if (ahmaGoals > oppGoals) return "#22c55e";
     if (ahmaGoals < oppGoals) return "#ef4444";
-    if (ahmaGoals == oppGoals) return "#e8e8e8"; // tasapeli
+    if (ahmaGoals === oppGoals) return "#e8e8e8"; // tasapeli
     return null;
   })();
 
