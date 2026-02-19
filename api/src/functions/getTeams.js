@@ -31,10 +31,14 @@ function processGroups(groups) {
     const relevant = groups.filter(
         g => !g.StatGroupName.toLowerCase().includes('harjoitusottelut')
     );
+    const practiceGroups = groups.filter(
+        g => g.StatGroupName.toLowerCase().includes('harjoitusottelut')
+    );
 
     // teamKey → { shortName, levelIds: Set<string> }
     const teamMap = new Map();
 
+    // Build teams from non-practice groups only
     for (const group of relevant) {
         for (const searched of group.Searched) {
             const parsed = parseSearched(searched);
@@ -45,6 +49,19 @@ function processGroups(groups) {
                 teamMap.set(teamKey, { shortName, levelIds: new Set() });
             }
             teamMap.get(teamKey).levelIds.add(group.LevelID);
+        }
+    }
+
+    // Add practice levelIds for already-identified teams
+    for (const group of practiceGroups) {
+        for (const searched of group.Searched) {
+            const parsed = parseSearched(searched);
+            if (!parsed) continue;
+
+            const { teamKey } = parsed;
+            if (teamMap.has(teamKey)) {
+                teamMap.get(teamKey).levelIds.add(group.LevelID);
+            }
         }
     }
 
