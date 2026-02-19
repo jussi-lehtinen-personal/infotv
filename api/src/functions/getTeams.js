@@ -17,9 +17,14 @@ function parseSearched(str) {
     return { shortName: m[1].trim(), teamKey: m[2].trim() };
 }
 
-function sortTeamKey(key) {
-    const age = parseInt(key.match(/\d+/)?.[0] ?? '9999');
-    return age * 1000 + key.charCodeAt(key.indexOf(' ') + 1 || 0);
+// Returns sort key object for a teamKey string.
+// U9 < U9 Musta < U9 Oranssi < U10 < … < Miehet Edustus < Naiset Edustus
+function teamSortKey(key) {
+    const ageMatch = key.match(/^U(\d+)/i);
+    const age = ageMatch ? parseInt(ageMatch[1]) : 9999;
+    // Base team has no suffix after the age token ("U9"), variant has one ("U9 Oranssi")
+    const hasVariant = ageMatch ? key.length > ageMatch[0].length : false;
+    return { age, hasVariant };
 }
 
 function processGroups(groups) {
@@ -49,8 +54,14 @@ function processGroups(groups) {
         levelIds: Array.from(levelIds)
     }));
 
-    // Nuorimmat ensin (U9, U10 … U20), sitten Miehet/Naiset Edustus (ei numeroa)
-    teams.sort((a, b) => sortTeamKey(a.teamKey) - sortTeamKey(b.teamKey));
+    // Sort: by age asc, base team before variants, then alphabetical within age group
+    teams.sort((a, b) => {
+        const ka = teamSortKey(a.teamKey);
+        const kb = teamSortKey(b.teamKey);
+        if (ka.age !== kb.age) return ka.age - kb.age;
+        if (ka.hasVariant !== kb.hasVariant) return ka.hasVariant ? 1 : -1;
+        return a.teamKey.localeCompare(b.teamKey, 'fi');
+    });
 
     return teams;
 }
