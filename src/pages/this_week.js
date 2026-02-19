@@ -227,9 +227,10 @@ function loadFavouriteTeams() {
 function isGameForFavourite(game, favouriteTeams) {
   for (const team of favouriteTeams) {
     const levelMatch = team.levelIds.includes(game.levelId);
+    const shortNameLower = team.shortName.toLowerCase();
     const nameMatch =
-      (game.home && game.home.includes(team.shortName)) ||
-      (game.away && game.away.includes(team.shortName));
+      (game.home && game.home.toLowerCase().includes(shortNameLower)) ||
+      (game.away && game.away.toLowerCase().includes(shortNameLower));
     if (levelMatch && nameMatch) return true;
   }
   return false;
