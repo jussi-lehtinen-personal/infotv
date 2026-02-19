@@ -13,6 +13,7 @@ import ThisWeek from "./pages/this_week";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import CurrentGame from "./pages/current_game";
+import Teams from "./pages/teams";
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                 element={<GameAds />}
             />
 
+            <Route path="/teams" element={<Teams />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"

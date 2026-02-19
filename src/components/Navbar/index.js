@@ -22,8 +22,8 @@ const Index = () => {
           </div>
 
           <MenuItem
-            // Mobile-appissa halutaan koti + vieras:
-            to="/this_week?includeAway=1"
+            // Mobile-appissa halutaan koti + vieras + asetukset (suosikit-nappi):
+            to="/this_week?includeAway=1&options=1"
             title="OTTELUT JA TULOKSET"
             subtitle="Selaa Ahma-joukkueiden pelejä ja tuloksia"
           />
@@ -31,6 +31,12 @@ const Index = () => {
           <MenuItem
             to="/schedule"
             title="JÄÄVUOROKALENTERI"
+          />
+
+          <MenuItem
+            to="/teams"
+            title="JOUKKUEET"
+            subtitle="Valitse suosikkijoukkueesi"
           />
 
         </div>

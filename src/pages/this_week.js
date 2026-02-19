@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "react-bootstrap";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -210,6 +210,31 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 }
 
 
+const FAV_STORAGE_KEY = 'ahma_favourite_teams';
+
+function loadFavouriteTeams() {
+  try {
+    const raw = localStorage.getItem(FAV_STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    // Guard against old storage format (array of strings) or malformed data
+    return arr.filter(t => t && typeof t === 'object' && t.teamKey && Array.isArray(t.levelIds));
+  } catch {
+    return [];
+  }
+}
+
+function isGameForFavourite(game, favouriteTeams) {
+  for (const team of favouriteTeams) {
+    const levelMatch = team.levelIds.includes(game.levelId);
+    const nameMatch =
+      (game.home && game.home.includes(team.shortName)) ||
+      (game.away && game.away.includes(team.shortName));
+    if (levelMatch && nameMatch) return true;
+  }
+  return false;
+}
+
 const parseTruthy = (v) => {
   if (v == null) return false;
   const s = String(v).trim().toLowerCase();
@@ -221,9 +246,12 @@ const ThisWeek = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const includeAway = useMemo(() => {
+  const { includeAway, showOptions } = useMemo(() => {
     const sp = new URLSearchParams(location.search ?? "");
-    return parseTruthy(sp.get("includeAway"));
+    return {
+      includeAway: parseTruthy(sp.get("includeAway")),
+      showOptions: parseTruthy(sp.get("options")),
+    };
   }, [location.search]);
 
   // Week navigation helpers
@@ -232,9 +260,12 @@ const ThisWeek = () => {
     const target = new Date(base);
     target.setDate(target.getDate() + offsetWeeks * 7);
     const dateStr = moment(target).format("YYYY-MM-DD");
-    const qs = includeAway ? "?includeAway=1" : "";
+    const params = [];
+    if (includeAway) params.push("includeAway=1");
+    if (showOptions) params.push("options=1");
+    const qs = params.length ? "?" + params.join("&") : "";
     return `/week/${dateStr}${qs}`;
-  }, [timestamp, includeAway]);
+  }, [timestamp, includeAway, showOptions]);
 
   // Slide animation state: idle → exit-left/exit-right → enter-right/enter-left → idle
   const [slideState, setSlideState] = useState("idle");
@@ -273,6 +304,23 @@ const ThisWeek = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [slideState, navigate]);
+
+  const [onlyFavourites, setOnlyFavourites] = useState(() => {
+    try { return localStorage.getItem('ahma_only_favourites') === '1'; } catch { return false; }
+  });
+  const [favouriteTeams, setFavouriteTeams] = useState(loadFavouriteTeams);
+
+  // Persist favourite-filter toggle across sessions
+  useEffect(() => {
+    try { localStorage.setItem('ahma_only_favourites', onlyFavourites ? '1' : '0'); } catch {}
+  }, [onlyFavourites]);
+
+  // Reload favourites when the page is focused (user may have changed them on /teams)
+  useEffect(() => {
+    const onFocus = () => setFavouriteTeams(loadFavouriteTeams());
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -339,6 +387,9 @@ const ThisWeek = () => {
     return { title };
   }, [timestamp, includeAway]);
 
+  const { w, h } = useViewport();
+  const isLandscape = w >= h;
+
   const groups = useMemo(() => {
     const map = new Map();
     for (const m of matches) {
@@ -355,18 +406,22 @@ const ThisWeek = () => {
     return days.map((day) => ({ day, items: map.get(day) }));
   }, [matches]);
 
-  const totalGames = useMemo(
-    () => groups.reduce((sum, g) => sum + (g.items?.length ?? 0), 0),
-    [groups]
-  );
+  const visibleGroups = useMemo(() => {
+    if (!showOptions || !onlyFavourites || favouriteTeams.length === 0) return groups;
+    return groups
+      .map(g => ({ ...g, items: g.items.filter(m => isGameForFavourite(m, favouriteTeams)) }))
+      .filter(g => g.items.length > 0);
+  }, [groups, showOptions, onlyFavourites, favouriteTeams]);
 
-  const { w, h } = useViewport();
-  const isLandscape = w >= h;
+  const totalGames = useMemo(
+    () => visibleGroups.reduce((sum, g) => sum + (g.items?.length ?? 0), 0),
+    [visibleGroups]
+  );
 
   const twoCol = isLandscape && w >= 1000 && totalGames > 7;
 
   const { leftGroups, rightGroups } = useMemo(() => {
-    if (!twoCol) return { leftGroups: groups, rightGroups: [] };
+    if (!twoCol) return { leftGroups: visibleGroups, rightGroups: [] };
 
     const target = Math.ceil(totalGames / 2);
 
@@ -374,7 +429,7 @@ const ThisWeek = () => {
     const right = [];
 
     let count = 0;
-    for (const g of groups) {
+    for (const g of visibleGroups) {
       const nextCount = count + (g.items?.length ?? 0);
 
       if (left.length === 0 || nextCount <= target) {
@@ -391,7 +446,7 @@ const ThisWeek = () => {
     }
 
     return { leftGroups: left, rightGroups: right };
-  }, [twoCol, groups, totalGames]);
+  }, [twoCol, visibleGroups, totalGames]);
 
   const renderDayBlock = (g) => (
     <div key={g.day} className="tw-dayblock">
@@ -470,6 +525,20 @@ const ThisWeek = () => {
                     <span className="material-symbols-rounded">chevron_right</span>
                 </button>
             </div>
+
+            {showOptions && (
+              <div className="tw-filter-row">
+                <button
+                  type="button"
+                  className={`tw-fav-toggle${onlyFavourites ? ' tw-fav-toggle--active' : ''}`}
+                  onClick={() => setOnlyFavourites(v => !v)}
+                  aria-pressed={onlyFavourites}
+                >
+                  <span className="material-symbols-rounded">star</span>
+                  Suosikit
+                </button>
+              </div>
+            )}
         </div>
 
         <Container fluid className="tw-container">
@@ -480,7 +549,16 @@ const ThisWeek = () => {
             </div>
           )}
 
-          {!loading && !twoCol && <div className="tw-list">{groups.map(renderDayBlock)}</div>}
+          {!loading && onlyFavourites && visibleGroups.length === 0 && (
+            <div className="tw-empty">
+              {favouriteTeams.length === 0
+                ? <><span>Ei suosikkijoukkueita. </span><Link to="/teams" className="tw-empty-link">Lisää niitä Joukkueet-sivulta.</Link></>
+                : <span>Ei suosikkijoukkueiden pelejä tällä viikolla.</span>
+              }
+            </div>
+          )}
+
+          {!loading && !twoCol && <div className="tw-list">{visibleGroups.map(renderDayBlock)}</div>}
 
           {!loading && twoCol && (
             <div className="tw-list tw-twoCol">
@@ -488,6 +566,7 @@ const ThisWeek = () => {
               <div className="tw-col">{rightGroups.map(renderDayBlock)}</div>
             </div>
           )}
+
         </Container>
       </div>
     </div>
@@ -867,6 +946,69 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   letter-spacing: 0.6px;
   line-height: 1.1;
 }
+
+.tw-filter-row{
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+
+.tw-fav-toggle{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 5px 14px 5px 10px;
+
+  color: rgba(255,255,255,0.55);
+  font-size: clamp(12px, 1.2vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.tw-fav-toggle .material-symbols-rounded{
+  font-size: 18px;
+  line-height: 1;
+  font-variation-settings: 'FILL' 0;
+  transition: font-variation-settings 0.15s, color 0.15s;
+}
+
+.tw-fav-toggle--active{
+  background: rgba(245,158,11,0.15);
+  border-color: rgba(245,158,11,0.5);
+  color: #f59e0b;
+}
+
+.tw-fav-toggle--active .material-symbols-rounded{
+  font-variation-settings: 'FILL' 1;
+}
+
+/* Empty state */
+.tw-empty{
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  color: rgba(255,255,255,0.45);
+  font-size: clamp(13px, 1.3vw, 16px);
+  text-align: center;
+}
+
+.tw-empty-link{
+  color: #f59e0b;
+  text-decoration: underline;
+}
+.tw-empty-link:hover{ opacity: 0.8; }
 
 /* Loading state */
 .tw-loading{
