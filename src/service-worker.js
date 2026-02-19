@@ -42,6 +42,20 @@ registerRoute(
   })
 );
 
+// API: Team list - StaleWhileRevalidate (data changes rarely, 1h backend cache)
+registerRoute(
+  ({ url }) => url.pathname.startsWith('/api/getTeams'),
+  new StaleWhileRevalidate({
+    cacheName: 'team-data',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 5,
+        maxAgeSeconds: 60 * 60, // 1 hour
+      }),
+    ],
+  })
+);
+
 // API: Schedule data - NetworkFirst
 registerRoute(
   ({ url }) => url.pathname.startsWith('/api/schedule'),

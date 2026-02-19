@@ -7,7 +7,7 @@ React + Azure Functions -sovellus, joka nayttaa Kiekko-Ahman kotiottelut ja jaav
 ```
 src/pages/          React-sivut (this_week, schedule, ads, ...)
 src/Util.js         Jaetut apufunktiot ja tyylit
-api/src/functions/  Azure Functions (getGames, getImage, schedule)
+api/src/functions/  Azure Functions (getGames, getImage, getTeams, schedule)
 public/             Staattiset tiedostot, manifest.json, ikonit
 ```
 
@@ -82,4 +82,5 @@ Service worker cachettaa:
 - Staattiset resurssit (JS/CSS) - precache
 - Pelidata (`/api/getGames`) - NetworkFirst, 5min offline-fallback
 - Joukkuelogot (`/api/getImage`) - CacheFirst, 7 paivaa
+- Joukkuelista (`/api/getTeams`) - StaleWhileRevalidate, 1h
 - Jaavuorot (`/api/schedule`) - NetworkFirst, 1h offline-fallback

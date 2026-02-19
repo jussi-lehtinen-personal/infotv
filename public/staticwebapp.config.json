@@ -11,6 +11,12 @@
             "headers": {
               "Cache-Control": "public, max-age=30, stale-while-revalidate=60"
             }
+        },
+        {
+            "route": "/api/getTeams/*",
+            "headers": {
+              "Cache-Control": "public, max-age=3600, stale-while-revalidate=600"
+            }
         }
     ],
     "navigationFallback": {
