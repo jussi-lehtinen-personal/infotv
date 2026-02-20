@@ -21,9 +21,13 @@ class Schedule extends React.Component {
     this.didSwipe = false;
     this.fetchedWeekStart = null;
 
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get('date');
+    const initialDate = dateParam && !isNaN(new Date(dateParam)) ? new Date(dateParam) : new Date();
+
     this.state = {
       items: [],
-      currentDate: new Date(),
+      currentDate: initialDate,
       dragX: 0,
       isDragging: false,
       slideState: "idle", // idle | exiting | entering
@@ -178,6 +182,12 @@ onResize() {
         if (this.isDayMode()) {
           setTimeout(this.scrollToCurrentTime, 0);
         }
+
+        // Persist date in URL so refresh restores the same day
+        const dateStr = this.state.currentDate.toISOString().split('T')[0];
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('date', dateStr);
+        window.history.replaceState(null, '', `?${urlParams.toString()}`);
 
         // Refetch when navigating to a different week
         const prevWeek = this.getWeekStart(prevState.currentDate);
@@ -507,19 +517,21 @@ scrollToCurrentTime = () => {
                   slotMaxTime="23:30:00"
                   dayHeaderContent={(arg) => {
                     const text = arg.text;
-                    return text.charAt(0).toUpperCase() + text.slice(1);
+                    return <span>{text.charAt(0).toUpperCase() + text.slice(1)}</span>;
                   }}
                   dayHeaderFormat={{
                     weekday: "short",
                     day: "numeric",
                     month: "numeric",
                   }}
+                  slotLabelContent={(arg) => <span>{arg.text}</span>}
                   slotLabelFormat={{
                     hour: "2-digit",
                     minute: "2-digit",
                     omitZeroMinute: false,
                     hour12: false,
                   }}
+                  initialDate={this.state.currentDate}
                   firstDay={1}
                   nowIndicator={true}
                   now={null}
@@ -532,8 +544,8 @@ scrollToCurrentTime = () => {
                     right: dayMode ? "nextDay" : "",
                     }}
                   customButtons={{
-                    prevDay: { text: "‹", click: () => this.goPrevDay() },
-                    nextDay: { text: "›", click: () => this.goNextDay() },
+                    prevDay: { text: "\ue5cb", click: () => this.goPrevDay() },
+                    nextDay: { text: "\ue5cc", click: () => this.goNextDay() },
                   }}
                   expandRows={true}
                   titleFormat={() => ""}
@@ -677,9 +689,14 @@ function calendarThemeCss(BRAND) {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
-    padding: 0 12px !important;
-    font-size: 26px !important;
-    font-weight: 700 !important;
+    padding: 0 4px !important;
+    font-family: 'Material Symbols Rounded Variable', sans-serif !important;
+    font-size: 34px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
     color: #111827 !important;
     }
     .sc-dayMode .fc .fc-prevDay-button:focus,
