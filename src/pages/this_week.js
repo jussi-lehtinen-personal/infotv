@@ -288,6 +288,7 @@ const ThisWeek = () => {
   const goNextWeek = useCallback(() => triggerSlide(1, "left"), [triggerSlide]);
   const goPrevWeek = useCallback(() => triggerSlide(-1, "right"), [triggerSlide]);
 
+
   const { ref: swipeRef, offsetX, handlers: swipeHandlers } = useSwipe(goNextWeek, goPrevWeek);
 
   // Animation sequence: exit → navigate → enter → idle
@@ -310,12 +311,20 @@ const ThisWeek = () => {
     return () => clearTimeout(timer);
   }, [slideState, navigate]);
 
+  const [onlyHome, setOnlyHome] = useState(() => {
+    try { return localStorage.getItem('ahma_only_home') === '1'; } catch { return false; }
+  });
+
   const [onlyFavourites, setOnlyFavourites] = useState(() => {
     try { return localStorage.getItem('ahma_only_favourites') === '1'; } catch { return false; }
   });
   const [favouriteTeams, setFavouriteTeams] = useState(loadFavouriteTeams);
 
-  // Persist favourite-filter toggle across sessions
+  // Persist filter toggles across sessions
+  useEffect(() => {
+    try { localStorage.setItem('ahma_only_home', onlyHome ? '1' : '0'); } catch {}
+  }, [onlyHome]);
+
   useEffect(() => {
     try { localStorage.setItem('ahma_only_favourites', onlyFavourites ? '1' : '0'); } catch {}
   }, [onlyFavourites]);
@@ -378,7 +387,7 @@ const ThisWeek = () => {
     const selected = moment(selectedWeekStart);
     const current = moment(currentWeekStart);
 
-    const suffix = includeAway ? "OTTELUT" : "KOTIOTTELUT";
+    const suffix = (!includeAway || onlyHome) ? "KOTIOTTELUT" : "OTTELUT";
 
     let title;
     if (selected.isSame(current, "day")) {
@@ -390,7 +399,7 @@ const ThisWeek = () => {
     }
 
     return { title };
-  }, [timestamp, includeAway]);
+  }, [timestamp, includeAway, onlyHome]);
 
   const { w, h } = useViewport();
   const isLandscape = w >= h;
@@ -412,11 +421,19 @@ const ThisWeek = () => {
   }, [matches]);
 
   const visibleGroups = useMemo(() => {
-    if (!showOptions || !onlyFavourites || favouriteTeams.length === 0) return groups;
-    return groups
-      .map(g => ({ ...g, items: g.items.filter(m => isGameForFavourite(m, favouriteTeams)) }))
-      .filter(g => g.items.length > 0);
-  }, [groups, showOptions, onlyFavourites, favouriteTeams]);
+    let result = groups;
+    if (showOptions && onlyHome) {
+      result = result
+        .map(g => ({ ...g, items: g.items.filter(m => m.isHomeGame === true) }))
+        .filter(g => g.items.length > 0);
+    }
+    if (showOptions && onlyFavourites && favouriteTeams.length > 0) {
+      result = result
+        .map(g => ({ ...g, items: g.items.filter(m => isGameForFavourite(m, favouriteTeams)) }))
+        .filter(g => g.items.length > 0);
+    }
+    return result;
+  }, [groups, showOptions, onlyHome, onlyFavourites, favouriteTeams]);
 
   const totalGames = useMemo(
     () => visibleGroups.reduce((sum, g) => sum + (g.items?.length ?? 0), 0),
@@ -535,6 +552,15 @@ const ThisWeek = () => {
               <div className="tw-filter-row">
                 <button
                   type="button"
+                  className={`tw-fav-toggle${onlyHome ? ' tw-fav-toggle--active' : ''}`}
+                  onClick={() => setOnlyHome(v => !v)}
+                  aria-pressed={onlyHome}
+                >
+                  <span className="material-symbols-rounded">&#xE88A;</span>
+                  Kotipelit
+                </button>
+                <button
+                  type="button"
                   className={`tw-fav-toggle${onlyFavourites ? ' tw-fav-toggle--active' : ''}`}
                   onClick={() => setOnlyFavourites(v => !v)}
                   aria-pressed={onlyFavourites}
@@ -554,11 +580,11 @@ const ThisWeek = () => {
             </div>
           )}
 
-          {!loading && onlyFavourites && visibleGroups.length === 0 && (
+          {!loading && (onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
             <div className="tw-empty">
-              {favouriteTeams.length === 0
+              {onlyFavourites && favouriteTeams.length === 0
                 ? <><span>Ei suosikkijoukkueita. </span><Link to="/teams" className="tw-empty-link">Lisää niitä Joukkueet-sivulta.</Link></>
-                : <span>Ei suosikkijoukkueiden pelejä tällä viikolla.</span>
+                : <span>Ei pelejä tällä viikolla.</span>
               }
             </div>
           )}
@@ -955,6 +981,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 .tw-filter-row{
   display: flex;
   justify-content: center;
+  gap: 8px;
   padding-top: 8px;
   margin-top: 4px;
   border-top: 1px solid rgba(255,255,255,0.07);
