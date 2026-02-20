@@ -19,6 +19,7 @@ class Schedule extends React.Component {
     this.wrapRef = React.createRef();
     this.lastDayMode = null;
     this.didSwipe = false;
+    this.fetchedWeekStart = null;
 
     this.state = {
       items: [],
@@ -40,6 +41,26 @@ class Schedule extends React.Component {
     };
 
     this.onResize = this.onResize.bind(this);
+  }
+
+  // ---------- Data fetching ----------
+  getWeekStart(date) {
+    const d = new Date(date);
+    while (d.getDay() !== 1) d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }
+
+  fetchSchedule(date) {
+    const weekStart = this.getWeekStart(date);
+    this.fetchedWeekStart = weekStart;
+    fetch(`api/schedule?date=${weekStart}`)
+      .then(r => r.json())
+      .then(data => {
+        if (this.fetchedWeekStart === weekStart) {
+          this.setState({ items: data });
+        }
+      })
+      .catch(err => console.log("Error occurred! ", err));
   }
 
   // ---------- Layout ----------
@@ -97,10 +118,7 @@ onResize() {
     this.lastDayMode = this.isDayMode();
     window.addEventListener("resize", this.onResize);
 
-    fetch("api/schedule")
-      .then((response) => response.json())
-      .then((data) => this.setState({ items: data }))
-      .catch((error) => console.log("Error occurred! ", error));
+    this.fetchSchedule(this.state.currentDate);
 
     const el = this.wrapRef.current;
     if (!el) return;
@@ -158,7 +176,14 @@ onResize() {
 
         // scrollaa uuteen päivään "nyt"-kohdan kohdalle (vain day mode)
         if (this.isDayMode()) {
-        setTimeout(this.scrollToCurrentTime, 0);
+          setTimeout(this.scrollToCurrentTime, 0);
+        }
+
+        // Refetch when navigating to a different week
+        const prevWeek = this.getWeekStart(prevState.currentDate);
+        const newWeek = this.getWeekStart(this.state.currentDate);
+        if (prevWeek !== newWeek) {
+          this.fetchSchedule(this.state.currentDate);
         }
     }
   }
