@@ -513,7 +513,7 @@ const ThisWeek = () => {
                     onClick={goPrevWeek}
                     aria-label="Edellinen viikko"
                     >
-                    <span className="material-symbols-rounded">chevron_left</span>
+                    <span className="material-symbols-rounded">&#xE5CB;</span>
                 </button>
 
                 <div className="tw-title">
@@ -527,7 +527,7 @@ const ThisWeek = () => {
                     onClick={goNextWeek}
                     aria-label="Seuraava viikko"
                     >
-                    <span className="material-symbols-rounded">chevron_right</span>
+                    <span className="material-symbols-rounded">&#xE5CC;</span>
                 </button>
             </div>
 
@@ -539,7 +539,7 @@ const ThisWeek = () => {
                   onClick={() => setOnlyFavourites(v => !v)}
                   aria-pressed={onlyFavourites}
                 >
-                  <span className="material-symbols-rounded">star</span>
+                  <span className="material-symbols-rounded">&#xE838;</span>
                   Suosikit
                 </button>
               </div>

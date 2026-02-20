@@ -62,7 +62,7 @@ const Teams = () => {
                     {/* HEADER */}
                     <div className="teams-header">
                         <Link to="/" className="teams-back" aria-label="Takaisin">
-                            <span className="material-symbols-rounded">chevron_left</span>
+                            <span className="material-symbols-rounded">&#xE5CB;</span>
                         </Link>
                         <div className="teams-page-title">JOUKKUEET</div>
                         <div className="teams-header-spacer" />
@@ -90,7 +90,7 @@ const Teams = () => {
                                 onClick={() => toggleFavourite(team)}
                                 aria-label={favourites.has(team.teamKey) ? 'Poista suosikeista' : 'Lisää suosikkeihin'}
                             >
-                                <span className="material-symbols-rounded">star</span>
+                                <span className="material-symbols-rounded">&#xE838;</span>
                             </button>
                         </div>
                     ))}

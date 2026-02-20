@@ -51,9 +51,7 @@ const MenuItem = ({ to, title, subtitle }) => (
       <div className="ahma-title">{title}</div>
       {subtitle && <div className="ahma-sub">{subtitle}</div>}
     </div>
-    <span className="material-symbols-rounded ahma-arrow">
-        chevron_right
-    </span>
+    <span className="material-symbols-rounded ahma-arrow">&#xE5CC;</span>
   </Link>
 );
 
