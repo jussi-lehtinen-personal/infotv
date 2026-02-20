@@ -217,8 +217,8 @@ function loadFavouriteTeams() {
     const raw = localStorage.getItem(FAV_STORAGE_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    // Guard against old storage format (array of strings) or malformed data
-    return arr.filter(t => t && typeof t === 'object' && t.teamKey && Array.isArray(t.levelIds));
+    // Guard against old storage format or malformed data
+    return arr.filter(t => t && typeof t === 'object' && t.teamKey && Array.isArray(t.levelGroups));
   } catch {
     return [];
   }
@@ -226,12 +226,16 @@ function loadFavouriteTeams() {
 
 function isGameForFavourite(game, favouriteTeams) {
   for (const team of favouriteTeams) {
-    const levelMatch = team.levelIds.includes(game.levelId);
     const shortNameLower = team.shortName.toLowerCase();
     const nameMatch =
       (game.home && game.home.toLowerCase().includes(shortNameLower)) ||
       (game.away && game.away.toLowerCase().includes(shortNameLower));
-    if (levelMatch && nameMatch) return true;
+    if (!nameMatch) continue;
+
+    const groupMatch = team.levelGroups.some(
+      g => g.levelId === game.levelId && g.statGroupId === game.statGroupId
+    );
+    if (groupMatch) return true;
   }
   return false;
 }

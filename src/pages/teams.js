@@ -3,14 +3,14 @@ import { Link } from "react-router-dom";
 
 const STORAGE_KEY = 'ahma_favourite_teams';
 
-// Stores Map<teamKey, {teamKey, shortName, levelIds}>
+// Stores Map<teamKey, {teamKey, shortName, levelGroups}>
 function loadFavourites() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return new Map();
         const arr = JSON.parse(raw);
-        // Guard against old storage format (array of strings) or malformed data
-        const valid = arr.filter(t => t && typeof t === 'object' && t.teamKey && Array.isArray(t.levelIds));
+        // Guard against old storage format or malformed data
+        const valid = arr.filter(t => t && typeof t === 'object' && t.teamKey && Array.isArray(t.levelGroups));
         return new Map(valid.map(t => [t.teamKey, t]));
     } catch {
         return new Map();

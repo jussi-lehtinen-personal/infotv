@@ -101,7 +101,8 @@ async function fetchDay(formattedDate, districtId, ttl, context) {
                 finished: game.FinishedType,
                 rink: game.RinkName,
                 level: level.LevelName,
-                levelId: level.LevelID,
+                levelId: String(level.LevelID),
+                statGroupId: String(game.StatGroupID),
                 districtId: districtId,
                 isHomeGame: isHomeGame
             });

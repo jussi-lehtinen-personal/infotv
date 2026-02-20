@@ -35,8 +35,16 @@ function processGroups(groups) {
         g => g.StatGroupName.toLowerCase().includes('harjoitusottelut')
     );
 
-    // teamKey → { shortName, levelIds: Set<string> }
+    // teamKey → { shortName, levelGroups: Map<string, {levelId, statGroupId}> }
     const teamMap = new Map();
+
+    const addLevelGroup = (teamKey, group) => {
+        const key = `${group.LevelID}|${group.StatGroupID}`;
+        teamMap.get(teamKey).levelGroups.set(key, {
+            levelId: String(group.LevelID),
+            statGroupId: String(group.StatGroupID)
+        });
+    };
 
     // Build teams from non-practice groups only
     for (const group of relevant) {
@@ -46,13 +54,13 @@ function processGroups(groups) {
 
             const { teamKey, shortName } = parsed;
             if (!teamMap.has(teamKey)) {
-                teamMap.set(teamKey, { shortName, levelIds: new Set() });
+                teamMap.set(teamKey, { shortName, levelGroups: new Map() });
             }
-            teamMap.get(teamKey).levelIds.add(group.LevelID);
+            addLevelGroup(teamKey, group);
         }
     }
 
-    // Add practice levelIds for already-identified teams
+    // Add practice levelGroups for already-identified teams
     for (const group of practiceGroups) {
         for (const searched of group.Searched) {
             const parsed = parseSearched(searched);
@@ -60,15 +68,15 @@ function processGroups(groups) {
 
             const { teamKey } = parsed;
             if (teamMap.has(teamKey)) {
-                teamMap.get(teamKey).levelIds.add(group.LevelID);
+                addLevelGroup(teamKey, group);
             }
         }
     }
 
-    const teams = Array.from(teamMap.entries()).map(([teamKey, { shortName, levelIds }]) => ({
+    const teams = Array.from(teamMap.entries()).map(([teamKey, { shortName, levelGroups }]) => ({
         teamKey,
         shortName,
-        levelIds: Array.from(levelIds)
+        levelGroups: Array.from(levelGroups.values())
     }));
 
     // Sort: by age asc, base team before variants, then alphabetical within age group
