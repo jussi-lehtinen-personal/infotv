@@ -349,31 +349,38 @@ const ThisWeek = () => {
     const ac = new AbortController();
     abortRef.current = ac;
 
-    setLoading(true);
+    const doFetch = (background) => {
+        if (!background) setLoading(true);
 
-    const uri = buildGamesQueryUri(timestamp, { includeAway });
+        const uri = buildGamesQueryUri(timestamp, { includeAway });
+        fetch(uri, { signal: ac.signal })
+            .then((r) => r.json())
+            .then((d) => {
+                if (mySeq !== fetchSeq.current) return;
+                setMatches(processIncomingDataEvents(d));
+            })
+            .catch((err) => {
+                if (err?.name === "AbortError") return;
+                if (mySeq !== fetchSeq.current) return;
+                if (!background) setMatches(processIncomingDataEvents(getMockGameData()));
+            })
+            .finally(() => {
+                if (mySeq !== fetchSeq.current) return;
+                if (!background) setLoading(false);
+            });
+    };
 
-    fetch(uri, { signal: ac.signal })
-        .then((r) => r.json())
-        .then((d) => {
-        // ignore stale responses
-        if (mySeq !== fetchSeq.current) return;
-        setMatches(processIncomingDataEvents(d));
-        })
-        .catch((err) => {
-        // abort is not an error we want to show / fallback for
-        if (err?.name === "AbortError") return;
-        if (mySeq !== fetchSeq.current) return;
-        setMatches(processIncomingDataEvents(getMockGameData()));
-        })
-        .finally(() => {
-        if (mySeq !== fetchSeq.current) return;
-        setLoading(false);
-        });
+    doFetch(false);
 
-    // cleanup: abort if this effect is replaced/unmounted
+    // Poll only when viewing the current week — past/future weeks won't change
+    const selectedMon = getMonday(timestamp ? new Date(timestamp) : new Date());
+    const currentMon  = getMonday(new Date());
+    const isCurrentWeek = moment(selectedMon).isSame(moment(currentMon), "day");
+    const interval = isCurrentWeek ? setInterval(() => doFetch(true), 60_000) : null;
+
     return () => {
         ac.abort();
+        if (interval) clearInterval(interval);
     };
     }, [timestamp, includeAway]);
 
@@ -616,17 +623,21 @@ function MatchRow({ match, onClick }) {
   const status = simplifyLevel(match.level ?? "");
   const statusClass = "tw-status";
 
-  const homeGoals = match.finished ? (match.home_goals ?? "") : "";
-  const awayGoals = match.finished ? (match.away_goals ?? "") : "";
+  const finishedType = Number(match.finished);
+  const isLive = finishedType === 0 && match.home_goals != null && match.away_goals != null;
+  const isFinished = finishedType > 0;
+
+  const homeGoals = (isLive || isFinished) ? (match.home_goals ?? "") : "";
+  const awayGoals = (isLive || isFinished) ? (match.away_goals ?? "") : "";
 
   // Ahma kotona -> korosta home, vieraissa -> korosta away
   const highlightHome = match.isHomeGame === true;
   const highlightAway = match.isHomeGame === false;
 
-  // Voitto/tappio-indikaattori + maalien fonttipaino
+  // Voitto/tappio-indikaattori + maalien fonttipaino (vain valmiille peleille)
   const hg = parseInt(match.home_goals, 10);
   const ag = parseInt(match.away_goals, 10);
-  const hasResult = match.finished && !isNaN(hg) && !isNaN(ag);
+  const hasResult = isFinished && !isNaN(hg) && !isNaN(ag);
   const homeWon = hasResult && hg > ag;
   const awayWon = hasResult && ag > hg;
 
@@ -641,6 +652,7 @@ function MatchRow({ match, onClick }) {
   })();
 
   const loserGoalStyle = { fontWeight: 400, opacity: 0.85 };
+  const liveGoalStyle = { color: "#ef4444" };
 
   return (
     <div
@@ -663,7 +675,7 @@ function MatchRow({ match, onClick }) {
             {match.home}
           </span>
         </div>
-        <div className="tw-goal" style={awayWon ? loserGoalStyle : undefined}>{homeGoals}</div>
+        <div className="tw-goal" style={isLive ? liveGoalStyle : (awayWon ? loserGoalStyle : undefined)}>{homeGoals}</div>
 
         {/* AWAY */}
         <div className="tw-teamline">
@@ -675,7 +687,7 @@ function MatchRow({ match, onClick }) {
             {match.away}
           </span>
         </div>
-        <div className="tw-goal" style={homeWon ? loserGoalStyle : undefined}>{awayGoals}</div>
+        <div className="tw-goal" style={isLive ? liveGoalStyle : (homeWon ? loserGoalStyle : undefined)}>{awayGoals}</div>
       </div>
 
       <div className={statusClass}>{status}</div>
@@ -972,7 +984,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   font-weight: 800;
   font-size: clamp(12px, 1.2vw, 16px);
   color: rgba(255,255,255,0.55);
-  text-align:center;
+  text-align: right;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   line-height: 1.1;
