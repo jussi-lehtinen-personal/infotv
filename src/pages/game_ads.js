@@ -18,7 +18,6 @@ const BACKGROUNDS = [
   "/ahma_logo.png",
   "/background.jpg",
   "/background3.jpg",
-  "/background4.jpg",
   "/background6.jpg",
 ];
 
@@ -696,6 +695,7 @@ html, body, #root {
 .ga-page-header {
   width: 100%;
   max-width: 600px;
+  box-sizing: border-box;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 18px;
@@ -779,6 +779,7 @@ html, body, #root {
 .ga-controls {
   width: 100%;
   max-width: 600px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -813,6 +814,7 @@ html, body, #root {
 
 .ga-input {
   flex: 1;
+  min-width: 0;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 10px;
