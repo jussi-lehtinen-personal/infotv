@@ -144,6 +144,13 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 
 const AD_SIZE = 1024;
 
+const BACKGROUNDS = [
+  "/ahma_logo.png",
+  "/background.jpg",
+  "/background3.jpg",
+  "/background6.jpg",
+];
+
 const Ads = () => {
   const exportRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -153,6 +160,10 @@ const Ads = () => {
   const [matches, setMatches] = useState([]);
   const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
   const [scale, setScale] = useState(1);
+  const [bgIndex, setBgIndex] = useState(0);
+  const [customBg, setCustomBg] = useState(null);
+  const customBgUrlRef = useRef(null);
+  const customBgInputRef = useRef(null);
   // Tracks the actual rendered height of the canvas (grows with content)
   const [canvasHeight, setCanvasHeight] = useState(AD_SIZE);
 
@@ -208,6 +219,25 @@ const Ads = () => {
       });
     return () => controller.abort();
   }, [timestamp]);
+
+  // Revoke Object URL on unmount
+  useEffect(() => () => {
+    if (customBgUrlRef.current) URL.revokeObjectURL(customBgUrlRef.current);
+  }, []);
+
+  const CUSTOM_IDX = BACKGROUNDS.length;
+  const activeBackground = bgIndex === CUSTOM_IDX && customBg ? customBg : BACKGROUNDS[bgIndex];
+
+  const handleCustomBgFile = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (customBgUrlRef.current) URL.revokeObjectURL(customBgUrlRef.current);
+    const url = URL.createObjectURL(file);
+    customBgUrlRef.current = url;
+    setCustomBg(url);
+    setBgIndex(CUSTOM_IDX);
+    e.target.value = "";
+  }, [CUSTOM_IDX]);
 
   // Effective timestamp for game ad links (use param if present, else current Monday)
   const effectiveTimestamp = useMemo(() => {
@@ -327,16 +357,49 @@ const Ads = () => {
               }}
             >
               <div ref={exportRef} style={{ width: `${AD_SIZE}px` }}>
-                <AdContent matches={matches} weekRange={weekRange} isCurrentWeek={isCurrentWeek} teamsMap={teamsMap} onGameClick={onGameClick} />
+                <AdContent matches={matches} weekRange={weekRange} isCurrentWeek={isCurrentWeek} teamsMap={teamsMap} onGameClick={onGameClick} background={activeBackground} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Download button */}
-        <button className="ads-download-btn" onClick={downloadPng}>
-          Lataa PNG
-        </button>
+        {/* Controls */}
+        <div className="ads-controls">
+          <div className="ads-field-row">
+            <label className="ads-label">Tausta</label>
+            <div className="ads-bg-btns">
+              {BACKGROUNDS.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`ads-bg-btn${bgIndex === i ? " ads-bg-btn--active" : ""}`}
+                  onClick={() => setBgIndex(i)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`ads-bg-btn${bgIndex === CUSTOM_IDX ? " ads-bg-btn--active" : ""}`}
+                onClick={() => customBgInputRef.current?.click()}
+                title="Lataa oma kuva"
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: "18px", lineHeight: 1 }}>&#xE3C9;</span>
+              </button>
+              <input
+                ref={customBgInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleCustomBgFile}
+              />
+            </div>
+          </div>
+          <div className="ads-separator" />
+          <button className="ads-download-btn" onClick={downloadPng}>
+            Lataa PNG
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -351,7 +414,7 @@ export default Ads;
 const ORANGE = "#f97316";
 const ORANGE_DIM = "rgba(249,115,22,0.45)";
 
-function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick }) {
+function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, background }) {
   const titleLine1 = isCurrentWeek ? "TÄLLÄ VIIKOLLA" : weekRange;
 
 
@@ -372,7 +435,7 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick })
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "url('/ahma_logo.png')",
+          backgroundImage: `url('${background}')`,
           backgroundSize: "cover",
           backgroundPosition: "center 40%",
           opacity: 0.15,
@@ -780,6 +843,73 @@ html, body, #root {
   box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
 }
 
+.ads-controls {
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  padding: 16px 20px;
+}
+
+.ads-field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.ads-label {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255,255,255,0.50);
+}
+
+.ads-bg-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ads-bg-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.60);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ads-bg-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.ads-bg-btn--active {
+  background: rgba(245,158,11,0.18);
+  border-color: rgba(245,158,11,0.55);
+  color: #f59e0b;
+}
+
 .ads-game-btns {
   display: flex;
   gap: 6px;
@@ -804,6 +934,11 @@ html, body, #root {
 
 .ads-game-btn:hover {
   background: rgba(255,255,255,0.12);
+}
+
+.ads-separator {
+  width: 100%;
+  border-top: 1px solid rgba(255,255,255,0.10);
 }
 
 .ads-download-btn {

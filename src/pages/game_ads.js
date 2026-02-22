@@ -359,6 +359,7 @@ const GameAds = () => {
               />
             </div>
           </div>
+          <div className="ga-separator" />
           <button className="ga-download-btn" onClick={downloadPng}>
             Lataa PNG
           </button>
@@ -898,6 +899,11 @@ html, body, #root {
   background: rgba(245,158,11,0.18);
   border-color: rgba(245,158,11,0.55);
   color: #f59e0b;
+}
+
+.ga-separator {
+  width: 100%;
+  border-top: 1px solid rgba(255,255,255,0.10);
 }
 
 .ga-download-btn {
