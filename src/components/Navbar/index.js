@@ -40,6 +40,12 @@ const Index = () => {
           />
 
           <MenuItem
+            to="/next_home_game"
+            title="EDUSTUSJOUKKUE"
+            subtitle="Edustusjoukkueen seuraava kotipeli"
+          />
+
+          <MenuItem
             to="/ads"
             title="OTTELUMAINOKSET"
             subtitle="Lataa valmiit ottelumainokset"

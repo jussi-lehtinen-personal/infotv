@@ -14,6 +14,7 @@ import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import CurrentGame from "./pages/current_game";
 import Teams from "./pages/teams";
+import NextHomeGame from "./pages/next_home_game";
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
                 element={<GameAds />}
             />
 
+            <Route path="/next_home_game" element={<NextHomeGame />} />
             <Route path="/teams" element={<Teams />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
