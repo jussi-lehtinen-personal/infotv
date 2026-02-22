@@ -47,6 +47,7 @@ const GameAds = () => {
   const [editLevel, setEditLevel] = useState("");
   const [editTitle, setEditTitle] = useState("Kiekko-Ahma");
   const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
+  const [downloading, setDownloading] = useState(false);
 
   // If user edits the fields manually, stop auto-overriding them.
   const homeDirtyRef = useRef(false);
@@ -185,16 +186,30 @@ const GameAds = () => {
   );
 
   const downloadPng = useCallback(() => {
-    if (!exportRef.current) return;
-    toPng(exportRef.current, { cacheBust: false })
+    if (!exportRef.current || downloading) return;
+    const node = exportRef.current;
+    const opts = { cacheBust: true };
+    setDownloading(true);
+    // iOS/Safari: first call loads images into cache, second renders correctly
+    toPng(node, opts)
+      .then(() => toPng(node, opts))
       .then((dataUrl) => {
-        const link = document.createElement("a");
-        link.download = "kiekko-ahma-pelimainos.png";
-        link.href = dataUrl;
-        link.click();
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+          // iOS ei tue link.download — avataan kuva uudella tabilla (long-press → tallenna)
+          window.open(dataUrl);
+        } else {
+          const link = document.createElement("a");
+          link.download = "kiekko-ahma-pelimainos.png";
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
       })
-      .catch((err) => console.error("PNG export error:", err));
-  }, []);
+      .catch((err) => console.error("PNG export error:", err))
+      .finally(() => setDownloading(false));
+  }, [downloading]);
 
   const displayMatch = match
     ? { ...match, title: editTitle, homeMain: editHome.main, homeSub: editHome.sub, awayMain: editAway.main, awaySub: editAway.sub, level: editLevel }
@@ -360,8 +375,8 @@ const GameAds = () => {
             </div>
           </div>
           <div className="ga-separator" />
-          <button className="ga-download-btn" onClick={downloadPng}>
-            Lataa PNG
+          <button className="ga-download-btn" onClick={downloadPng} disabled={downloading}>
+            {downloading ? "Ladataan..." : "Lataa PNG"}
           </button>
         </div>
 
@@ -396,13 +411,16 @@ function GameAdCanvas({ match, background }) {
       }}
     >
       {/* Background photo */}
-      <div
+      <img
+        src={background}
+        alt=""
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: `url('${background}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center 30%",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center 30%",
         }}
       />
 
@@ -556,8 +574,7 @@ function GameAdCanvas({ match, background }) {
         {/* Teams + time */}
         <div
           style={{
-            background: "rgba(8,8,8,0.70)",
-            backdropFilter: "blur(12px)",
+            background: "rgba(8,8,8,0.85)",
             padding: "22px 36px 20px",
             display: "grid",
             gridTemplateColumns: "1fr 180px 1fr",

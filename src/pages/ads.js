@@ -160,6 +160,7 @@ const Ads = () => {
   const [matches, setMatches] = useState([]);
   const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
   const [scale, setScale] = useState(1);
+  const [downloading, setDownloading] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
   const [customBg, setCustomBg] = useState(null);
   const customBgUrlRef = useRef(null);
@@ -292,16 +293,30 @@ const Ads = () => {
   // exportRef points to the 1024×1024 element (no transform on it),
   // so the capture is always at full resolution.
   const downloadPng = useCallback(() => {
-    if (!exportRef.current) return;
-    toPng(exportRef.current, { cacheBust: false })
+    if (!exportRef.current || downloading) return;
+    const node = exportRef.current;
+    const opts = { cacheBust: true };
+    setDownloading(true);
+    // iOS/Safari: first call loads images into cache, second renders correctly
+    toPng(node, opts)
+      .then(() => toPng(node, opts))
       .then((dataUrl) => {
-        const link = document.createElement("a");
-        link.download = "kiekko-ahma-kotipelit.png";
-        link.href = dataUrl;
-        link.click();
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+          // iOS ei tue link.download — avataan kuva uudella tabilla (long-press → tallenna)
+          window.open(dataUrl);
+        } else {
+          const link = document.createElement("a");
+          link.download = "kiekko-ahma-kotipelit.png";
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
       })
-      .catch((err) => console.error("PNG export error:", err));
-  }, []);
+      .catch((err) => console.error("PNG export error:", err))
+      .finally(() => setDownloading(false));
+  }, [downloading]);
 
   return (
     <div ref={swipeRef} {...swipeHandlers} style={{ touchAction: "pan-y" }}>
@@ -396,8 +411,8 @@ const Ads = () => {
             </div>
           </div>
           <div className="ads-separator" />
-          <button className="ads-download-btn" onClick={downloadPng}>
-            Lataa PNG
+          <button className="ads-download-btn" onClick={downloadPng} disabled={downloading}>
+            {downloading ? "Ladataan..." : "Lataa PNG"}
           </button>
         </div>
       </div>
@@ -431,13 +446,16 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, b
       }}
     >
       {/* Stadium background image */}
-      <div
+      <img
+        src={background}
+        alt=""
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: `url('${background}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center 40%",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center 40%",
           opacity: 0.15,
         }}
       />
