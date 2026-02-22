@@ -209,6 +209,18 @@ const Ads = () => {
     return () => controller.abort();
   }, [timestamp]);
 
+  // Effective timestamp for game ad links (use param if present, else current Monday)
+  const effectiveTimestamp = useMemo(() => {
+    if (timestamp) return timestamp;
+    return moment(getMonday(new Date())).format("YYYY-MM-DD");
+  }, [timestamp]);
+
+  // Navigate to a specific game ad
+  const onGameClick = useCallback(
+    (idx) => navigate(`/ads/${effectiveTimestamp}/${idx}`),
+    [navigate, effectiveTimestamp]
+  );
+
   // Week navigation
   const getWeekUrl = useCallback(
     (offsetWeeks) => {
@@ -280,6 +292,20 @@ const Ads = () => {
               <span className="material-symbols-rounded">&#xE5CC;</span>
             </button>
           </div>
+          {matches.length > 0 && (
+            <div className="ads-game-btns">
+              {matches.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="ads-game-btn"
+                  onClick={() => onGameClick(i)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/*
@@ -301,7 +327,7 @@ const Ads = () => {
               }}
             >
               <div ref={exportRef} style={{ width: `${AD_SIZE}px` }}>
-                <AdContent matches={matches} weekRange={weekRange} isCurrentWeek={isCurrentWeek} teamsMap={teamsMap} />
+                <AdContent matches={matches} weekRange={weekRange} isCurrentWeek={isCurrentWeek} teamsMap={teamsMap} onGameClick={onGameClick} />
               </div>
             </div>
           </div>
@@ -325,7 +351,7 @@ export default Ads;
 const ORANGE = "#f97316";
 const ORANGE_DIM = "rgba(249,115,22,0.45)";
 
-function AdContent({ matches, weekRange, isCurrentWeek, teamsMap }) {
+function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick }) {
   const titleLine1 = isCurrentWeek ? "TÄLLÄ VIIKOLLA" : weekRange;
 
 
@@ -428,6 +454,7 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap }) {
             match={m}
             showDivider={i < matches.length - 1}
             teamsMap={teamsMap}
+            onClick={onGameClick ? () => onGameClick(i) : undefined}
           />
         ))}
       </div>
@@ -455,7 +482,7 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap }) {
   );
 }
 
-function AdGameRow({ match, showDivider, teamsMap }) {
+function AdGameRow({ match, showDivider, teamsMap, onClick }) {
   const timeStr = moment(match.date).format("HH:mm");
   const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
   const lookupKey = `${match.levelId}|${match.statGroupId}`;
@@ -465,6 +492,7 @@ function AdGameRow({ match, showDivider, teamsMap }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       <div
+        onClick={onClick}
         style={{
           display: "grid",
           // date+time | sep | home name | home logo | VS | away logo | away name
@@ -473,6 +501,7 @@ function AdGameRow({ match, showDivider, teamsMap }) {
           minHeight: "88px",
           padding: "12px 28px 12px 20px",
           gap: "0",
+          cursor: onClick ? "pointer" : undefined,
         }}
       >
         {/* Date + time */}
@@ -749,6 +778,32 @@ html, body, #root {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.ads-game-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ads-game-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.60);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ads-game-btn:hover {
+  background: rgba(255,255,255,0.12);
 }
 
 .ads-download-btn {

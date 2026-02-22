@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { toPng } from "html-to-image";
 import {
   getMockGameData,
@@ -17,10 +17,8 @@ moment.locale("fi");
 const BACKGROUNDS = [
   "/ahma_logo.png",
   "/background.jpg",
-  "/background2.jpg",
   "/background3.jpg",
   "/background4.jpg",
-  "/background5.jpg",
   "/background6.jpg",
 ];
 
@@ -34,9 +32,13 @@ const ORANGE = "#f97316";
 const GameAds = () => {
   const exportRef = useRef(null);
   const wrapperRef = useRef(null);
+  const navigate = useNavigate();
   const { timestamp, gameId } = useParams();
 
+  const currentIdx = gameId ? parseInt(gameId, 10) : 0;
+
   const [match, setMatch] = useState(null);
+  const [totalMatches, setTotalMatches] = useState(0);
   const [bgIndex, setBgIndex] = useState(0);
   const [scale, setScale] = useState(1);
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
@@ -103,6 +105,7 @@ const GameAds = () => {
     const idx = gameId ? parseInt(gameId, 10) : 0;
 
     const applyMatch = (items) => {
+      setTotalMatches(items.length);
       if (idx < items.length) {
         const m = items[idx];
         setMatch(m);
@@ -111,10 +114,7 @@ const GameAds = () => {
         levelDirtyRef.current = false;
         titleDirtyRef.current = false;
 
-        const away = splitTeamName(m.away ?? "");
-        setEditHome(computeHomeEdit(m, teamsMap));
-        setEditAway({ main: away.main, sub: away.sub ?? "" });
-        setEditLevel(m.level ?? "");
+        // Field updates handled by the [match, teamsMap] effect below
       }
     };
 
@@ -131,13 +131,38 @@ const GameAds = () => {
 
   // If teamsMap arrives later (or changes), refresh the auto home label — but only
   // if the user hasn't edited the fields manually.
+  // Sync all editable fields when match or teamsMap changes, respecting dirty flags.
   useEffect(() => {
     if (!match) return;
-    if (homeDirtyRef.current) return;
 
-    const next = computeHomeEdit(match, teamsMap);
-    setEditHome((prev) => (prev.main === next.main && prev.sub === next.sub ? prev : next));
+    if (!homeDirtyRef.current) {
+      const next = computeHomeEdit(match, teamsMap);
+      setEditHome((prev) => (prev.main === next.main && prev.sub === next.sub ? prev : next));
+    }
+    if (!awayDirtyRef.current) {
+      const away = splitTeamName(match.away ?? "");
+      setEditAway({ main: away.main, sub: away.sub ?? "" });
+    }
+    if (!levelDirtyRef.current) {
+      setEditLevel(match.level ?? "");
+    }
+    if (!titleDirtyRef.current) {
+      setEditTitle("Kiekko-Ahma");
+    }
   }, [match, teamsMap, computeHomeEdit]);
+
+  const goToGame = useCallback(
+    (idx) => navigate(`/ads/${timestamp}/${idx}`, { replace: true }),
+    [navigate, timestamp]
+  );
+  const goPrev = useCallback(
+    () => totalMatches > 0 && goToGame((currentIdx - 1 + totalMatches) % totalMatches),
+    [goToGame, currentIdx, totalMatches]
+  );
+  const goNext = useCallback(
+    () => totalMatches > 0 && goToGame((currentIdx + 1) % totalMatches),
+    [goToGame, currentIdx, totalMatches]
+  );
 
   const downloadPng = useCallback(() => {
     if (!exportRef.current) return;
@@ -159,6 +184,38 @@ const GameAds = () => {
     <div>
       <style>{css}</style>
       <div className="ga-root">
+
+        {/* Header */}
+        <div className="ga-page-header">
+          <div className="ga-nav">
+            <button type="button" className="ga-nav-btn" onClick={goPrev} aria-label="Edellinen ottelu">
+              <span className="material-symbols-rounded">&#xE5CB;</span>
+            </button>
+            <div className="ga-nav-title">
+              <div className="ga-nav-title-main">OTTELUMAINOS</div>
+              {totalMatches > 0 && (
+                <div className="ga-nav-title-sub">{currentIdx + 1} / {totalMatches}</div>
+              )}
+            </div>
+            <button type="button" className="ga-nav-btn" onClick={goNext} aria-label="Seuraava ottelu">
+              <span className="material-symbols-rounded">&#xE5CC;</span>
+            </button>
+          </div>
+          {totalMatches > 1 && (
+            <div className="ga-game-btns">
+              {Array.from({ length: totalMatches }, (_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`ga-bg-btn${i === currentIdx ? " ga-bg-btn--active" : ""}`}
+                  onClick={() => goToGame(i)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Canvas preview */}
         <div className="ga-display-wrap" ref={wrapperRef}>
@@ -634,6 +691,81 @@ html, body, #root {
     radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
     linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
 
+}
+
+.ga-page-header {
+  width: 100%;
+  max-width: 600px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  padding: 14px 20px;
+  text-align: center;
+}
+
+.ga-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.ga-nav-btn {
+  flex: 0 0 44px;
+  height: 44px;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: rgba(255,255,255,0.75);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.ga-nav-btn:hover {
+  transform: scale(1.2);
+  opacity: 0.85;
+}
+
+.ga-nav-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ga-nav-title-main {
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  font-size: clamp(16px, 2vw, 26px);
+  color: #f59e0b;
+  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ga-nav-title-sub {
+  font-size: clamp(12px, 1.2vw, 15px);
+  font-weight: 700;
+  color: rgba(255,255,255,0.60);
+  letter-spacing: 0.4px;
+}
+
+.ga-game-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .ga-display-wrap {
