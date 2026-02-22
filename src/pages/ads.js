@@ -346,10 +346,10 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap }) {
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "url('/background.jpg')",
+          backgroundImage: "url('/ahma_logo.png')",
           backgroundSize: "cover",
           backgroundPosition: "center 40%",
-          opacity: 0.45,
+          opacity: 0.15,
         }}
       />
       {/* Darkening vignette over photo */}

@@ -15,6 +15,7 @@ var moment = require("moment");
 moment.locale("fi");
 
 const BACKGROUNDS = [
+  "/ahma_logo.png",
   "/background.jpg",
   "/background2.jpg",
   "/background3.jpg",
@@ -36,11 +37,36 @@ const GameAds = () => {
   const { timestamp, gameId } = useParams();
 
   const [match, setMatch] = useState(null);
-  const [bgIndex, setBgIndex] = useState(() => Math.floor(Math.random() * BACKGROUNDS.length));
+  const [bgIndex, setBgIndex] = useState(0);
   const [scale, setScale] = useState(1);
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
   const [editLevel, setEditLevel] = useState("");
+  const [editTitle, setEditTitle] = useState("Kiekko-Ahma");
+  const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
+
+  // If user edits the fields manually, stop auto-overriding them.
+  const homeDirtyRef = useRef(false);
+  const awayDirtyRef = useRef(false);
+  const levelDirtyRef = useRef(false);
+  const titleDirtyRef = useRef(false);
+
+  const computeHomeEdit = useCallback((m, map) => {
+    if (!m) return { main: "", sub: "" };
+    const lookupKey = `${m.levelId}|${m.statGroupId}`;
+    const teamKey = map?.get(lookupKey);
+
+    // If we can map this game to an Ahma team, render as:
+    //   KIEKKO-AHMA
+    //   <teamKey>
+    if (teamKey) {
+      return { main: "KIEKKO-AHMA", sub: teamKey };
+    }
+
+    // Fallback: whatever comes from the feed
+    const home = splitTeamName(m.home ?? "");
+    return { main: home.main, sub: home.sub ?? "" };
+  }, []);
 
   // Scale canvas width to fit wrapper
   useEffect(() => {
@@ -54,6 +80,22 @@ const GameAds = () => {
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  // Fetch teams once — build levelId|statGroupId → teamKey lookup
+  useEffect(() => {
+    fetch("/api/getTeams")
+      .then((r) => r.json())
+      .then((teams) => {
+        const map = new Map();
+        for (const team of teams) {
+          for (const g of team.levelGroups ?? []) {
+            map.set(`${g.levelId}|${g.statGroupId}`, team.teamKey);
+          }
+        }
+        setTeamsMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
   // Fetch game data
   useEffect(() => {
     const controller = new AbortController();
@@ -64,9 +106,13 @@ const GameAds = () => {
       if (idx < items.length) {
         const m = items[idx];
         setMatch(m);
-        const home = splitTeamName(m.home ?? "");
+        homeDirtyRef.current = false;
+        awayDirtyRef.current = false;
+        levelDirtyRef.current = false;
+        titleDirtyRef.current = false;
+
         const away = splitTeamName(m.away ?? "");
-        setEditHome({ main: home.main, sub: home.sub ?? "" });
+        setEditHome(computeHomeEdit(m, teamsMap));
         setEditAway({ main: away.main, sub: away.sub ?? "" });
         setEditLevel(m.level ?? "");
       }
@@ -81,7 +127,17 @@ const GameAds = () => {
       });
 
     return () => controller.abort();
-  }, [timestamp, gameId]);
+  }, [timestamp, gameId, computeHomeEdit]);
+
+  // If teamsMap arrives later (or changes), refresh the auto home label — but only
+  // if the user hasn't edited the fields manually.
+  useEffect(() => {
+    if (!match) return;
+    if (homeDirtyRef.current) return;
+
+    const next = computeHomeEdit(match, teamsMap);
+    setEditHome((prev) => (prev.main === next.main && prev.sub === next.sub ? prev : next));
+  }, [match, teamsMap, computeHomeEdit]);
 
   const downloadPng = useCallback(() => {
     if (!exportRef.current) return;
@@ -96,7 +152,7 @@ const GameAds = () => {
   }, []);
 
   const displayMatch = match
-    ? { ...match, homeMain: editHome.main, homeSub: editHome.sub, awayMain: editAway.main, awaySub: editAway.sub, level: editLevel }
+    ? { ...match, title: editTitle, homeMain: editHome.main, homeSub: editHome.sub, awayMain: editAway.main, awaySub: editAway.sub, level: editLevel }
     : null;
 
   return (
@@ -127,13 +183,38 @@ const GameAds = () => {
         </div>
 
         {/* Controls */}
-        <div className="ga-controls">
+          <div className="ga-controls">
+            <div className="ga-field-row">
+              <label className="ga-label">Otsikko</label>
+              <input
+                className="ga-input"
+                value={editTitle}
+                onChange={(e) => {
+                titleDirtyRef.current = true;
+                setEditTitle(e.target.value);
+              }}
+              />
+            </div>
+            <div className="ga-field-row">
+              <label className="ga-label">Sarja</label>
+              <input
+                className="ga-input"
+                value={editLevel}
+                onChange={(e) => {
+                  levelDirtyRef.current = true;
+                  setEditLevel(e.target.value);
+                }}
+            />
+          </div>
           <div className="ga-field-row">
             <label className="ga-label">Kotijoukkue</label>
             <input
               className="ga-input"
               value={editHome.main}
-              onChange={(e) => setEditHome((p) => ({ ...p, main: e.target.value }))}
+              onChange={(e) => {
+                homeDirtyRef.current = true;
+                setEditHome((p) => ({ ...p, main: e.target.value }));
+              }}
             />
           </div>
           <div className="ga-field-row">
@@ -142,7 +223,10 @@ const GameAds = () => {
               className="ga-input ga-input--sub"
               placeholder="(ei lisätekstiä)"
               value={editHome.sub}
-              onChange={(e) => setEditHome((p) => ({ ...p, sub: e.target.value }))}
+              onChange={(e) => {
+                homeDirtyRef.current = true;
+                setEditHome((p) => ({ ...p, sub: e.target.value }));
+              }}
             />
           </div>
           <div className="ga-field-row">
@@ -150,7 +234,10 @@ const GameAds = () => {
             <input
               className="ga-input"
               value={editAway.main}
-              onChange={(e) => setEditAway((p) => ({ ...p, main: e.target.value }))}
+              onChange={(e) => {
+                awayDirtyRef.current = true;
+                setEditAway((p) => ({ ...p, main: e.target.value }));
+              }}
             />
           </div>
           <div className="ga-field-row">
@@ -159,15 +246,10 @@ const GameAds = () => {
               className="ga-input ga-input--sub"
               placeholder="(ei lisätekstiä)"
               value={editAway.sub}
-              onChange={(e) => setEditAway((p) => ({ ...p, sub: e.target.value }))}
-            />
-          </div>
-          <div className="ga-field-row">
-            <label className="ga-label">Sarja</label>
-            <input
-              className="ga-input"
-              value={editLevel}
-              onChange={(e) => setEditLevel(e.target.value)}
+              onChange={(e) => {
+                awayDirtyRef.current = true;
+                setEditAway((p) => ({ ...p, sub: e.target.value }));
+              }}
             />
           </div>
           <div className="ga-field-row">
@@ -206,6 +288,9 @@ function GameAdCanvas({ match, background }) {
   const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
   const isFree = match.isFree !== false; // default free unless explicitly false
 
+  const TITLE_TIME_SIZE = 78;
+  const SUB_SIZE = 48;
+
   return (
     <div
       style={{
@@ -225,7 +310,6 @@ function GameAdCanvas({ match, background }) {
           backgroundImage: `url('${background}')`,
           backgroundSize: "cover",
           backgroundPosition: "center 30%",
-          opacity: 0.6,
         }}
       />
 
@@ -234,9 +318,7 @@ function GameAdCanvas({ match, background }) {
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.80) 62%, rgba(0,0,0,0.97) 100%)",
-        }}
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.45) 70%, rgba(0,0,0,0.65) 100%)",        }}
       />
 
       {/* ── TOP BAR ── */}
@@ -290,37 +372,87 @@ function GameAdCanvas({ match, background }) {
           style={{
             background: "rgba(14,14,14,0.94)",
             padding: "14px 40px 10px",
-            display: "flex",
-            flexDirection: "column",
+            display: "grid",
+            gridTemplateColumns: "160px 48px 1fr",
+            columnGap: "26px",
             alignItems: "center",
-            gap: "2px",
           }}
         >
+          {/* Date + time (moved here) */}
           <div
             style={{
-              fontSize: "100px",
-              color: "#ffffff",
-              letterSpacing: "4px",
-              lineHeight: 1,
-              textShadow: "0 4px 20px rgba(0,0,0,0.8)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: "2px",
             }}
           >
-            KIEKKO-AHMA
+            <div
+              style={{
+                fontSize: `${SUB_SIZE}px`,
+                color: "#ffffff",
+                letterSpacing: "2px",
+                lineHeight: 1.1,
+                alignSelf: "center",
+                textShadow: "0 2px 6px rgba(0,0,0,0.8)",
+              }}
+            >
+              {dayStr}
+            </div>
+            <div
+              style={{
+                fontSize: `${TITLE_TIME_SIZE}px`,
+                color: ORANGE,
+                letterSpacing: "2px",
+                lineHeight: 1,
+                alignSelf: "center",
+              }}
+            >
+              {timeStr}
+            </div>
           </div>
+
+          {/* Separator */}
           <div
             style={{
-              fontSize: "50px",
-              color: ORANGE,
-              letterSpacing: "4px",
-              lineHeight: 1.1,
-              textShadow: "0 2px 10px rgba(0,0,0,0.8)",
+              width: "4px",
+              height: "80%",
+              alignSelf: "center",
+              background: ORANGE,
+              borderRadius: "2px",
             }}
-          >
-            {match.level}
+          />
+
+          {/* Team + level */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "2px" }}>
+            <div
+              style={{
+                fontSize: `${TITLE_TIME_SIZE}px`,
+                color: "#ffffff",
+                letterSpacing: "4px",
+                lineHeight: 1,
+                alignSelf: "center",
+                textShadow: "0 4px 20px rgba(0,0,0,0.8)",
+              }}
+            >
+              {match.title ?? "Kiekko-Ahma"}
+            </div>
+            <div
+              style={{
+                fontSize: `${SUB_SIZE}px`,
+                color: ORANGE,
+                letterSpacing: "4px",
+                lineHeight: 1.1,
+                alignSelf: "center",
+                textShadow: "0 2px 10px rgba(0,0,0,0.8)",
+              }}
+            >
+              {match.level}
+            </div>
           </div>
         </div>
 
-        {/* Orange divider */}
+{/* Orange divider */}
         <div
           style={{
             height: "4px",
@@ -331,7 +463,8 @@ function GameAdCanvas({ match, background }) {
         {/* Teams + time */}
         <div
           style={{
-            background: "rgba(8,8,8,0.97)",
+            background: "rgba(8,8,8,0.70)",
+            backdropFilter: "blur(12px)",
             padding: "22px 36px 20px",
             display: "grid",
             gridTemplateColumns: "1fr 180px 1fr",
@@ -358,14 +491,13 @@ function GameAdCanvas({ match, background }) {
                 background: "white",
                 borderRadius: "50%",
                 padding: "10px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.7)",
               }}
             />
             <div style={{ textAlign: "center", lineHeight: 1.05 }}>
               <div
                 style={{
                   fontSize: "56px",
-                  color: ORANGE,
+                  color: "#ffffff",
                   letterSpacing: "2px",
                   textShadow: "0 2px 8px rgba(0,0,0,0.8)",
                 }}
@@ -376,7 +508,7 @@ function GameAdCanvas({ match, background }) {
                 <div
                   style={{
                     fontSize: "38px",
-                    color: "rgba(255,255,255,0.80)",
+                    color: ORANGE,
                     letterSpacing: "2px",
                     textShadow: "0 2px 6px rgba(0,0,0,0.8)",
                   }}
@@ -387,42 +519,21 @@ function GameAdCanvas({ match, background }) {
             </div>
           </div>
 
-          {/* Date + time */}
+          {/* VS */}
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "2px",
+              justifyContent: "center",
             }}
           >
             <div
               style={{
-                fontSize: "46px",
-                color: "#ffffff",
-                letterSpacing: "2px",
-                lineHeight: 1.1,
-                textShadow: "0 2px 6px rgba(0,0,0,0.8)",
-              }}
-            >
-              {dayStr}
-            </div>
-            <div
-              style={{
-                fontSize: "80px",
-                color: ORANGE,
-                letterSpacing: "2px",
-                lineHeight: 1,
-                textShadow: `0 2px 16px rgba(249,115,22,0.5)`,
-              }}
-            >
-              {timeStr}
-            </div>
-            <div
-              style={{
-                fontSize: "46px",
+                fontSize: `${TITLE_TIME_SIZE}px`,
                 color: "rgba(255,255,255,0.65)",
-                letterSpacing: "5px",
+                letterSpacing: "6px",
+                textShadow: "0 2px 10px rgba(0,0,0,0.8)",
               }}
             >
               VS
@@ -448,7 +559,6 @@ function GameAdCanvas({ match, background }) {
                 background: "white",
                 borderRadius: "50%",
                 padding: "10px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.7)",
               }}
             />
             <div style={{ textAlign: "center", lineHeight: 1.05 }}>
@@ -466,7 +576,7 @@ function GameAdCanvas({ match, background }) {
                 <div
                   style={{
                     fontSize: "38px",
-                    color: "rgba(255,255,255,0.80)",
+                    color: ORANGE,
                     letterSpacing: "2px",
                     textShadow: "0 2px 6px rgba(0,0,0,0.8)",
                   }}
@@ -492,8 +602,8 @@ function GameAdCanvas({ match, background }) {
           }}
         >
           {isFree
-            ? "OTTELU WAREENASSA · VAPAA SISÄÄNPÄÄSY"
-            : "OTTELU WAREENASSA · LIPUT 5 EUR · ALLE 15V. ILMAISEKSI"}
+            ? "OTTELU PELATAAN WAREENASSA · VAPAA SISÄÄNPÄÄSY"
+            : "OTTELU PELATAAN WAREENASSA · LIPUT 5 EUR · ALLE 15V. ILMAISEKSI"}
         </div>
       </div>
     </div>
@@ -524,7 +634,6 @@ html, body, #root {
     radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
     linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
 
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
 .ga-display-wrap {
