@@ -32,8 +32,9 @@ app.http('getImage', {
         const buffer = await response.buffer();
         const contentType = response.headers.get('content-type') || 'image/png';
 
-        imageCache.set(uri, { buffer, headers: { 'content-type': contentType }, timestamp: Date.now() });
+        const headers = { 'content-type': contentType, 'cache-control': 'public, max-age=86400' };
+        imageCache.set(uri, { buffer, headers, timestamp: Date.now() });
 
-        return { body: buffer, headers: { 'content-type': contentType } };
+        return { body: buffer, headers };
     }
 });

@@ -196,11 +196,16 @@ const Ads = () => {
 
   // Fetch home games for the week (no includeAway → home only)
   useEffect(() => {
+    const controller = new AbortController();
     const uri = buildGamesQueryUri(timestamp);
-    fetch(uri)
+    fetch(uri, { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => setMatches(processIncomingDataEvents(d)))
-      .catch(() => setMatches(processIncomingDataEvents(getMockGameData())));
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setMatches(processIncomingDataEvents(getMockGameData()));
+      });
+    return () => controller.abort();
   }, [timestamp]);
 
   // Week navigation
@@ -245,7 +250,7 @@ const Ads = () => {
   // so the capture is always at full resolution.
   const downloadPng = useCallback(() => {
     if (!exportRef.current) return;
-    toPng(exportRef.current, { cacheBust: true })
+    toPng(exportRef.current, { cacheBust: false })
       .then((dataUrl) => {
         const link = document.createElement("a");
         link.download = "kiekko-ahma-kotipelit.png";
