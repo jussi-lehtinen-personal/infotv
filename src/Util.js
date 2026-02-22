@@ -212,6 +212,45 @@ export const buildGamesQueryUri = (date, options) => {
 };
 
 
+/* ============================= */
+/*       TEAM NAME SPLITTING     */
+/* ============================= */
+
+const TEAM_NAME_THRESHOLD = 12;
+const VARIANT_WORDS = new Set([
+  // Finnish colors
+  "musta", "valkoinen", "oranssi", "sininen", "punainen",
+  "keltainen", "vihreä", "harmaa", "violetti",
+  // English colors
+  "black", "white", "orange", "blue", "red",
+  "yellow", "green", "grey", "gray",
+  // Common team suffixes
+  "team", "jr", "junior",
+]);
+
+// Splits a team name into main + optional subtitle.
+// Priority 1: last word is a known color/variant → always split.
+// Priority 2: name is too long → split on last space.
+// Returns { main: string, sub: string | null }
+export const splitTeamName = (name) => {
+  if (!name) return { main: "", sub: null };
+
+  const lastSpace = name.lastIndexOf(" ");
+  if (lastSpace !== -1) {
+    const lastWord = name.slice(lastSpace + 1);
+    if (VARIANT_WORDS.has(lastWord.toLowerCase()) || name.length > TEAM_NAME_THRESHOLD) {
+      let main = name.slice(0, lastSpace);
+      if (main.length > TEAM_NAME_THRESHOLD) main = main.slice(0, TEAM_NAME_THRESHOLD) + "…";
+      return { main, sub: lastWord };
+    }
+  }
+
+  if (name.length > TEAM_NAME_THRESHOLD * 2) {
+    return { main: name.slice(0, TEAM_NAME_THRESHOLD) + "…", sub: null };
+  }
+  return { main: name, sub: null };
+};
+
 export const DateBox = ({date}) => {
     const dateBoxStyle = Object.assign({}, {
         alignContent: 'center',

@@ -6,6 +6,7 @@ import {
   processIncomingDataEvents,
   buildGamesQueryUri,
   getMonday,
+  splitTeamName,
 } from "../Util";
 
 import "@fontsource/bebas-neue";
@@ -454,49 +455,12 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap }) {
   );
 }
 
-// Split away team name into main + optional subtitle.
-// Priority 1: last word is a known color/variant → always split.
-// Priority 2: name is too long → split on last space regardless.
-// If main is still too long after split → truncate with ellipsis.
-const AWAY_THRESHOLD = 12;
-const VARIANT_WORDS = new Set([
-  // Finnish colors
-  "musta", "valkoinen", "oranssi", "sininen", "punainen",
-  "keltainen", "vihreä", "harmaa", "violetti",
-  // English colors
-  "black", "white", "orange", "blue", "red",
-  "yellow", "green", "grey", "gray",
-  // Common team suffixes in Finnish hockey
-  "team", "jr", "junior",
-]);
-
-function splitAwayName(name) {
-  if (!name) return { main: "", sub: null };
-
-  const lastSpace = name.lastIndexOf(" ");
-  if (lastSpace !== -1) {
-    const lastWord = name.slice(lastSpace + 1);
-    // Split if last word is a known variant, OR if total name is too long
-    if (VARIANT_WORDS.has(lastWord.toLowerCase()) || name.length > AWAY_THRESHOLD) {
-      let main = name.slice(0, lastSpace);
-      if (main.length > AWAY_THRESHOLD) main = main.slice(0, AWAY_THRESHOLD) + "…";
-      return { main, sub: lastWord };
-    }
-  }
-
-  // Single word or short enough — show as-is, truncate if extreme
-  if (name.length > AWAY_THRESHOLD * 2) {
-    return { main: name.slice(0, AWAY_THRESHOLD) + "…", sub: null };
-  }
-  return { main: name, sub: null };
-}
-
 function AdGameRow({ match, showDivider, teamsMap }) {
   const timeStr = moment(match.date).format("HH:mm");
   const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
   const lookupKey = `${match.levelId}|${match.statGroupId}`;
   const ahmaName = teamsMap?.get(lookupKey) ?? match.home;
-  const { main: awayMain, sub: awaySub } = splitAwayName(match.away);
+  const { main: awayMain, sub: awaySub } = splitTeamName(match.away);
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
