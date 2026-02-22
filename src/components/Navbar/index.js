@@ -39,6 +39,12 @@ const Index = () => {
             subtitle="Valitse suosikkijoukkueesi"
           />
 
+          <MenuItem
+            to="/ads"
+            title="OTTELUMAINOKSET"
+            subtitle="Lataa valmiit ottelumainokset"
+          />
+
         </div>
       </div>
     </>
