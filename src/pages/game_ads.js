@@ -18,7 +18,6 @@ const BACKGROUNDS = [
   "/ahma_logo.png",
   "/background.jpg",
   "/background3.jpg",
-  "/background6.jpg",
 ];
 
 const CANVAS_SIZE = 1080;
@@ -39,6 +38,9 @@ const GameAds = () => {
   const [match, setMatch] = useState(null);
   const [totalMatches, setTotalMatches] = useState(0);
   const [bgIndex, setBgIndex] = useState(0);
+  const [customBg, setCustomBg] = useState(null); // Object URL for user-uploaded image
+  const customBgUrlRef = useRef(null); // tracks current URL for cleanup
+  const customBgInputRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
@@ -150,6 +152,25 @@ const GameAds = () => {
     }
   }, [match, teamsMap, computeHomeEdit]);
 
+  // Revoke Object URL on unmount to avoid memory leaks
+  useEffect(() => () => {
+    if (customBgUrlRef.current) URL.revokeObjectURL(customBgUrlRef.current);
+  }, []);
+
+  const CUSTOM_IDX = BACKGROUNDS.length; // sentinel index for user-uploaded image
+  const activeBackground = bgIndex === CUSTOM_IDX && customBg ? customBg : BACKGROUNDS[bgIndex];
+
+  const handleCustomBgFile = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (customBgUrlRef.current) URL.revokeObjectURL(customBgUrlRef.current);
+    const url = URL.createObjectURL(file);
+    customBgUrlRef.current = url;
+    setCustomBg(url);
+    setBgIndex(CUSTOM_IDX);
+    e.target.value = ""; // allow re-selecting the same file
+  }, [CUSTOM_IDX]);
+
   const goToGame = useCallback(
     (idx) => navigate(`/ads/${timestamp}/${idx}`, { replace: true }),
     [navigate, timestamp]
@@ -231,7 +252,7 @@ const GameAds = () => {
             >
               <div ref={exportRef} style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` }}>
                 {displayMatch && (
-                  <GameAdCanvas match={displayMatch} background={BACKGROUNDS[bgIndex]} />
+                  <GameAdCanvas match={displayMatch} background={activeBackground} />
                 )}
               </div>
             </div>
@@ -321,6 +342,21 @@ const GameAds = () => {
                   {i + 1}
                 </button>
               ))}
+              <button
+                type="button"
+                className={`ga-bg-btn${bgIndex === CUSTOM_IDX ? " ga-bg-btn--active" : ""}`}
+                onClick={() => customBgInputRef.current?.click()}
+                title="Lataa oma kuva"
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: "18px", lineHeight: 1 }}>&#xE3C9;</span>
+              </button>
+              <input
+                ref={customBgInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleCustomBgFile}
+              />
             </div>
           </div>
           <button className="ga-download-btn" onClick={downloadPng}>
