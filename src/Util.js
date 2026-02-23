@@ -119,7 +119,7 @@ export const processIncomingDataEvents = (events) => {
     {
         if (!dev) {
             data.home_logo = "/api/getImage/" + data.homeTeamId + "?uri=" + data.home_logo;
-            data.away_logo = "/api/getImage?uri=" + data.away_logo;
+            data.away_logo = "/api/getImage/" + data.awayTeamId + "?uri=" + data.away_logo;
         }
         data.level = simplifyLevel(data.level)
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')

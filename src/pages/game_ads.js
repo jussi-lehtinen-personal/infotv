@@ -190,35 +190,72 @@ const GameAds = () => {
     [goToGame, currentIdx, totalMatches]
   );
 
-const downloadPng = useCallback(async () => {
+
+  const downloadPng = useCallback(async () => {
   if (!exportRef.current || downloading) return;
 
   const node = exportRef.current;
   setDownloading(true);
 
   try {
-    // Render PNG
-    const dataUrl = await toPng(node, { cacheBust: true });
+    // Wait all images (important for Safari)
+    const imgs = Array.from(node.querySelectorAll("img"));
 
-    // Convert dataURL -> Blob -> File
+    await Promise.all(
+      imgs.map(async (img) => {
+        if (!img.complete) {
+          await new Promise((res) => {
+            img.addEventListener("load", res, { once: true });
+            img.addEventListener("error", res, { once: true });
+          });
+        }
+        try { if (img.decode) await img.decode(); } catch {}
+      })
+    );
+
+    // If background is blob:, convert to dataURL
+    let backgroundDataUrl = null;
+    if (customBg && customBg.startsWith("blob:")) {
+      const res = await fetch(customBg);
+      const blob = await res.blob();
+
+      backgroundDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+    const dataUrl = await toPng(node, {
+      cacheBust: true,
+      onClone: (doc) => {
+        if (!backgroundDataUrl) return;
+
+        // Find the first img (background image in your layout)
+        const bgImg = doc.querySelector("img");
+        if (bgImg) {
+          bgImg.setAttribute("src", backgroundDataUrl);
+        }
+      },
+    });
+
     const blob = await (await fetch(dataUrl)).blob();
     const filename = "kiekko-ahma-pelimainos.png";
     const file = new File([blob], filename, { type: blob.type || "image/png" });
 
-    // 📱 Mobile share sheet (iOS + Android modern browsers)
     if (navigator.canShare?.({ files: [file] }) && navigator.share) {
       try {
         await navigator.share({
           files: [file],
           title: "Kiekko-Ahma pelimainos",
         });
-        return; // User handled it (can Save Image etc.)
-      } catch (err) {
-        // user cancelled -> fallback to download
-      }
+        return;
+      } catch {}
     }
 
-    // 💻 Desktop / fallback download
     const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;
@@ -233,7 +270,7 @@ const downloadPng = useCallback(async () => {
   } finally {
     setDownloading(false);
   }
-}, [downloading]);
+}, [downloading, customBg]);
 
   const displayMatch = match
     ? { ...match, title: editTitle, homeMain: editHome.main, homeSub: editHome.sub, awayMain: editAway.main, awaySub: editAway.sub, level: editLevel }
