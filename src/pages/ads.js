@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toPng } from "html-to-image";
+import { useExportPng } from "../hooks/useExportPng";
 import {
   getMockGameData,
   processIncomingDataEvents,
@@ -165,7 +165,6 @@ const Ads = () => {
   const [matches, setMatches] = useState([]);
   const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
   const [scale, setScale] = useState(1);
-  const [downloading, setDownloading] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
   const [customBg, setCustomBg] = useState(null);
   const customBgUrlRef = useRef(null);
@@ -295,99 +294,8 @@ const Ads = () => {
   }, [timestamp]);
 
   // Download as PNG
-  // exportRef points to the 1024×1024 element (no transform on it),
-  // so the capture is always at full resolution.
-
-  const downloadPng = useCallback(async () => {
-    if (!exportRef.current || downloading) return;
-  
-    const node = exportRef.current;
-    setDownloading(true);
-  
-    const isAppleWebKit =
-      /AppleWebKit/i.test(navigator.userAgent) && !/EdgA|EdgiOS/i.test(navigator.userAgent);
-  
-    try {
-      // Wait for all <img> inside export node (logos + background)
-      const imgs = Array.from(node.querySelectorAll("img"));
-      await Promise.all(
-        imgs.map(async (img) => {
-          if (!img.complete) {
-            await new Promise((res) => {
-              img.addEventListener("load", res, { once: true });
-              img.addEventListener("error", res, { once: true });
-            });
-          }
-          try {
-            if (img.decode) await img.decode();
-          } catch {}
-        })
-      );
-  
-      // Extra wait specifically for background image + paint (WebKit can be late)
-      const bgImg = node.querySelector('img[data-export-bg="1"]');
-      if (bgImg) {
-        if (!bgImg.complete) {
-          await new Promise((res) => {
-            bgImg.addEventListener("load", res, { once: true });
-            bgImg.addEventListener("error", res, { once: true });
-          });
-        }
-        try {
-          if (bgImg.decode) await bgImg.decode();
-        } catch {}
-  
-        // Let layout/paint settle
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-  
-        // Small Safari/WebKit fallback delay (much better than blind 1000ms)
-        if (isAppleWebKit) await new Promise((r) => setTimeout(r, 250));
-      } else {
-        // Still allow one paint before capture
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-      }
-  
-      // Render PNG
-      
-      // Warmup
-      await toPng(node, { cacheBust: true });
-      // Real export
-      const dataUrl = await toPng(node, { cacheBust: true });
-  
-      // Convert dataURL -> Blob -> File
-      const blob = await (await fetch(dataUrl)).blob();
-      const filename = "kiekko-ahma-pelimainos.png";
-      const file = new File([blob], filename, { type: blob.type || "image/png" });
-  
-      // 📱 Mobile share sheet (iOS + Android modern browsers)
-      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: "Kiekko-Ahma pelimainos",
-          });
-          return; // user handled it
-        } catch {
-          // user cancelled or failed -> fallback
-        }
-      }
-  
-      // 💻 Desktop / fallback download
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error("PNG export error:", err);
-    } finally {
-      setDownloading(false);
-    }
-  }, [downloading]);
+  // exportRef points to the full-resolution element (no transform on it).
+  const { downloading, downloadPng } = useExportPng(exportRef);
 
 
   return (

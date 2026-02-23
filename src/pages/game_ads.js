@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toPng } from "html-to-image";
+import { useExportPng } from "../hooks/useExportPng";
 import {
   getMockGameData,
   processIncomingDataEventsDoNotStrip,
@@ -52,7 +52,7 @@ const GameAds = () => {
   const [editLevel, setEditLevel] = useState("");
   const [editTitle, setEditTitle] = useState("Kiekko-Ahma");
   const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
-  const [downloading, setDownloading] = useState(false);
+  const { downloading, downloadPng } = useExportPng(exportRef);
 
   // If user edits the fields manually, stop auto-overriding them.
   const homeDirtyRef = useRef(false);
@@ -192,98 +192,6 @@ const handleCustomBgFile = useCallback((e) => {
     () => totalMatches > 0 && goToGame((currentIdx + 1) % totalMatches),
     [goToGame, currentIdx, totalMatches]
   );
-
-
-  const downloadPng = useCallback(async () => {
-    if (!exportRef.current || downloading) return;
-  
-    const node = exportRef.current;
-    setDownloading(true);
-  
-    const isAppleWebKit =
-      /AppleWebKit/i.test(navigator.userAgent) && !/EdgA|EdgiOS/i.test(navigator.userAgent);
-  
-    try {
-      // Wait for all <img> inside export node (logos + background)
-      const imgs = Array.from(node.querySelectorAll("img"));
-      await Promise.all(
-        imgs.map(async (img) => {
-          if (!img.complete) {
-            await new Promise((res) => {
-              img.addEventListener("load", res, { once: true });
-              img.addEventListener("error", res, { once: true });
-            });
-          }
-          try {
-            if (img.decode) await img.decode();
-          } catch {}
-        })
-      );
-  
-      // Extra wait specifically for background image + paint (WebKit can be late)
-      const bgImg = node.querySelector('img[data-export-bg="1"]');
-      if (bgImg) {
-        if (!bgImg.complete) {
-          await new Promise((res) => {
-            bgImg.addEventListener("load", res, { once: true });
-            bgImg.addEventListener("error", res, { once: true });
-          });
-        }
-        try {
-          if (bgImg.decode) await bgImg.decode();
-        } catch {}
-  
-        // Let layout/paint settle
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-  
-        // Small Safari/WebKit fallback delay (much better than blind 1000ms)
-        if (isAppleWebKit) await new Promise((r) => setTimeout(r, 250));
-      } else {
-        // Still allow one paint before capture
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-      }
-  
-      // Render PNG
-      
-      // Warmup
-      await toPng(node, { cacheBust: true });
-      // Real export
-      const dataUrl = await toPng(node, { cacheBust: true });
-  
-      // Convert dataURL -> Blob -> File
-      const blob = await (await fetch(dataUrl)).blob();
-      const filename = "kiekko-ahma-pelimainos.png";
-      const file = new File([blob], filename, { type: blob.type || "image/png" });
-  
-      // 📱 Mobile share sheet (iOS + Android modern browsers)
-      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: "Kiekko-Ahma pelimainos",
-          });
-          return; // user handled it
-        } catch {
-          // user cancelled or failed -> fallback
-        }
-      }
-  
-      // 💻 Desktop / fallback download
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error("PNG export error:", err);
-    } finally {
-      setDownloading(false);
-    }
-  }, [downloading]);
 
   const displayMatch = match
     ? { ...match, title: editTitle, homeMain: editHome.main, homeSub: editHome.sub, awayMain: editAway.main, awaySub: editAway.sub, level: editLevel }
