@@ -1,40 +1,38 @@
-const { app } = require('@azure/functions');
+const { app } = require("@azure/functions");
 const fetch = require("node-fetch");
 
 const imageCache = new Map();
 const TTL = 24 * 60 * 60_000; // 24 h
 
-app.http('getImage', {
-    methods: ['GET', 'POST'],
-    authLevel: 'anonymous',
-    handler: async (request, context) => {
-        context.log(`Http function processed request for url "${request.url}"`);
+app.http("getImage", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "getImage/{key}",   // <-- NEW
+  handler: async (request, context) => {
+    const uri = request.query?.get("uri") || "";
+    const key = request.params?.key || "";
 
-        var uri = ""
-        if (request.query) {
-            if (request.query.has('uri')) {
-                uri = request.query.get('uri')
-            }
-        }
+    if (!uri) return { status: 400, body: "Missing uri" };
 
-        if (uri === "") {
-            return { body: "Invalid request: " + uri };
-        }
+    // Cache by FULL effective key (so different teams never collide)
+    const cacheKey = `${key}|${uri}`;
 
-        const cached = imageCache.get(uri);
-        if (cached && (Date.now() - cached.timestamp) < TTL) {
-            context.log('Image cache hit: ' + uri);
-            return { body: cached.buffer, headers: cached.headers };
-        }
-
-        context.log('Image cache miss: ' + uri);
-        const response = await fetch(uri);
-        const buffer = await response.buffer();
-        const contentType = response.headers.get('content-type') || 'image/png';
-
-        const headers = { 'content-type': contentType, 'cache-control': 'public, max-age=86400' };
-        imageCache.set(uri, { buffer, headers, timestamp: Date.now() });
-
-        return { body: buffer, headers };
+    const cached = imageCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < TTL) {
+      return { body: cached.buffer, headers: cached.headers };
     }
+
+    const response = await fetch(uri);
+    const buffer = await response.buffer();
+    const contentType = response.headers.get("content-type") || "image/png";
+
+    const headers = {
+      "content-type": contentType,
+      "cache-control": "public, max-age=86400",
+      "access-control-allow-origin": "*",
+    };
+
+    imageCache.set(cacheKey, { buffer, headers, timestamp: Date.now() });
+    return { body: buffer, headers };
+  },
 });

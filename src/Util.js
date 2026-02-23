@@ -100,14 +100,6 @@ const replaceAll = function(str, strReplace, strWith) {
     return str.replace(reg, strWith);
 };
 
-export const getImageUri = (uri) => {
-    var result = uri
-    if (!dev) {
-        result = "/api/getImage?uri=" + uri;
-    }
-    return result
-}
-
 function simplifyLevel(level) {
   if (!level) return "";
 
@@ -126,7 +118,7 @@ export const processIncomingDataEvents = (events) => {
     events.map((data) => 
     {
         if (!dev) {
-            data.home_logo = "/api/getImage?uri=" + data.home_logo;
+            data.home_logo = "/api/getImage/" + data.homeTeamId + "?uri=" + data.home_logo;
             data.away_logo = "/api/getImage?uri=" + data.away_logo;
         }
         data.level = simplifyLevel(data.level)
@@ -156,8 +148,8 @@ export const processIncomingDataEventsDoNotStrip = (events) => {
     events.map((data) => 
     {
         if (!dev) {
-            data.home_logo = "/api/getImage?uri=" + data.home_logo;
-            data.away_logo = "/api/getImage?uri=" + data.away_logo;
+            data.home_logo = "/api/getImage/" + data.homeTeamId + "?uri=" + data.home_logo;
+            data.away_logo = "/api/getImage/" + data.awayTeamId + "?uri=" + data.away_logo;
         }
 
         data.isFree = data.level !== 'II-divisioona'

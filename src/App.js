@@ -12,7 +12,6 @@ import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
-import CurrentGame from "./pages/current_game";
 import Teams from "./pages/teams";
 import NextHomeGame from "./pages/next_home_game";
 
@@ -28,10 +27,6 @@ function App() {
             <Route
                 path="/this_week"
                 element={<ThisWeek />}
-            />
-            <Route
-                path="/current_game"
-                element={<CurrentGame />}
             />
             <Route
                 path="/week/:timestamp"

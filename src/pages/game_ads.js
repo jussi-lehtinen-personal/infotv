@@ -190,31 +190,50 @@ const GameAds = () => {
     [goToGame, currentIdx, totalMatches]
   );
 
-  const downloadPng = useCallback(() => {
-    if (!exportRef.current || downloading) return;
-    const node = exportRef.current;
-    const opts = { cacheBust: true };
-    setDownloading(true);
-    // iOS/Safari: first call loads images into cache, second renders correctly
-    toPng(node, opts)
-      .then(() => toPng(node, opts))
-      .then((dataUrl) => {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        if (isIOS) {
-          // iOS ei tue link.download — avataan kuva uudella tabilla (long-press → tallenna)
-          window.open(dataUrl);
-        } else {
-          const link = document.createElement("a");
-          link.download = "kiekko-ahma-pelimainos.png";
-          link.href = dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-      })
-      .catch((err) => console.error("PNG export error:", err))
-      .finally(() => setDownloading(false));
-  }, [downloading]);
+const downloadPng = useCallback(async () => {
+  if (!exportRef.current || downloading) return;
+
+  const node = exportRef.current;
+  setDownloading(true);
+
+  try {
+    // Render PNG
+    const dataUrl = await toPng(node, { cacheBust: true });
+
+    // Convert dataURL -> Blob -> File
+    const blob = await (await fetch(dataUrl)).blob();
+    const filename = "kiekko-ahma-pelimainos.png";
+    const file = new File([blob], filename, { type: blob.type || "image/png" });
+
+    // 📱 Mobile share sheet (iOS + Android modern browsers)
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "Kiekko-Ahma pelimainos",
+        });
+        return; // User handled it (can Save Image etc.)
+      } catch (err) {
+        // user cancelled -> fallback to download
+      }
+    }
+
+    // 💻 Desktop / fallback download
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+
+  } catch (err) {
+    console.error("PNG export error:", err);
+  } finally {
+    setDownloading(false);
+  }
+}, [downloading]);
 
   const displayMatch = match
     ? { ...match, title: editTitle, homeMain: editHome.main, homeSub: editHome.sub, awayMain: editAway.main, awaySub: editAway.sub, level: editLevel }
