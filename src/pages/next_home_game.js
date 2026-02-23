@@ -5,6 +5,7 @@ import {
   splitTeamName,
 } from "../Util";
 import { COLOR_PRIMARY, COLOR_PRIMARY_DIM } from "../theme";
+import { TeamLogo } from "../components/ui/TeamLogo";
 
 import "@fontsource/bebas-neue";
 import "moment/locale/fi";
@@ -281,19 +282,7 @@ function AdCanvas({ match, loading }) {
                   gap: "18px",
                 }}
               >
-                <img
-                  src={match.home_logo}
-                  alt=""
-                  style={{
-                    width: "230px",
-                    height: "230px",
-                    objectFit: "contain",
-                    background: "white",
-                    borderRadius: "50%",
-                    padding: "14px",
-                    boxShadow: "0 8px 36px rgba(0,0,0,0.75)",
-                  }}
-                />
+                <TeamLogo src={match.home_logo} size={230} style={{ boxShadow: "0 8px 36px rgba(0,0,0,0.75)" }} />
                 <div style={{ textAlign: "center" }}>
                   <div
                     style={{
@@ -343,19 +332,7 @@ function AdCanvas({ match, loading }) {
                   gap: "18px",
                 }}
               >
-                <img
-                  src={match.away_logo}
-                  alt=""
-                  style={{
-                    width: "230px",
-                    height: "230px",
-                    objectFit: "contain",
-                    background: "white",
-                    borderRadius: "50%",
-                    padding: "14px",
-                    boxShadow: "0 8px 36px rgba(0,0,0,0.75)",
-                  }}
-                />
+                <TeamLogo src={match.away_logo} size={230} style={{ boxShadow: "0 8px 36px rgba(0,0,0,0.75)" }} />
                 <div style={{ textAlign: "center" }}>
                   <div
                     style={{

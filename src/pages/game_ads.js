@@ -8,6 +8,10 @@ import {
   splitTeamName,
 } from "../Util";
 import { themeCSS, COLOR_PRIMARY } from "../theme";
+import { Surface } from "../components/ui/Surface";
+import { PageHeader } from "../components/ui/PageHeader";
+import { NavButton, SelectorButton, PrimaryButton } from "../components/ui/Buttons";
+import { TeamLogo } from "../components/ui/TeamLogo";
 
 import "@fontsource/bebas-neue";
 import "moment/locale/fi";
@@ -222,36 +226,23 @@ const GameAds = () => {
       <div className="ga-root">
 
         {/* Header */}
-        <div className="ga-page-header">
-          <div className="ga-nav">
-            <button type="button" className="ga-nav-btn" onClick={goPrev} aria-label="Edellinen ottelu">
-              <span className="material-symbols-rounded">&#xE5CB;</span>
-            </button>
-            <div className="ga-nav-title">
-              <div className="ga-nav-title-main">OTTELUMAINOS</div>
-              {totalMatches > 0 && (
-                <div className="ga-nav-title-sub">{currentIdx + 1} / {totalMatches}</div>
-              )}
-            </div>
-            <button type="button" className="ga-nav-btn" onClick={goNext} aria-label="Seuraava ottelu">
-              <span className="material-symbols-rounded">&#xE5CC;</span>
-            </button>
-          </div>
+        <Surface className="ga-page-header">
+          <PageHeader
+            title="OTTELUMAINOS"
+            subtitle={totalMatches > 0 ? `${currentIdx + 1} / ${totalMatches}` : undefined}
+            left={<NavButton onClick={goPrev} icon="&#xE5CB;" ariaLabel="Edellinen ottelu" />}
+            right={<NavButton onClick={goNext} icon="&#xE5CC;" ariaLabel="Seuraava ottelu" />}
+          />
           {totalMatches > 1 && (
             <div className="ga-game-btns">
               {Array.from({ length: totalMatches }, (_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={`ga-bg-btn${i === currentIdx ? " ga-bg-btn--active" : ""}`}
-                  onClick={() => goToGame(i)}
-                >
+                <SelectorButton key={i} onClick={() => goToGame(i)} active={i === currentIdx}>
                   {i + 1}
-                </button>
+                </SelectorButton>
               ))}
             </div>
           )}
-        </div>
+        </Surface>
 
         {/* Canvas preview */}
         <div className="ga-display-wrap" ref={wrapperRef}>
@@ -276,7 +267,7 @@ const GameAds = () => {
         </div>
 
         {/* Controls */}
-          <div className="ga-controls">
+          <Surface className="ga-controls">
             <div className="ga-field-row">
               <label className="ga-label">Otsikko</label>
               <input
@@ -349,23 +340,17 @@ const GameAds = () => {
             <label className="ga-label">Tausta</label>
             <div className="ga-bg-btns">
               {BACKGROUNDS.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={`ga-bg-btn${bgIndex === i ? " ga-bg-btn--active" : ""}`}
-                  onClick={() => setBgIndex(i)}
-                >
+                <SelectorButton key={i} onClick={() => setBgIndex(i)} active={bgIndex === i}>
                   {i + 1}
-                </button>
+                </SelectorButton>
               ))}
-              <button
-                type="button"
-                className={`ga-bg-btn${bgIndex === CUSTOM_IDX ? " ga-bg-btn--active" : ""}`}
+              <SelectorButton
                 onClick={() => customBgInputRef.current?.click()}
+                active={bgIndex === CUSTOM_IDX}
                 title="Lataa oma kuva"
               >
                 <span className="material-symbols-rounded" style={{ fontSize: "18px", lineHeight: 1 }}>&#xE3C9;</span>
-              </button>
+              </SelectorButton>
               <input
                 ref={customBgInputRef}
                 type="file"
@@ -376,10 +361,10 @@ const GameAds = () => {
             </div>
           </div>
           <div className="ga-separator" />
-          <button className="ga-download-btn" onClick={downloadPng} disabled={downloading}>
+          <PrimaryButton onClick={downloadPng} disabled={downloading}>
             {downloading ? "Ladataan..." : "Lataa PNG"}
-          </button>
-        </div>
+          </PrimaryButton>
+        </Surface>
 
       </div>
     </div>
@@ -592,18 +577,7 @@ function GameAdCanvas({ match, background }) {
               gap: "12px",
             }}
           >
-            <img
-              src={match.home_logo}
-              alt=""
-              style={{
-                width: "140px",
-                height: "140px",
-                objectFit: "contain",
-                background: "white",
-                borderRadius: "50%",
-                padding: "10px",
-              }}
-            />
+            <TeamLogo src={match.home_logo} size={140} />
             <div style={{ textAlign: "center", lineHeight: 1.05 }}>
               <div
                 style={{
@@ -660,18 +634,7 @@ function GameAdCanvas({ match, background }) {
               gap: "12px",
             }}
           >
-            <img
-              src={match.away_logo}
-              alt=""
-              style={{
-                width: "140px",
-                height: "140px",
-                objectFit: "contain",
-                background: "white",
-                borderRadius: "50%",
-                padding: "10px",
-              }}
-            />
+            <TeamLogo src={match.away_logo} size={140} />
             <div style={{ textAlign: "center", lineHeight: 1.05 }}>
               <div
                 style={{
@@ -744,73 +707,16 @@ html, body, #root {
   background: var(--bg-gradient);
 }
 
+/* ga-page-header — ui-surface antaa bg/border/radius/shadow */
 .ga-page-header {
   width: 100%;
   max-width: 600px;
   box-sizing: border-box;
-  background: var(--color-surface);
-  border: 1px solid var(--color-surface-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
   padding: 14px 20px;
   text-align: center;
 }
 
-.ga-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-}
-
-.ga-nav-btn {
-  flex: 0 0 44px;
-  height: 44px;
-  width: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  box-shadow: none;
-  color: rgba(255,255,255,0.75);
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.2s ease, transform 0.15s ease;
-}
-
-.ga-nav-btn:hover {
-  transform: scale(1.2);
-  opacity: 0.85;
-}
-
-.ga-nav-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.ga-nav-title-main {
-  font-weight: 900;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  font-size: clamp(16px, 2vw, 26px);
-  color: var(--color-primary);
-  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.ga-nav-title-sub {
-  font-size: clamp(12px, 1.2vw, 15px);
-  font-weight: 700;
-  color: rgba(255,255,255,0.60);
-  letter-spacing: 0.4px;
-}
+/* ga-nav / ga-nav-btn / ga-nav-title → PageHeader + NavButton */
 
 .ga-game-btns {
   display: flex;
@@ -828,6 +734,7 @@ html, body, #root {
   box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
 }
 
+/* ga-controls — ui-surface antaa bg/border/radius/shadow */
 .ga-controls {
   width: 100%;
   max-width: 600px;
@@ -835,11 +742,6 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 10px;
-
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 18px;
-  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
   padding: 16px 20px;
 }
 
@@ -893,62 +795,12 @@ html, body, #root {
   gap: 6px;
 }
 
-.ga-bg-btn {
-  width: 36px;
-  height: 36px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 8px;
-  color: rgba(255,255,255,0.60);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.ga-bg-btn:hover {
-  background: rgba(255,255,255,0.12);
-}
-
-.ga-bg-btn--active {
-  background: var(--color-primary-glow);
-  border-color: var(--color-primary-dim);
-  color: var(--color-primary);
-}
+/* ga-bg-btn → SelectorButton (ui-selector-btn) */
 
 .ga-separator {
   width: 100%;
   border-top: 1px solid rgba(255,255,255,0.10);
 }
 
-.ga-download-btn {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  margin-top: 4px;
-
-  background: var(--color-primary-glow);
-  border: 1px solid var(--color-primary-dim);
-  border-radius: 24px;
-  padding: 10px 32px;
-
-  color: var(--color-primary);
-  font-size: 14px;
-  font-family: inherit;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-
-  transition: background 0.15s, transform 0.1s;
-}
-
-.ga-download-btn:hover {
-  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
-  transform: translateY(-1px);
-}
-
-.ga-download-btn:active {
-  transform: translateY(0);
-}
+/* ga-download-btn → PrimaryButton (ui-primary-btn) */
 `;

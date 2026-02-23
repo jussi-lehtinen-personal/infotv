@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { themeCSS } from "../../theme";
+import { Surface } from "../ui/Surface";
 
 const Index = () => {
   return (
@@ -10,7 +11,7 @@ const Index = () => {
       <div className="ahma-root">
 
         {/* MENU CARD */}
-        <div className="ahma-card">
+        <Surface className="ahma-card">
 
           {/* HERO */}
           <div className="ahma-appTitle">AHMA GAMEZONE</div>
@@ -52,7 +53,7 @@ const Index = () => {
             subtitle="Lataa valmiit ottelumainokset"
           />
 
-        </div>
+        </Surface>
       </div>
     </>
   );
@@ -115,19 +116,11 @@ body { margin: 0; }
   filter: drop-shadow(0 10px 26px rgba(0,0,0,0.55));
 }
 
-/* CARD (surface) */
+/* CARD — ui-surface antaa bg/border/radius/shadow/padding */
 .ahma-card{
   width:100%;
   max-width: 520px;
   flex: 1 1 auto;
-
-  border-radius: var(--radius-card);
-  padding: 12px;
-
-  background: var(--color-surface);
-  border: 1px solid var(--color-surface-border);
-  box-shadow: var(--shadow-card);
-
   display:flex;
   flex-direction:column;
   justify-content:start;
@@ -212,14 +205,8 @@ body { margin: 0; }
   .ahma-card{
     max-width: 980px;
     padding: 16px;
-
-    /* tabletilla vähän “korttimaisempi” */
     background: rgba(255,255,255,0.10);
     border-color: rgba(255,255,255,0.16);
-  }
-
-  /* 2-column menu tabletilla */
-  .ahma-card{
     display:grid;
     grid-template-columns: 1fr;
     gap: 12px;

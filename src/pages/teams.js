@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
+import { Surface } from "../components/ui/Surface";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const STORAGE_KEY = 'ahma_favourite_teams';
 
@@ -58,16 +60,17 @@ const Teams = () => {
         <>
             <style>{css}</style>
             <div className="teams-root">
-                <div className="teams-card">
+                <Surface className="teams-card">
 
                     {/* HEADER */}
-                    <div className="teams-header">
-                        <Link to="/" className="teams-back" aria-label="Takaisin">
-                            <span className="material-symbols-rounded">&#xE5CB;</span>
-                        </Link>
-                        <div className="teams-page-title">JOUKKUEET</div>
-                        <div className="teams-header-spacer" />
-                    </div>
+                    <PageHeader
+                        title="JOUKKUEET"
+                        left={
+                            <Link to="/" className="teams-back" aria-label="Takaisin">
+                                <span className="material-symbols-rounded">&#xE5CB;</span>
+                            </Link>
+                        }
+                    />
 
                     {/* CONTENT */}
                     {loading && (
@@ -96,7 +99,7 @@ const Teams = () => {
                         </div>
                     ))}
 
-                </div>
+                </Surface>
             </div>
         </>
     );
@@ -127,27 +130,19 @@ body { margin: 0; }
   font-family: var(--font-family-base);
 }
 
+/* teams-card — ui-surface antaa bg/border/radius/shadow/padding */
 .teams-card {
   width: 100%;
   max-width: 520px;
-  border-radius: var(--radius-card);
-  padding: 12px;
-
-  background: var(--color-surface);
-  border: 1px solid var(--color-surface-border);
-  box-shadow: var(--shadow-card);
 }
 
-/* HEADER */
-.teams-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.teams-card .ui-page-header {
   margin-bottom: 14px;
-  padding: 2px 2px 6px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
+/* teams-back — back-link PageHeader left-slotissa */
 .teams-back {
   display: flex;
   align-items: center;
@@ -159,18 +154,6 @@ body { margin: 0; }
 }
 .teams-back:hover { color: var(--color-primary); }
 .teams-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
-
-/* spacer mirrors back button width to keep title centred */
-.teams-header-spacer { width: 34px; }
-
-.teams-page-title {
-  font-size: var(--size-heading-lg);
-  letter-spacing: 3px;
-  color: var(--color-primary);
-  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
-  text-align: center;
-  flex: 1;
-}
 
 /* TEAM ROW */
 .teams-row {

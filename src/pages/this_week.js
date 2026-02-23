@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Container } from "react-bootstrap";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/fi";
@@ -12,6 +11,10 @@ import {
   getMatchLink
 } from "../Util";
 import { themeCSS, COLOR_PRIMARY } from "../theme";
+import { Surface } from "../components/ui/Surface";
+import { PageHeader } from "../components/ui/PageHeader";
+import { NavButton, ToggleButton } from "../components/ui/Buttons";
+import { Spinner } from "../components/ui/Spinner";
 
 moment.locale("fi");
 
@@ -530,63 +533,27 @@ const ThisWeek = () => {
       <style>{css}</style>
 
       <div className="tw-swipePane" style={swipeStyle}>
-        <div className="tw-header">
-            <div className="tw-week-nav">
-                <button
-                    type="button"
-                    className="tw-week-btn"
-                    onClick={goPrevWeek}
-                    aria-label="Edellinen viikko"
-                    >
-                    <span className="material-symbols-rounded">&#xE5CB;</span>
-                </button>
-
-                <div className="tw-title">
-                    <div className="tw-title-main">{header.title}</div>
-                    <div className="tw-title-sub">{weekRange}</div>
-                </div>
-
-                <button
-                    type="button"
-                    className="tw-week-btn"
-                    onClick={goNextWeek}
-                    aria-label="Seuraava viikko"
-                    >
-                    <span className="material-symbols-rounded">&#xE5CC;</span>
-                </button>
-            </div>
-
+        <Surface className="tw-header">
+            <PageHeader
+                title={header.title}
+                subtitle={weekRange}
+                left={<NavButton onClick={goPrevWeek} icon="&#xE5CB;" ariaLabel="Edellinen viikko" />}
+                right={<NavButton onClick={goNextWeek} icon="&#xE5CC;" ariaLabel="Seuraava viikko" />}
+            />
             {showOptions && (
               <div className="tw-filter-row">
-                <button
-                  type="button"
-                  className={`tw-fav-toggle${onlyHome ? ' tw-fav-toggle--active' : ''}`}
-                  onClick={() => setOnlyHome(v => !v)}
-                  aria-pressed={onlyHome}
-                >
-                  <span className="material-symbols-rounded">&#xE88A;</span>
+                <ToggleButton onClick={() => setOnlyHome(v => !v)} active={onlyHome} icon="&#xE88A;">
                   Kotipelit
-                </button>
-                <button
-                  type="button"
-                  className={`tw-fav-toggle${onlyFavourites ? ' tw-fav-toggle--active' : ''}`}
-                  onClick={() => setOnlyFavourites(v => !v)}
-                  aria-pressed={onlyFavourites}
-                >
-                  <span className="material-symbols-rounded">&#xE838;</span>
+                </ToggleButton>
+                <ToggleButton onClick={() => setOnlyFavourites(v => !v)} active={onlyFavourites} icon="&#xE838;">
                   Suosikit
-                </button>
+                </ToggleButton>
               </div>
             )}
-        </div>
+        </Surface>
 
-        <Container fluid className="tw-container">
-          {loading && (
-            <div className="tw-loading">
-              <div className="tw-spinner" />
-              <div className="tw-loading-text">Ladataan otteluita...</div>
-            </div>
-          )}
+        <Surface className="tw-container">
+          {loading && <Spinner text="Ladataan otteluita..." />}
 
           {!loading && (onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
             <div className="tw-empty">
@@ -606,7 +573,7 @@ const ThisWeek = () => {
             </div>
           )}
 
-        </Container>
+        </Surface>
       </div>
     </div>
   );
@@ -668,7 +635,7 @@ function MatchRow({ match, onClick }) {
       <div className="tw-mid">
         {/* HOME */}
         <div className="tw-teamline">
-          <img className="tw-logo" src={match.home_logo} alt="" />
+          <img className="tw-logo ui-team-logo" src={match.home_logo} alt="" />
           <span
             className="tw-teamname"
             style={highlightHome ? { color: COLOR_PRIMARY } : undefined}
@@ -680,7 +647,7 @@ function MatchRow({ match, onClick }) {
 
         {/* AWAY */}
         <div className="tw-teamline">
-          <img className="tw-logo" src={match.away_logo} alt="" />
+          <img className="tw-logo ui-team-logo" src={match.away_logo} alt="" />
           <span
             className="tw-teamname"
             style={highlightAway ? { color: COLOR_PRIMARY } : undefined}
@@ -734,93 +701,17 @@ html, body, #root{
   font-family: var(--font-family-base);
 }
 
-/* Full width header (non-sticky, no overlap) */
+/* Full width header — ui-surface antaa bg/border/radius/shadow/padding */
 .tw-header{
   width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-surface-border);
-  border-radius: var(--radius-card);
-
-  box-shadow: var(--shadow-card);
-
   margin: 0 auto 10px auto;
   max-width: none !important;
-
-  /* match container padding feel */
   padding: 10px 12px;
 }
-
-/* Week navigation row */
-.tw-week-nav{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-
-  flex-wrap: nowrap;        /* tärkein */
-  width: 100%;
-}
-
 
 .material-symbols-rounded {
   font-size: 34px;
   line-height: 1;
-}
-
-.tw-week-btn{
-  flex: 0 0 44px;
-  height: 44px;
-  width: 44px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: none;
-  border: none;
-  box-shadow: none;
-
-  color: rgba(255,255,255,0.75);
-  cursor: pointer;
-  padding: 0;
-
-  transition: color 0.2s ease, transform 0.15s ease;
-}
-
-.tw-week-btn:hover {
-  transform: scale(1.2);
-  opacity: 0.85;
-}
-
-.tw-title{
-  flex: 1 1 auto;
-  min-width: 0;             /* kriittinen flex-trikki */
-  text-align: center;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-
-.tw-title-main{
-  font-weight: 900;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-
-  font-size: clamp(14px, 1.8vw, 30px);
-  color: var(--color-primary);
-  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
-
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.tw-title-sub{
-  font-size: var(--size-heading-sm);
-  font-weight: 700;
-  color: var(--color-accent);
-  letter-spacing: 0.4px;
 }
 
 .tw-swipePane{
@@ -830,20 +721,14 @@ html, body, #root{
   flex-direction: column;
 }
 
-/* Container as a lighter "surface" (like ahma-card) */
+/* Container — ui-surface antaa bg/border/radius/shadow/padding */
 .tw-container{
-flex: 1 1 auto;          /* 👈 surface venyy */
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
   max-width: 980px !important;
   padding: 12px;
-
-  border-radius: var(--radius-card);
-
-  background: var(--color-surface);
-  border: 1px solid var(--color-surface-border);
-  box-shadow: var(--shadow-card);
 }
 
 /* List blocks */
@@ -942,16 +827,12 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   min-width: 0;
 }
 
+/* tw-logo — ui-team-logo antaa object-fit/bg/shadow */
 .tw-logo{
   height: clamp(24px, 3vw, 36px);
   width:  clamp(24px, 3vw, 36px);
-  object-fit: contain;
-
-  background: white;
   border-radius: var(--radius-small);
   padding: 4px;
-
-  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
 }
 
 .tw-teamname{
@@ -999,41 +880,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 }
 
 
-.tw-fav-toggle{
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
-  padding: 5px 14px 5px 10px;
-
-  color: var(--color-muted);
-  font-size: var(--size-body);
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.tw-fav-toggle .material-symbols-rounded{
-  font-size: 18px;
-  line-height: 1;
-  font-variation-settings: 'FILL' 0;
-  transition: font-variation-settings 0.15s, color 0.15s;
-}
-
-.tw-fav-toggle--active{
-  background: var(--color-primary-glow);
-  border-color: var(--color-primary-dim);
-  color: var(--color-primary);
-}
-
-.tw-fav-toggle--active .material-symbols-rounded{
-  font-variation-settings: 'FILL' 1;
-}
+/* tw-fav-toggle → ToggleButton (ui-toggle-btn) */
 
 /* Empty state */
 .tw-empty{
@@ -1053,37 +900,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 }
 .tw-empty-link:hover{ opacity: 0.8; }
 
-/* Loading state */
-.tw-loading{
-  flex: 1 1 auto;
-  padding: 0;              /* optional: pois iso padding */
-  min-height: 0;
-
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap: 16px;
-}
-
-.tw-spinner{
-  width: 36px;
-  height: 36px;
-  border: 4px solid rgba(255,255,255,0.18);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: tw-spin 0.8s linear infinite;
-}
-
-@keyframes tw-spin{
-  to{ transform: rotate(360deg); }
-}
-
-.tw-loading-text{
-  color: rgba(255,255,255,0.78);
-  font-size: clamp(14px, 1.4vw, 20px);
-  font-weight: 700;
-}
+/* tw-loading → Spinner (ui-spinner-wrap) */
 
 /* Small screens */
 @media (max-width: 380px){

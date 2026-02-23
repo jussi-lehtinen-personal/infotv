@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e:*)",
+      "Bash(npx react-scripts build:*)",
+      "Bash(npm install:*)",
+      "Bash(identify:*)",
+      "Bash(ls:*)",
+      "Bash(npx acorn:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}
