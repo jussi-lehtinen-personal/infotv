@@ -297,86 +297,98 @@ const Ads = () => {
   // Download as PNG
   // exportRef points to the 1024×1024 element (no transform on it),
   // so the capture is always at full resolution.
-const downloadPng = useCallback(async () => {
-  if (!exportRef.current || downloading) return;
 
-  const node = exportRef.current;
-  setDownloading(true);
-
-  try {
-    // Wait all images (important for Safari)
-    const imgs = Array.from(node.querySelectorAll("img"));
-
-    await Promise.all(
-      imgs.map(async (img) => {
-        if (!img.complete) {
+  const downloadPng = useCallback(async () => {
+    if (!exportRef.current || downloading) return;
+  
+    const node = exportRef.current;
+    setDownloading(true);
+  
+    const isAppleWebKit =
+      /AppleWebKit/i.test(navigator.userAgent) && !/EdgA|EdgiOS/i.test(navigator.userAgent);
+  
+    try {
+      // Wait for all <img> inside export node (logos + background)
+      const imgs = Array.from(node.querySelectorAll("img"));
+      await Promise.all(
+        imgs.map(async (img) => {
+          if (!img.complete) {
+            await new Promise((res) => {
+              img.addEventListener("load", res, { once: true });
+              img.addEventListener("error", res, { once: true });
+            });
+          }
+          try {
+            if (img.decode) await img.decode();
+          } catch {}
+        })
+      );
+  
+      // Extra wait specifically for background image + paint (WebKit can be late)
+      const bgImg = node.querySelector('img[data-export-bg="1"]');
+      if (bgImg) {
+        if (!bgImg.complete) {
           await new Promise((res) => {
-            img.addEventListener("load", res, { once: true });
-            img.addEventListener("error", res, { once: true });
+            bgImg.addEventListener("load", res, { once: true });
+            bgImg.addEventListener("error", res, { once: true });
           });
         }
-        try { if (img.decode) await img.decode(); } catch {}
-      })
-    );
-
-    // If background is blob:, convert to dataURL
-    let backgroundDataUrl = null;
-    if (customBg && customBg.startsWith("blob:")) {
-      const res = await fetch(customBg);
-      const blob = await res.blob();
-
-      backgroundDataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    }
-
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-
-    const dataUrl = await toPng(node, {
-      cacheBust: true,
-      onClone: (doc) => {
-        if (!backgroundDataUrl) return;
-
-        // Find the first img (background image in your layout)
-        const bgImg = doc.querySelector("img");
-        if (bgImg) {
-          bgImg.setAttribute("src", backgroundDataUrl);
+        try {
+          if (bgImg.decode) await bgImg.decode();
+        } catch {}
+  
+        // Let layout/paint settle
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+  
+        // Small Safari/WebKit fallback delay (much better than blind 1000ms)
+        if (isAppleWebKit) await new Promise((r) => setTimeout(r, 250));
+      } else {
+        // Still allow one paint before capture
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+      }
+  
+      // Render PNG
+      
+      // Warmup
+      await toPng(node, { cacheBust: true });
+      // Real export
+      const dataUrl = await toPng(node, { cacheBust: true });
+  
+      // Convert dataURL -> Blob -> File
+      const blob = await (await fetch(dataUrl)).blob();
+      const filename = "kiekko-ahma-pelimainos.png";
+      const file = new File([blob], filename, { type: blob.type || "image/png" });
+  
+      // 📱 Mobile share sheet (iOS + Android modern browsers)
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "Kiekko-Ahma pelimainos",
+          });
+          return; // user handled it
+        } catch {
+          // user cancelled or failed -> fallback
         }
-      },
-    });
-
-    const blob = await (await fetch(dataUrl)).blob();
-    const filename = "kiekko-ahma-pelimainos.png";
-    const file = new File([blob], filename, { type: blob.type || "image/png" });
-
-    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: "Kiekko-Ahma pelimainos",
-        });
-        return;
-      } catch {}
+      }
+  
+      // 💻 Desktop / fallback download
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("PNG export error:", err);
+    } finally {
+      setDownloading(false);
     }
+  }, [downloading]);
 
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-
-  } catch (err) {
-    console.error("PNG export error:", err);
-  } finally {
-    setDownloading(false);
-  }
-}, [downloading, customBg]);
 
   return (
     <div ref={swipeRef} {...swipeHandlers} style={{ touchAction: "pan-y" }}>
@@ -490,6 +502,8 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, b
     >
       {/* Stadium background image */}
       <img
+        data-export-bg="1"
+        decoding="sync"
         src={background}
         alt=""
         style={{
