@@ -4,6 +4,7 @@ import {
   buildGamesQueryUri,
   splitTeamName,
 } from "../Util";
+import { COLOR_PRIMARY, COLOR_PRIMARY_DIM } from "../theme";
 
 import "@fontsource/bebas-neue";
 import "moment/locale/fi";
@@ -13,8 +14,8 @@ moment.locale("fi");
 
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
-const ORANGE = "#f97316";
-const ORANGE_DIM = "rgba(249,115,22,0.45)";
+const ORANGE = COLOR_PRIMARY;
+const ORANGE_DIM = COLOR_PRIMARY_DIM;
 const BACKGROUND = "/ahma_logo.png";
 
 /* ============================= */

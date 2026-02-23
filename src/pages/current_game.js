@@ -4,14 +4,15 @@ import {React, useState, useEffect} from "react";
 import Container from 'react-bootstrap/Container';
 import {Col } from 'react-bootstrap';
 import { useParams } from "react-router-dom";
-import { 
+import {
     getMockGameData,
     getMonday,
     styles,
     componentStyles,
-    processIncomingDataEvents, 
+    processIncomingDataEvents,
     buildGamesQueryUri,
 } from "../Util";
+import { COLOR_PRIMARY } from "../theme";
 
 
 import "@fontsource/bebas-neue"; // Defaults to weight 400
@@ -62,9 +63,9 @@ const CurrentGame = (props) => {
         const fullWidth = Object.assign({}, styles.flex, { height: "6vw", width:'100%' })
         const smallTextStyle = Object.assign({}, styles.flex, { fontSize: '1.5vw', backgroundColor: 'black' })
         const normalTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '2.5vw', justifyContent: 'center' })
-        const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '2.5vw', color: 'orange', justifyContent: 'center' })
+        const highlightTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '2.5vw', color: COLOR_PRIMARY, justifyContent: 'center' })
         const normalScoreTextStyle = Object.assign({}, styles.flex, styles.textShadow, { textAlign: 'center', fontSize: '6vw', justifyContent: 'center' })
-        const highlightScoreTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '6vw', color: 'orange', justifyContent: 'center' })
+        const highlightScoreTextStyle = Object.assign({}, styles.flex, styles.textHighlight, { textAlign: 'center', fontSize: '6vw', color: COLOR_PRIMARY, justifyContent: 'center' })
 
         var data = state.match
         
@@ -95,7 +96,7 @@ const CurrentGame = (props) => {
             height: '5px', 
             width: '100%', 
             boxShadow: '0px 5px 15px #000000', 
-            background: `radial-gradient( white, orange, black )`, 
+            background: `radial-gradient( white, ${COLOR_PRIMARY}, black )`, 
             })
 
         // Define the layout configuration for each grid item

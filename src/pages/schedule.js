@@ -1,5 +1,6 @@
 // pages/schedule.js
 import React, { Fragment } from "react";
+import { COLOR_PRIMARY } from "../theme";
 import FullCalendar from "@fullcalendar/react";
 import Container from "react-bootstrap/Container";
 
@@ -442,7 +443,7 @@ scrollToCurrentTime = () => {
     const { items } = this.state;
 
     const BRAND = {
-      accent: "#f59e0b",
+      accent: COLOR_PRIMARY,
       card: "#fff7ed",
       text: "#111827",
       muted: "#64748b",
@@ -772,7 +773,7 @@ function calendarThemeCss(BRAND) {
     }
 
     .fc .fc-event.ev-brand{
-      background: #f59e0b !important;
+      background: var(--color-primary) !important;
       border-color: #aa6f09 !important;
       color: #111827 !important;
     }

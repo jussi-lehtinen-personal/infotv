@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { themeCSS } from "../theme";
 
 const STORAGE_KEY = 'ahma_favourite_teams';
 
@@ -105,11 +106,11 @@ export default Teams;
 
 /* ================== STYLES ================== */
 
-const css = `
+const css = `${themeCSS}
 
 html, body, #root {
   height: 100%;
-  background: #111111;
+  background: var(--color-bg);
 }
 body { margin: 0; }
 
@@ -122,22 +123,19 @@ body { margin: 0; }
   gap: 14px;
   padding: 10px 7px;
 
-  background:
-    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
-    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
-
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg-gradient);
+  font-family: var(--font-family-base);
 }
 
 .teams-card {
   width: 100%;
   max-width: 520px;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   padding: 12px;
 
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  box-shadow: var(--shadow-card);
 }
 
 /* HEADER */
@@ -159,16 +157,16 @@ body { margin: 0; }
   padding: 2px;
   transition: color 0.15s;
 }
-.teams-back:hover { color: #f59e0b; }
+.teams-back:hover { color: var(--color-primary); }
 .teams-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
 
 /* spacer mirrors back button width to keep title centred */
 .teams-header-spacer { width: 34px; }
 
 .teams-page-title {
-  font-size: clamp(22px, 5vw, 34px);
+  font-size: var(--size-heading-lg);
   letter-spacing: 3px;
-  color: #f59e0b;
+  color: var(--color-primary);
   text-shadow: 0 6px 18px rgba(0,0,0,0.6);
   text-align: center;
   flex: 1;
@@ -181,13 +179,13 @@ body { margin: 0; }
   align-items: center;
   gap: 12px;
 
-  border-radius: 14px;
+  border-radius: var(--radius-item);
   padding: 11px 14px;
   margin-bottom: 8px;
 
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.30);
+  box-shadow: var(--shadow-item);
 }
 .teams-row:last-child { margin-bottom: 0; }
 
@@ -196,12 +194,12 @@ body { margin: 0; }
 .teams-name {
   font-size: 15px;
   font-weight: 700;
-  color: rgba(255,255,255,0.95);
+  color: var(--color-secondary);
 }
 
 .teams-short {
   font-size: 12px;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-muted);
   margin-top: 2px;
 }
 
@@ -228,18 +226,18 @@ body { margin: 0; }
 }
 
 .teams-star--active .material-symbols-rounded {
-  color: #f59e0b;
+  color: var(--color-primary);
   font-variation-settings: 'FILL' 1;
 }
 
 /* STATUS */
 .teams-status {
   text-align: center;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-muted);
   padding: 28px 0;
   font-size: 14px;
 }
-.teams-status--error { color: #ef4444; }
+.teams-status--error { color: var(--color-loss); }
 
 /* ============ TABLET ============ */
 @media (min-width: 768px) {

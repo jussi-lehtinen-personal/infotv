@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { themeCSS } from "../../theme";
 
 const Index = () => {
   return (
@@ -71,19 +72,19 @@ export default Index;
 
 /* ================== THEME ================== */
 
-const styles = `
+const styles = `${themeCSS}
 
 .ahma-item,
 .ahma-item:visited,
 .ahma-item:hover,
 .ahma-item:active{
-  color: rgba(255,255,255,0.95);
+  color: var(--color-secondary);
   text-decoration: none;
 }
 
 html, body, #root {
   height: 100%;
-  background: #111111;
+  background: var(--color-bg);
 }
 body { margin: 0; }
 
@@ -97,12 +98,8 @@ body { margin: 0; }
 
   padding: 10px 7px 10px 7px;
 
-  /* Vaaleampi “sports app” tausta */
-  background:
-    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
-    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
-
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg-gradient);
+  font-family: var(--font-family-base);
 }
 
 /* HERO */
@@ -124,13 +121,12 @@ body { margin: 0; }
   max-width: 520px;
   flex: 1 1 auto;
 
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   padding: 12px;
 
-  /* selkeämpi surface + erottuvuus */
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  box-shadow: var(--shadow-card);
 
   display:flex;
   flex-direction:column;
@@ -148,36 +144,35 @@ body { margin: 0; }
   gap: 12px;
 
   text-decoration:none;
-  color: rgba(255,255,255,0.95);
+  color: var(--color-secondary);
 
-  border-radius: 14px;
+  border-radius: var(--radius-item);
   padding: 12px 14px;
   margin-bottom: 10px;
 
-  /* flat + selkeä erottuvuus */
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 6px 14px rgba(0,0,0,0.40);
+  box-shadow: var(--shadow-item);
 }
 
 .ahma-item:last-child{ margin-bottom:0; }
 
 .ahma-item:hover{
   background: rgba(255,255,255,0.20);
-  color: rgba(255,255,255,0.95);
+  color: var(--color-secondary);
   transform: translateY(-1px);
 }
 
 .ahma-appTitle{
-  font-size: clamp(28px, 6vw, 42px);
+  font-size: var(--size-heading-xl);
   letter-spacing: 3px;
   margin-top: 8px;
-  color: #f59e0b;
+  color: var(--color-primary);
   text-align:center;
 
   text-shadow: 0 6px 18px rgba(0,0,0,0.6);
 }
-  
+
 .ahma-title{
   font-size: 15px;
   font-weight: 750;

@@ -1,3 +1,44 @@
+:root {
+  /* === VÄRIT === */
+  --color-primary:         #f59e0b;                    /* Amber — AHMA-brändi, otsikot */
+  --color-primary-dim:     rgba(245, 158, 11, 0.45);   /* Amber haalistuneena */
+  --color-primary-glow:    rgba(245, 158, 11, 0.20);   /* Amber hover/glow */
+
+  --color-secondary:       rgba(255, 255, 255, 0.95);  /* Valkoinen — pääteksti */
+  --color-accent:          rgba(255, 255, 255, 0.65);  /* Harmaa — toissijainen teksti */
+  --color-muted:           rgba(255, 255, 255, 0.40);  /* Haalistunut */
+
+  --color-bg:              #111111;                    /* Sivun tausta */
+  --color-surface:         rgba(255, 255, 255, 0.03);  /* Kortti-tausta */
+  --color-surface-border:  rgba(255, 255, 255, 0.14);  /* Kortti-reuna */
+  --color-surface-divider: rgba(255, 255, 255, 0.08);  /* Sisäiset erottimet */
+
+  /* Tila-värit */
+  --color-win:  #22c55e;
+  --color-loss: #ef4444;
+  --color-draw: #e8e8e8;
+
+  /* === TYPOGRAFIA === */
+  --size-heading-xl:  clamp(28px, 6vw, 42px);    /* Sivun pääotsikko */
+  --size-heading-lg:  clamp(22px, 5vw, 34px);    /* Sektion otsikko */
+  --size-heading-md:  clamp(16px, 1.4vw, 22px);  /* Aliotsikko */
+  --size-heading-sm:  clamp(12px, 1.2vw, 16px);  /* Label / pieni otsikko */
+  --size-body:        clamp(12px, 1.2vw, 14px);  /* Leipäteksti */
+  --font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  /* === ASETTELU === */
+  --radius-card:  18px;
+  --radius-item:  14px;
+  --radius-small: 8px;
+  --shadow-card:  0 14px 34px rgba(0, 0, 0, 0.35);
+  --shadow-item:  0 6px 14px rgba(0, 0, 0, 0.40);
+
+  /* === TAUSTAGRADIENTI === */
+  --bg-gradient:
+    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
+    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
+}
+
 .material-symbols-rounded {
   font-family: 'Material Symbols Rounded Variable', sans-serif;
   font-weight: normal;

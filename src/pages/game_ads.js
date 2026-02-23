@@ -7,6 +7,7 @@ import {
   buildGamesQueryUri,
   splitTeamName,
 } from "../Util";
+import { themeCSS, COLOR_PRIMARY } from "../theme";
 
 import "@fontsource/bebas-neue";
 import "moment/locale/fi";
@@ -21,7 +22,7 @@ const BACKGROUNDS = [
 ];
 
 const CANVAS_SIZE = 1080;
-const ORANGE = "#f97316";
+const ORANGE = COLOR_PRIMARY;
 
 /* ============================= */
 /*           PAGE                */
@@ -724,11 +725,11 @@ function GameAdCanvas({ match, background }) {
 /*             CSS               */
 /* ============================= */
 
-const css = `
+const css = `${themeCSS}
 html, body, #root {
   margin: 0;
   min-height: 100%;
-  background: #111111;
+  background: var(--color-bg);
 }
 
 .ga-root {
@@ -740,20 +741,17 @@ html, body, #root {
   gap: 16px;
   padding: 16px 16px 28px;
 
-  background:
-    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
-    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
-
+  background: var(--bg-gradient);
 }
 
 .ga-page-header {
   width: 100%;
   max-width: 600px;
   box-sizing: border-box;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 18px;
-  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   padding: 14px 20px;
   text-align: center;
 }
@@ -801,7 +799,7 @@ html, body, #root {
   letter-spacing: 2.5px;
   text-transform: uppercase;
   font-size: clamp(16px, 2vw, 26px);
-  color: #f59e0b;
+  color: var(--color-primary);
   text-shadow: 0 6px 18px rgba(0,0,0,0.6);
   white-space: nowrap;
   overflow: hidden;
@@ -887,7 +885,7 @@ html, body, #root {
 }
 
 .ga-input:focus {
-  border-color: rgba(245,158,11,0.55);
+  border-color: var(--color-primary-dim);
 }
 
 .ga-bg-btns {
@@ -913,9 +911,9 @@ html, body, #root {
 }
 
 .ga-bg-btn--active {
-  background: rgba(245,158,11,0.18);
-  border-color: rgba(245,158,11,0.55);
-  color: #f59e0b;
+  background: var(--color-primary-glow);
+  border-color: var(--color-primary-dim);
+  color: var(--color-primary);
 }
 
 .ga-separator {
@@ -929,12 +927,12 @@ html, body, #root {
   align-items: center;
   margin-top: 4px;
 
-  background: rgba(245,158,11,0.12);
-  border: 1px solid rgba(245,158,11,0.45);
+  background: var(--color-primary-glow);
+  border: 1px solid var(--color-primary-dim);
   border-radius: 24px;
   padding: 10px 32px;
 
-  color: #f59e0b;
+  color: var(--color-primary);
   font-size: 14px;
   font-family: inherit;
   font-weight: 700;
@@ -946,7 +944,7 @@ html, body, #root {
 }
 
 .ga-download-btn:hover {
-  background: rgba(245,158,11,0.22);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
   transform: translateY(-1px);
 }
 

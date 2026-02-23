@@ -11,6 +11,7 @@ import {
   buildGamesQueryUri,
   getMatchLink
 } from "../Util";
+import { themeCSS, COLOR_PRIMARY } from "../theme";
 
 moment.locale("fi");
 
@@ -670,7 +671,7 @@ function MatchRow({ match, onClick }) {
           <img className="tw-logo" src={match.home_logo} alt="" />
           <span
             className="tw-teamname"
-            style={highlightHome ? { color: "#f59e0b" } : undefined}
+            style={highlightHome ? { color: COLOR_PRIMARY } : undefined}
           >
             {match.home}
           </span>
@@ -682,7 +683,7 @@ function MatchRow({ match, onClick }) {
           <img className="tw-logo" src={match.away_logo} alt="" />
           <span
             className="tw-teamname"
-            style={highlightAway ? { color: "#f59e0b" } : undefined}
+            style={highlightAway ? { color: COLOR_PRIMARY } : undefined}
           >
             {match.away}
           </span>
@@ -707,12 +708,12 @@ function simplifyLevel(level) {
 /*             CSS               */
 /* ============================= */
 
-const css = `
+const css = `${themeCSS}
 
 html, body, #root{
   margin: 0;
   min-height: 100%;
-  background: #111111;
+  background: var(--color-bg);
 }
   
 /* Match index.js theme */
@@ -728,21 +729,19 @@ html, body, #root{
  
   padding: 10px 7px 10px 7px;
 
-  background:
-    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
-    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
+  background: var(--bg-gradient);
 
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: var(--font-family-base);
 }
 
 /* Full width header (non-sticky, no overlap) */
 .tw-header{
   width: 100%;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  border-radius: var(--radius-card);
 
-  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  box-shadow: var(--shadow-card);
 
   margin: 0 auto 10px auto;
   max-width: none !important;
@@ -810,7 +809,7 @@ html, body, #root{
   text-transform: uppercase;
 
   font-size: clamp(14px, 1.8vw, 30px);
-  color: #f59e0b;
+  color: var(--color-primary);
   text-shadow: 0 6px 18px rgba(0,0,0,0.6);
 
   white-space: nowrap;
@@ -818,9 +817,9 @@ html, body, #root{
 }
 
 .tw-title-sub{
-  font-size: clamp(12px, 1.2vw, 16px);
+  font-size: var(--size-heading-sm);
   font-weight: 700;
-  color: rgba(255,255,255,0.65);
+  color: var(--color-accent);
   letter-spacing: 0.4px;
 }
 
@@ -840,11 +839,11 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   max-width: 980px !important;
   padding: 12px;
 
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  box-shadow: var(--shadow-card);
 }
 
 /* List blocks */
@@ -874,7 +873,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   align-items:center;
   gap:8px;
   padding: 6px 6px 2px 6px;
-  font-size: clamp(16px, 1.4vw, 22px);
+  font-size: var(--size-heading-md);
   color: rgba(255,255,255,0.85);
   font-weight: 600;
 }
@@ -913,11 +912,11 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 
   padding: 4px 14px;
 
-  border-radius: 14px;
+  border-radius: var(--radius-item);
   border: 1px solid rgba(255,255,255,0.10);
 
   background: rgba(255,255,255,0.05);
-  box-shadow: 0 6px 14px rgba(0,0,0,0.40);
+  box-shadow: var(--shadow-item);
 
   cursor:pointer;
   user-select:none;
@@ -931,7 +930,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 .tw-time{
   font-weight: 900;
   font-size: clamp(16px, 1.5vw, 22px);
-  color: rgba(255,255,255,0.90);
+  color: var(--color-secondary);
   text-align:left;
 }
 
@@ -949,7 +948,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   object-fit: contain;
 
   background: white;
-  border-radius: 8px;
+  border-radius: var(--radius-small);
   padding: 4px;
 
   box-shadow: 0 4px 10px rgba(0,0,0,0.35);
@@ -982,8 +981,8 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 .tw-status{
   justify-self:end;
   font-weight: 800;
-  font-size: clamp(12px, 1.2vw, 16px);
-  color: rgba(255,255,255,0.55);
+  font-size: var(--size-heading-sm);
+  color: var(--color-muted);
   text-align: right;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -996,7 +995,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   gap: 8px;
   padding-top: 8px;
   margin-top: 4px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid var(--color-surface-divider);
 }
 
 
@@ -1010,8 +1009,8 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   border-radius: 20px;
   padding: 5px 14px 5px 10px;
 
-  color: rgba(255,255,255,0.55);
-  font-size: clamp(12px, 1.2vw, 14px);
+  color: var(--color-muted);
+  font-size: var(--size-body);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1027,9 +1026,9 @@ flex: 1 1 auto;          /* 👈 surface venyy */
 }
 
 .tw-fav-toggle--active{
-  background: rgba(245,158,11,0.15);
-  border-color: rgba(245,158,11,0.5);
-  color: #f59e0b;
+  background: var(--color-primary-glow);
+  border-color: var(--color-primary-dim);
+  color: var(--color-primary);
 }
 
 .tw-fav-toggle--active .material-symbols-rounded{
@@ -1043,13 +1042,13 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-muted);
   font-size: clamp(13px, 1.3vw, 16px);
   text-align: center;
 }
 
 .tw-empty-link{
-  color: #f59e0b;
+  color: var(--color-primary);
   text-decoration: underline;
 }
 .tw-empty-link:hover{ opacity: 0.8; }
@@ -1071,7 +1070,7 @@ flex: 1 1 auto;          /* 👈 surface venyy */
   width: 36px;
   height: 36px;
   border: 4px solid rgba(255,255,255,0.18);
-  border-top-color: #f59e0b;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: tw-spin 0.8s linear infinite;
 }
