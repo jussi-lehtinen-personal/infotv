@@ -215,6 +215,11 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 }
 
 
+// Module-scope cache survives ThisWeek remounts (e.g. /this_week → /week/:timestamp
+// is a route change in App.js, which unmounts the component).
+// Map<cacheKey, { matches, timestamp }>
+const weekCache = new Map();
+
 const FAV_STORAGE_KEY = 'ahma_favourite_teams';
 
 function loadFavouriteTeams() {
@@ -346,7 +351,6 @@ const ThisWeek = () => {
   const [bgFetching, setBgFetching] = useState(false);
   const fetchSeq = useRef(0);
   const abortRef = useRef(null);
-  const weekCacheRef = useRef(new Map());
 
   // Cache key mirrors backend's (api/src/functions/getGames.js): week-start + filter scope.
   const cacheKey = useMemo(() => {
@@ -358,7 +362,7 @@ const ThisWeek = () => {
     const mySeq = ++fetchSeq.current;
 
     // Stale-while-revalidate: render cached week instantly, refresh in background.
-    const cached = weekCacheRef.current.get(cacheKey);
+    const cached = weekCache.get(cacheKey);
     if (cached) {
       setMatches(cached.matches);
       setLoading(false);
@@ -377,7 +381,7 @@ const ThisWeek = () => {
         .then((r) => r.json())
         .then((d) => {
           const processed = processIncomingDataEvents(d);
-          weekCacheRef.current.set(cacheKey, { matches: processed, timestamp: Date.now() });
+          weekCache.set(cacheKey, { matches: processed, timestamp: Date.now() });
           if (mySeq !== fetchSeq.current) return;
           setMatches(processed);
           setLoading(false);
@@ -386,7 +390,7 @@ const ThisWeek = () => {
           if (err?.name === "AbortError") return;
           if (mySeq !== fetchSeq.current) return;
           // Only fall back to mock data if we have nothing to show for this week.
-          if (!weekCacheRef.current.has(cacheKey)) {
+          if (!weekCache.has(cacheKey)) {
             setMatches(processIncomingDataEvents(getMockGameData()));
             setLoading(false);
           }
@@ -411,6 +415,41 @@ const ThisWeek = () => {
         if (interval) clearInterval(interval);
     };
     }, [cacheKey, timestamp, includeAway]);
+
+  // Prefetch the previous and next week silently after the current week settles,
+  // so swiping to a neighbour renders from cache instantly. 200ms debounce avoids
+  // a fetch storm during rapid swipes.
+  useEffect(() => {
+    if (loading) return;
+
+    const timer = setTimeout(() => {
+      const baseDate = timestamp ? new Date(timestamp) : new Date();
+      for (const offset of [-7, 7]) {
+        const target = new Date(baseDate);
+        target.setDate(target.getDate() + offset);
+        const monday = getMonday(new Date(target));
+        const targetKey =
+          moment(monday).format("YYYY-MM-DD") + "|" + (includeAway ? "all" : "home");
+
+        if (weekCache.has(targetKey)) continue;
+
+        const formattedDate = moment(target).format("YYYY-MM-DD");
+        const uri = buildGamesQueryUri(formattedDate, { includeAway });
+
+        fetch(uri)
+          .then((r) => r.json())
+          .then((d) => {
+            const processed = processIncomingDataEvents(d);
+            weekCache.set(targetKey, { matches: processed, timestamp: Date.now() });
+          })
+          .catch(() => {
+            // Silent — prefetch failure surfaces as a normal cache miss next time.
+          });
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [loading, timestamp, includeAway]);
 
 
   const header = useMemo(() => {
