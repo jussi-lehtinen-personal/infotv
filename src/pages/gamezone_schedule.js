@@ -319,8 +319,9 @@ function DayPanel({ date, events, isCurrent, onPrev, onNext }) {
   // FullCalendar scroller back to the slotMinTime) and reapplied after the
   // re-render, so swiping to a new day keeps you at the time of day you
   // were looking at — particularly relevant for ice schedules that cluster
-  // in the evening.
-  const savedScrollRef = useRef(0);
+  // in the evening. `undefined` means "not yet captured"; once captured,
+  // a literal 0 is a valid value (= scrolled to slotMinTime, i.e. 08:00).
+  const savedScrollRef = useRef(undefined);
 
   // Filter events to this panel's day (FullCalendar can do this itself
   // when the view is timeGridDay, but explicitly filtering keeps off-screen
@@ -339,7 +340,7 @@ function DayPanel({ date, events, isCurrent, onPrev, onNext }) {
     if (!api) return;
 
     const scroller = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
-    if (scroller && scroller.scrollTop > 0) {
+    if (scroller) {
       savedScrollRef.current = scroller.scrollTop;
     }
 
@@ -347,7 +348,7 @@ function DayPanel({ date, events, isCurrent, onPrev, onNext }) {
 
     requestAnimationFrame(() => {
       const s = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
-      if (s && savedScrollRef.current > 0) {
+      if (s && savedScrollRef.current !== undefined) {
         s.scrollTop = savedScrollRef.current;
       }
     });
