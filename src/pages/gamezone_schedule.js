@@ -1,11 +1,20 @@
 // pages/gamezone_schedule.js
 //
-// Mobile-app variant of the schedule page. The original schedule.js stays
-// in place at /schedule for the InfoTV kiosk; this copy is wired to
-// /gamezone/schedule and is where mobile-only swipe/prefetch refinements
-// land (matching what gamezone.js did relative to this_week.js).
-import React, { Fragment } from "react";
-import { COLOR_PRIMARY } from "../theme";
+// Mobile-app variant of the schedule page. Wired to /gamezone/schedule.
+// Always renders a 3-panel day carousel ([prev | current | next] FullCalendar
+// instances) — Gamezone is mobile-only, so the InfoTV's wide week view isn't
+// needed. The original schedule.js stays intact at /schedule for the kiosk.
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { flushSync } from "react-dom";
+import { useDrag } from "@use-gesture/react";
 import FullCalendar from "@fullcalendar/react";
 import Container from "react-bootstrap/Container";
 
@@ -17,555 +26,460 @@ import "bootstrap/dist/css/bootstrap.css";
 import "@fortawesome/fontawesome-free/css/all.css";
 import "./fullcalendar.css";
 
-class GamezoneSchedule extends React.Component {
-  constructor(props) {
-    super(props);
+import { COLOR_PRIMARY } from "../theme";
 
-    this.calendarRef = React.createRef();
-    this.wrapRef = React.createRef();
-    this.lastDayMode = null;
-    this.didSwipe = false;
-    this.fetchedWeekStart = null;
+// Module-scope cache shared across mounts: weekStart → array of items.
+const scheduleCache = new Map();
 
-    const params = new URLSearchParams(window.location.search);
-    const dateParam = params.get('date');
-    const initialDate = dateParam && !isNaN(new Date(dateParam)) ? new Date(dateParam) : new Date();
+// 3-panel carousel: middle panel (the current day) sits at viewport centre.
+const CENTER_TX = -33.333;
 
-    this.state = {
-      items: [],
-      currentDate: initialDate,
-      dragX: 0,
-      isDragging: false,
-      slideState: "idle", // idle | exiting | entering
-    };
-
-    this.activeInput = null; // "mouse" | "touch" | null
-
-    this.swipe = {
-      dragging: false,
-      locked: null, // "h" | "v" | null
-      startX: 0,
-      startY: 0,
-      lastX: 0,
-      lastY: 0,
-    };
-
-    this.onResize = this.onResize.bind(this);
-  }
-
-  // ---------- Data fetching ----------
-  getWeekStart(date) {
-    const d = new Date(date);
-    while (d.getDay() !== 1) d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  }
-
-  fetchSchedule(date) {
-    const weekStart = this.getWeekStart(date);
-    this.fetchedWeekStart = weekStart;
-    fetch(`/api/schedule?date=${weekStart}`)
-      .then(r => r.json())
-      .then(data => {
-        if (this.fetchedWeekStart === weekStart) {
-          this.setState({ items: data });
-        }
-      })
-      .catch(err => console.log("Error occurred! ", err));
-  }
-
-  // ---------- Layout ----------
-  getViewportPx() {
-    if (typeof window === "undefined") return { w: 1920, h: 1080 };
-    const w = window.innerWidth * window.devicePixelRatio;
-    const h = window.innerHeight * window.devicePixelRatio;
-    return { w, h };
-  }
-
-  isBigLandscape() {
-    const { w, h } = this.getViewportPx();
-    const isLandscape = w >= h;
-    return isLandscape && w >= 1280 && h >= 720;
-  }
-
-  isDayMode() {
-    // Portrait + small landscapes => day mode (no "unsupported" gap)
-    return !this.isBigLandscape();
-  }
-
-  isTouchDevice() {
-    if (typeof window === "undefined") return false;
-    return (
-      (navigator && typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 0) ||
-      "ontouchstart" in window
-    );
-  }
-
-onResize() {
-  const dayMode = this.isDayMode();
-  if (this.lastDayMode === null) this.lastDayMode = dayMode;
-
-  if (dayMode !== this.lastDayMode) {
-    this.lastDayMode = dayMode;
-
-    const api = this.calendarRef.current?.getApi?.();
-    if (api) {
-      api.changeView(dayMode ? "timeGridDay" : "timeGridWeek");
-
-      // pysy samassa päivässä kun näkymä vaihtuu
-      api.gotoDate(this.state.currentDate);
-
-      // jos sinulla on scrollToCurrentTime A-logiikka:
-      if (dayMode) setTimeout(this.scrollToCurrentTime, 0);
-    }
-  }
-
-  // pakota rerender varmuuden vuoksi (esim. slot-height css, wrapper-luokat)
-  this.forceUpdate();
+function getWeekStart(date) {
+  const d = new Date(date);
+  while (d.getDay() !== 1) d.setDate(d.getDate() - 1);
+  return d.toISOString().split("T")[0];
 }
 
-
-  componentDidMount() {
-    this.lastDayMode = this.isDayMode();
-    window.addEventListener("resize", this.onResize);
-
-    this.fetchSchedule(this.state.currentDate);
-
-    const el = this.wrapRef.current;
-    if (!el) return;
-
-    const touch = this.isTouchDevice();
-
-    // --- Touch path (iOS + Android): this is what makes swipe work on top of the calendar grid/events ---
-    if (touch) {
-      // Start on wrapper (capture so FC can't swallow)
-      el.addEventListener("touchstart", this.onTouchStart, { passive: true, capture: true });
-
-      // Track on window so we keep receiving moves even over inner scrollers
-      window.addEventListener("touchmove", this.onTouchMove, { passive: false });
-      window.addEventListener("touchend", this.onTouchEnd, { passive: true });
-      window.addEventListener("touchcancel", this.onTouchCancel, { passive: true });
-    }
-
-    // --- Mouse/desktop path: pointer events only for mouse (do NOT handle touch pointers here) ---
-    el.addEventListener("pointerdown", this.onPointerDown, { passive: true, capture: true });
-    window.addEventListener("pointermove", this.onPointerMove, { passive: false });
-    window.addEventListener("pointerup", this.onPointerUp, { passive: true });
-    window.addEventListener("pointercancel", this.onPointerCancel, { passive: true });
-
-    // Safety: if focus is lost, cancel drag
-    window.addEventListener("blur", this.finishSwipe, true);
-
-    setTimeout(this.scrollToCurrentTime, 0);
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener("resize", this.onResize);
-
-    const el = this.wrapRef.current;
-    if (el) {
-      el.removeEventListener("touchstart", this.onTouchStart, true);
-
-      el.removeEventListener("pointerdown", this.onPointerDown, true);
-    }
-
-    window.removeEventListener("touchmove", this.onTouchMove);
-    window.removeEventListener("touchend", this.onTouchEnd);
-    window.removeEventListener("touchcancel", this.onTouchCancel);
-
-    window.removeEventListener("pointermove", this.onPointerMove);
-    window.removeEventListener("pointerup", this.onPointerUp);
-    window.removeEventListener("pointercancel", this.onPointerCancel);
-
-    window.removeEventListener("blur", this.finishSwipe, true);
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.currentDate !== this.state.currentDate) {
-        const api = this.calendarRef.current?.getApi?.();
-        if (api) api.gotoDate(this.state.currentDate);
-
-        // scrollaa uuteen päivään "nyt"-kohdan kohdalle (vain day mode)
-        if (this.isDayMode()) {
-          setTimeout(this.scrollToCurrentTime, 0);
-        }
-
-        // Persist date in URL so refresh restores the same day
-        const dateStr = this.state.currentDate.toISOString().split('T')[0];
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('date', dateStr);
-        window.history.replaceState(null, '', `?${urlParams.toString()}`);
-
-        // Refetch when navigating to a different week
-        const prevWeek = this.getWeekStart(prevState.currentDate);
-        const newWeek = this.getWeekStart(this.state.currentDate);
-        if (prevWeek !== newWeek) {
-          this.fetchSchedule(this.state.currentDate);
-        }
-    }
-  }
-
-  // ---------- Day navigation ----------
-  goPrevDay = () => {
-    this.setState((s) => {
-      const d = new Date(s.currentDate);
-      d.setDate(d.getDate() - 1);
-      return { currentDate: d };
+function fetchScheduleWeek(weekStart) {
+  return fetch(`/api/schedule?date=${weekStart}`)
+    .then((r) => r.json())
+    .then((data) => {
+      scheduleCache.set(weekStart, data);
+      return data;
     });
-  };
+}
 
-  goNextDay = () => {
-    this.setState((s) => {
-      const d = new Date(s.currentDate);
-      d.setDate(d.getDate() + 1);
-      return { currentDate: d };
-    });
-  };
+function sameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
-  // ---------- Swipe logic ----------
-  getSwipeThreshold() {
-    const w = typeof window !== "undefined" ? window.innerWidth : 360;
-    return Math.min(140, Math.max(55, w * 0.18));
-  }
+const GamezoneSchedule = () => {
+  // --- Initial date from URL or now ---
+  const initialDate = useMemo(() => {
+    if (typeof window === "undefined") return new Date();
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get("date");
+    return dateParam && !isNaN(new Date(dateParam)) ? new Date(dateParam) : new Date();
+  }, []);
 
-  clampDrag(dx) {
-    const w = typeof window !== "undefined" ? window.innerWidth : 360;
-    return Math.max(-w, Math.min(w, dx));
-  }
+  const [currentDate, setCurrentDate] = useState(initialDate);
+  const [items, setItems] = useState(() => scheduleCache.get(getWeekStart(initialDate)) ?? []);
 
-  lockAxisIfNeeded(dx, dy) {
-    if (this.swipe.locked !== null) return;
+  const trackRef = useRef(null);
+  const animatingRef = useRef(false);
 
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
+  // --- Persist date in URL ---
+  useEffect(() => {
+    const dateStr = currentDate.toISOString().split("T")[0];
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set("date", dateStr);
+    window.history.replaceState(null, "", `?${urlParams.toString()}`);
+  }, [currentDate]);
 
-    if (adx < 6 && ady < 6) return;
+  // --- Fetch schedule when the week changes (stale-while-revalidate) ---
+  const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
 
-    // Important change: lock to horizontal easier (grid has vertical jitter)
-    if (adx >= ady * 0.75) this.swipe.locked = "h";
-    else if (ady >= adx * 1.4) this.swipe.locked = "v";
-    // else keep null (decide at end)
-  }
+  useEffect(() => {
+    const cached = scheduleCache.get(weekStart);
+    if (cached) setItems(cached);
 
-  decideAxisAtEnd(dx, dy) {
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
+    let cancelled = false;
+    fetchScheduleWeek(weekStart)
+      .then((data) => {
+        if (!cancelled) setItems(data);
+      })
+      .catch((err) => console.log("Error fetching schedule", err));
 
-    if (adx >= ady * 0.75) return "h";
-    if (ady >= adx * 1.4) return "v";
-    return "v";
-  }
-
-  beginSwipe(x, y, input) {
-    if (!this.isDayMode()) return;
-
-    if (this.activeInput && this.activeInput !== input) return;
-    this.activeInput = input;
-
-    this.didSwipe = false;
-
-    this.swipe.dragging = true;
-    this.swipe.locked = null;
-    this.swipe.startX = x;
-    this.swipe.startY = y;
-    this.swipe.lastX = x;
-    this.swipe.lastY = y;
-
-    this.setState({ isDragging: true, slideState: "idle" });
-  }
-
-  moveSwipe(x, y, preventDefaultFn, input) {
-    if (!this.swipe.dragging) return;
-    if (this.activeInput && this.activeInput !== input) return;
-
-    const dx = x - this.swipe.startX;
-    const dy = y - this.swipe.startY;
-
-    this.swipe.lastX = x;
-    this.swipe.lastY = y;
-
-    // mark swipe (used to suppress tap)
-    if (Math.abs(dx) > 8) this.didSwipe = true;
-
-    this.lockAxisIfNeeded(dx, dy);
-
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
-
-    // Start treating as horizontal early, so mobile doesn't start vertical pan and cancel events
-    const looksHorizontal = adx > 10 && adx >= ady * 0.75;
-
-    if (this.swipe.locked === "h" || looksHorizontal) {
-      preventDefaultFn?.();
-      this.setState({ dragX: this.clampDrag(dx) });
-    }
-  }
-
-  endSwipe(x, y, input) {
-    if (!this.swipe.dragging) return;
-    if (this.activeInput && this.activeInput !== input) return;
-
-    const dx = x - this.swipe.startX;
-    const dy = y - this.swipe.startY;
-    const threshold = this.getSwipeThreshold();
-
-    const finishToCenter = () => {
-      this.setState({ isDragging: false, dragX: 0 });
-      this.finishSwipe();
+    return () => {
+      cancelled = true;
     };
+  }, [weekStart]);
 
-    const axis = this.swipe.locked ?? this.decideAxisAtEnd(dx, dy);
-    if (axis !== "h" || Math.abs(dx) < threshold) {
-      finishToCenter();
-      return;
-    }
+  // --- Prefetch ±1 week silently ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      [-7, 7].forEach((offset) => {
+        const target = new Date(currentDate);
+        target.setDate(target.getDate() + offset);
+        const adjacentWeek = getWeekStart(target);
+        if (scheduleCache.has(adjacentWeek)) return;
+        fetchScheduleWeek(adjacentWeek).catch(() => {});
+      });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [currentDate]);
 
-    const dir = dx < 0 ? -1 : 1; // -1 = next, +1 = prev
-    const w = typeof window !== "undefined" ? window.innerWidth : 360;
-
-    // animate offscreen
-    this.setState({
-      isDragging: false,
-      slideState: "exiting",
-      dragX: dir < 0 ? -w : w,
+  // --- Day navigation ---
+  const stepDays = useCallback((delta) => {
+    setCurrentDate((d) => {
+      const next = new Date(d);
+      next.setDate(next.getDate() + delta);
+      return next;
     });
+  }, []);
 
-    window.setTimeout(() => {
-      if (dir < 0) this.goNextDay();
-      else this.goPrevDay();
+  const goPrevDay = useCallback(() => stepDays(-1), [stepDays]);
+  const goNextDay = useCallback(() => stepDays(1), [stepDays]);
 
-      // enter from opposite side (teleport w/out transition -> animate to center)
-      this.setState(
-        { isDragging: true, slideState: "entering", dragX: dir < 0 ? w : -w },
-        () => {
-          requestAnimationFrame(() => {
-            this.setState({ isDragging: false, dragX: 0, slideState: "idle" });
+  // --- Carousel: prev/next dates around current ---
+  const prevDate = useMemo(() => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [currentDate]);
+  const nextDate = useMemo(() => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() + 1);
+    return d;
+  }, [currentDate]);
+
+  // --- Initialise the track transform on mount ---
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transition = "none";
+    track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
+  }, []);
+
+  // --- Reset track transform after navigation (handled inside the commit
+  //     animation already — here we cover external date jumps such as
+  //     browser back/forward or deep links). ---
+  useLayoutEffect(() => {
+    if (animatingRef.current) return;
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transition = "none";
+    track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
+  }, [currentDate]);
+
+  // --- Commit slide animation, then navigate ---
+  // direction +1 = next day, -1 = prev day
+  const commitToDay = useCallback(
+    (direction) => {
+      if (animatingRef.current) return;
+      const track = trackRef.current;
+      if (!track) return;
+      animatingRef.current = true;
+
+      // Slide track so the destination panel ends up centred:
+      //   prev (-1) → tx 0%      (panel 0 visible)
+      //   next (+1) → tx -66.666% (panel 2 visible)
+      const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
+      track.style.transition = "transform 220ms ease-out";
+      track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
+
+      const onEnd = () => {
+        track.removeEventListener("transitionend", onEnd);
+        animatingRef.current = false;
+        // flushSync forces the navigate + the layout-effect transform reset
+        // to land in the same paint, so the user never sees the jump back
+        // to centre — only the destination panel's content rendered there.
+        flushSync(() => {
+          setCurrentDate((d) => {
+            const next = new Date(d);
+            next.setDate(next.getDate() + direction);
+            return next;
+          });
+        });
+      };
+      track.addEventListener("transitionend", onEnd);
+    },
+    []
+  );
+
+  const snapBack = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transition = "transform 180ms ease-out";
+    track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
+  }, []);
+
+  // --- Swipe gesture (replaces ~150 lines of custom touch+pointer code) ---
+  const bind = useDrag(
+    ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
+      if (animatingRef.current) {
+        cancel();
+        return;
+      }
+      // iOS Safari edge-swipe is the native back gesture. Skip drags that
+      // start within 20px of either edge so the browser handles them.
+      if (first && (x < 20 || x > window.innerWidth - 20)) {
+        cancel();
+        return;
+      }
+
+      const track = trackRef.current;
+      if (!track) return;
+
+      // On swipe start, sync the off-screen panels' vertical scroll to the
+      // current panel's so the day sliding into view shows the same time of
+      // day the user was looking at — not whatever offset that panel
+      // happened to have (default top, i.e. 08:00).
+      if (first) {
+        const currentScroller = track.children[1]?.querySelector(
+          ".fc-scroller-liquid-absolute"
+        );
+        if (currentScroller) {
+          const top = currentScroller.scrollTop;
+          [0, 2].forEach((i) => {
+            const s = track.children[i]?.querySelector(
+              ".fc-scroller-liquid-absolute"
+            );
+            if (s && Math.abs(s.scrollTop - top) > 1) {
+              s.scrollTop = top;
+            }
           });
         }
-      );
+      }
 
-      this.finishSwipe();
-    }, 180);
-  }
+      if (active) {
+        track.style.transition = "none";
+        track.style.transform = `translate3d(calc(${CENTER_TX}% + ${mx}px), 0, 0)`;
+      } else {
+        const w = track.parentElement?.clientWidth ?? window.innerWidth;
+        const threshold = w * 0.25;
+        const fastEnough = Math.abs(vx) > 0.5;
 
-  finishSwipe = () => {
-    this.activeInput = null;
-    this.swipe.dragging = false;
-    this.swipe.locked = null;
-    this.didSwipe = false;
-  };
-
-  // ---------- Pointer handlers (mouse only) ----------
-  onPointerDown = (e) => {
-    // IMPORTANT: ignore touch pointers here; touch path uses touch events
-    if (e.pointerType !== "mouse") return;
-    if (e.button !== 0) return;
-
-    this.beginSwipe(e.clientX, e.clientY, "mouse");
-  };
-
-  onPointerMove = (e) => {
-    if (this.activeInput !== "mouse") return;
-    this.moveSwipe(e.clientX, e.clientY, () => e.preventDefault(), "mouse");
-  };
-
-  onPointerUp = (e) => {
-    if (this.activeInput !== "mouse") return;
-
-    if (this.didSwipe) {
-      try {
-        e.preventDefault();
-      } catch {}
-      try {
-        e.stopPropagation();
-      } catch {}
+        if (mx <= -threshold || (mx < -10 && fastEnough)) {
+          commitToDay(1); // next day
+        } else if (mx >= threshold || (mx > 10 && fastEnough)) {
+          commitToDay(-1); // prev day
+        } else {
+          snapBack();
+        }
+      }
+    },
+    {
+      axis: "x",
+      filterTaps: true,
+      pointer: { touch: true },
     }
+  );
 
-    this.endSwipe(e.clientX ?? this.swipe.lastX, e.clientY ?? this.swipe.lastY, "mouse");
-  };
+  // --- Build FullCalendar events from raw items (one set, used by all
+  //     panels — each panel filters by date inside DayPanel) ---
+  const events = useMemo(() => buildEvents(items), [items]);
 
-  onPointerCancel = () => {
-    if (this.activeInput !== "mouse") return;
-    if (!this.swipe.dragging) return;
-    this.setState({ isDragging: false, dragX: 0 });
-    this.finishSwipe();
-  };
+  return (
+    <Fragment>
+      <style>
+        {calendarThemeCss({
+          accent: COLOR_PRIMARY,
+          card: "#fff7ed",
+          text: "#111827",
+          muted: "#64748b",
+        })}
+      </style>
 
-  // ---------- Touch handlers (iOS + Android) ----------
-  onTouchStart = (e) => {
-    if (!e.touches || e.touches.length === 0) return;
-    const t = e.touches[0];
-    this.beginSwipe(t.clientX, t.clientY, "touch");
-  };
-
-  onTouchMove = (e) => {
-    if (this.activeInput !== "touch") return;
-    if (!e.touches || e.touches.length === 0) return;
-    const t = e.touches[0];
-
-    // Use preventDefault when horizontal intent -> stops FC scroller from killing the gesture
-    this.moveSwipe(t.clientX, t.clientY, () => e.preventDefault(), "touch");
-  };
-
-  onTouchEnd = (e) => {
-    if (this.activeInput !== "touch") return;
-
-    // If it was a swipe, prevent tap/click
-    if (this.didSwipe) {
-      try {
-        e.preventDefault();
-      } catch {}
-      try {
-        e.stopPropagation();
-      } catch {}
-    }
-
-    this.endSwipe(this.swipe.lastX, this.swipe.lastY, "touch");
-  };
-
-  onTouchCancel = () => {
-    if (this.activeInput !== "touch") return;
-    if (!this.swipe.dragging) return;
-    this.setState({ isDragging: false, dragX: 0 });
-    this.finishSwipe();
-  };
-
-scrollToCurrentTime = () => {
-  const api = this.calendarRef.current?.getApi?.();
-  if (!api) return;
-
-  const now = new Date();
-  const minutesNow = now.getHours() * 60 + now.getMinutes();
-
-  // Näytä vähän kontekstia yläpuolelle (esim. 30min ennen)
-  const target = Math.max(0, minutesNow - 30);
-  const hh = String(Math.floor(target / 60)).padStart(2, "0");
-  const mm = String(target % 60).padStart(2, "0");
-
-  api.scrollToTime(`${hh}:${mm}:00`);
+      <div className="sc-root sc-dayMode">
+        <Container fluid className="sc-container">
+          <div className="sc-carousel-viewport">
+            <div ref={trackRef} className="sc-carousel-track" {...bind()}>
+              <DayPanel
+                date={prevDate}
+                events={events}
+                onPrev={goPrevDay}
+                onNext={goNextDay}
+              />
+              <DayPanel
+                date={currentDate}
+                events={events}
+                isCurrent
+                onPrev={goPrevDay}
+                onNext={goNextDay}
+              />
+              <DayPanel
+                date={nextDate}
+                events={events}
+                onPrev={goPrevDay}
+                onNext={goNextDay}
+              />
+            </div>
+          </div>
+        </Container>
+      </div>
+    </Fragment>
+  );
 };
 
-  render() {
-    const { items } = this.state;
+export default GamezoneSchedule;
 
-    const BRAND = {
-      accent: COLOR_PRIMARY,
-      card: "#fff7ed",
-      text: "#111827",
-      muted: "#64748b",
-    };
+/* ============================= */
+/*           DAY PANEL           */
+/* ============================= */
 
-    const events = [];
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+function DayPanel({ date, events, isCurrent, onPrev, onNext }) {
+  const ref = useRef(null);
+  const panelRef = useRef(null);
+  // Per-panel scroll cache. Saved before gotoDate (which resets the
+  // FullCalendar scroller back to the slotMinTime) and reapplied after the
+  // re-render, so swiping to a new day keeps you at the time of day you
+  // were looking at — particularly relevant for ice schedules that cluster
+  // in the evening.
+  const savedScrollRef = useRef(0);
 
-      const text = item.text ?? "";
-      const isGameEvent = item.user_group?.name === "Tilapäisvaraus";
-      const isAhmaEvent = 
-        (text.includes("Kiekko") && text.includes("Ahma")) || text.includes("KA U");
-      const isBLDEvent = text.includes("BLD");
-      const isBrand = isAhmaEvent || isBLDEvent;
+  // Filter events to this panel's day (FullCalendar can do this itself
+  // when the view is timeGridDay, but explicitly filtering keeps off-screen
+  // panels lighter and avoids any flash of cross-day events during swipe).
+  const dayEvents = useMemo(() => {
+    return events.filter((ev) => {
+      const start = ev.start instanceof Date ? ev.start : new Date(ev.start);
+      return sameDay(start, date);
+    });
+  }, [events, date]);
 
-      const event = {
-        id: item.id,
-        title: text,
-        start: item.start_date,
-        end: item.end_date,
-        classNames: [isGameEvent ? "ev-game" : isBrand ? "ev-brand" : "ev-normal"],
-        backgroundColor: BRAND.card,
-        borderColor: "rgba(17,24,39,0.14)",
-        textColor: BRAND.text,
-      };
+  // Keep the calendar locked to its panel's date, and preserve scroll
+  // position across the date change.
+  useEffect(() => {
+    const api = ref.current?.getApi?.();
+    if (!api) return;
 
-      if (isBrand) {
-        event.backgroundColor = BRAND.accent;
-        event.borderColor = BRAND.accent;
-        event.textColor = BRAND.text;
-      }
-
-      if (isAhmaEvent || isBLDEvent) {
-        event.backgroundColor = BRAND.accent;
-        event.borderColor = BRAND.accent;
-        event.textColor = "#111827";
-      }
-
-      events.push(event);
+    const scroller = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
+    if (scroller && scroller.scrollTop > 0) {
+      savedScrollRef.current = scroller.scrollTop;
     }
 
-    const dayMode = this.isDayMode();
+    api.gotoDate(date);
 
-    return (
-      <Fragment>
-        <style>{calendarThemeCss(BRAND)}</style>
+    requestAnimationFrame(() => {
+      const s = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
+      if (s && savedScrollRef.current > 0) {
+        s.scrollTop = savedScrollRef.current;
+      }
+    });
+  }, [date]);
 
-        <div className={`sc-root ${dayMode ? "sc-dayMode" : ""}`}>
-          <Container fluid className="sc-container">
-            <div
-              ref={this.wrapRef}
-              className={`sc-calendarWrap ${dayMode ? "sc-daySwipe" : ""}`}
-            >
-              <div
-                className={`sc-dayPane ${this.state.isDragging ? "sc-dragging" : ""} ${
-                  this.state.slideState
-                }`}
-                style={{ transform: `translateX(${this.state.dragX}px)` }}
-              >
-                <FullCalendar
-                  ref={this.calendarRef}
-                  plugins={[bootstrapPlugin, timeGridPlugin]}
-                  initialView={dayMode ? "timeGridDay" : "timeGridWeek"}
-                  locales={allLocales}
-                  locale="fi"
-                  weekends={true}
-                  allDaySlot={false}
-                  eventMinHeight={24}
-                  slotDuration="00:30:00"
-                  slotMinTime="08:00:00"
-                  slotMaxTime="23:30:00"
-                  dayHeaderContent={(arg) => {
-                    const text = arg.text;
-                    return <span>{text.charAt(0).toUpperCase() + text.slice(1)}</span>;
-                  }}
-                  dayHeaderFormat={{
-                    weekday: "short",
-                    day: "numeric",
-                    month: "numeric",
-                  }}
-                  slotLabelContent={(arg) => <span>{arg.text}</span>}
-                  slotLabelFormat={{
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    omitZeroMinute: false,
-                    hour12: false,
-                  }}
-                  initialDate={this.state.currentDate}
-                  firstDay={1}
-                  nowIndicator={true}
-                  now={null}
-                  events={events}
-                  themeSystem="bootstrap"
-                  height="100%"
-                    headerToolbar={{
-                    left: dayMode ? "prevDay" : "",
-                    center: "title",
-                    right: dayMode ? "nextDay" : "",
-                    }}
-                  customButtons={{
-                    prevDay: { text: "\ue5cb", click: () => this.goPrevDay() },
-                    nextDay: { text: "\ue5cc", click: () => this.goNextDay() },
-                  }}
-                  expandRows={true}
-                  titleFormat={() => ""}
-                />
-              </div>
-            </div>
-          </Container>
-        </div>
-      </Fragment>
-    );
-  }
+  // Scroll to roughly "now" once when the current panel first mounts so the
+  // user lands at a useful slot. We deliberately don't re-scroll on
+  // subsequent date changes (the date-effect above preserves scroll instead).
+  useEffect(() => {
+    if (!isCurrent) return;
+    const t = setTimeout(() => {
+      const api = ref.current?.getApi?.();
+      if (!api) return;
+      const now = new Date();
+      const minutes = now.getHours() * 60 + now.getMinutes();
+      const target = Math.max(0, minutes - 30);
+      const hh = String(Math.floor(target / 60)).padStart(2, "0");
+      const mm = String(target % 60).padStart(2, "0");
+      api.scrollToTime(`${hh}:${mm}:00`);
+      // Seed savedScrollRef so the first swipe preserves "now" rather than
+      // snapping to slotMinTime.
+      const s = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
+      if (s) savedScrollRef.current = s.scrollTop;
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const customButtons = useMemo(
+    () => ({
+      prevDay: { text: "", click: () => onPrev?.() },
+      nextDay: { text: "", click: () => onNext?.() },
+    }),
+    [onPrev, onNext]
+  );
+
+  return (
+    <div
+      ref={panelRef}
+      className={`sc-carousel-panel ${isCurrent ? "" : "sc-carousel-panel--inactive"}`}
+    >
+      <div className="sc-calendarWrap">
+        <FullCalendar
+          ref={ref}
+          plugins={[bootstrapPlugin, timeGridPlugin]}
+          initialView="timeGridDay"
+          locales={allLocales}
+          locale="fi"
+          weekends={true}
+          allDaySlot={false}
+          eventMinHeight={24}
+          slotDuration="00:30:00"
+          slotMinTime="08:00:00"
+          slotMaxTime="23:30:00"
+          dayHeaderContent={dayHeaderContent}
+          dayHeaderFormat={dayHeaderFormat}
+          slotLabelContent={slotLabelContent}
+          slotLabelFormat={slotLabelFormat}
+          initialDate={date}
+          firstDay={1}
+          nowIndicator={true}
+          now={null}
+          events={dayEvents}
+          themeSystem="bootstrap"
+          height="100%"
+          headerToolbar={{ left: "prevDay", center: "title", right: "nextDay" }}
+          customButtons={customButtons}
+          expandRows={true}
+          titleFormat={() => ""}
+        />
+      </div>
+    </div>
+  );
 }
 
-export default GamezoneSchedule;
+/* ============================= */
+/*           HELPERS             */
+/* ============================= */
+
+const dayHeaderFormat = { weekday: "short", day: "numeric", month: "numeric" };
+const slotLabelFormat = { hour: "2-digit", minute: "2-digit", omitZeroMinute: false, hour12: false };
+
+function dayHeaderContent(arg) {
+  const text = arg.text;
+  return <span>{text.charAt(0).toUpperCase() + text.slice(1)}</span>;
+}
+
+function slotLabelContent(arg) {
+  return <span>{arg.text}</span>;
+}
+
+function buildEvents(items) {
+  const BRAND = { accent: COLOR_PRIMARY, card: "#fff7ed", text: "#111827" };
+  const out = [];
+  for (const item of items) {
+    const text = item.text ?? "";
+    const isGameEvent = item.user_group?.name === "Tilapäisvaraus";
+    const isAhmaEvent =
+      (text.includes("Kiekko") && text.includes("Ahma")) || text.includes("KA U");
+    const isBLDEvent = text.includes("BLD");
+    const isBrand = isAhmaEvent || isBLDEvent;
+
+    const event = {
+      id: item.id,
+      title: text,
+      start: item.start_date,
+      end: item.end_date,
+      classNames: [isGameEvent ? "ev-game" : isBrand ? "ev-brand" : "ev-normal"],
+      backgroundColor: BRAND.card,
+      borderColor: "rgba(17,24,39,0.14)",
+      textColor: BRAND.text,
+    };
+
+    if (isBrand) {
+      event.backgroundColor = BRAND.accent;
+      event.borderColor = BRAND.accent;
+      event.textColor = BRAND.text;
+    }
+    if (isAhmaEvent || isBLDEvent) {
+      event.backgroundColor = BRAND.accent;
+      event.borderColor = BRAND.accent;
+      event.textColor = "#111827";
+    }
+
+    out.push(event);
+  }
+  return out;
+}
+
+/* ============================= */
+/*             CSS               */
+/* ============================= */
 
 function calendarThemeCss(BRAND) {
   return `
@@ -591,33 +505,56 @@ function calendarThemeCss(BRAND) {
       flex-direction:column;
     }
 
+    /* Carousel viewport — clips the 300%-wide track */
+    .sc-carousel-viewport{
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      touch-action: pan-y;
+    }
+
+    /* Carousel track — 3 panels side-by-side, transform driven from JS */
+    .sc-carousel-track{
+      display: flex;
+      flex-direction: row;
+      width: 300%;
+      flex: 1 1 auto;
+      min-height: 0;
+      will-change: transform;
+      touch-action: pan-y;
+    }
+
+    /* One day panel — fills viewport width */
+    .sc-carousel-panel{
+      flex: 0 0 33.3333%;
+      box-sizing: border-box;
+      padding: 0 6px;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .sc-carousel-panel--inactive{
+      pointer-events: none;
+    }
+
     .sc-calendarWrap{
       flex: 1 1 auto;
       min-height: 0;
       overflow:hidden;
-
       border-radius: 16px;
       padding: 3px;
       background: transparent;
     }
 
-    /* allow vertical scroll gestures; we handle horizontal ourselves */
-    .sc-daySwipe{ touch-action: pan-y; }
-
-    .sc-dayPane{
-      width:100%;
-      height:100%;
-      transform: translateX(0px);
-      transition: transform 180ms ease;
-      will-change: transform;
-    }
-    .sc-dayPane.sc-dragging{ transition: none; }
-
     /* Portrait/day-mode: make hour slots taller => "2 screens" content, scroll inside calendar */
     .sc-dayMode .fc .fc-timegrid-slot{ height: 32px; }
 
-/* Hide ALL FullCalendar scrollbars (and the little up/down buttons) but keep scrolling */
-
+/* Hide ALL FullCalendar scrollbars but keep scrolling */
 .fc .fc-scroller::-webkit-scrollbar,
 .fc .fc-scroller-liquid::-webkit-scrollbar,
 .fc .fc-scroller-liquid-absolute::-webkit-scrollbar,
@@ -630,16 +567,13 @@ function calendarThemeCss(BRAND) {
 .sc-dayMode .fc .fc-timegrid-body table {
   width: 100% !important;
 }
-
 .sc-dayMode .fc .fc-timegrid-body {
   width: 100% !important;
 }
-
-/* Varmuuden vuoksi: ei horisontaalista scrollia */
 .sc-dayMode .fc .fc-scroller.fc-scroller-liquid-absolute {
   overflow-x: hidden !important;
 }
-    /* Calendar shell (unchanged look) */
+
     .fc{
       height:100% !important;
       background:#ffffff;
@@ -664,53 +598,46 @@ function calendarThemeCss(BRAND) {
       letter-spacing: 0.18px;
     }
 
-    .sc-dayMode .fc .fc-col-header {
-  width: 100% !important;
-}
-.sc-dayMode .fc .fc-col-header-cell {
-  padding: 4px 0 !important;
-}
-
-.sc-dayMode .fc .fc-col-header-cell-cushion {
-  padding: 4px 0 !important;
-  font-size: 14px;        /* säädä halutessa */
-  line-height: 1.2;
-}
-
-  .fc .fc-customTitle-button{
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    cursor: default !important;
+    .sc-dayMode .fc .fc-col-header { width: 100% !important; }
+    .sc-dayMode .fc .fc-col-header-cell { padding: 4px 0 !important; }
+    .sc-dayMode .fc .fc-col-header-cell-cushion {
+      padding: 4px 0 !important;
+      font-size: 14px;
+      line-height: 1.2;
     }
 
+    .fc .fc-customTitle-button{
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      cursor: default !important;
+    }
     .fc .fc-customTitle-button:focus{
-    outline: none !important;
-    box-shadow: none !important;
+      outline: none !important;
+      box-shadow: none !important;
     }
 
     .sc-dayMode .fc .fc-prevDay-button,
     .sc-dayMode .fc .fc-nextDay-button{
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    padding: 0 4px !important;
-    font-family: 'Material Symbols Rounded Variable', sans-serif !important;
-    font-size: 34px !important;
-    font-weight: 400 !important;
-    line-height: 1 !important;
-    letter-spacing: normal !important;
-    text-transform: none !important;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-    color: #111827 !important;
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      padding: 0 4px !important;
+      font-family: 'Material Symbols Rounded Variable', sans-serif !important;
+      font-size: 34px !important;
+      font-weight: 400 !important;
+      line-height: 1 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+      color: #111827 !important;
     }
     .sc-dayMode .fc .fc-prevDay-button:focus,
     .sc-dayMode .fc .fc-nextDay-button:focus{
-    outline: none !important;
-    box-shadow: none !important;
+      outline: none !important;
+      box-shadow: none !important;
     }
-    
 
     .fc .fc-timegrid-axis-cushion,
     .fc .fc-timegrid-slot-label-cushion{
@@ -733,8 +660,6 @@ function calendarThemeCss(BRAND) {
       line-height: 1.05;
       display: block !important;
     }
-
-    /* Isompi eventin kellonaika */
     .sc-dayMode .fc .fc-event-time {
       font-size: 16px;
       font-weight: 750;
@@ -748,11 +673,7 @@ function calendarThemeCss(BRAND) {
       color: rgba(17,24,39,0.85);
       display: block !important;
     }
-
-    /* Isompi eventin otsikko */
-    .sc-dayMode .fc .fc-event-title {
-      font-size: 15px;
-    }
+    .sc-dayMode .fc .fc-event-title { font-size: 15px; }
 
     .fc .fc-timegrid-event{
       border-radius: 6px;
@@ -788,14 +709,13 @@ function calendarThemeCss(BRAND) {
       color: #111827 !important;
     }
 
-    .fc .fc-timegrid-now-indicator-line{ 
-        border-top-width: 3px;                 /* default ~1px */
-        border-color: ${BRAND.accent}; 
-        }
+    .fc .fc-timegrid-now-indicator-line{
+        border-top-width: 3px;
+        border-color: ${BRAND.accent};
+    }
     .fc .fc-timegrid-now-indicator-arrow {
         width: 0;
         height: 0;
-
         border-top: 6px solid transparent;
         border-bottom: 6px solid transparent;
         border-left: 8px solid ${BRAND.accent};
