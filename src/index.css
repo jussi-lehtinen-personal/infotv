@@ -258,6 +258,91 @@ code {
   font-weight: 700;
 }
 
+/* Bottom navigation — fixed bar shown only inside <GamezoneLayout/>.
+   Total height = visible content (--ui-bottom-nav-h) + iOS home indicator.
+   Pages inside the layout reserve --ui-bottom-nav-clearance worth of
+   padding-bottom on their root container — the small extra gap on top of
+   the raw bar height keeps content from sitting flush against the bar. */
+:root {
+  --ui-bottom-nav-h: 56px;
+  --ui-bottom-nav-clearance: calc(var(--ui-bottom-nav-h) + env(safe-area-inset-bottom) + 12px);
+}
+
+.ui-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--ui-bottom-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  align-items: stretch;
+  /* Elevated frosted-glass bar — content scrolling underneath shows through
+     the blur so the bar reads as floating above the page. */
+  background: rgba(15, 17, 18, 0.78);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04), 0 -8px 24px rgba(0, 0, 0, 0.32);
+  z-index: 10;
+}
+
+.ui-bottom-nav-btn,
+.ui-bottom-nav-btn:hover,
+.ui-bottom-nav-btn:focus,
+.ui-bottom-nav-btn:visited,
+.ui-bottom-nav-btn:active {
+  text-decoration: none;
+}
+.ui-bottom-nav-btn {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.ui-bottom-nav-icon {
+  width: 22px;
+  height: 22px;
+  /* Lucide SVGs use currentColor for stroke, so colour cascades from the
+     button's color rule. Stroke width comes from the react-icons default. */
+}
+
+.ui-bottom-nav-label {
+  line-height: 1;
+}
+
+.ui-bottom-nav-btn--active {
+  color: var(--color-primary);
+}
+
+/* Active marker — short coloured line at the top of the active button. */
+.ui-bottom-nav-btn--active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 0 0 2px 2px;
+}
+
+/* Active state intentionally does NOT change the icon's variation settings
+   — flipping wght or FILL nudges the glyph metrics and reads as the icon
+   resizing when you tap between tabs. Active is signalled by colour + the
+   short marker line at the top of the button instead. */
+
 /* Top progress bar — indeterminate background-fetch indicator */
 .ui-progress-bar {
   position: absolute;

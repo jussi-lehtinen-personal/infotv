@@ -97,7 +97,8 @@ body { margin: 0; }
   justify-content:flex-start;
   gap: 14px;
 
-  padding: 10px 7px 10px 7px;
+  /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator + a small gap. */
+  padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
 
   background: var(--bg-gradient);
   font-family: var(--font-family-base);

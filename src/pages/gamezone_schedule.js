@@ -575,6 +575,14 @@ function calendarThemeCss(BRAND) {
   overflow-x: hidden !important;
 }
 
+/* Mirror the matches list: extend the calendar all the way to the viewport
+   bottom and reserve clearance INSIDE the time grid scroller so events at
+   the end of the day still scroll above the BottomNav. */
+.sc-dayMode .fc-scroller-liquid-absolute {
+  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
+  box-sizing: border-box;
+}
+
     .fc{
       height:100% !important;
       background:#ffffff;

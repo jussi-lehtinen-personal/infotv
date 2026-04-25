@@ -12,6 +12,7 @@ import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
 import Gamezone from "./pages/gamezone";
 import GamezoneSchedule from "./pages/gamezone_schedule";
+import { GamezoneLayout } from "./components/GamezoneLayout";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import Teams from "./pages/teams";
@@ -21,9 +22,8 @@ function App() {
   return (
     <Router>
         <Routes>
-            <Route exact path="/" element={<Home />} />
-            <Route 
-                path="/schedule" 
+            <Route
+                path="/schedule"
                 element={<Schedule />}
             />
             <Route
@@ -34,18 +34,23 @@ function App() {
                 path="/week/:timestamp"
                 element={<ThisWeek />}
             />
-            <Route
-                path="/gamezone"
-                element={<Gamezone />}
-            />
-            <Route
-                path="/gamezone/:timestamp"
-                element={<Gamezone />}
-            />
-            <Route
-                path="/gamezone/schedule"
-                element={<GamezoneSchedule />}
-            />
+            <Route element={<GamezoneLayout />}>
+                <Route exact path="/" element={<Home />} />
+                <Route
+                    path="/gamezone"
+                    element={<Gamezone />}
+                />
+                <Route
+                    path="/gamezone/:timestamp"
+                    element={<Gamezone />}
+                />
+                <Route
+                    path="/gamezone/schedule"
+                    element={<GamezoneSchedule />}
+                />
+                <Route path="/teams" element={<Teams />} />
+            </Route>
+
             <Route
                 path="/ads"
                 element={<Ads />}
@@ -60,7 +65,6 @@ function App() {
             />
 
             <Route path="/next_home_game" element={<NextHomeGame />} />
-            <Route path="/teams" element={<Teams />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"

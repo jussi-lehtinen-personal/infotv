@@ -586,13 +586,15 @@ html, body, #root{
   touch-action: pan-y;
   overflow: hidden;
 
-  /* env(safe-area-inset-*) accounts for the iOS home indicator and notch:
-     without it the bottom ~34px of content slides under the home indicator
-     and the last card never fully scrolls into view. */
+  /* No bottom padding — the carousel viewport extends all the way to the
+     viewport bottom so content can scroll *under* the BottomNav (which is
+     fixed and frosted/elevated). The match list itself reserves
+     --ui-bottom-nav-clearance worth of padding-bottom (see .gz-list) so
+     when scrolled fully the last card lands above the bar. */
   padding:
     max(10px, env(safe-area-inset-top))
     max(7px, env(safe-area-inset-right))
-    max(10px, env(safe-area-inset-bottom))
+    0
     max(7px, env(safe-area-inset-left));
 
   background: var(--bg-gradient);
@@ -686,6 +688,10 @@ html, body, #root{
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* Reserve clearance below the last card so it scrolls cleanly above
+     the BottomNav. Combined with .gz-root having no bottom padding, the
+     scroll area extends behind the bar. */
+  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
 }
 
 .gz-dayblock{
