@@ -68,6 +68,22 @@ function registerValidSW(swUrl, config) {
           }
         };
       };
+
+      // Poll for updates every 60s so installed PWAs pick up new deploys
+      // without waiting for a manual reload. The browser otherwise only
+      // checks on navigation/reload, which doesn't happen for users who
+      // keep the standalone PWA open.
+      setInterval(() => {
+        registration.update().catch(() => {});
+      }, 60 * 1000);
+
+      // Also check whenever the tab becomes visible — covers the common
+      // "I opened the app and want the latest" case for installed PWAs.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          registration.update().catch(() => {});
+        }
+      });
     })
     .catch((error) => {
       console.error('Error during service worker registration:', error);
