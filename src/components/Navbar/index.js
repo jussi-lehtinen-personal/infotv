@@ -31,7 +31,7 @@ const Index = () => {
           />
 
           <MenuItem
-            to="/schedule"
+            to="/gamezone/schedule"
             title="JÄÄVUOROKALENTERI"
           />
 

@@ -11,6 +11,7 @@ import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
 import Gamezone from "./pages/gamezone";
+import GamezoneSchedule from "./pages/gamezone_schedule";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import Teams from "./pages/teams";
@@ -40,6 +41,10 @@ function App() {
             <Route
                 path="/gamezone/:timestamp"
                 element={<Gamezone />}
+            />
+            <Route
+                path="/gamezone/schedule"
+                element={<GamezoneSchedule />}
             />
             <Route
                 path="/ads"
