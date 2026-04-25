@@ -6,7 +6,7 @@ import moment from "moment";
 import "moment/locale/fi";
 
 import { getMonday, getMatchLink } from "../Util";
-import { themeCSS, COLOR_PRIMARY } from "../theme";
+import { themeCSS } from "../theme";
 import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
 import { NavButton, ToggleButton } from "../components/ui/Buttons";
@@ -315,6 +315,19 @@ function WeekPanel({
   onToggleHome,
   onToggleFavourites,
 }) {
+  // Reset the matches scroll position to top whenever the panel's week
+  // changes (i.e. after a swipe). Without this, the same DOM node persists
+  // across navigation and keeps its previous scrollTop, so a swipe lands
+  // mid-list. Tied to weekDate.getTime() so background cache refreshes
+  // (which keep the same week) don't yank the scroll while the user reads.
+  const containerRef = useRef(null);
+  const weekDateMs = weekDate.getTime();
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [weekDateMs]);
+
   const groups = useMemo(() => {
     const map = new Map();
     for (const m of matches) {
@@ -355,7 +368,7 @@ function WeekPanel({
 
       {g.items.map((m, idx) => (
         <MatchRow
-          key={`${g.day}-${idx}`}
+          key={m.id ?? `${g.day}-${idx}`}
           match={m}
           onClick={() => goToSite(getMatchLink(idx, m))}
         />
@@ -394,7 +407,7 @@ function WeekPanel({
           {isCurrent && <TopProgressBar visible={bgFetching && !loading} />}
         </Surface>
 
-        <Surface className="gz-container">
+        <div ref={containerRef} className="ui-surface gz-container">
           {showSpinner && <Spinner text="Ladataan otteluita..." />}
 
           {!showSpinner && (onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
@@ -415,7 +428,7 @@ function WeekPanel({
           {!showSpinner && visibleGroups.length > 0 && (
             <div className="gz-list">{visibleGroups.map(renderDayBlock)}</div>
           )}
-        </Surface>
+        </div>
       </div>
     </div>
   );
@@ -427,7 +440,7 @@ function WeekPanel({
 
 function MatchRow({ match, onClick }) {
   const timeStr = moment(match.date).format("HH:mm");
-  const status = simplifyLevel(match.level ?? "");
+  const level = simplifyLevel(match.level ?? "");
 
   const finishedType = Number(match.finished);
   const isLive = finishedType === 0 && match.home_goals != null && match.away_goals != null;
@@ -436,27 +449,58 @@ function MatchRow({ match, onClick }) {
   const homeGoals = isLive || isFinished ? match.home_goals ?? "" : "";
   const awayGoals = isLive || isFinished ? match.away_goals ?? "" : "";
 
-  const highlightHome = match.isHomeGame === true;
-  const highlightAway = match.isHomeGame === false;
-
   const hg = parseInt(match.home_goals, 10);
   const ag = parseInt(match.away_goals, 10);
   const hasResult = isFinished && !isNaN(hg) && !isNaN(ag);
-  const homeWon = hasResult && hg > ag;
-  const awayWon = hasResult && ag > hg;
 
-  const resultBorderColor = (() => {
+  // Ahma-centric result colour: green = Ahma won, red = Ahma lost, light grey = draw.
+  // Drives both the left edge bar and the divider between teams and scores.
+  const resultColor = (() => {
+    if (isLive) return "#ef4444";
     if (!hasResult) return null;
     const ahmaGoals = match.isHomeGame ? hg : ag;
-    const oppGoals = match.isHomeGame ? ag : hg;
+    const oppGoals  = match.isHomeGame ? ag : hg;
     if (ahmaGoals > oppGoals) return "#22c55e";
     if (ahmaGoals < oppGoals) return "#ef4444";
-    if (ahmaGoals === oppGoals) return "#e8e8e8";
-    return null;
+    return "#e8e8e8";
   })();
 
-  const loserGoalStyle = { fontWeight: 400, opacity: 0.85 };
-  const liveGoalStyle = { color: "#ef4444" };
+  // Winner highlighted, loser muted. Winner's score uses the Ahma-centric
+  // result colour (green when Ahma wins, red when opponent wins so Ahma's
+  // loss reads as red on the opponent's score). Loser's score and name fade.
+  const ahmaIsHome = match.isHomeGame === true;
+  const ahmaIsAway = match.isHomeGame === false;
+  const homeIsWinner = hasResult && hg > ag;
+  const awayIsWinner = hasResult && ag > hg;
+  const homeIsLoser  = hasResult && hg < ag;
+  const awayIsLoser  = hasResult && ag < hg;
+
+  const mutedColor = "rgba(255, 255, 255, 0.4)";
+
+  const homeScoreStyle = (() => {
+    if (isLive) return { color: "#ef4444" };
+    if (!hasResult || hg === ag) return undefined;
+    if (homeIsWinner) return { color: ahmaIsHome ? "#22c55e" : "#ef4444" };
+    return { color: mutedColor };
+  })();
+  const awayScoreStyle = (() => {
+    if (isLive) return { color: "#ef4444" };
+    if (!hasResult || hg === ag) return undefined;
+    if (awayIsWinner) return { color: ahmaIsAway ? "#22c55e" : "#ef4444" };
+    return { color: mutedColor };
+  })();
+
+  const homeNameStyle = (homeIsLoser && !isLive) ? { color: mutedColor } : undefined;
+  const awayNameStyle = (awayIsLoser && !isLive) ? { color: mutedColor } : undefined;
+
+  const venueLabel = match.isHomeGame === true ? "Koti"
+                   : match.isHomeGame === false ? "Vieras"
+                   : null;
+  const rink = match.rink || "";
+
+  const rowStyle = resultColor
+    ? { borderLeftColor: resultColor, "--gz-result-color": resultColor }
+    : undefined;
 
   return (
     <div
@@ -464,45 +508,40 @@ function MatchRow({ match, onClick }) {
       onClick={onClick}
       role="button"
       tabIndex={0}
-      style={resultBorderColor ? { borderLeft: `4px solid ${resultBorderColor}` } : undefined}
+      style={rowStyle}
     >
-      <div className="gz-time">{timeStr}</div>
-
-      <div className="gz-mid">
-        <div className="gz-teamline">
-          <img className="gz-logo ui-team-logo" src={match.home_logo} alt="" />
-          <span
-            className="gz-teamname"
-            style={highlightHome ? { color: COLOR_PRIMARY } : undefined}
-          >
-            {match.home}
-          </span>
+      <div className="gz-row-top">
+        <div className="gz-time">
+          <span className="material-symbols-rounded gz-time-icon">&#xE8B5;</span>
+          <span>{timeStr}</span>
         </div>
-        <div
-          className="gz-goal"
-          style={isLive ? liveGoalStyle : awayWon ? loserGoalStyle : undefined}
-        >
-          {homeGoals}
-        </div>
-
-        <div className="gz-teamline">
-          <img className="gz-logo ui-team-logo" src={match.away_logo} alt="" />
-          <span
-            className="gz-teamname"
-            style={highlightAway ? { color: COLOR_PRIMARY } : undefined}
-          >
-            {match.away}
-          </span>
-        </div>
-        <div
-          className="gz-goal"
-          style={isLive ? liveGoalStyle : homeWon ? loserGoalStyle : undefined}
-        >
-          {awayGoals}
-        </div>
+        {level && <div className="gz-level-badge">{level}</div>}
+        {(venueLabel || rink) && (
+          <div className="gz-location">
+            <span className="material-symbols-rounded gz-location-icon">&#xE0C8;</span>
+            <span className="gz-location-text">
+              {rink}
+              {rink && venueLabel && " • "}
+              {venueLabel}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="gz-status">{status}</div>
+      <div className="gz-row-body">
+        <div className="gz-team-row gz-team-row--home">
+          <img className="gz-team-logo ui-team-logo" src={match.home_logo} alt="" />
+          <span className="gz-team-name" style={homeNameStyle}>{match.home}</span>
+        </div>
+        <div className="gz-team-divider" />
+        <div className="gz-team-row gz-team-row--away">
+          <img className="gz-team-logo ui-team-logo" src={match.away_logo} alt="" />
+          <span className="gz-team-name" style={awayNameStyle}>{match.away}</span>
+        </div>
+        <div className="gz-row-separator" />
+        <div className="gz-team-score gz-team-score--home" style={homeScoreStyle}>{homeGoals}</div>
+        <div className="gz-team-score gz-team-score--away" style={awayScoreStyle}>{awayGoals}</div>
+      </div>
     </div>
   );
 }
@@ -528,16 +567,25 @@ html, body, #root{
 }
 
 .gz-root{
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Lock to viewport so the carousel can't push the page taller (which would
+     stretch the background gradient and let the body scroll past the cards). */
+  height: 100vh;
+  height: 100dvh;
 
   display: flex;
   flex-direction: column;
 
   touch-action: pan-y;
-  overflow-x: hidden;
+  overflow: hidden;
 
-  padding: 10px 7px 10px 7px;
+  /* env(safe-area-inset-*) accounts for the iOS home indicator and notch:
+     without it the bottom ~34px of content slides under the home indicator
+     and the last card never fully scrolls into view. */
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(7px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(7px, env(safe-area-inset-left));
 
   background: var(--bg-gradient);
 
@@ -611,25 +659,31 @@ html, body, #root{
   flex: 0 0 auto;
 }
 
-/* Container */
+/* Container scrolls vertically when its panel's matches don't fit. Putting
+   the scroll context on the Surface (rather than the inner list) keeps the
+   bottom padding inside the scrollable area so the last card is fully
+   reachable, and avoids the carousel growing the page height. */
 .gz-container{
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
   padding: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .gz-list{
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .gz-dayblock{
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .gz-dayheader{
@@ -639,35 +693,23 @@ html, body, #root{
   padding: 6px 6px 2px 6px;
   font-size: var(--size-heading-md);
   color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .gz-dayheader-date{
   opacity: 0.95;
 }
 
-/* Mid grid: team names + goals */
-.gz-mid{
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 1fr 38px;
-  grid-template-rows: auto auto;
-  column-gap: 10px;
-  row-gap: 6px;
-  align-items: center;
-}
-
+/* Match card: column layout — top row (time / level / venue) + body (teams ▏ scores).
+   Left edge is a gradient strip rendered via ::before so it can fade vertically. */
 .gz-row{
-  display: grid;
-  grid-template-columns:
-    clamp(50px, 6vw, 80px)
-    0.75fr
-    0.25fr
-    auto;
-  gap: 8px;
-  align-items: center;
-
-  padding: 4px 14px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 16px 30px;
 
   border-radius: var(--radius-item);
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -677,67 +719,175 @@ html, body, #root{
 
   cursor: pointer;
   user-select: none;
+  overflow: hidden;
+}
+
+.gz-row::before{
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  background: linear-gradient(
+    180deg,
+    var(--gz-result-color, transparent) 0%,
+    color-mix(in srgb, var(--gz-result-color, transparent) 55%, transparent) 100%
+  );
+  pointer-events: none;
 }
 
 .gz-row:hover{
-  background: rgba(255, 255, 255, 0.20);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.gz-time{
-  font-weight: 900;
-  font-size: clamp(16px, 1.5vw, 22px);
-  color: var(--color-secondary);
-  text-align: left;
-}
-
-.gz-teamline{
+/* Top row: time + level badge + venue */
+.gz-row-top{
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
 }
 
-.gz-logo{
-  height: clamp(24px, 3vw, 36px);
-  width:  clamp(24px, 3vw, 36px);
-  border-radius: var(--radius-small);
-  padding: 4px;
+.gz-time{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: clamp(15px, 4vw, 18px);
+  color: var(--color-secondary);
+  flex-shrink: 0;
+  line-height: 1;
 }
 
-.gz-teamname{
+.gz-time-icon{
+  font-size: 16px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.gz-level-badge{
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.gz-location{
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  min-width: 0;
+}
+
+.gz-location-icon{
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.gz-location-text{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Body: 3-column grid (teams | separator | scores), 3 rows (home / divider / away) */
+.gz-row-body{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 18px;
+  row-gap: 10px;
+  align-items: center;
+}
+
+.gz-team-row{
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.gz-team-row--home{ grid-row: 1; }
+.gz-team-row--away{ grid-row: 3; }
+
+/* Subtle horizontal line between the two team rows. Lives in column 1
+   only so it doesn't intersect the colored vertical separator. */
+.gz-team-divider{
+  grid-row: 2;
+  grid-column: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gz-team-logo{
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: white;
+  object-fit: contain;
+  padding: 3px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.gz-team-name{
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 
   font-weight: 750;
-  font-size: clamp(16px, 1.5vw, 22px);
-  color: rgba(255, 255, 255, 0.92);
-
+  font-size: clamp(15px, 4vw, 18px);
+  color: rgba(255, 255, 255, 0.95);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
-.gz-goal{
-  text-align: right;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(16px, 1.5vw, 22px);
-  color: rgba(255, 255, 255, 0.92);
-  line-height: 1.2;
+.gz-row-separator{
+  grid-column: 2;
+  grid-row: 1 / 4;
+  width: 2px;
+  background: var(--gz-result-color, rgba(255, 255, 255, 0.22));
+  align-self: stretch;
+  border-radius: 1px;
+  /* Slight extension beyond the body grid so the separator reads as longer.
+     Kept conservative because small-screen card padding is only ~10px and a
+     larger negative margin pushes the separator into the card edges. */
+  margin: -4px 0;
 }
 
-.gz-status{
-  justify-self: end;
+.gz-team-score{
+  grid-column: 3;
   font-weight: 800;
-  font-size: var(--size-heading-sm);
-  color: var(--color-muted);
-  text-align: right;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  line-height: 1.1;
+  font-size: clamp(28px, 7.5vw, 36px);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.95);
+  min-width: 32px;
+  text-align: center;
+  line-height: 1;
 }
+
+.gz-team-score--home{ grid-row: 1; }
+.gz-team-score--away{ grid-row: 3; }
 
 .gz-filter-row{
   display: flex;
@@ -765,30 +915,34 @@ html, body, #root{
 }
 .gz-empty-link:hover{ opacity: 0.8; }
 
+
 /* Narrow phones / folded foldables (~280–380px) */
 @media (max-width: 380px){
   .gz-row{
-    grid-template-columns: 40px 1fr auto;
-    gap: 8px;
+    padding: 10px 12px 10px 20px;
+    gap: 10px;
   }
 
-  .gz-status{
-    font-size: 10px;
+  .gz-time{
+    font-size: 14px;
   }
 
-  .gz-logo{
-    height: 16px;
-    width: 16px;
+  .gz-team-logo{
+    width: 32px;
+    height: 32px;
   }
 
-  .gz-teamname{
-    font-size: 12px;
-    letter-spacing: 0.2px;
+  .gz-team-name{
+    font-size: 14px;
   }
 
-  .gz-goal{
-    width: 28px;
-    font-size: 12px;
+  .gz-team-score{
+    font-size: 22px;
+    min-width: 24px;
+  }
+
+  .gz-location{
+    font-size: 11px;
   }
 }
 
