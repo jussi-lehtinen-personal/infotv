@@ -753,7 +753,7 @@ html, body, #root{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 800;
+  font-weight: 700;
   font-size: clamp(15px, 4vw, 18px);
   color: var(--color-secondary);
   flex-shrink: 0;
@@ -763,7 +763,8 @@ html, body, #root{
 .gz-time-icon{
   font-size: 16px;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-secondary);
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
 }
 
 .gz-level-badge{
@@ -772,9 +773,9 @@ html, body, #root{
   padding: 2px 8px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-secondary);
   letter-spacing: 0.4px;
   text-transform: uppercase;
   flex-shrink: 0;
