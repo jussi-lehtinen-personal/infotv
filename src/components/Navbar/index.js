@@ -25,7 +25,7 @@ const Index = () => {
 
           <MenuItem
             // Mobile-appissa halutaan koti + vieras + asetukset (suosikit-nappi):
-            to="/this_week?includeAway=1&options=1"
+            to="/gamezone?includeAway=1&options=1"
             title="OTTELUT JA TULOKSET"
             subtitle="Selaa Ahma-joukkueiden pelejä ja tuloksia"
           />

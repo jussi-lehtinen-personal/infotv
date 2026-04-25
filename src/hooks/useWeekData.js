@@ -123,12 +123,10 @@ export function useWeekData(timestamp, includeAway) {
     };
   }, [curKey, timestamp, includeAway, curDate, bumpCache]);
 
-  // Prefetch ±1 week after the current week settles, so neighbouring weeks
-  // render from cache instantly. 200ms debounce avoids a fetch storm during
-  // rapid navigation.
+  // Prefetch ±1 week in parallel with the main fetch so neighbouring weeks are
+  // ready by the time the user swipes. 200ms debounce avoids a fetch storm
+  // during rapid swipes (only the destination week's prefetch survives).
   useEffect(() => {
-    if (loading) return;
-
     const timer = setTimeout(() => {
       [[prevDate, prevKey], [nextDate, nextKey]].forEach(([date, key]) => {
         if (weekCache.has(key)) return;
@@ -148,7 +146,7 @@ export function useWeekData(timestamp, includeAway) {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [loading, prevKey, nextKey, prevDate, nextDate, includeAway, bumpCache]);
+  }, [prevKey, nextKey, prevDate, nextDate, includeAway, bumpCache]);
 
   return {
     curDate, prevDate, nextDate,

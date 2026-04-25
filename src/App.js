@@ -10,6 +10,7 @@ import Schedule from "./pages/schedule";
 import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
+import Gamezone from "./pages/gamezone";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import Teams from "./pages/teams";
@@ -31,6 +32,14 @@ function App() {
             <Route
                 path="/week/:timestamp"
                 element={<ThisWeek />}
+            />
+            <Route
+                path="/gamezone"
+                element={<Gamezone />}
+            />
+            <Route
+                path="/gamezone/:timestamp"
+                element={<Gamezone />}
             />
             <Route
                 path="/ads"
