@@ -15,6 +15,7 @@ import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
 import { NavButton, ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
+import { TopProgressBar } from "../components/ui/TopProgressBar";
 
 moment.locale("fi");
 
@@ -342,51 +343,74 @@ const ThisWeek = () => {
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bgFetching, setBgFetching] = useState(false);
   const fetchSeq = useRef(0);
   const abortRef = useRef(null);
+  const weekCacheRef = useRef(new Map());
 
-    useEffect(() => {
+  // Cache key mirrors backend's (api/src/functions/getGames.js): week-start + filter scope.
+  const cacheKey = useMemo(() => {
+    const monday = getMonday(timestamp ? new Date(timestamp) : new Date());
+    return moment(monday).format("YYYY-MM-DD") + "|" + (includeAway ? "all" : "home");
+  }, [timestamp, includeAway]);
+
+  useEffect(() => {
     const mySeq = ++fetchSeq.current;
 
-    // abort previous in-flight request
+    // Stale-while-revalidate: render cached week instantly, refresh in background.
+    const cached = weekCacheRef.current.get(cacheKey);
+    if (cached) {
+      setMatches(cached.matches);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     abortRef.current?.abort?.();
     const ac = new AbortController();
     abortRef.current = ac;
 
-    const doFetch = (background) => {
-        if (!background) setLoading(true);
-
-        const uri = buildGamesQueryUri(timestamp, { includeAway });
-        fetch(uri, { signal: ac.signal })
-            .then((r) => r.json())
-            .then((d) => {
-                if (mySeq !== fetchSeq.current) return;
-                setMatches(processIncomingDataEvents(d));
-            })
-            .catch((err) => {
-                if (err?.name === "AbortError") return;
-                if (mySeq !== fetchSeq.current) return;
-                if (!background) setMatches(processIncomingDataEvents(getMockGameData()));
-            })
-            .finally(() => {
-                if (mySeq !== fetchSeq.current) return;
-                if (!background) setLoading(false);
-            });
+    const doFetch = () => {
+      setBgFetching(true);
+      const uri = buildGamesQueryUri(timestamp, { includeAway });
+      fetch(uri, { signal: ac.signal })
+        .then((r) => r.json())
+        .then((d) => {
+          const processed = processIncomingDataEvents(d);
+          weekCacheRef.current.set(cacheKey, { matches: processed, timestamp: Date.now() });
+          if (mySeq !== fetchSeq.current) return;
+          setMatches(processed);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (err?.name === "AbortError") return;
+          if (mySeq !== fetchSeq.current) return;
+          // Only fall back to mock data if we have nothing to show for this week.
+          if (!weekCacheRef.current.has(cacheKey)) {
+            setMatches(processIncomingDataEvents(getMockGameData()));
+            setLoading(false);
+          }
+        })
+        .finally(() => {
+          // Only the latest in-flight fetch clears the indicator.
+          if (mySeq !== fetchSeq.current) return;
+          setBgFetching(false);
+        });
     };
 
-    doFetch(false);
+    doFetch();
 
     // Poll only when viewing the current week — past/future weeks won't change
     const selectedMon = getMonday(timestamp ? new Date(timestamp) : new Date());
     const currentMon  = getMonday(new Date());
     const isCurrentWeek = moment(selectedMon).isSame(moment(currentMon), "day");
-    const interval = isCurrentWeek ? setInterval(() => doFetch(true), 60_000) : null;
+    const interval = isCurrentWeek ? setInterval(doFetch, 60_000) : null;
 
     return () => {
         ac.abort();
         if (interval) clearInterval(interval);
     };
-    }, [timestamp, includeAway]);
+    }, [cacheKey, timestamp, includeAway]);
 
 
   const header = useMemo(() => {
@@ -550,6 +574,7 @@ const ThisWeek = () => {
                 </ToggleButton>
               </div>
             )}
+            <TopProgressBar visible={bgFetching && !loading} />
         </Surface>
 
         <Surface className="tw-container">
@@ -703,6 +728,8 @@ html, body, #root{
 
 /* Full width header — ui-surface antaa bg/border/radius/shadow/padding */
 .tw-header{
+  position: relative;
+  overflow: hidden;
   width: 100%;
   margin: 0 auto 10px auto;
   max-width: none !important;
