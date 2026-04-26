@@ -681,7 +681,8 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding: 16px 16px 28px;
+  /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator. */
+  padding: 16px 16px var(--ui-bottom-nav-clearance, 80px);
 
   background: var(--bg-gradient);
 }

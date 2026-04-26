@@ -49,20 +49,19 @@ function App() {
                     element={<GamezoneSchedule />}
                 />
                 <Route path="/teams" element={<Teams />} />
+                <Route
+                    path="/ads"
+                    element={<Ads />}
+                />
+                <Route
+                    path="/ads/:timestamp"
+                    element={<Ads />}
+                />
+                <Route
+                    path="/ads/:timestamp/:gameId"
+                    element={<GameAds />}
+                />
             </Route>
-
-            <Route
-                path="/ads"
-                element={<Ads />}
-            />
-            <Route
-                path="/ads/:timestamp"
-                element={<Ads />}
-            />
-            <Route
-                path="/ads/:timestamp/:gameId"
-                element={<GameAds />}
-            />
 
             <Route path="/next_home_game" element={<NextHomeGame />} />
             <Route path="/blogs" element={<Blogs />} />

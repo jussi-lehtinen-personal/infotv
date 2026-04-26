@@ -596,22 +596,22 @@ function calendarThemeCss(BRAND) {
     .fc .fc-header-toolbar{ margin: 0 0 6px 0 !important; }
 
     .fc .fc-toolbar-title{
-      font-size: 18px;
-      font-weight: 650;
-      letter-spacing: 0.10px;
-      color:${BRAND.text};
+      font-size: var(--gz-fs-xl);
+      font-weight: var(--gz-fw-black);
+      letter-spacing: var(--gz-ls-wider);
+      color: ${BRAND.text};
     }
     .fc .fc-toolbar-title::before{
       content: "JÄÄVUOROT";
-      font-weight: 750;
-      letter-spacing: 0.18px;
     }
 
     .sc-dayMode .fc .fc-col-header { width: 100% !important; }
     .sc-dayMode .fc .fc-col-header-cell { padding: 4px 0 !important; }
     .sc-dayMode .fc .fc-col-header-cell-cushion {
       padding: 4px 0 !important;
-      font-size: 14px;
+      font-size: var(--gz-fs-md);
+      font-weight: var(--gz-fw-bold);
+      letter-spacing: var(--gz-ls-wide);
       line-height: 1.2;
     }
 
@@ -650,9 +650,9 @@ function calendarThemeCss(BRAND) {
 
     .fc .fc-timegrid-axis-cushion,
     .fc .fc-timegrid-slot-label-cushion{
-      font-size: 11px;
-      font-weight: 600;
-      color:${BRAND.muted};
+      font-size: var(--gz-fs-xs);
+      font-weight: var(--gz-fw-medium);
+      color: ${BRAND.muted};
     }
 
     .fc-theme-standard td,
@@ -663,26 +663,24 @@ function calendarThemeCss(BRAND) {
     .fc .fc-timegrid-event .fc-event-main{ padding: 2px 8px; }
 
     .fc .fc-event-time{
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.02px;
+      font-size: var(--gz-fs-xs);
+      font-weight: var(--gz-fw-bold);
       line-height: 1.05;
       display: block !important;
     }
     .sc-dayMode .fc .fc-event-time {
-      font-size: 16px;
-      font-weight: 750;
+      font-size: var(--gz-fs-md);
+      font-weight: var(--gz-fw-bold);
     }
 
     .fc .fc-event-title{
-      font-size: 11px;
-      font-weight: 550;
-      letter-spacing: 0.02px;
+      font-size: var(--gz-fs-xs);
+      font-weight: var(--gz-fw-regular);
       line-height: 1.05;
       color: rgba(17,24,39,0.85);
       display: block !important;
     }
-    .sc-dayMode .fc .fc-event-title { font-size: 15px; }
+    .sc-dayMode .fc .fc-event-title { font-size: var(--gz-fs-sm); }
 
     .fc .fc-timegrid-event{
       border-radius: 6px;
