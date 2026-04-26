@@ -705,11 +705,11 @@ html, body, #root{
   align-items: center;
   gap: 8px;
   padding: 6px 6px 2px 6px;
-  font-size: var(--size-heading-md);
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 700;
+  font-size: var(--gz-fs-lg);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  color: var(--gz-text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .gz-dayheader-date{
@@ -767,9 +767,9 @@ html, body, #root{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 700;
-  font-size: clamp(15px, 4vw, 18px);
-  color: var(--color-secondary);
+  font-size: var(--gz-fs-md);
+  font-weight: var(--gz-fw-bold);
+  color: var(--gz-text-primary);
   flex-shrink: 0;
   line-height: 1;
 }
@@ -777,7 +777,7 @@ html, body, #root{
 .gz-time-icon{
   font-size: 16px;
   line-height: 1;
-  color: var(--color-secondary);
+  color: var(--gz-text-primary);
   font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
 }
 
@@ -787,10 +787,10 @@ html, body, #root{
   padding: 2px 8px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-secondary);
-  letter-spacing: 0.4px;
+  font-size: var(--gz-fs-xs);
+  font-weight: var(--gz-fw-medium);
+  color: var(--gz-text-primary);
+  letter-spacing: var(--gz-ls-wide);
   text-transform: uppercase;
   flex-shrink: 0;
   line-height: 1.3;
@@ -802,10 +802,10 @@ html, body, #root{
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 500;
-  letter-spacing: 0.2px;
+  font-size: var(--gz-fs-xs);
+  font-weight: var(--gz-fw-regular);
+  letter-spacing: var(--gz-ls-wide);
+  color: var(--gz-text-muted);
   min-width: 0;
 }
 
@@ -870,11 +870,11 @@ html, body, #root{
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  font-weight: 750;
-  font-size: clamp(15px, 4vw, 18px);
-  color: rgba(255, 255, 255, 0.95);
+  font-size: var(--gz-fs-md);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  color: var(--gz-text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
 }
 
 .gz-row-separator{
@@ -892,10 +892,10 @@ html, body, #root{
 
 .gz-team-score{
   grid-column: 3;
-  font-weight: 800;
-  font-size: clamp(28px, 7.5vw, 36px);
+  font-size: var(--gz-fs-score);
+  font-weight: var(--gz-fw-black);
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--gz-text-primary);
   min-width: 32px;
   text-align: center;
   line-height: 1;
@@ -919,8 +919,8 @@ html, body, #root{
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
-  color: var(--color-muted);
-  font-size: clamp(13px, 1.3vw, 16px);
+  font-size: var(--gz-fs-sm);
+  color: var(--gz-text-muted);
   text-align: center;
 }
 

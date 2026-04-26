@@ -1,8 +1,10 @@
 :root {
   /* === VÄRIT === */
-  --color-primary:         #f59e0b;                    /* Amber — AHMA-brändi, otsikot */
-  --color-primary-dim:     rgba(245, 158, 11, 0.45);   /* Amber haalistuneena */
-  --color-primary-glow:    rgba(245, 158, 11, 0.20);   /* Amber hover/glow */
+  /* AHMA-brändin pääväri on seuran oranssi. Valkoinen ja musta täydentävät
+     paletin (musta = --color-bg, valkoinen = --color-secondary). */
+  --color-primary:         #f97316;                    /* Oranssi — AHMA-brändi, korostukset */
+  --color-primary-dim:     rgba(249, 115, 22, 0.45);   /* Oranssi haalistuneena */
+  --color-primary-glow:    rgba(249, 115, 22, 0.20);   /* Oranssi hover/glow */
 
   --color-secondary:       rgba(255, 255, 255, 0.95);  /* Valkoinen — pääteksti */
   --color-accent:          rgba(255, 255, 255, 0.65);  /* Harmaa — toissijainen teksti */
@@ -18,13 +20,65 @@
   --color-loss: #ef4444;
   --color-draw: #e8e8e8;
 
-  /* === TYPOGRAFIA === */
+  /* === TYPOGRAFIA — KIOSKI (InfoTV) ===
+     Näitä käytetään ainoastaan InfoTV-sivuilla (this_week, schedule,
+     next_home_game). Älä koske näihin Gamezone-puolta säätäessä. */
   --size-heading-xl:  clamp(28px, 6vw, 42px);    /* Sivun pääotsikko */
   --size-heading-lg:  clamp(22px, 5vw, 34px);    /* Sektion otsikko */
   --size-heading-md:  clamp(16px, 1.4vw, 22px);  /* Aliotsikko */
   --size-heading-sm:  clamp(12px, 1.2vw, 16px);  /* Label / pieni otsikko */
   --size-body:        clamp(12px, 1.2vw, 14px);  /* Leipäteksti */
   --font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  /* === TYPOGRAFIA — GAMEZONE (mobiili) ===
+     Atominen typografia­scale jota käytetään home-menun, ottelulistan,
+     jäävuorojen, joukkueet-sivun ja niiden komponenttien (PageHeader,
+     ToggleButton, NavButton, MatchRow, BottomNav) kautta.
+
+     Skaalat ovat clamp(min, fluid, max) — mobiilin kapeus ei vaikuta
+     minimiin liikaa, ja foldable/tablet kasvaa hallitusti maksimiin.
+
+     Käyttötarkoitukset (tämän pohjalta assignataan myöhemmin):
+
+       --gz-fs-2xs   nav-tab-label, badgen alaspekki
+       --gz-fs-xs    sarjabadge, paikkateksti, päivän aliotsikko
+       --gz-fs-sm    secondary body, menun aliotsikko
+       --gz-fs-md    body / list-item title (joukkueen nimi, kellonaika)
+       --gz-fs-lg    section heading (päivän otsikko PERJANTAI 24.4)
+       --gz-fs-xl    page heading (TÄMÄN VIIKON OTTELUT)
+       --gz-fs-score score / iso numero
+       --gz-fs-hero  app title (AHMA GAMEZONE) */
+  --gz-fs-2xs:    clamp(10px, 2.6vw, 11px);
+  --gz-fs-xs:     clamp(11px, 3vw, 13px);
+  --gz-fs-sm:     clamp(13px, 3.4vw, 14px);
+  --gz-fs-md:     clamp(15px, 4vw, 17px);
+  --gz-fs-lg:     clamp(17px, 4.6vw, 20px);
+  --gz-fs-xl:     clamp(22px, 6vw, 28px);
+  --gz-fs-score:  clamp(28px, 7.5vw, 36px);
+  --gz-fs-hero:   clamp(30px, 8.5vw, 42px);
+
+  /* Painot — käytä token-tasoja, älä raw-numeroita */
+  --gz-fw-regular:  500;
+  --gz-fw-medium:   650;
+  --gz-fw-bold:     800;
+  --gz-fw-black:    900;
+
+  /* Letter-spacing presetit. Use widest vain hero-tason hartlogo­spacing.
+     Wider = page heading, wide = uppercase labels. */
+  --gz-ls-tight:    -0.2px;
+  --gz-ls-normal:   0;
+  --gz-ls-wide:     0.4px;
+  --gz-ls-wider:    1.2px;
+  --gz-ls-widest:   2.5px;
+
+  /* Tekstin värit. Primary on tavallinen "valkoinen" (sama kuin InfoTV:n
+     --color-secondary), accentin yhteinen amber. */
+  --gz-text-primary:    rgba(255, 255, 255, 0.95);
+  --gz-text-secondary:  rgba(255, 255, 255, 0.70);
+  --gz-text-tertiary:   rgba(255, 255, 255, 0.50);
+  --gz-text-muted:      rgba(255, 255, 255, 0.40);
+  --gz-text-accent:     var(--color-primary);
+  --gz-text-on-card:    #111827;                      /* Tumma teksti vaalealle pinnalle (kalenteri-eventit) */
 
   /* === ASETTELU === */
   --radius-card:  18px;
@@ -131,6 +185,22 @@ code {
 }
 .ui-page-header-spacer {
   flex: 0 0 44px;
+}
+
+/* Gamezone-scoped page-header typography. The InfoTV pages use the
+   default sizing above (tight clamp for kiosk landscape). On Gamezone the
+   header has historically read smaller than the card content; pull it onto
+   the same token scale as the rest of the mobile typography so the page
+   title is visibly the loudest piece on screen. */
+.gz-root .ui-page-header-main {
+  font-size: var(--gz-fs-xl);
+  font-weight: var(--gz-fw-black);
+  letter-spacing: var(--gz-ls-wider);
+}
+.gz-root .ui-page-header-sub {
+  font-size: var(--gz-fs-sm);
+  font-weight: var(--gz-fw-medium);
+  color: var(--gz-text-secondary);
 }
 
 /* Nav button — 44px, ikoni-only */

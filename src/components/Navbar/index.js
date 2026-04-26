@@ -158,24 +158,26 @@ body { margin: 0; }
 }
 
 .ahma-appTitle{
-  font-size: var(--size-heading-xl);
-  letter-spacing: 3px;
-  margin-top: 8px;
-  color: var(--color-primary);
-  text-align:center;
-
+  font-size: var(--gz-fs-hero);
+  font-weight: var(--gz-fw-black);
+  letter-spacing: var(--gz-ls-widest);
+  color: var(--gz-text-accent);
+  text-align: center;
   text-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  margin-top: 8px;
 }
 
 .ahma-title{
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: 0.15px;
+  font-size: var(--gz-fs-md);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  color: var(--gz-text-primary);
 }
 
 .ahma-sub{
-  font-size: 12px;
-  opacity: 0.78;
+  font-size: var(--gz-fs-sm);
+  font-weight: var(--gz-fw-regular);
+  color: var(--gz-text-tertiary);
   margin-top: 2px;
 }
 
@@ -218,15 +220,10 @@ body { margin: 0; }
     margin-bottom: 0; /* grid hoitaa välit */
     padding: 14px 16px;
   }
-
-  .ahma-title{ font-size: 16px; }
-  .ahma-sub{ font-size: 12px; }
 }
 
 /* ============ VERY SMALL ============ */
 @media (max-width: 380px){
-  .ahma-title{ font-size: 14px; }
-  .ahma-sub{ font-size: 11px; }
   .ahma-item{ padding: 11px 12px; }
 }
 `;

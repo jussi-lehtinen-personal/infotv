@@ -75,9 +75,9 @@ export const themeCSS = `
  * AHMA-brändiväri JS-koodissa käytettäväksi (esim. canvas-piirto).
  * Pitää synkroonissa --color-primary -muuttujan kanssa.
  */
-export const COLOR_PRIMARY  = '#f59e0b';
-export const COLOR_PRIMARY_DIM  = 'rgba(245, 158, 11, 0.45)';
-export const COLOR_PRIMARY_GLOW = 'rgba(245, 158, 11, 0.20)';
+export const COLOR_PRIMARY  = '#f97316';
+export const COLOR_PRIMARY_DIM  = 'rgba(249, 115, 22, 0.45)';
+export const COLOR_PRIMARY_GLOW = 'rgba(249, 115, 22, 0.20)';
 export const COLOR_WIN  = '#22c55e';
 export const COLOR_LOSS = '#ef4444';
 export const COLOR_DRAW = '#e8e8e8';
