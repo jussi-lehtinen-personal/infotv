@@ -161,7 +161,9 @@ body { margin: 0; }
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:flex-start;
+  /* AppHeader ylös ja .ahma-menu alas — natiivi flex-jako, ei margin-trickkejä
+     jotka voivat ylivenyttää sivua iOS:n viewport-quirkeissä. */
+  justify-content:space-between;
   gap: 14px;
 
   /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator + a small gap. */
@@ -218,18 +220,14 @@ body { margin: 0; }
 }
 
 /* MENU LIST — wrapper that constrains width and stacks items.
-   No background/border of its own; menu items render directly over the
-   animated dimmed bear backdrop.
-   margin-top: auto pushes the entire menu (Pikatoiminnot, OTTELUMAINOKSET,
-   FANITUOTTEET, SEURAA MEITÄ) to the bottom of the page while AppHeader
-   stays anchored to the top. */
+   Bottom-anchoring tehdään .ahma-rootin justify-content: space-between
+   -säädöllä, ei margin-top: auto -trickillä. */
 .ahma-menu{
   width: 100%;
   max-width: 520px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: auto;
 }
 
 /* PIKATOIMINNOT — 4-up icon grid for the most-used surfaces. Each tile
