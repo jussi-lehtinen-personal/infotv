@@ -31,10 +31,10 @@
   /* Outfit — UI/leipäteksti: napit, kortit, selitteet, scoret.
      Moderni, hieman Interia kapeampi ja pehmeämpi muodoltaan. */
   --font-family-base: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-  /* Big Shoulders Display — display/otsikkofontti: wordmark, section
-     headers, korttien ALL-CAPS otsikot. Atleettinen, leveämpi kuin Bebas,
-     täysi paino-skaala 100..900 jolloin paksu/ohut -kontrasti onnistuu. */
-  --font-family-display: 'Big Shoulders Display', 'Bebas Neue', Impact, sans-serif;
+  /* Archivo — display/otsikkofontti: wordmark, section headers, korttien
+     ALL-CAPS otsikot. Modern block-bold, leveät kirjaimet, variable
+     wght 100..900 jolloin paksu/ohut -kontrasti onnistuu. */
+  --font-family-display: 'Archivo', 'Saira', Impact, sans-serif;
 
   /* === TYPOGRAFIA — GAMEZONE (mobiili) ===
      Atominen typografia­scale jota käytetään home-menun, ottelulistan,
@@ -95,8 +95,19 @@
 
   /* === TAUSTAGRADIENTI === */
   --bg-gradient:
-    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
+    radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.1), transparent 55%),
     linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
+}
+
+/* Globaali tap-highlight ja focus-väri — Android- ja iOS-default sininen
+   ei sovi brändiin, käytetään AHMA-oranssin haaleampaa sävyä. Yksittäisten
+   elementtien explicit :active/:hover -säännöt voivat ylikirjoittaa tämän. */
+* {
+  -webkit-tap-highlight-color: rgba(249, 115, 22, 0.22);
+}
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .material-symbols-rounded {
@@ -261,19 +272,19 @@ code {
   font-family: var(--font-family-display);
 }
 .ui-app-header-wordmark-top {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 900;
-  letter-spacing: 0.04em;
-  padding-left: 0.04em;
+  letter-spacing: 0;
   line-height: 0.9;
   color: var(--color-primary);
 }
+
 .ui-app-header-wordmark-bottom {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 300;
   /* Levitetään 8 kirjainta saman levyiseksi kuin 4-kirjaiminen AHMA. */
-  letter-spacing: 0.6em;
-  padding-left: 0.6em;
+  letter-spacing: 0.34em;
+  padding-left: 0.34em;
   color: var(--gz-text-primary);
   opacity: 0.85;
 }
@@ -456,6 +467,10 @@ code {
 .ui-bottom-nav-btn:visited,
 .ui-bottom-nav-btn:active {
   text-decoration: none;
+  /* Pakota brändin tertiary-väri kaikkiin link-tiloihin — muuten Chrome/
+     Safari renderöi default-sinisen :visited / :hover -värin. Aktiivinen
+     tabi (--active modifier) overridaa tämän alempana. */
+  color: var(--gz-text-tertiary);
 }
 .ui-bottom-nav-btn {
   position: relative;
@@ -464,10 +479,10 @@ code {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 6px;
   padding: 6px 4px;
   color: var(--gz-text-tertiary);
-  font-size: var(--gz-fs-2xs);
+  font-size: 9px;
   font-weight: var(--gz-fw-medium);
   letter-spacing: var(--gz-ls-wide);
   text-transform: uppercase;
@@ -486,8 +501,8 @@ code {
 }
 
 .ui-bottom-nav-icon {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   /* Lucide SVGs use currentColor for stroke, so colour cascades from the
      button's color rule. Stroke width comes from the react-icons default. */
 }
@@ -496,7 +511,11 @@ code {
   line-height: 1;
 }
 
-.ui-bottom-nav-btn--active {
+.ui-bottom-nav-btn--active,
+.ui-bottom-nav-btn--active:hover,
+.ui-bottom-nav-btn--active:focus,
+.ui-bottom-nav-btn--active:visited,
+.ui-bottom-nav-btn--active:active {
   color: var(--color-primary);
 }
 
