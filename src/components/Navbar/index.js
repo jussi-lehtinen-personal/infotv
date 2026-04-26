@@ -1,7 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import {
+  LuShoppingBag,
+  LuChevronRight,
+  LuTrophy,
+  LuCalendarDays,
+  LuShield,
+  LuUsers,
+} from "react-icons/lu";
 import { themeCSS } from "../../theme";
-import { Surface } from "../ui/Surface";
+import { AppHeader } from "../ui/AppHeader";
 
 const Index = () => {
   return (
@@ -9,43 +17,31 @@ const Index = () => {
       <style>{styles}</style>
 
       <div className="ahma-root">
+        <AppHeader />
 
-        {/* MENU CARD */}
-        <Surface className="ahma-card">
-
-          {/* HERO */}
-          <div className="ahma-appTitle">AHMA GAMEZONE</div>
-          <div className="ahma-hero">
-            <img
-              src="/ahma_logo.png"
-              alt="Kiekko-Ahma"
-              className="ahma-logo"
+        <div className="ahma-menu">
+          <div className="ahma-quick">
+            <QuickTile
+              to="/gamezone?includeAway=1&options=1"
+              icon={<LuTrophy />}
+              label="Ottelut"
+            />
+            <QuickTile
+              to="/gamezone/schedule"
+              icon={<LuCalendarDays />}
+              label="Jäävuorot"
+            />
+            <QuickTile
+              to="/next_home_game"
+              icon={<LuShield />}
+              label="Edustus"
+            />
+            <QuickTile
+              to="/teams"
+              icon={<LuUsers />}
+              label="Joukkueet"
             />
           </div>
-
-          <MenuItem
-            // Mobile-appissa halutaan koti + vieras + asetukset (suosikit-nappi):
-            to="/gamezone?includeAway=1&options=1"
-            title="OTTELUT JA TULOKSET"
-            subtitle="Selaa Ahma-joukkueiden pelejä ja tuloksia"
-          />
-
-          <MenuItem
-            to="/gamezone/schedule"
-            title="JÄÄVUOROKALENTERI"
-          />
-
-          <MenuItem
-            to="/teams"
-            title="JOUKKUEET"
-            subtitle="Valitse suosikkijoukkueesi"
-          />
-
-          <MenuItem
-            to="/next_home_game"
-            title="EDUSTUSJOUKKUE"
-            subtitle="Edustusjoukkueen seuraava kotipeli"
-          />
 
           <MenuItem
             to="/ads"
@@ -53,7 +49,28 @@ const Index = () => {
             subtitle="Lataa valmiit ottelumainokset"
           />
 
-        </Surface>
+          <a
+            href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ahma-merch"
+          >
+            <LuShoppingBag className="ahma-merch-icon" aria-hidden="true" />
+            <div className="ahma-merch-text">
+              <div className="ahma-merch-title">AHMA FANITUOTTEET</div>
+              <div className="ahma-merch-subtitle">
+                <span>Näytä koko valikoima</span>
+                <LuChevronRight className="ahma-merch-arrow" aria-hidden="true" />
+              </div>
+            </div>
+            <img
+              className="ahma-merch-image"
+              src="/fanituotteet.png"
+              alt=""
+              aria-hidden="true"
+            />
+          </a>
+        </div>
       </div>
     </>
   );
@@ -66,6 +83,13 @@ const MenuItem = ({ to, title, subtitle }) => (
       {subtitle && <div className="ahma-sub">{subtitle}</div>}
     </div>
     <span className="material-symbols-rounded ahma-arrow">&#xE5CC;</span>
+  </Link>
+);
+
+const QuickTile = ({ to, icon, label }) => (
+  <Link to={to} className="ahma-quick-tile">
+    <span className="ahma-quick-icon" aria-hidden="true">{icon}</span>
+    <span className="ahma-quick-label">{label}</span>
   </Link>
 );
 
@@ -90,6 +114,9 @@ html, body, #root {
 body { margin: 0; }
 
 .ahma-root{
+  position: relative;
+  overflow: hidden;
+
   min-height: 100dvh;
   display:flex;
   flex-direction:column;
@@ -104,27 +131,125 @@ body { margin: 0; }
   font-family: var(--font-family-base);
 }
 
-/* HERO */
-.ahma-hero{
-  flex: 0 0 auto;
-  text-align:center;
+/* Subtle animated bear backdrop — large, dimmed, slowly breathing logo
+   sitting behind the content for a bit of life without competing with the
+   title or menu items. Painted before any sibling so default stacking
+   keeps the menu and hero on top. Honours prefers-reduced-motion. */
+.ahma-root::before {
+  content: "";
+  position: absolute;
+  top: -6%;
+  left: 50%;
+  width: min(140vw, 700px);
+  aspect-ratio: 1;
+  background: url('/ahma_logo.png') center top / contain no-repeat;
+  opacity: 0.05;
+  filter: blur(2px) brightness(0.45);
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: ahma-bg-breathe 14s ease-in-out infinite;
+  will-change: transform, opacity;
+  z-index: 0;
 }
 
-.ahma-logo{
-  width: min(58vw, 240px);
-  max-height: 24vh;
-  object-fit: contain;
-  filter: drop-shadow(0 10px 26px rgba(0,0,0,0.55));
+@keyframes ahma-bg-breathe {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 0.035;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-1.5%) scale(1.05);
+    opacity: 0.06;
+  }
 }
 
-/* CARD — ui-surface antaa bg/border/radius/shadow/padding */
-.ahma-card{
-  width:100%;
+@media (prefers-reduced-motion: reduce) {
+  .ahma-root::before {
+    animation: none;
+  }
+}
+
+/* Make sure the menu content sits above the backdrop. */
+.ahma-root > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* MENU LIST — wrapper that constrains width and stacks items.
+   No background/border of its own; menu items render directly over the
+   animated dimmed bear backdrop. */
+.ahma-menu{
+  width: 100%;
   max-width: 520px;
-  flex: 1 1 auto;
-  display:flex;
-  flex-direction:column;
-  justify-content:start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* PIKATOIMINNOT — 4-up icon grid for the most-used surfaces. Each tile
+   stacks an orange icon over a small label. Sits at the top of the menu,
+   replacing the previous full-width OTTELUT/JÄÄVUOROT/EDUSTUS/JOUKKUEET
+   rows. */
+.ahma-quick{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.ahma-quick-tile{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 4px 9px 4px;
+  border-radius: var(--radius-item);
+  background: rgba(0,0,0,0.30);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  box-shadow: var(--shadow-item), 0 0 18px rgba(249, 115, 22, 0.08);
+  text-decoration: none;
+  color: var(--gz-text-primary);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ahma-quick-tile:hover,
+.ahma-quick-tile:visited,
+.ahma-quick-tile:focus{
+  text-decoration: none;
+  color: var(--gz-text-primary);
+}
+
+.ahma-quick-tile:hover{
+  background: rgba(0,0,0,0.40);
+}
+
+.ahma-quick-tile:active{
+  background: var(--color-primary-glow);
+}
+
+.ahma-quick-icon{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(249, 115, 22, 0.12);
+  color: var(--color-primary);
+}
+
+.ahma-quick-icon svg{
+  width: 18px;
+  height: 18px;
+}
+
+.ahma-quick-label{
+  font-size: var(--gz-fs-xs);
+  font-weight: var(--gz-fw-medium);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+  color: var(--gz-text-secondary);
+  text-align: center;
 }
 
 /* MENU ITEM */
@@ -138,33 +263,25 @@ body { margin: 0; }
   gap: 12px;
 
   text-decoration:none;
-  color: var(--color-secondary);
+  color: var(--gz-text-primary);
 
   border-radius: var(--radius-item);
   padding: 12px 14px;
-  margin-bottom: 10px;
 
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: var(--shadow-item);
+  background: rgba(0,0,0,0.30);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  box-shadow: var(--shadow-item), 0 0 18px rgba(249, 115, 22, 0.08);
+
+  -webkit-tap-highlight-color: transparent;
 }
-
-.ahma-item:last-child{ margin-bottom:0; }
 
 .ahma-item:hover{
-  background: rgba(255,255,255,0.20);
-  color: var(--color-secondary);
-  transform: translateY(-1px);
+  background: rgba(0,0,0,0.40);
+  color: var(--gz-text-primary);
 }
 
-.ahma-appTitle{
-  font-size: var(--gz-fs-hero);
-  font-weight: var(--gz-fw-black);
-  letter-spacing: var(--gz-ls-widest);
-  color: var(--gz-text-accent);
-  text-align: center;
-  text-shadow: 0 6px 18px rgba(0,0,0,0.6);
-  margin-top: 8px;
+.ahma-item:active{
+  background: var(--color-primary-glow);
 }
 
 .ahma-title{
@@ -175,14 +292,16 @@ body { margin: 0; }
 }
 
 .ahma-sub{
-  font-size: var(--gz-fs-sm);
+  font-size: var(--gz-fs-2xs);
   font-weight: var(--gz-fw-regular);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
   color: var(--gz-text-tertiary);
   margin-top: 2px;
 }
 
 .ahma-arrow{
-  font-size: 26px;
+  font-size: 22px;
   opacity: 0.55;
   line-height: 1;
   transition: transform 0.15s ease, opacity 0.15s ease;
@@ -193,6 +312,93 @@ body { margin: 0; }
   opacity: 0.85;
 }
 
+/* AHMA FANITUOTTEET banner — external link to the merch shop. Shopping
+   bag icon + title/subtitle on the left, product image bleeding off the
+   right edge (cropped top/bottom on purpose so the products read big),
+   faded into the dark row background via mask-image. */
+.ahma-merch{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 80px;
+  padding: 14px 18px;
+  border-radius: var(--radius-item);
+  background: rgba(0,0,0,0.30);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  box-shadow: var(--shadow-item), 0 0 18px rgba(249, 115, 22, 0.08);
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--gz-text-primary);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ahma-merch:hover,
+.ahma-merch:focus,
+.ahma-merch:visited,
+.ahma-merch:active{
+  text-decoration: none;
+  color: var(--gz-text-primary);
+}
+
+.ahma-merch:active{
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.ahma-merch-icon{
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.ahma-merch-text{
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ahma-merch-title{
+  font-size: var(--gz-fs-md);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.ahma-merch-subtitle{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--gz-fs-2xs);
+  font-weight: var(--gz-fw-regular);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+  color: var(--gz-text-secondary);
+}
+
+.ahma-merch-arrow{
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.ahma-merch-image{
+  position: absolute;
+  bottom: -50px;
+  right: -80px;
+  height: 350%;
+  width: auto;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%);
+  mask-image: linear-gradient(to right, transparent 0%, black 30%);
+}
+
 /* ============ TABLET / iPAD ============ */
 @media (min-width: 768px){
   .ahma-root{
@@ -200,25 +406,21 @@ body { margin: 0; }
     gap: 18px;
   }
 
-  .ahma-logo{
-    width: min(34vw, 300px);
-    max-height: 22vh;
-  }
-
-  .ahma-card{
+  .ahma-menu{
     max-width: 980px;
-    padding: 16px;
-    background: rgba(255,255,255,0.10);
-    border-color: rgba(255,255,255,0.16);
-    display:grid;
-    grid-template-columns: 1fr;
     gap: 12px;
-    align-content: start;
   }
 
   .ahma-item{
-    margin-bottom: 0; /* grid hoitaa välit */
     padding: 14px 16px;
+  }
+
+  .ahma-quick{
+    gap: 12px;
+  }
+
+  .ahma-quick-tile{
+    padding: 14px 6px 12px 6px;
   }
 }
 

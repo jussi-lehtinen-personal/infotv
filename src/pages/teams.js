@@ -65,6 +65,7 @@ const Teams = () => {
                     {/* HEADER */}
                     <PageHeader
                         title="JOUKKUEET"
+                        subtitle="Valitse suosikkijoukkueesi"
                         left={
                             <Link to="/" className="teams-back" aria-label="Takaisin">
                                 <span className="material-symbols-rounded">&#xE5CB;</span>

@@ -494,7 +494,7 @@ function calendarThemeCss(BRAND) {
         linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
 
       color:${BRAND.text};
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-family: var(--font-family-base);
     }
 
     .sc-container{

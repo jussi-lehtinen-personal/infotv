@@ -28,7 +28,13 @@
   --size-heading-md:  clamp(16px, 1.4vw, 22px);  /* Aliotsikko */
   --size-heading-sm:  clamp(12px, 1.2vw, 16px);  /* Label / pieni otsikko */
   --size-body:        clamp(12px, 1.2vw, 14px);  /* Leipäteksti */
-  --font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  /* Outfit — UI/leipäteksti: napit, kortit, selitteet, scoret.
+     Moderni, hieman Interia kapeampi ja pehmeämpi muodoltaan. */
+  --font-family-base: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Big Shoulders Display — display/otsikkofontti: wordmark, section
+     headers, korttien ALL-CAPS otsikot. Atleettinen, leveämpi kuin Bebas,
+     täysi paino-skaala 100..900 jolloin paksu/ohut -kontrasti onnistuu. */
+  --font-family-display: 'Big Shoulders Display', 'Bebas Neue', Impact, sans-serif;
 
   /* === TYPOGRAFIA — GAMEZONE (mobiili) ===
      Atominen typografia­scale jota käytetään home-menun, ottelulistan,
@@ -194,8 +200,9 @@ code {
    title is visibly the loudest piece on screen. */
 .gz-root .ui-page-header-main,
 .teams-root .ui-page-header-main {
+  font-family: var(--font-family-base);
   font-size: var(--gz-fs-xl);
-  font-weight: var(--gz-fw-black);
+  font-weight: 700;
   letter-spacing: var(--gz-ls-wider);
 }
 .gz-root .ui-page-header-sub,
@@ -203,6 +210,90 @@ code {
   font-size: var(--gz-fs-sm);
   font-weight: var(--gz-fw-medium);
   color: var(--gz-text-secondary);
+}
+
+/* App header — Gamezone home -sivun yläpalkki: hamburger + AHMA/GAMEZONE
+   wordmark kahdella rivillä (oranssi AHMA / ohut valkoinen GAMEZONE) +
+   ilmoituskello punaisella badge-merkillä. Päivitetään myöhemmin
+   muillekin Gamezone-sivuille jos tarvitaan. */
+.ui-app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 6px;
+}
+.ui-app-header-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: var(--gz-text-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s, color 0.15s;
+}
+.ui-app-header-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.ui-app-header-btn:active {
+  background: var(--color-primary-glow);
+}
+.ui-app-header-btn svg {
+  width: 24px;
+  height: 24px;
+}
+.ui-app-header-wordmark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 3px;
+}
+.ui-app-header-wordmark-top,
+.ui-app-header-wordmark-bottom {
+  font-family: var(--font-family-display);
+}
+.ui-app-header-wordmark-top {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  padding-left: 0.04em;
+  line-height: 0.9;
+  color: var(--color-primary);
+}
+.ui-app-header-wordmark-bottom {
+  font-size: 14px;
+  font-weight: 500;
+  /* Levitetään 8 kirjainta saman levyiseksi kuin 4-kirjaiminen AHMA. */
+  letter-spacing: 0.6em;
+  padding-left: 0.6em;
+  color: var(--gz-text-primary);
+  opacity: 0.85;
+}
+.ui-app-header-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: var(--gz-fw-bold);
+  line-height: 1;
+  color: #fff;
+  background: #dc2626;
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px var(--color-bg);
 }
 
 /* Nav button — 44px, ikoni-only */
@@ -380,6 +471,18 @@ code {
   font-weight: var(--gz-fw-medium);
   letter-spacing: var(--gz-ls-wide);
   text-transform: uppercase;
+  /* Override the default Android/Chrome blue tap-highlight; render our
+     own subtle orange flash on press instead. */
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+.ui-bottom-nav-btn:focus-visible {
+  outline: 2px solid var(--color-primary-dim);
+  outline-offset: -4px;
+  border-radius: 8px;
+}
+.ui-bottom-nav-btn:active {
+  background: var(--color-primary-glow);
 }
 
 .ui-bottom-nav-icon {
