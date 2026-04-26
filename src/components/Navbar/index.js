@@ -13,10 +13,12 @@ import {
 } from "react-icons/lu";
 import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
 import { themeCSS } from "../../theme";
+import { splitTeamName } from "../../Util";
 import { AppHeader } from "../ui/AppHeader";
 
 const Index = () => {
   const [news, setNews] = useState([]);
+  const [heroMatch, setHeroMatch] = useState(null);
 
   useEffect(() => {
     fetch('/gamezone-news.json')
@@ -36,6 +38,36 @@ const Index = () => {
       });
   }, []);
 
+  // Hakee seuraavan tulevan Ahma-ottelun /api/getGames -rajapinnasta hero-
+  // korttiin. Ensin nykyinen viikko, jos ei tulevia niin seuraava viikko.
+  // Jos ei mitään, jätetään null ja hero-kortti piilotetaan.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const now = new Date();
+      const isoDate = (d) => d.toISOString().slice(0, 10);
+      const findUpcoming = (matches) =>
+        (matches || []).find((m) => parseMatchDate(m.date) > now);
+      try {
+        const r1 = await fetch(`/api/getGames?date=${isoDate(now)}&includeAway=1`);
+        const w1 = r1.ok ? await r1.json() : [];
+        let next = findUpcoming(w1);
+        if (!next) {
+          const nextWeekDate = new Date(now.getTime() + 7 * 86400000);
+          const r2 = await fetch(`/api/getGames?date=${isoDate(nextWeekDate)}&includeAway=1`);
+          const w2 = r2.ok ? await r2.json() : [];
+          next = findUpcoming(w2);
+        }
+        if (next && !cancelled) setHeroMatch(matchToHeroData(next));
+      } catch {
+        // Silent failure — hero-kortti piilotetaan.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <style>{styles}</style>
@@ -44,7 +76,7 @@ const Index = () => {
         <AppHeader />
 
         <div className="ahma-menu">
-          <HeroMatchCard match={DUMMY_HERO_MATCH} />
+          <HeroMatchCard match={heroMatch} />
 
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
@@ -105,31 +137,27 @@ const Index = () => {
           </a>
 
           <div className="ahma-social-section">
-            <div className="ahma-section-heading">Löydät meidät myös näistä palveluista</div>
+            <div className="ahma-section-heading">Seuraa meitä</div>
             <div className="ahma-social">
-              <SocialBtn
-                href="https://kiekko-ahma.fi"
-                label="Kotisivut"
-                variant="web"
-                icon={<LuGlobe />}
-              />
               <SocialBtn
                 href="https://www.instagram.com/kiekkoahmaofficial/"
                 label="Instagram"
-                variant="ig"
                 icon={<SiInstagram />}
               />
               <SocialBtn
                 href="https://www.facebook.com/kiekkoahma/"
                 label="Facebook"
-                variant="fb"
                 icon={<SiFacebook />}
               />
               <SocialBtn
                 href="https://www.youtube.com/channel/UC9EPzx8chEerImpJhjl9JVw"
                 label="YouTube"
-                variant="yt"
                 icon={<SiYoutube />}
+              />
+              <SocialBtn
+                href="https://kiekko-ahma.fi"
+                label="Kotisivut"
+                icon={<LuGlobe />}
               />
             </div>
           </div>
@@ -139,15 +167,15 @@ const Index = () => {
   );
 };
 
-const SocialBtn = ({ href, label, variant, icon }) => (
+const SocialBtn = ({ href, label, icon }) => (
   <a
     href={href}
     target="_blank"
     rel="noopener noreferrer"
     aria-label={label}
-    className={`ahma-social-btn ahma-social-btn--${variant}`}
+    className="ahma-social-btn"
   >
-    {icon}
+    <span className="ahma-social-btn-circle">{icon}</span>
   </a>
 );
 
@@ -158,49 +186,93 @@ const QuickTile = ({ to, icon, label }) => (
   </Link>
 );
 
-// Phase D: hero match card näyttää seuraavan/päivän pelin etusivun
-// huipulla. Dummy-data toistaiseksi — vaihe E korvaa /api/getGames -hauilla.
-const DUMMY_HERO_MATCH = {
-  tag: "SEURAAVA OTTELU",
-  homeTeam: "AHMA",
-  awayTeam: "UPLAKERS",
-  dateText: "Tiistai 28.4 · 17:10",
-  location: "Ylöjärvi",
-  url: "https://tulospalvelu.leijonat.fi/game/?season=0&gameid=56016&lang=fi",
-  backgroundImage: "/hero_1.png",
+// Hero match card näyttää seuraavan tulevan Ahma-ottelun etusivun
+// huipulla. Datalähde: /api/getGames; matchToHeroData muotoilee
+// rajapinnan match-objektin kortin odottamaan muotoon.
+const FINNISH_WEEKDAYS = [
+  "Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko",
+  "Torstai", "Perjantai", "Lauantai",
+];
+
+// API palauttaa muodossa "YYYY-MM-DD HH:mm" — muunnetaan ISO-yhteensopivaan
+// muotoon jotta Date-konstruktori toimii Safarissa.
+const parseMatchDate = (s) => new Date(String(s).replace(" ", "T"));
+
+const matchToHeroData = (m) => {
+  const d = parseMatchDate(m.date);
+  const weekday = FINNISH_WEEKDAYS[d.getDay()];
+  const dayMonth = `${d.getDate()}.${d.getMonth() + 1}`;
+  const time = d.toLocaleTimeString("fi-FI", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  // splitTeamName karsii pois variantti-sanat (Sininen, Junior, jne.) ja
+  // typistää liian pitkät nimet — sama logiikka kuin ottelumainoksissa.
+  return {
+    tag: "SEURAAVA OTTELU",
+    homeTeam: splitTeamName(m.home || "").main,
+    awayTeam: splitTeamName(m.away || "").main,
+    dateText: `${weekday} ${dayMonth} · ${time}`,
+    location: m.rink,
+    url: `https://tulospalvelu.leijonat.fi/game/?season=0&gameid=${m.id}&lang=fi`,
+    backgroundImage: "/hero_1.png",
+  };
 };
 
 const HeroMatchCard = ({ match }) => {
-  const url = match.url || "#";
-  const isExternal = /^https?:\/\//i.test(url);
-  const Wrapper = isExternal ? "a" : Link;
-  const wrapperProps = isExternal
-    ? { href: url, target: "_blank", rel: "noopener noreferrer" }
-    : { to: url };
+  const empty = !match;
+  const bgImage = (match && match.backgroundImage) || "/hero_1.png";
+
+  // Empty-tilassa kortti ei vie minnekään (placeholder); muuten linkki
+  // joko sisäiseen reittiin (Link) tai ulkoiseen URL:iin (<a target=_blank>).
+  let Wrapper, wrapperProps;
+  if (empty) {
+    Wrapper = "div";
+    wrapperProps = {};
+  } else {
+    const url = match.url || "#";
+    const isExternal = /^https?:\/\//i.test(url);
+    Wrapper = isExternal ? "a" : Link;
+    wrapperProps = isExternal
+      ? { href: url, target: "_blank", rel: "noopener noreferrer" }
+      : { to: url };
+  }
 
   return (
     <Wrapper className="ahma-hero" {...wrapperProps}>
       <div
         className="ahma-hero-bg"
-        style={
-          match.backgroundImage
-            ? { backgroundImage: `url(${match.backgroundImage})` }
-            : undefined
-        }
+        style={{ backgroundImage: `url(${bgImage})` }}
       />
       <div className="ahma-hero-overlay" />
       <div className="ahma-hero-content">
-        <div className="ahma-hero-tag">{match.tag || "TÄNÄÄN"}</div>
-        <div className="ahma-hero-title">
-          {match.homeTeam} vs. {match.awayTeam}
-        </div>
-        <div className="ahma-hero-meta">{match.dateText}</div>
-        {match.location && (
-          <div className="ahma-hero-meta">{match.location}</div>
+        <div className="ahma-hero-tag">SEURAAVA OTTELU</div>
+        {empty ? (
+          <div className="ahma-hero-title ahma-hero-title--empty">
+            Ei tulevia otteluita
+          </div>
+        ) : (
+          <>
+            <div className="ahma-hero-title">
+              {match.homeTeam} vs. {match.awayTeam}
+            </div>
+            <div className="ahma-hero-meta">{match.dateText}</div>
+            {match.location && (
+              <div className="ahma-hero-meta">
+                <span
+                  className="material-symbols-rounded ahma-hero-loc-icon"
+                  aria-hidden="true"
+                >
+                  &#xE0C8;
+                </span>
+                {match.location}
+              </div>
+            )}
+            <span className="ahma-hero-cta">
+              Näytä ottelu <LuChevronRight aria-hidden="true" />
+            </span>
+          </>
         )}
-        <span className="ahma-hero-cta">
-          Näytä ottelu <LuChevronRight aria-hidden="true" />
-        </span>
       </div>
       <div className="ahma-hero-dots" aria-hidden="true">
         <span className="ahma-hero-dot ahma-hero-dot--active" />
@@ -315,52 +387,6 @@ body { margin: 0; }
   font-family: var(--font-family-base);
 }
 
-/* Subtle animated bear backdrop — large, dimmed, slowly breathing logo
-   sitting behind the content for a bit of life without competing with the
-   title or menu items. Painted before any sibling so default stacking
-   keeps the menu and hero on top. Honours prefers-reduced-motion. */
-.ahma-root::before {
-  content: "";
-  position: absolute;
-  top: 3%;
-  left: 50%;
-  width: min(95vw, 440px);
-  aspect-ratio: 1;
-  background: url('/ahma_logo.png') center top / contain no-repeat;
-  opacity: 0.5;
-  filter: none;
-  pointer-events: none;
-  transform: translateX(-50%);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 70%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 70%);
-  animation: ahma-bg-breathe 14s ease-in-out infinite;
-  will-change: transform, opacity;
-  z-index: 0;
-}
-
-@keyframes ahma-bg-breathe {
-  0%, 100% {
-    transform: translateX(-50%) translateY(0) scale(1);
-    opacity: 0.46;
-  }
-  50% {
-    transform: translateX(-50%) translateY(-1.5%) scale(1.04);
-    opacity: 0.56;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ahma-root::before {
-    animation: none;
-  }
-}
-
-/* Make sure the menu content sits above the backdrop. */
-.ahma-root > * {
-  position: relative;
-  z-index: 1;
-}
-
 /* MENU LIST — wrapper that constrains width and stacks items.
    Bottom-anchoring tehdään .ahma-rootin justify-content: space-between
    -säädöllä, ei margin-top: auto -trickillä. */
@@ -448,6 +474,25 @@ body { margin: 0; }
   font-size: var(--gz-fs-xs);
   color: rgba(255,255,255,0.85);
   line-height: 1.35;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Location pin -ikoni meta-rivin alussa — sama Material Symbols glyph
+   (place, U+E0C8) jota gamezone-sivu käyttää match-korteissa. */
+.ahma-hero-loc-icon{
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-primary);
+}
+
+/* Empty-tilan otsikko (kun ei tulevia otteluita) — kevyempi, ei tarvitse
+   lihavointia vasta lopulliselle hero-tiedolle. */
+.ahma-hero-title--empty{
+  font-weight: var(--gz-fw-medium);
+  font-size: 18px;
+  opacity: 0.85;
 }
 
 .ahma-hero-cta{
@@ -861,45 +906,57 @@ body { margin: 0; }
   color: var(--gz-text-primary);
 }
 
-/* Some-napit grid-rivinä — leveät tummat suorakaide-napit 4 sarakkeessa,
-   brändi-värisillä ikoneilla. Jokainen täyttää sarakkeen leveydeltään. */
+/* Some-napit — flex 4 yhtä leveää slottia. Kukin slotin keskellä
+   pyöreä tumma 36×36 nappi valkoisella ikonilla. Slottin koko alue on
+   klikattava. Yhteneväinen tumma sävy, ei brand-värejä. */
 .ahma-social{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-direction: row;
 }
 
 .ahma-social-btn{
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 50px;
-  background: transparent;
-  border: none;
+  padding: 4px 0;
+  color: #fff;
   text-decoration: none;
-  transition: transform 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.ahma-social-btn:hover{
-  background: rgba(0, 0, 0, 0.55);
+.ahma-social-btn:hover,
+.ahma-social-btn:visited,
+.ahma-social-btn:focus,
+.ahma-social-btn:active{
+  color: #fff;
+  text-decoration: none;
 }
 
-.ahma-social-btn:active{
-  transform: scale(0.96);
+.ahma-social-btn-circle{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.ahma-social-btn:hover .ahma-social-btn-circle{
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ahma-social-btn:active .ahma-social-btn-circle{
+  transform: scale(0.94);
 }
 
 .ahma-social-btn svg{
-  width: 26px;
-  height: 26px;
+  width: 16px;
+  height: 16px;
+  color: #fff;
 }
-
-/* Brand-värit ikoneille (taustat tummia, ikoni saa väriarvonsa color-
-   propsista jonka SiX-komponentti välittää SVG:n fill-currentColor-poluille). */
-.ahma-social-btn--web svg{ color: var(--color-primary); }
-.ahma-social-btn--ig  svg{ color: #E1306C; }
-.ahma-social-btn--fb  svg{ color: #1877F2; }
-.ahma-social-btn--yt  svg{ color: #FF0000; }
 
 /* ============ TABLET / iPAD ============ */
 @media (min-width: 768px){
