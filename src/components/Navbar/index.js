@@ -126,16 +126,6 @@ const SocialBtn = ({ href, label, variant, icon }) => (
   </a>
 );
 
-const MenuItem = ({ to, title, subtitle }) => (
-  <Link to={to} className="ahma-item">
-    <div>
-      <div className="ahma-title">{title}</div>
-      {subtitle && <div className="ahma-sub">{subtitle}</div>}
-    </div>
-    <span className="material-symbols-rounded ahma-arrow">&#xE5CC;</span>
-  </Link>
-);
-
 const QuickTile = ({ to, icon, label, variant = "orange" }) => (
   <Link to={to} className={`ahma-quick-tile ahma-quick-tile--${variant}`}>
     <span className="ahma-quick-icon" aria-hidden="true">{icon}</span>
