@@ -8,6 +8,7 @@ import {
   LuShield,
   LuUsers,
   LuGlobe,
+  LuMegaphone,
 } from "react-icons/lu";
 import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
 import { themeCSS } from "../../theme";
@@ -37,6 +38,12 @@ const Index = () => {
               variant="orange"
             />
             <QuickTile
+              to="/ads"
+              icon={<LuMegaphone />}
+              label="Mainokset"
+              variant="orange"
+            />
+            <QuickTile
               to="/next_home_game"
               icon={<LuShield />}
               label="Edustus"
@@ -49,12 +56,6 @@ const Index = () => {
               variant="purple"
             />
           </div>
-
-          <MenuItem
-            to="/ads"
-            title="OTTELUMAINOKSET"
-            subtitle="Lataa valmiit ottelumainokset"
-          />
 
           <a
             href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
@@ -187,18 +188,31 @@ body { margin: 0; }
 .ahma-root::before {
   content: "";
   position: absolute;
-  top: 6%;
+  top: 3%;
   left: 50%;
   width: min(95vw, 440px);
   aspect-ratio: 1;
   background: url('/ahma_logo.png') center top / contain no-repeat;
-  opacity: 0.1;
+  opacity: 0.5;
   filter: none;
   pointer-events: none;
   transform: translateX(-50%);
   -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 70%);
   mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 70%);
+  animation: ahma-bg-breathe 14s ease-in-out infinite;
+  will-change: transform, opacity;
   z-index: 0;
+}
+
+@keyframes ahma-bg-breathe {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 0.46;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-1.5%) scale(1.04);
+    opacity: 0.56;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -215,13 +229,17 @@ body { margin: 0; }
 
 /* MENU LIST — wrapper that constrains width and stacks items.
    No background/border of its own; menu items render directly over the
-   animated dimmed bear backdrop. */
+   animated dimmed bear backdrop.
+   margin-top: auto pushes the entire menu (Pikatoiminnot, OTTELUMAINOKSET,
+   FANITUOTTEET, SEURAA MEITÄ) to the bottom of the page while AppHeader
+   stays anchored to the top. */
 .ahma-menu{
   width: 100%;
   max-width: 520px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: auto;
 }
 
 /* PIKATOIMINNOT — 4-up icon grid for the most-used surfaces. Each tile
@@ -230,7 +248,7 @@ body { margin: 0; }
    rows. */
 .ahma-quick{
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
 }
 
