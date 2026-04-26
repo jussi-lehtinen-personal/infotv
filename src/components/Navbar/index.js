@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   LuShoppingBag,
@@ -15,6 +15,26 @@ import { themeCSS } from "../../theme";
 import { AppHeader } from "../ui/AppHeader";
 
 const Index = () => {
+  const [news, setNews] = useState([]);
+
+  useEffect(() => {
+    fetch('/gamezone-news.json')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        // Lajitellaan päivämäärän mukaan uusin ensin — JSON-tiedoston
+        // järjestyksellä ei ole väliä, ylläpitäjä voi lisätä mihin kohtaan
+        // tahansa.
+        const sorted = [...data].sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
+        setNews(sorted);
+      })
+      .catch(() => {
+        // Silent failure — Ajankohtaista-sektio piilotetaan jos data ei lataudu.
+      });
+  }, []);
+
   return (
     <>
       <style>{styles}</style>
@@ -57,6 +77,8 @@ const Index = () => {
             />
           </div>
 
+          {news.length > 0 && <NewsSection news={news} />}
+
           <a
             href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
             target="_blank"
@@ -80,7 +102,7 @@ const Index = () => {
           </a>
 
           <div className="ahma-social-section">
-            <div className="ahma-section-heading">Seuraa meitä</div>
+            <div className="ahma-section-heading">Löydät meidät myös näistä palveluista</div>
             <div className="ahma-social">
               <SocialBtn
                 href="https://kiekko-ahma.fi"
@@ -132,6 +154,81 @@ const QuickTile = ({ to, icon, label, variant = "orange" }) => (
     <span className="ahma-quick-label">{label}</span>
   </Link>
 );
+
+// Sektio-wrapperi joka antaa scrollattavan listan; desktopilla muunnetaan
+// vertikaalinen wheel horisontaaliseksi, jotta hiirikäyttäjät voivat
+// scrollata listaa luonnollisesti (touch/trackpad toimivat oletuksena).
+const NewsSection = ({ news }) => {
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const onWheel = (e) => {
+      // Vain pystysuora wheel -> horisontaalinen scroll. Trackpadin
+      // horisontaalinen 2-finger-swipe (deltaX) jätetään natiivin hoitoon.
+      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      list.scrollLeft += e.deltaY;
+    };
+    list.addEventListener("wheel", onWheel, { passive: false });
+    return () => list.removeEventListener("wheel", onWheel);
+  }, []);
+
+  return (
+    <section className="ahma-news">
+      <div className="ahma-section-heading">Ajankohtaista</div>
+      <div className="ahma-news-list" ref={listRef}>
+        {news.map((item) => (
+          <NewsCard key={item.id || item.url} item={item} />
+        ))}
+      </div>
+    </section>
+  );
+};
+
+const NewsCard = ({ item }) => {
+  const isExternal = /^https?:\/\//i.test(item.url || "");
+  const Wrapper = isExternal ? "a" : Link;
+  const wrapperProps = isExternal
+    ? { href: item.url, target: "_blank", rel: "noopener noreferrer" }
+    : { to: item.url || "#" };
+
+  return (
+    <Wrapper className="ahma-news-card" {...wrapperProps}>
+      {item.image && (
+        <div className="ahma-news-image">
+          <img src={item.image} alt="" />
+        </div>
+      )}
+      <div className="ahma-news-body">
+        <div className="ahma-news-title">{item.title}</div>
+        {item.date && (
+          <div className="ahma-news-date">{formatNewsDate(item.date)}</div>
+        )}
+      </div>
+    </Wrapper>
+  );
+};
+
+// "Tänään 18:42", "Eilen 14:21", "3 pv sitten 09:15", muuten "30.3.2026".
+function formatNewsDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const time = d.toLocaleTimeString("fi-FI", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const startOfDay = (date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const diffDays = Math.round(
+    (startOfDay(new Date()) - startOfDay(d)) / 86400000
+  );
+  if (diffDays === 0) return `Tänään ${time}`;
+  if (diffDays === 1) return `Eilen ${time}`;
+  if (diffDays > 1 && diffDays < 7) return `${diffDays} pv sitten ${time}`;
+  return d.toLocaleDateString("fi-FI");
+}
 
 export default Index;
 
@@ -460,8 +557,122 @@ body { margin: 0; }
   height: 350%;
   width: auto;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%);
-  mask-image: linear-gradient(to right, transparent 0%, black 30%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%);
+}
+
+/* AJANKOHTAISTA — horisontaalisesti scrollattava uutiskorttirivi.
+   Datalähde: public/gamezone-news.json. Kortti = kuva + tag-pilleri +
+   otsikko + päivä, klikkaus avaa ulkoisen URL:n uuteen välilehteen. */
+.ahma-news{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Vetää scrollin sivun reunasta toiseen jotta ei näy "katkos" — overflow
+     karkaa parent-paddingin yli negatiivisilla marginaaleilla. */
+  margin-left: -7px;
+  margin-right: -7px;
+}
+
+.ahma-news .ahma-section-heading{
+  padding-left: 9px;
+}
+
+.ahma-news-list{
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 7px;
+  padding: 4px 7px;
+  -webkit-overflow-scrolling: touch;
+  /* Piilotetaan scrollbar visuaalisesti mutta scroll toimii */
+  scrollbar-width: none;
+}
+.ahma-news-list::-webkit-scrollbar{ display: none; }
+
+.ahma-news-card{
+  flex: 0 0 140px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-item);
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05)) border-box;
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-item);
+  text-decoration: none;
+  color: var(--gz-text-primary);
+  -webkit-tap-highlight-color: transparent;
+}
+.ahma-news-card:hover,
+.ahma-news-card:visited,
+.ahma-news-card:focus,
+.ahma-news-card:active{
+  text-decoration: none;
+  color: var(--gz-text-primary);
+}
+
+.ahma-news-image{
+  position: relative;
+  width: 100%;
+  /* 4:3 antaa kuvalle riittävästi vertikaalista tilaa narrow-korttiin
+     (140×105 px), ja toimii sekä valokuvilla että logoilla ilman
+     liiallista croppia. */
+  aspect-ratio: 4 / 3;
+  background: rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+.ahma-news-image img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ahma-news-tag{
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--color-primary);
+}
+.ahma-news-tag--turnaus{   background: #eab308; color: #1f1500; }
+.ahma-news-tag--sponsori{  background: #6366f1; }
+
+.ahma-news-body{
+  padding: 8px 10px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ahma-news-title{
+  font-size: var(--gz-fs-sm);
+  font-weight: var(--gz-fw-medium);
+  line-height: 1.3;
+  color: var(--gz-text-primary);
+  /* Aina 3 riviä korkea jotta kaikki kortit ovat saman korkuisia
+     riippumatta otsikon pituudesta — lyhyemmät jättää tyhjää alle. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(1.25em * 3);
+}
+
+.ahma-news-date{
+  font-size: var(--gz-fs-2xs);
+  font-weight: var(--gz-fw-regular);
+  color: var(--gz-text-tertiary);
 }
 
 /* SOSIAALISET LINKIT — pyöreät dark glass -napit brand-värisillä
@@ -500,16 +711,10 @@ body { margin: 0; }
   align-items: center;
   justify-content: center;
   height: 50px;
-  border-radius: var(--radius-item);
-  background:
-    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) border-box;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid transparent;
+  background: transparent;
+  border: none;
   text-decoration: none;
-  box-shadow: var(--shadow-item);
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  transition: transform 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
