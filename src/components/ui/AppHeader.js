@@ -1,16 +1,12 @@
 import React from 'react';
-import { LuMenu, LuBell } from 'react-icons/lu';
+import { LuBell } from 'react-icons/lu';
 
-export const AppHeader = ({ unreadCount = 0, onMenuClick, onBellClick }) => (
+export const AppHeader = ({ unreadCount = 0, onBellClick }) => (
   <header className="ui-app-header">
-    <button
-      type="button"
-      className="ui-app-header-btn"
-      onClick={onMenuClick}
-      aria-label="Valikko"
-    >
-      <LuMenu aria-hidden="true" />
-    </button>
+    {/* Tyhjä spacer vasemmalle pitää AHMA GAMEZONE -wordmarkin keskellä
+        kun hampurilainen on poistettu — sama leveys kuin oikean reunan
+        bell-napilla. */}
+    <span className="ui-app-header-spacer" aria-hidden="true" />
 
     <div className="ui-app-header-wordmark" aria-label="Ahma Gamezone">
       <span className="ui-app-header-wordmark-top">AHMA</span>

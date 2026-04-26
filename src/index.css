@@ -250,6 +250,13 @@ code {
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s, color 0.15s;
 }
+/* Sama leveys kuin .ui-app-header-btn — pitää keskimmäisen wordmarkin
+   keskellä riviä myös kun jommassakummassa reunassa ei ole nappia. */
+.ui-app-header-spacer {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+}
 .ui-app-header-btn:hover {
   background: rgba(255, 255, 255, 0.06);
 }
@@ -305,6 +312,74 @@ code {
   background: #dc2626;
   border-radius: 8px;
   box-shadow: 0 0 0 2px var(--color-bg);
+}
+
+/* News card — yksi uutisrivi: pikkukuva vasemmalla + otsikko & päivä
+   oikealla. Käytössä etusivun Ajankohtaista-listassa ja /uutiset-sivulla. */
+.ui-news-card {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--radius-item);
+  background:
+    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)) border-box;
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-item);
+  text-decoration: none;
+  color: var(--gz-text-primary);
+  -webkit-tap-highlight-color: transparent;
+}
+.ui-news-card:hover,
+.ui-news-card:visited,
+.ui-news-card:focus,
+.ui-news-card:active {
+  text-decoration: none;
+  color: var(--gz-text-primary);
+}
+
+.ui-news-image {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 60px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.ui-news-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ui-news-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+
+.ui-news-title {
+  font-size: var(--gz-fs-sm);
+  font-weight: var(--gz-fw-medium);
+  line-height: 1.3;
+  color: var(--gz-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ui-news-date {
+  font-size: var(--gz-fs-2xs);
+  font-weight: var(--gz-fw-regular);
+  color: var(--gz-text-tertiary);
 }
 
 /* Nav button — 44px, ikoni-only */

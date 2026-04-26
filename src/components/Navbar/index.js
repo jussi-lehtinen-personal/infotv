@@ -15,6 +15,7 @@ import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
 import { themeCSS } from "../../theme";
 import { splitTeamName } from "../../Util";
 import { AppHeader } from "../ui/AppHeader";
+import { NewsCard } from "../ui/NewsCard";
 
 const Index = () => {
   const [news, setNews] = useState([]);
@@ -106,7 +107,7 @@ const Index = () => {
               label="Edustus"
             />
             <QuickTile
-              to="/lisaa"
+              to="/more"
               icon={<LuMoreHorizontal />}
               label="Lisää"
             />
@@ -292,7 +293,7 @@ const NewsSection = ({ news }) => (
   <section className="ahma-news">
     <div className="ahma-news-header">
       <div className="ahma-section-heading">Ajankohtaista</div>
-      <Link to="/uutiset" className="ahma-news-show-all">
+      <Link to="/news" className="ahma-news-show-all">
         Näytä kaikki <LuChevronRight aria-hidden="true" />
       </Link>
     </div>
@@ -303,49 +304,6 @@ const NewsSection = ({ news }) => (
     </div>
   </section>
 );
-
-const NewsCard = ({ item }) => {
-  const isExternal = /^https?:\/\//i.test(item.url || "");
-  const Wrapper = isExternal ? "a" : Link;
-  const wrapperProps = isExternal
-    ? { href: item.url, target: "_blank", rel: "noopener noreferrer" }
-    : { to: item.url || "#" };
-
-  return (
-    <Wrapper className="ahma-news-card" {...wrapperProps}>
-      {item.image && (
-        <div className="ahma-news-image">
-          <img src={item.image} alt="" />
-        </div>
-      )}
-      <div className="ahma-news-body">
-        <div className="ahma-news-title">{item.title}</div>
-        {item.date && (
-          <div className="ahma-news-date">{formatNewsDate(item.date)}</div>
-        )}
-      </div>
-    </Wrapper>
-  );
-};
-
-// "Tänään 18:42", "Eilen 14:21", "3 pv sitten 09:15", muuten "30.3.2026".
-function formatNewsDate(iso) {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const time = d.toLocaleTimeString("fi-FI", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const startOfDay = (date) =>
-    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const diffDays = Math.round(
-    (startOfDay(new Date()) - startOfDay(d)) / 86400000
-  );
-  if (diffDays === 0) return `Tänään ${time}`;
-  if (diffDays === 1) return `Eilen ${time}`;
-  if (diffDays > 1 && diffDays < 7) return `${diffDays} pv sitten ${time}`;
-  return d.toLocaleDateString("fi-FI");
-}
 
 export default Index;
 
@@ -815,72 +773,6 @@ body { margin: 0; }
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.ahma-news-card{
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 12px;
-  padding: 8px;
-  border-radius: var(--radius-item);
-  background:
-    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
-    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05)) border-box;
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-item);
-  text-decoration: none;
-  color: var(--gz-text-primary);
-  -webkit-tap-highlight-color: transparent;
-}
-.ahma-news-card:hover,
-.ahma-news-card:visited,
-.ahma-news-card:focus,
-.ahma-news-card:active{
-  text-decoration: none;
-  color: var(--gz-text-primary);
-}
-
-.ahma-news-image{
-  flex: 0 0 96px;
-  width: 96px;
-  height: 60px;
-  border-radius: 8px;
-  background: rgba(0,0,0,0.35);
-  overflow: hidden;
-}
-.ahma-news-image img{
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.ahma-news-body{
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-}
-
-.ahma-news-title{
-  font-size: var(--gz-fs-sm);
-  font-weight: var(--gz-fw-medium);
-  line-height: 1.3;
-  color: var(--gz-text-primary);
-  /* Vaakarivi-layoutissa max 2 riviä riittää — tilaa on rajallisesti. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.ahma-news-date{
-  font-size: var(--gz-fs-2xs);
-  font-weight: var(--gz-fw-regular);
-  color: var(--gz-text-tertiary);
 }
 
 /* SOSIAALISET LINKIT — pyöreät dark glass -napit brand-värisillä
