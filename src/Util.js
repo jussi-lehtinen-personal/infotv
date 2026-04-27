@@ -224,6 +224,56 @@ const VARIANT_WORDS = new Set([
 // Priority 1: last word is a known color/variant → always split.
 // Priority 2: name is too long → split on last space.
 // Returns { main: string, sub: string | null }
+// Käyttäjän merkkaamat suosikkijoukkueet säilyvät localStoragessa.
+// Avain ja muoto jaetaan /teams-sivun ja kaikkien kuluttajien (esim. hero-
+// kortin valintalogiikka, "minun joukkueeni" -banneri) välillä.
+export const FAVOURITE_TEAMS_STORAGE_KEY = "ahma_favourite_teams";
+
+// Lukee suosikit array-muodossa (Array<{teamKey, shortName, levelGroups}>).
+// Palauttaa tyhjän taulukon jos varastoa ei ole tai data on epäkelvollista.
+// /teams-sivu konvertoi tämän paikallisesti Mapiksi has/delete-operaatioita
+// varten; gamezone-sivu (suosikit-suodatin) ja hero-kortin valintalogiikka
+// iteroivat suoraan taulukkoa.
+export const loadFavouriteTeams = () => {
+  try {
+    const raw = localStorage.getItem(FAVOURITE_TEAMS_STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return arr.filter(
+      (t) =>
+        t && typeof t === "object" && t.teamKey && Array.isArray(t.levelGroups)
+    );
+  } catch {
+    return [];
+  }
+};
+
+// Vastaako annettu peli yhtäkään suosikkijoukkuetta? Match: shortName löytyy
+// home/away-nimestä JA (levelId, statGroupId) on yksi joukkueen
+// levelGroups-merkinnöistä. Käytössä /gamezone-sivun favourites-suodatin ja
+// hero-kortin valintalogiikka.
+export const isGameForFavouriteTeam = (game, favouriteTeams) => {
+  for (const team of favouriteTeams) {
+    const shortNameLower = team.shortName.toLowerCase();
+    const nameMatch =
+      (game.home && game.home.toLowerCase().includes(shortNameLower)) ||
+      (game.away && game.away.toLowerCase().includes(shortNameLower));
+    if (!nameMatch) continue;
+    const groupMatch = team.levelGroups.some(
+      (g) => g.levelId === game.levelId && g.statGroupId === game.statGroupId
+    );
+    if (groupMatch) return true;
+  }
+  return false;
+};
+
+export const saveFavouriteTeams = (teams) => {
+  localStorage.setItem(
+    FAVOURITE_TEAMS_STORAGE_KEY,
+    JSON.stringify(Array.isArray(teams) ? teams : Array.from(teams.values()))
+  );
+};
+
 export const splitTeamName = (name) => {
   if (!name) return { main: "", sub: null };
 

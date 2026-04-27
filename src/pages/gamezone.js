@@ -5,7 +5,12 @@ import { useDrag } from "@use-gesture/react";
 import moment from "moment";
 import "moment/locale/fi";
 
-import { getMonday, getMatchLink } from "../Util";
+import {
+  getMonday,
+  getMatchLink,
+  loadFavouriteTeams,
+  isGameForFavouriteTeam,
+} from "../Util";
 import { themeCSS } from "../theme";
 import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -23,37 +28,6 @@ const goToSite = (uri) => {
 function capitalize(str) {
   if (!str) return str;
   return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-const FAV_STORAGE_KEY = "ahma_favourite_teams";
-
-function loadFavouriteTeams() {
-  try {
-    const raw = localStorage.getItem(FAV_STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return arr.filter(
-      (t) => t && typeof t === "object" && t.teamKey && Array.isArray(t.levelGroups)
-    );
-  } catch {
-    return [];
-  }
-}
-
-function isGameForFavourite(game, favouriteTeams) {
-  for (const team of favouriteTeams) {
-    const shortNameLower = team.shortName.toLowerCase();
-    const nameMatch =
-      (game.home && game.home.toLowerCase().includes(shortNameLower)) ||
-      (game.away && game.away.toLowerCase().includes(shortNameLower));
-    if (!nameMatch) continue;
-
-    const groupMatch = team.levelGroups.some(
-      (g) => g.levelId === game.levelId && g.statGroupId === game.statGroupId
-    );
-    if (groupMatch) return true;
-  }
-  return false;
 }
 
 const parseTruthy = (v) => {
@@ -351,7 +325,7 @@ function WeekPanel({
     }
     if (showOptions && onlyFavourites && favouriteTeams.length > 0) {
       result = result
-        .map((g) => ({ ...g, items: g.items.filter((m) => isGameForFavourite(m, favouriteTeams)) }))
+        .map((g) => ({ ...g, items: g.items.filter((m) => isGameForFavouriteTeam(m, favouriteTeams)) }))
         .filter((g) => g.items.length > 0);
     }
     return result;

@@ -16,10 +16,15 @@ import { themeCSS } from "../../theme";
 import { splitTeamName } from "../../Util";
 import { AppHeader } from "../ui/AppHeader";
 import { NewsCard } from "../ui/NewsCard";
+import {
+  useHeroMatches,
+  isLiveMatch,
+  parseMatchDate,
+} from "../../hooks/useHeroMatches";
 
 const Index = () => {
   const [news, setNews] = useState([]);
-  const [heroMatch, setHeroMatch] = useState(null);
+  const { matches: heroMatches } = useHeroMatches();
 
   useEffect(() => {
     fetch('/gamezone-news.json')
@@ -39,36 +44,6 @@ const Index = () => {
       });
   }, []);
 
-  // Hakee seuraavan tulevan Ahma-ottelun /api/getGames -rajapinnasta hero-
-  // korttiin. Ensin nykyinen viikko, jos ei tulevia niin seuraava viikko.
-  // Jos ei mitään, jätetään null ja hero-kortti piilotetaan.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const now = new Date();
-      const isoDate = (d) => d.toISOString().slice(0, 10);
-      const findUpcoming = (matches) =>
-        (matches || []).find((m) => parseMatchDate(m.date) > now);
-      try {
-        const r1 = await fetch(`/api/getGames?date=${isoDate(now)}&includeAway=1`);
-        const w1 = r1.ok ? await r1.json() : [];
-        let next = findUpcoming(w1);
-        if (!next) {
-          const nextWeekDate = new Date(now.getTime() + 7 * 86400000);
-          const r2 = await fetch(`/api/getGames?date=${isoDate(nextWeekDate)}&includeAway=1`);
-          const w2 = r2.ok ? await r2.json() : [];
-          next = findUpcoming(w2);
-        }
-        if (next && !cancelled) setHeroMatch(matchToHeroData(next));
-      } catch {
-        // Silent failure — hero-kortti piilotetaan.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
     <>
       <style>{styles}</style>
@@ -77,7 +52,7 @@ const Index = () => {
         <AppHeader />
 
         <div className="ahma-menu">
-          <HeroMatchCard match={heroMatch} />
+          <HeroCarousel matches={heroMatches} />
 
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
@@ -187,19 +162,14 @@ const QuickTile = ({ to, icon, label }) => (
   </Link>
 );
 
-// Hero match card näyttää seuraavan tulevan Ahma-ottelun etusivun
-// huipulla. Datalähde: /api/getGames; matchToHeroData muotoilee
-// rajapinnan match-objektin kortin odottamaan muotoon.
+// Hero-korttikarusellin etusivun yläosassa. useHeroMatches palauttaa 0-3
+// peli-objektia API-rajapinnasta. Tyhjä tila näyttää placeholder-kortin.
 const FINNISH_WEEKDAYS = [
   "Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko",
   "Torstai", "Perjantai", "Lauantai",
 ];
 
-// API palauttaa muodossa "YYYY-MM-DD HH:mm" — muunnetaan ISO-yhteensopivaan
-// muotoon jotta Date-konstruktori toimii Safarissa.
-const parseMatchDate = (s) => new Date(String(s).replace(" ", "T"));
-
-const matchToHeroData = (m) => {
+const formatMatchDate = (m) => {
   const d = parseMatchDate(m.date);
   const weekday = FINNISH_WEEKDAYS[d.getDay()];
   const dayMonth = `${d.getDate()}.${d.getMonth() + 1}`;
@@ -207,47 +177,78 @@ const matchToHeroData = (m) => {
     hour: "2-digit",
     minute: "2-digit",
   });
-  // splitTeamName karsii pois variantti-sanat (Sininen, Junior, jne.) ja
-  // typistää liian pitkät nimet — sama logiikka kuin ottelumainoksissa.
-  return {
-    tag: "SEURAAVA OTTELU",
-    homeTeam: splitTeamName(m.home || "").main,
-    awayTeam: splitTeamName(m.away || "").main,
-    dateText: `${weekday} ${dayMonth} · ${time}`,
-    location: m.rink,
-    url: `https://tulospalvelu.leijonat.fi/game/?season=0&gameid=${m.id}&lang=fi`,
-    backgroundImage: "/hero_1.png",
-  };
+  return `${weekday} ${dayMonth} · ${time}`;
 };
 
-const HeroMatchCard = ({ match }) => {
+// Eri taustakuva per kortti-slot, kierrätetään kolmella saatavilla olevalla
+// hero-kuvalla. Empty-fallbackin slot 0 saa hero_1.
+const HERO_BACKGROUNDS = ["/hero_1.png", "/hero_2.png", "/hero_3.png"];
+
+// Karusellin wrapper — näyttää aktiivisen kortin täysleveänä, dots indikoi
+// muut. Klikkaamalla pisteitä vaihtaa korttia. Ei swipe-elettä alkuvaiheessa
+// — voidaan lisätä myöhemmin samaan tapaan kuin /gamezone-sivulla.
+const HeroCarousel = ({ matches }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const cards = matches.length > 0 ? matches : [null];
+  const safeIndex = Math.min(activeIndex, cards.length - 1);
+  const bgImage = HERO_BACKGROUNDS[safeIndex % HERO_BACKGROUNDS.length];
+
+  return (
+    <div className="ahma-hero-carousel">
+      <HeroMatchCard match={cards[safeIndex]} backgroundImage={bgImage} />
+      {cards.length > 1 && (
+        <div className="ahma-hero-dots">
+          {cards.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`ahma-hero-dot${
+                i === safeIndex ? " ahma-hero-dot--active" : ""
+              }`}
+              onClick={() => setActiveIndex(i)}
+              aria-label={`Kortti ${i + 1}/${cards.length}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const HeroMatchCard = ({ match, backgroundImage = "/hero_1.png" }) => {
   const empty = !match;
-  const bgImage = (match && match.backgroundImage) || "/hero_1.png";
+  const live = !empty && isLiveMatch(match);
+  const bgImage = backgroundImage;
 
   // Empty-tilassa kortti ei vie minnekään (placeholder); muuten linkki
-  // joko sisäiseen reittiin (Link) tai ulkoiseen URL:iin (<a target=_blank>).
+  // ulkoiseen tulospalvelu-sivuun.
   let Wrapper, wrapperProps;
   if (empty) {
     Wrapper = "div";
     wrapperProps = {};
   } else {
-    const url = match.url || "#";
-    const isExternal = /^https?:\/\//i.test(url);
-    Wrapper = isExternal ? "a" : Link;
-    wrapperProps = isExternal
-      ? { href: url, target: "_blank", rel: "noopener noreferrer" }
-      : { to: url };
+    const url = `https://tulospalvelu.leijonat.fi/game/?season=0&gameid=${match.id}&lang=fi`;
+    Wrapper = "a";
+    wrapperProps = { href: url, target: "_blank", rel: "noopener noreferrer" };
   }
 
+  const homeTeam = !empty ? splitTeamName(match.home || "").main : "";
+  const awayTeam = !empty ? splitTeamName(match.away || "").main : "";
+  const league = !empty ? match.level || "" : "";
+
   return (
-    <Wrapper className="ahma-hero" {...wrapperProps}>
-      <div
-        className="ahma-hero-bg"
-        style={{ backgroundImage: `url(${bgImage})` }}
-      />
+    <Wrapper
+      className="ahma-hero"
+      style={{ backgroundImage: `url(${bgImage})` }}
+      {...wrapperProps}
+    >
       <div className="ahma-hero-overlay" />
       <div className="ahma-hero-content">
-        <div className="ahma-hero-tag">SEURAAVA OTTELU</div>
+        <div className="ahma-hero-tag">
+          {live && <span className="ahma-hero-live-dot" aria-hidden="true" />}
+          <span>{live ? "LIVE" : "SEURAAVA OTTELU"}</span>
+          {league && <span className="ahma-hero-tag-league"> · {league}</span>}
+        </div>
         {empty ? (
           <div className="ahma-hero-title ahma-hero-title--empty">
             Ei tulevia otteluita
@@ -255,10 +256,18 @@ const HeroMatchCard = ({ match }) => {
         ) : (
           <>
             <div className="ahma-hero-title">
-              {match.homeTeam} vs. {match.awayTeam}
+              {homeTeam}{" "}
+              {live ? (
+                <span className="ahma-hero-score">
+                  {match.home_goals}–{match.away_goals}
+                </span>
+              ) : (
+                "vs."
+              )}{" "}
+              {awayTeam}
             </div>
-            <div className="ahma-hero-meta">{match.dateText}</div>
-            {match.location && (
+            <div className="ahma-hero-meta">{formatMatchDate(match)}</div>
+            {match.rink && (
               <div className="ahma-hero-meta">
                 <span
                   className="material-symbols-rounded ahma-hero-loc-icon"
@@ -266,19 +275,15 @@ const HeroMatchCard = ({ match }) => {
                 >
                   &#xE0C8;
                 </span>
-                {match.location}
+                {match.rink}
               </div>
             )}
             <span className="ahma-hero-cta">
-              Näytä ottelu <LuChevronRight aria-hidden="true" />
+              {live ? "Katso ottelu" : "Näytä ottelu"}{" "}
+              <LuChevronRight aria-hidden="true" />
             </span>
           </>
         )}
-      </div>
-      <div className="ahma-hero-dots" aria-hidden="true">
-        <span className="ahma-hero-dot ahma-hero-dot--active" />
-        <span className="ahma-hero-dot" />
-        <span className="ahma-hero-dot" />
       </div>
     </Wrapper>
   );
@@ -363,6 +368,7 @@ body { margin: 0; }
    itse swipe-toiminta tulee vaiheessa E kun datakin on aitoa. */
 .ahma-hero{
   position: relative;
+  display: block;
   width: 100%;
   height: 220px;
   border-radius: var(--radius-item);
@@ -372,9 +378,12 @@ body { margin: 0; }
   text-decoration: none;
   color: var(--gz-text-primary);
   -webkit-tap-highlight-color: transparent;
-  /* Default-fallback tausta jos backgroundImage puuttuu */
-  background:
-    linear-gradient(135deg, #1c2330 0%, #0e1118 60%, #1a0f0a 100%);
+  /* Tausta tulee inline-stylestä (HeroMatchCard prop). Fallback-väri jos
+     kuva ei lataudu. */
+  background-color: #0e1118;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .ahma-hero:hover,
 .ahma-hero:visited,
@@ -382,14 +391,6 @@ body { margin: 0; }
 .ahma-hero:active{
   text-decoration: none;
   color: var(--gz-text-primary);
-}
-
-.ahma-hero-bg{
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  z-index: 0;
 }
 
 /* Dark gradient overlay tekstin luettavuuden takia */
@@ -412,12 +413,45 @@ body { margin: 0; }
 }
 
 .ahma-hero-tag{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: var(--gz-fs-xs);
   font-weight: var(--gz-fw-bold);
   letter-spacing: var(--gz-ls-wide);
   text-transform: uppercase;
   color: var(--color-primary);
   margin-bottom: 4px;
+}
+
+/* Sarja-suffiksi tagissa "SEURAAVA OTTELU · U11 AA" — heikompi väri jotta
+   ensisijainen tagi (LIVE/SEURAAVA OTTELU) erottuu. */
+.ahma-hero-tag-league{
+  color: rgba(255,255,255,0.7);
+  font-weight: var(--gz-fw-medium);
+}
+
+/* Punainen pulssipiste LIVE-tilaisuudessa — pulse-animaatio alla. */
+.ahma-hero-live-dot{
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: ahma-hero-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ahma-hero-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* LIVE-tilan score otsikon keskellä — isompi numero kuin tavallinen text. */
+.ahma-hero-score{
+  font-weight: var(--gz-fw-black);
+  color: var(--color-primary);
+  margin: 0 4px;
 }
 
 .ahma-hero-title{
@@ -474,29 +508,36 @@ body { margin: 0; }
   height: 12px;
 }
 
-/* Carousel-pisteet — aktiivinen oranssi, isompi pylpyrä */
+/* Carousel-wrapper — sisältää kortin + dots-rivin alla */
+.ahma-hero-carousel{
+  position: relative;
+}
+
+/* Carousel-pisteet — kortin alla erillisenä rivinä, klikattavissa.
+   Aktiivinen oranssi pylpyrä. */
 .ahma-hero-dots{
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
-  gap: 5px;
-  z-index: 3;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .ahma-hero-dot{
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
-  background: rgba(255,255,255,0.30);
+  background: rgba(255,255,255,0.28);
+  cursor: pointer;
   transition: width 0.2s, background-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .ahma-hero-dot--active{
   background: var(--color-primary);
-  width: 18px;
-  border-radius: 3px;
+  width: 20px;
+  border-radius: 4px;
 }
 
 /* PIKATOIMINNOT — 4-up icon grid for the most-used surfaces. Each tile
@@ -540,12 +581,16 @@ body { margin: 0; }
   color: var(--gz-text-primary);
 }
 
+/* Hover/active eivät voi muuttaa background-shorthandia (rikkoisi gradient-
+   borderin multi-bg setupin). Käytetään sen sijaan box-shadow-rinkiä ja
+   pieniä transform-säätöjä. */
 .ahma-quick-tile:hover{
-  background: rgba(0,0,0,0.55);
+  box-shadow: var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18);
 }
 
 .ahma-quick-tile:active{
-  background: var(--color-primary-glow);
+  transform: scale(0.97);
+  box-shadow: var(--shadow-item), 0 0 0 1px rgba(249, 115, 22, 0.45);
 }
 
 /* Ikoni renderöityy suoraan tilen päällä ilman erillistä väritettyä
@@ -601,13 +646,16 @@ body { margin: 0; }
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Sama hover/active -treatment kuin pikatoiminnot-tileissä — box-shadow
+   ei riko gradient-border-multi-bg-setuppia kuten background-shorthand. */
 .ahma-item:hover{
-  background: rgba(0,0,0,0.55);
+  box-shadow: var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18);
   color: var(--gz-text-primary);
 }
 
 .ahma-item:active{
-  background: var(--color-primary-glow);
+  transform: scale(0.99);
+  box-shadow: var(--shadow-item), 0 0 0 1px rgba(249, 115, 22, 0.45);
 }
 
 .ahma-title{

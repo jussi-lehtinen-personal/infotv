@@ -3,32 +3,17 @@ import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
 import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
-
-const STORAGE_KEY = 'ahma_favourite_teams';
-
-// Stores Map<teamKey, {teamKey, shortName, levelGroups}>
-function loadFavourites() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return new Map();
-        const arr = JSON.parse(raw);
-        // Guard against old storage format or malformed data
-        const valid = arr.filter(t => t && typeof t === 'object' && t.teamKey && Array.isArray(t.levelGroups));
-        return new Map(valid.map(t => [t.teamKey, t]));
-    } catch {
-        return new Map();
-    }
-}
-
-function saveFavourites(map) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(map.values())));
-}
+import { loadFavouriteTeams, saveFavouriteTeams } from "../Util";
 
 const Teams = () => {
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
-    const [favourites, setFavourites] = useState(loadFavourites);
+    // /teams käyttää Map-muotoa has/delete/set-operaatioiden takia. Shared
+    // helper palauttaa array:n; konvertoidaan Mapiksi kun ladataan.
+    const [favourites, setFavourites] = useState(
+        () => new Map(loadFavouriteTeams().map((t) => [t.teamKey, t]))
+    );
 
     useEffect(() => {
         fetch('/api/getTeams')
@@ -51,7 +36,7 @@ const Teams = () => {
             } else {
                 next.set(team.teamKey, team);
             }
-            saveFavourites(next);
+            saveFavouriteTeams(next);
             return next;
         });
     };
