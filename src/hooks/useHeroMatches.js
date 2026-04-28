@@ -33,12 +33,20 @@ const isoDate = (d) => d.toISOString().slice(0, 10);
 //   4. Jos ei suosikkeja TAI 0 korttia: 3 lähintä mitä tahansa Ahma-peliä.
 //   5. Lajittele LIVE ensin, sitten kronologisesti. Dedup match.id:llä.
 //      Cap 3.
+//   6. Polling: päivittää 60s välein jos LIVE-pelejä on, muuten 5 min välein.
+//      LIVE-tilanteissa score muuttuu jatkuvasti, joten tiheämpi tahti on
+//      järkevää; muulloin riittää että uudet pelit/statuksen muutokset
+//      tulevat näkyviin järkevässä ajassa.
+const LIVE_POLL_MS = 60_000;
+const IDLE_POLL_MS = 5 * 60_000;
+
 export function useHeroMatches() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId;
 
     const fetchWeek = async (date) => {
       try {
@@ -51,7 +59,7 @@ export function useHeroMatches() {
       }
     };
 
-    (async () => {
+    const fetchAndUpdate = async () => {
       const now = new Date();
       const [thisWeek, nextWeek] = await Promise.all([
         fetchWeek(now),
@@ -108,14 +116,21 @@ export function useHeroMatches() {
           .slice(0, 3);
       }
 
-      if (!cancelled) {
-        setMatches(cards);
-        setLoading(false);
-      }
-    })();
+      if (cancelled) return;
+      setMatches(cards);
+      setLoading(false);
+
+      // Aikatauluta seuraava päivitys: tihennä jos LIVE-peli on listassa.
+      const hasLive = cards.some(isLiveMatch);
+      const nextDelay = hasLive ? LIVE_POLL_MS : IDLE_POLL_MS;
+      timeoutId = setTimeout(fetchAndUpdate, nextDelay);
+    };
+
+    fetchAndUpdate();
 
     return () => {
       cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 

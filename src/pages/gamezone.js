@@ -437,8 +437,9 @@ function MatchRow({ match, onClick }) {
 
   // Ahma-centric result colour: green = Ahma won, red = Ahma lost, light grey = draw.
   // Drives both the left edge bar and the divider between teams and scores.
+  // Live-pelillä ei korosteta vasenta reunaa erikseen — pelkät score-numerot
+  // saavat oranssin sävyn (alempana homeScoreStyle/awayScoreStyle).
   const resultColor = (() => {
-    if (isLive) return "#ef4444";
     if (!hasResult) return null;
     const ahmaGoals = match.isHomeGame ? hg : ag;
     const oppGoals  = match.isHomeGame ? ag : hg;
@@ -460,13 +461,13 @@ function MatchRow({ match, onClick }) {
   const mutedColor = "rgba(255, 255, 255, 0.4)";
 
   const homeScoreStyle = (() => {
-    if (isLive) return { color: "#ef4444" };
+    if (isLive) return { color: "#f97316" };
     if (!hasResult || hg === ag) return undefined;
     if (homeIsWinner) return { color: ahmaIsHome ? "#22c55e" : "#ef4444" };
     return { color: mutedColor };
   })();
   const awayScoreStyle = (() => {
-    if (isLive) return { color: "#ef4444" };
+    if (isLive) return { color: "#f97316" };
     if (!hasResult || hg === ag) return undefined;
     if (awayIsWinner) return { color: ahmaIsAway ? "#22c55e" : "#ef4444" };
     return { color: mutedColor };
@@ -493,6 +494,12 @@ function MatchRow({ match, onClick }) {
       style={rowStyle}
     >
       <div className="gz-row-top">
+        {isLive && (
+          <div className="gz-live">
+            <span className="gz-live-dot" aria-hidden="true" />
+            <span>LIVE</span>
+          </div>
+        )}
         <div className="gz-time">
           <span className="material-symbols-rounded gz-time-icon">&#xE8B5;</span>
           <span>{timeStr}</span>
@@ -746,6 +753,38 @@ html, body, #root{
   color: var(--gz-text-primary);
   flex-shrink: 0;
   line-height: 1;
+}
+
+/* Live-indikaattori ottelulistan kortissa — punainen pulssipiste + LIVE
+   teksti. Sama tyyli kuin etusivun hero-kortissa, jotta livet erottuvat
+   nopeasti. */
+.gz-live{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-right: 4px;
+  font-size: var(--gz-fs-xs);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  color: #ef4444;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.gz-live-dot{
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: gz-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes gz-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .gz-time-icon{

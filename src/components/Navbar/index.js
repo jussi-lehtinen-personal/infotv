@@ -379,11 +379,14 @@ body { margin: 0; }
   color: var(--gz-text-primary);
   -webkit-tap-highlight-color: transparent;
   /* Tausta tulee inline-stylestä (HeroMatchCard prop). Fallback-väri jos
-     kuva ei lataudu. */
+     kuva ei lataudu. background-clip: padding-box estää sen, että 1px
+     reuna piirtyisi taustakuvan päälle ja luisi visual-glitchejä
+     reunoihin. */
   background-color: #0e1118;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  background-clip: padding-box;
 }
 .ahma-hero:hover,
 .ahma-hero:visited,
