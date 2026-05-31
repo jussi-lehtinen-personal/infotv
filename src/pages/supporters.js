@@ -155,7 +155,9 @@ body { margin: 0; }
   margin: 0;
   text-align: center;
   font-size: var(--gz-fs-sm);
-  color: var(--gz-text-muted);
+  /* Sama luettavampi väri kuin otsikon alateksti ("N kannattaja"),
+     joka käyttää PageHeaderin --color-accent -väriä. */
+  color: var(--color-accent);
 }
 
 /* Frosted-glass -kortti, jonka sisällä nimet responsiivisena gridinä.
