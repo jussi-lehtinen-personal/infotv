@@ -38,6 +38,9 @@ export const NewsCard = ({ item }) => {
       )}
       <div className="ui-news-body">
         <div className="ui-news-title">{item.title}</div>
+        {item.description && (
+          <div className="ui-news-desc">{item.description}</div>
+        )}
         {item.date && (
           <div className="ui-news-date">{formatNewsDate(item.date)}</div>
         )}

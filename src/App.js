@@ -19,6 +19,7 @@ import Teams from "./pages/teams";
 import News from "./pages/news";
 import More from "./pages/more";
 import Settings from "./pages/settings";
+import Supporters from "./pages/supporters";
 import NextHomeGame from "./pages/next_home_game";
 
 function App() {
@@ -55,6 +56,7 @@ function App() {
                 <Route path="/news" element={<News />} />
                 <Route path="/more" element={<More />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/supporters" element={<Supporters />} />
                 <Route
                     path="/ads"
                     element={<Ads />}

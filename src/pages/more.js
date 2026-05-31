@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { LuMail, LuSettings, LuChevronRight } from "react-icons/lu";
+import { LuMail, LuSettings, LuHeart, LuChevronRight } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 
@@ -23,6 +23,11 @@ const More = () => {
             href="https://www.kiekko-ahma.fi/organisaatio"
             icon={<LuMail />}
             label="Yhteystiedot"
+          />
+          <InternalRow
+            to="/supporters"
+            icon={<LuHeart />}
+            label="Kannattajajäsenet"
           />
           <InternalRow
             to="/settings"

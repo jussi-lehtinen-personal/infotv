@@ -376,6 +376,17 @@ code {
   overflow: hidden;
 }
 
+.ui-news-desc {
+  font-size: var(--gz-fs-xs);
+  font-weight: var(--gz-fw-regular);
+  line-height: 1.4;
+  color: var(--gz-text-secondary);
+  /* Säilyttää JSON:in \n-rivinvaihdot (✅-listarivit), kuten alkuperäisessä
+     mainoskuvassa. */
+  white-space: pre-line;
+  margin: 2px 0;
+}
+
 .ui-news-date {
   font-size: var(--gz-fs-2xs);
   font-weight: var(--gz-fw-regular);
