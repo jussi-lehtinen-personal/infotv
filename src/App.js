@@ -20,6 +20,7 @@ import News from "./pages/news";
 import More from "./pages/more";
 import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
+import Report from "./pages/report";
 import NextHomeGame from "./pages/next_home_game";
 
 function App() {
@@ -71,6 +72,7 @@ function App() {
                 />
             </Route>
 
+            <Route path="/report" element={<Report />} />
             <Route path="/next_home_game" element={<NextHomeGame />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
