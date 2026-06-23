@@ -65,7 +65,17 @@ const Teams = () => {
 
                     {error && (
                         <div className="teams-status teams-status--error">
-                            Joukkueiden lataus epäonnistui.
+                            Joukkueiden haku epäonnistui. Yritä myöhemmin uudelleen.
+                        </div>
+                    )}
+
+                    {!loading && !error && teams.length === 0 && (
+                        <div className="teams-status">
+                            Joukkueita ei ole vielä saatavilla tälle kaudelle.
+                            <span className="teams-status-note">
+                                Joukkueet ilmestyvät automaattisesti, kun
+                                tulospalveluun tulee otteluita.
+                            </span>
                         </div>
                     )}
 
@@ -210,6 +220,14 @@ body { margin: 0; }
   padding: 28px 0;
 }
 .teams-status--error { color: var(--color-loss); }
+
+/* Secondary explanatory line under the empty-state message. */
+.teams-status-note {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--gz-fs-xs, 12px);
+  color: var(--gz-text-tertiary);
+}
 
 /* ============ TABLET ============ */
 @media (min-width: 768px) {

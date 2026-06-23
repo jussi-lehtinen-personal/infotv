@@ -1,18 +1,18 @@
 const { app } = require('@azure/functions');
-const fetch = require("node-fetch");
+const { tulospalveluGet, getCurrentSeason } = require('../shared/tulospalvelu');
 
 const TTL = 60 * 60_000; // 1 h – sarjapaikkarakenne ei muutu kesken kauden
 
 // Cache per season: { season, data, timestamp }
 const seasonCache = new Map();
 
-const BASE_URI = 'https://tulospalvelu.leijonat.fi/serie/helpers/searchStatGroups.php';
-const TEAM_NAME = 'Valkeakosken+Kiekko-Ahma+Ry';
+const TEAM_NAME = 'Valkeakosken Kiekko-Ahma Ry';
 
-// "Kiekko-Ahma Oranssi (Valkeakosken Kiekko-Ahma Ry U12 Oranssi)"
-//  → { shortName: "Kiekko-Ahma Oranssi", teamKey: "U12 Oranssi" }
+// "Kiekko-ahma Oranssi (Valkeakosken Kiekko-ahma Ry U12 Oranssi)"
+//  → { shortName: "Kiekko-ahma Oranssi", teamKey: "U12 Oranssi" }
+// Case-insensitive: the search endpoint renders the club name as "Kiekko-ahma".
 function parseSearched(str) {
-    const m = str.match(/^(.+?)\s*\(Valkeakosken Kiekko-Ahma Ry (.+)\)$/);
+    const m = str.match(/^(.+?)\s*\(Valkeakosken Kiekko-Ahma Ry (.+)\)$/i);
     if (!m) return null;
     return { shortName: m[1].trim(), teamKey: m[2].trim() };
 }
@@ -29,26 +29,26 @@ function teamSortKey(key) {
 
 function processGroups(groups) {
     const relevant = groups.filter(
-        g => !g.StatGroupName.toLowerCase().includes('harjoitusottelut')
+        g => !g.subSerieBaseName.toLowerCase().includes('harjoitusottelut')
     );
     const practiceGroups = groups.filter(
-        g => g.StatGroupName.toLowerCase().includes('harjoitusottelut')
+        g => g.subSerieBaseName.toLowerCase().includes('harjoitusottelut')
     );
 
     // teamKey → { shortName, levelGroups: Map<string, {levelId, statGroupId}> }
     const teamMap = new Map();
 
     const addLevelGroup = (teamKey, group) => {
-        const key = `${group.LevelID}|${group.StatGroupID}`;
+        const key = `${group.levelId}|${group.subSerieBaseId}`;
         teamMap.get(teamKey).levelGroups.set(key, {
-            levelId: String(group.LevelID),
-            statGroupId: String(group.StatGroupID)
+            levelId: String(group.levelId),
+            statGroupId: String(group.subSerieBaseId)
         });
     };
 
     // Build teams from non-practice groups only
     for (const group of relevant) {
-        for (const searched of group.Searched) {
+        for (const searched of group.searched) {
             const parsed = parseSearched(searched);
             if (!parsed) continue;
 
@@ -62,7 +62,7 @@ function processGroups(groups) {
 
     // Add practice levelGroups for already-identified teams
     for (const group of practiceGroups) {
-        for (const searched of group.Searched) {
+        for (const searched of group.searched) {
             const parsed = parseSearched(searched);
             if (!parsed) continue;
 
@@ -97,7 +97,10 @@ app.http('getTeams', {
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
 
-        const season = request.query?.get('season') || new Date().getFullYear().toString();
+        // The search endpoint requires a real season number (season=0 is rejected),
+        // so resolve the active season from the API instead of guessing from the
+        // calendar year. Allow an explicit ?season= override.
+        const season = request.query?.get('season') || String(await getCurrentSeason(context));
 
         const cached = seasonCache.get(season);
         if (cached && (Date.now() - cached.timestamp) < TTL) {
@@ -105,13 +108,14 @@ app.http('getTeams', {
             return { body: cached.data };
         }
 
-        const uri = `${BASE_URI}?season=${season}&playername=&teamname=${TEAM_NAME}`;
-        context.log('Fetching: ' + uri);
+        context.log('Fetching teams for season: ' + season);
+        const groups = await tulospalveluGet('serie/helpers/search-players-and-teams', {
+            season,
+            playerName: '',
+            teamName: TEAM_NAME,
+        }, context);
 
-        const response = await fetch(uri);
-        const groups = await response.json();
-
-        const teams = processGroups(groups);
+        const teams = processGroups(Array.isArray(groups) ? groups : []);
         const body = JSON.stringify(teams);
 
         seasonCache.set(season, { data: body, timestamp: Date.now() });

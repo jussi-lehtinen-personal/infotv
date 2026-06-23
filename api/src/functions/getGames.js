@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
-const fetch = require("node-fetch");
 var moment = require('moment');
+const { tulospalveluGet } = require('../shared/tulospalvelu');
 
 // Week-level cache (final response): { key: { data, timestamp } }
 const weekCache = new Map();
@@ -23,7 +23,8 @@ function getWeekTtl(weekStart) {
 const HOME_DISTRICT_ID = 2;
 const DISTRICTS_ALL = [1, 2, 3, 4, 5, 6, 7, 8];
 
-const requestUri = 'https://tulospalvelu.leijonat.fi/helpers/getGames.php?season=0';
+// season=0 lets the API pick the active season by date, so it automatically
+// rolls into the new season as games approach (no season logic needed here).
 const imageUri = 'https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/';
 
 const getMonday = (d) => {
@@ -44,18 +45,26 @@ const isTruthy = (v) => {
     return (s === '1' || s === 'true' || s === 'yes' || s === 'on');
 };
 
-async function fetchJsonCached(uri, ttl, context) {
-    const cached = uriCache.get(uri);
+async function fetchDistrictDay(formattedDate, districtId, ttl, context) {
+    const key = districtId + '|' + formattedDate;
+    const cached = uriCache.get(key);
     if (cached && (Date.now() - cached.timestamp) < ttl) {
-        context.log('URI cache hit: ' + uri);
+        context.log('Games cache hit: ' + key);
         return cached.json;
     }
 
-    context.log('Perform fetch: ' + uri);
-    const response = await fetch(uri);
-    const json = await response.json();
+    context.log('Perform fetch: district ' + districtId + ' dog ' + formattedDate);
+    const json = await tulospalveluGet('helpers/getgames', {
+        season: 0,        // 0 = active season by date
+        subSerieId: 0,
+        teamid: 0,
+        districtid: districtId,
+        gamedays: -1,     // ignored in district mode; returns the `dog` day only
+        dog: formattedDate,
+        levelid: -1,
+    }, context);
 
-    uriCache.set(uri, { json, timestamp: Date.now() });
+    uriCache.set(key, { json, timestamp: Date.now() });
     return json;
 }
 
@@ -63,8 +72,7 @@ async function fetchJsonCached(uri, ttl, context) {
 // NOTE: This does NOT decide home-only vs include-away; it returns all Ahma games found.
 // Caller can filter by `isHomeGame`.
 async function fetchDay(formattedDate, districtId, ttl, context) {
-    const uri = requestUri + '&districtid=' + districtId + '&dog=' + formattedDate;
-    const json = await fetchJsonCached(uri, ttl, context);
+    const json = await fetchDistrictDay(formattedDate, districtId, ttl, context);
 
     const dayMatches = [];
     for (let levelIndex = 0; levelIndex < json.length; levelIndex++) {
@@ -77,8 +85,8 @@ async function fetchDay(formattedDate, districtId, ttl, context) {
             var game = games[gameIndex];
 
             const isAhmaGame =
-                (game.HomeTeamAbbrv && game.HomeTeamAbbrv.includes('Kiekko-Ahma')) ||
-                (game.AwayTeamAbbrv && game.AwayTeamAbbrv.includes('Kiekko-Ahma'));
+                (game.HomeTeamAbbrv && game.HomeTeamAbbrv.toLowerCase().includes('kiekko-ahma')) ||
+                (game.AwayTeamAbbrv && game.AwayTeamAbbrv.toLowerCase().includes('kiekko-ahma'));
 
             if (!isAhmaGame) continue;
 
@@ -89,7 +97,7 @@ async function fetchDay(formattedDate, districtId, ttl, context) {
             dayMatches.push({
                 id: game.GameID,
                 date: game.GameDateDB + ' ' + game.GameTime,
-                league: game.StatGroupName,
+                league: game.SubSerieName,
                 periods: game.PeriodSummary,
                 home: game.HomeTeamAbbrv,
                 homeTeamId: game.HomeTeam,
@@ -104,7 +112,7 @@ async function fetchDay(formattedDate, districtId, ttl, context) {
                 rink: game.RinkName,
                 level: level.LevelName,
                 levelId: String(level.LevelID),
-                statGroupId: String(game.StatGroupID),
+                statGroupId: String(game.SubSerieID),
                 districtId: districtId,
                 isHomeGame: isHomeGame
             });
