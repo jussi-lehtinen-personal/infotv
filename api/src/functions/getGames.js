@@ -1,43 +1,38 @@
 const { app } = require('@azure/functions');
+const fetch = require("node-fetch");
 var moment = require('moment');
-const { tulospalveluGet } = require('../shared/tulospalvelu');
 
-// Week-level cache (final response): { key: { data, timestamp } }
+// Thin passthrough to the Cloudflare Worker (which reaches tulospalvelu from an
+// IP the WAF allows). The Worker returns the final games array; we keep the
+// week-level response cache so client load is decoupled from Worker calls.
+
 const weekCache = new Map();
 
-// URI-level cache (raw API JSON): { uri: { json, timestamp } }
-const uriCache = new Map();
+const TTL_CURRENT = 30_000;           // 30 s  – current week, live scores
+const TTL_FUTURE  = 15 * 60_000;      // 15 min – future week
+const TTL_PAST    = 6 * 3_600_000;    // 6 h   – played week
 
-const TTL_CURRENT = 30_000;           // 30 s  – kuluva viikko, live-tilanne
-const TTL_FUTURE  = 15 * 60_000;      // 15 min – tuleva viikko, aikataulut voivat muuttua
-const TTL_PAST    = 6 * 3_600_000;    // 6 h   – pelattu viikko, tulos ei enää muutu
+// includeAway over all 8 districts is 56 upstream requests, above the CF
+// free-tier 50-subrequest cap, so we split it into two Worker calls.
+const AWAY_SPLIT = ['1,2,3,4', '5,6,7,8'];
 
-function getWeekTtl(weekStart) {
-    const weekStr    = moment(weekStart).format('YYYY-MM-DD');
-    const currentStr = moment(getMonday(new Date())).format('YYYY-MM-DD');
-    if (weekStr === currentStr) return TTL_CURRENT;
-    if (weekStr  <  currentStr) return TTL_PAST;
-    return TTL_FUTURE;
-}
-
-const HOME_DISTRICT_ID = 2;
-const DISTRICTS_ALL = [1, 2, 3, 4, 5, 6, 7, 8];
-
-// season=0 lets the API pick the active season by date, so it automatically
-// rolls into the new season as games approach (no season logic needed here).
-const imageUri = 'https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/';
+// Public Worker URL (not a secret); env can override if it ever moves.
+const PROXY_URL = process.env.TP_PROXY_URL || 'https://gamezone.zapmies.workers.dev';
+const PROXY_KEY = process.env.TP_PROXY_KEY; // optional shared secret
 
 const getMonday = (d) => {
-    if (d.getDay() === 1) {
-        return d;
-    }
-
-    while (d.getDay() !== 1) {
-        d.setDate(d.getDate() - 1);
-    }
-
-    return d;
+    const x = new Date(d);
+    while (x.getDay() !== 1) x.setDate(x.getDate() - 1);
+    return x;
 };
+
+function getWeekTtl(weekStart) {
+    const weekStr = moment(weekStart).format('YYYY-MM-DD');
+    const currentStr = moment(getMonday(new Date())).format('YYYY-MM-DD');
+    if (weekStr === currentStr) return TTL_CURRENT;
+    if (weekStr < currentStr) return TTL_PAST;
+    return TTL_FUTURE;
+}
 
 const isTruthy = (v) => {
     if (v === null || v === undefined) return false;
@@ -45,81 +40,18 @@ const isTruthy = (v) => {
     return (s === '1' || s === 'true' || s === 'yes' || s === 'on');
 };
 
-async function fetchDistrictDay(formattedDate, districtId, ttl, context) {
-    const key = districtId + '|' + formattedDate;
-    const cached = uriCache.get(key);
-    if (cached && (Date.now() - cached.timestamp) < ttl) {
-        context.log('Games cache hit: ' + key);
-        return cached.json;
-    }
-
-    context.log('Perform fetch: district ' + districtId + ' dog ' + formattedDate);
-    const json = await tulospalveluGet('helpers/getgames', {
-        season: 0,        // 0 = active season by date
-        subSerieId: 0,
-        teamid: 0,
-        districtid: districtId,
-        gamedays: -1,     // ignored in district mode; returns the `dog` day only
-        dog: formattedDate,
-        levelid: -1,
-    }, context);
-
-    uriCache.set(key, { json, timestamp: Date.now() });
-    return json;
+async function workerGet(path, context) {
+    const res = await fetch(`${PROXY_URL}${path}`, {
+        headers: PROXY_KEY ? { 'x-proxy-key': PROXY_KEY } : {},
+    });
+    if (!res.ok) throw new Error(`worker ${path} -> HTTP ${res.status}`);
+    return res.json();
 }
 
-// Fetch games for a single day + district and extract Kiekko-Ahma games.
-// NOTE: This does NOT decide home-only vs include-away; it returns all Ahma games found.
-// Caller can filter by `isHomeGame`.
-async function fetchDay(formattedDate, districtId, ttl, context) {
-    const json = await fetchDistrictDay(formattedDate, districtId, ttl, context);
-
-    const dayMatches = [];
-    for (let levelIndex = 0; levelIndex < json.length; levelIndex++) {
-        var level = json[levelIndex];
-        var games = level.Games;
-
-        if (!games) continue;
-
-        for (let gameIndex = 0; gameIndex < games.length; gameIndex++) {
-            var game = games[gameIndex];
-
-            const isAhmaGame =
-                (game.HomeTeamAbbrv && game.HomeTeamAbbrv.toLowerCase().includes('kiekko-ahma')) ||
-                (game.AwayTeamAbbrv && game.AwayTeamAbbrv.toLowerCase().includes('kiekko-ahma'));
-
-            if (!isAhmaGame) continue;
-
-            const isHomeGame =
-                (districtId === HOME_DISTRICT_ID) &&
-                (game.RinkName && game.RinkName.includes('Valkeakoski'));
-
-            dayMatches.push({
-                id: game.GameID,
-                date: game.GameDateDB + ' ' + game.GameTime,
-                league: game.SubSerieName,
-                periods: game.PeriodSummary,
-                home: game.HomeTeamAbbrv,
-                homeTeamId: game.HomeTeam,
-                home_logo: imageUri + game.HomeImg,
-                home_goals: game.HomeGoals,
-                away: game.AwayTeamAbbrv,
-                awayTeamId: game.AwayTeam,
-                away_logo: imageUri + game.AwayImg,
-                away_goals: game.AwayGoals,
-                period: game.GameStatus,
-                finished: game.FinishedType,
-                rink: game.RinkName,
-                level: level.LevelName,
-                levelId: String(level.LevelID),
-                statGroupId: String(game.SubSerieID),
-                districtId: districtId,
-                isHomeGame: isHomeGame
-            });
-        }
-    }
-
-    return dayMatches;
+function dedupSort(arr) {
+    const uniq = new Map();
+    for (const m of arr) if (!uniq.has(m.id)) uniq.set(m.id, m);
+    return Array.from(uniq.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
 app.http('getGames', {
@@ -129,73 +61,39 @@ app.http('getGames', {
         context.log(`Http function processed request for url "${request.url}"`);
 
         try {
-        var now = new Date();
-
-        if (request.query && request.query.has('date')) {
-            var date = request.query.get('date');
-            now = new Date(date);
-        }
-
-        const includeAway = request.query ? isTruthy(request.query.get('includeAway')) : false;
-
-        const startOfWeek = getMonday(now);
-        const cacheKey = moment(startOfWeek).format('YYYY-MM-DD') + '|' + (includeAway ? 'all' : 'home');
-        const weekTtl = getWeekTtl(startOfWeek);
-
-        // Check week-level cache (final response)
-        const cachedWeek = weekCache.get(cacheKey);
-        if (cachedWeek && (Date.now() - cachedWeek.timestamp) < weekTtl) {
-            context.log('Week cache hit for: ' + cacheKey);
-            return { body: cachedWeek.data };
-        }
-        context.log('Week cache miss for: ' + cacheKey);
-
-        // Build array of dates for the week
-        const dayDates = [];
-        const d = new Date(startOfWeek);
-        for (let i = 0; i < 7; i++) {
-            dayDates.push(moment(d).format('YYYY-MM-DD'));
-            d.setDate(d.getDate() + 1);
-        }
-
-        // Decide which districts to fetch:
-        // - home-only: only district 2 (current behavior)
-        // - includeAway: districts 1..8
-        const districtsToFetch = includeAway ? DISTRICTS_ALL : [HOME_DISTRICT_ID];
-
-        // Fetch all day+districts in parallel.
-        // URI-level cache ensures that if you first request home-only and then includeAway,
-        // district 2 fetches are re-used (no extra network).
-        const fetchPromises = [];
-        for (const day of dayDates) {
-            for (const districtId of districtsToFetch) {
-                fetchPromises.push(fetchDay(day, districtId, weekTtl, context));
+            if (!PROXY_URL) {
+                return { status: 500, jsonBody: { error: 'TP_PROXY_URL not configured' } };
             }
-        }
 
-        const results = await Promise.all(fetchPromises);
-        const all = results.flat();
+            const now = (request.query && request.query.has('date'))
+                ? new Date(request.query.get('date'))
+                : new Date();
+            const includeAway = request.query ? isTruthy(request.query.get('includeAway')) : false;
+            const dateStr = moment(now).format('YYYY-MM-DD');
 
-        // Filter home-only mode (keep old behavior)
-        const filtered = includeAway ? all : all.filter(x => x.isHomeGame);
+            const startOfWeek = getMonday(now);
+            const cacheKey = moment(startOfWeek).format('YYYY-MM-DD') + '|' + (includeAway ? 'all' : 'home');
+            const weekTtl = getWeekTtl(startOfWeek);
 
-        // De-dup by GameID (safety)
-        const uniq = new Map();
-        for (const m of filtered) {
-            if (!uniq.has(m.id)) uniq.set(m.id, m);
-        }
+            const cached = weekCache.get(cacheKey);
+            if (cached && (Date.now() - cached.timestamp) < weekTtl) {
+                context.log('Week cache hit for: ' + cacheKey);
+                return { jsonBody: cached.data };
+            }
 
-        const matches = Array.from(uniq.values());
-        matches.sort(function (a, b) {
-            return new Date(a.date) - new Date(b.date);
-        });
+            let matches;
+            if (includeAway) {
+                // Two Worker calls (districts 1-4 and 5-8), merged.
+                const parts = await Promise.all(
+                    AWAY_SPLIT.map(d => workerGet(`/getGames?date=${dateStr}&districts=${d}`, context))
+                );
+                matches = dedupSort(parts.flat());
+            } else {
+                matches = await workerGet(`/getGames?date=${dateStr}`, context);
+            }
 
-        const body = JSON.stringify(matches);
-
-        // Store in week-level cache
-        weekCache.set(cacheKey, { data: body, timestamp: Date.now() });
-
-        return { body };
+            weekCache.set(cacheKey, { data: matches, timestamp: Date.now() });
+            return { jsonBody: matches };
         } catch (err) {
             context.log('getGames failed: ' + (err && err.stack || err));
             return { status: 500, jsonBody: { error: String(err && err.message || err) } };

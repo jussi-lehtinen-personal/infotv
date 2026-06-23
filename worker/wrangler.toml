@@ -1,0 +1,8 @@
+name = "ahma-tulospalvelu"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# PROXY_KEY is set as a secret (not here):
+#   wrangler secret put PROXY_KEY
+# or in the dashboard: Worker -> Settings -> Variables -> add encrypted PROXY_KEY.
+# When unset, the Worker serves without auth (fine for the Phase-1 validation).
