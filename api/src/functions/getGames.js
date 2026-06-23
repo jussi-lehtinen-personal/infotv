@@ -128,6 +128,7 @@ app.http('getGames', {
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
 
+        try {
         var now = new Date();
 
         if (request.query && request.query.has('date')) {
@@ -195,5 +196,9 @@ app.http('getGames', {
         weekCache.set(cacheKey, { data: body, timestamp: Date.now() });
 
         return { body };
+        } catch (err) {
+            context.log('getGames failed: ' + (err && err.stack || err));
+            return { status: 500, jsonBody: { error: String(err && err.message || err) } };
+        }
     }
 });

@@ -38,13 +38,27 @@ function parseSessionCookie(res) {
     return null;
 }
 
+// A browser-like User-Agent: data-center IPs (e.g. Azure) can be served a
+// different page than a normal browser, which may omit the #xsrf-token input.
+const BROWSER_HEADERS = {
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+        '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept-Language': 'fi-FI,fi;q=0.9,en;q=0.8',
+};
+
 async function bootstrap(context) {
-    const res = await fetch(`${ORIGIN}/?lang=fi`, { headers: { Accept: 'text/html' } });
+    const res = await fetch(`${ORIGIN}/?lang=fi`, {
+        headers: { ...BROWSER_HEADERS, Accept: 'text/html' },
+    });
     const cookie = parseSessionCookie(res);
     const html = await res.text();
     const token = parseToken(html);
     if (!cookie || !token) {
-        throw new Error('tulospalvelu: failed to obtain session cookie / csrf token');
+        throw new Error(
+            `tulospalvelu: failed to obtain session/csrf token ` +
+            `(status=${res.status}, cookie=${!!cookie}, token=${!!token}, htmlLen=${html.length})`
+        );
     }
     session = { cookie, token, timestamp: Date.now() };
     context?.log('tulospalvelu: new session established');
@@ -68,6 +82,7 @@ async function tulospalveluGet(path, params, context) {
         const s = await getSession(context);
         const res = await fetch(url, {
             headers: {
+                ...BROWSER_HEADERS,
                 'x-csrf-token': s.token,
                 'x-requested-with': 'XMLHttpRequest',
                 Accept: 'application/json',

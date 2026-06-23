@@ -97,6 +97,7 @@ app.http('getTeams', {
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
 
+        try {
         // The search endpoint requires a real season number (season=0 is rejected),
         // so resolve the active season from the API instead of guessing from the
         // calendar year. Allow an explicit ?season= override.
@@ -121,5 +122,9 @@ app.http('getTeams', {
         seasonCache.set(season, { data: body, timestamp: Date.now() });
 
         return { body };
+        } catch (err) {
+            context.log('getTeams failed: ' + (err && err.stack || err));
+            return { status: 500, jsonBody: { error: String(err && err.message || err) } };
+        }
     }
 });
