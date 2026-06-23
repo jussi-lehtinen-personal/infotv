@@ -38,19 +38,52 @@ function parseSessionCookie(res) {
     return null;
 }
 
-// A browser-like User-Agent: data-center IPs (e.g. Azure) can be served a
-// different page than a normal browser, which may omit the #xsrf-token input.
-const BROWSER_HEADERS = {
-    'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-        '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept-Language': 'fi-FI,fi;q=0.9,en;q=0.8',
+// The rebuilt site sits behind a CloudFront/AWS WAF that blocks requests from
+// data-center IPs (e.g. Azure) unless they look like a real browser: a 403 with
+// a ~900-byte block page, no PHPSESSID, no #xsrf-token. We send a complete,
+// internally-consistent desktop-Chrome header set so the WAF's bot rules pass.
+// Note: only advertise gzip/deflate (br/zstd would arrive undecoded by
+// node-fetch and break token parsing).
+const USER_AGENT =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+const SEC_CH_UA = '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"';
+const ACCEPT_LANGUAGE = 'fi-FI,fi;q=0.9,en-US;q=0.8,en;q=0.7';
+
+// Headers for the initial document (navigation) request to the landing page.
+const DOCUMENT_HEADERS = {
+    'User-Agent': USER_AGENT,
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': ACCEPT_LANGUAGE,
+    'Accept-Encoding': 'gzip, deflate',
+    'sec-ch-ua': SEC_CH_UA,
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+};
+
+// Headers for the XHR API calls (mirrors the site's own fetch()).
+const XHR_HEADERS = {
+    'User-Agent': USER_AGENT,
+    Accept: 'application/json',
+    'Accept-Language': ACCEPT_LANGUAGE,
+    'Accept-Encoding': 'gzip, deflate',
+    'sec-ch-ua': SEC_CH_UA,
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-origin',
+    Referer: `${ORIGIN}/`,
+    'x-requested-with': 'XMLHttpRequest',
 };
 
 async function bootstrap(context) {
-    const res = await fetch(`${ORIGIN}/?lang=fi`, {
-        headers: { ...BROWSER_HEADERS, Accept: 'text/html' },
-    });
+    const res = await fetch(`${ORIGIN}/?lang=fi`, { headers: DOCUMENT_HEADERS });
     const cookie = parseSessionCookie(res);
     const html = await res.text();
     const token = parseToken(html);
@@ -82,10 +115,8 @@ async function tulospalveluGet(path, params, context) {
         const s = await getSession(context);
         const res = await fetch(url, {
             headers: {
-                ...BROWSER_HEADERS,
+                ...XHR_HEADERS,
                 'x-csrf-token': s.token,
-                'x-requested-with': 'XMLHttpRequest',
-                Accept: 'application/json',
                 Cookie: s.cookie,
             },
         });
