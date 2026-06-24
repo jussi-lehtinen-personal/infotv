@@ -99,6 +99,20 @@ registerRoute(
   })
 );
 
+// Jopox team photos (player/official rosters) - CacheFirst, big + long-lived
+registerRoute(
+  ({ url }) => url.hostname === 'static.jopox.fi',
+  new CacheFirst({
+    cacheName: 'jopox-images',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 300, // a full roster has dozens of photos; several teams
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days (Jopox sends max-age=30d too)
+      }),
+    ],
+  })
+);
+
 // Google Fonts / other CDN assets
 registerRoute(
   ({ url }) => url.origin !== self.location.origin && !url.pathname.includes('/api/'),

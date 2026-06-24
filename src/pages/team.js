@@ -6,7 +6,7 @@ import { Spinner } from "../components/ui/Spinner";
 import { findJopoxTeam } from "../data/jopoxTeams";
 
 // Hero image. Swap to a real per-team hero photo later.
-const HERO_PLACEHOLDER = "/gamezone_3d.png";
+const HERO_PLACEHOLDER = "/gamezone_3d.webp";
 
 const isGoalie = (p) => /maalivahti|goalie|gk/i.test(p.position || "");
 const byNumber = (a, b) => {
