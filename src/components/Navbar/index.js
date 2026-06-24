@@ -189,6 +189,10 @@ const HERO_BACKGROUNDS = ["/hero_1.png", "/hero_2.png", "/hero_3.png"];
 // ja napsahtaa lähimpään korttiin) tai pisteitä klikkaamalla. filterTaps pitää
 // kortin klikkauksen (linkin) toimivana.
 const HERO_EASE = "transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)";
+// Pieni väli korttien välissä (näkyy swipessä); huomioidaan translatessa niin
+// että lepotilassa kortti on silti täysleveä.
+const HERO_GAP = 12; // px, must match .ahma-hero-track gap
+const heroTrackX = (i) => `translate3d(calc(${-i * 100}% - ${i * HERO_GAP}px), 0, 0)`;
 const HeroCarousel = ({ matches }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const cards = matches.length > 0 ? matches : [null];
@@ -201,7 +205,7 @@ const HeroCarousel = ({ matches }) => {
     const track = trackRef.current;
     if (!track) return;
     track.style.transition = HERO_EASE;
-    track.style.transform = `translate3d(${-safeIndex * 100}%, 0, 0)`;
+    track.style.transform = heroTrackX(safeIndex);
   }, [safeIndex]);
 
   // Drag-follow: track seuraa sormea livenä, vapautuksessa napsahtaa lähimpään.
@@ -212,7 +216,7 @@ const HeroCarousel = ({ matches }) => {
       const width = track.parentElement?.clientWidth || window.innerWidth;
       if (active) {
         track.style.transition = "none";
-        track.style.transform = `translate3d(calc(${-safeIndex * 100}% + ${mx}px), 0, 0)`;
+        track.style.transform = `translate3d(calc(${-safeIndex * 100}% - ${safeIndex * HERO_GAP}px + ${mx}px), 0, 0)`;
         return;
       }
       const threshold = width * 0.2;
@@ -221,7 +225,7 @@ const HeroCarousel = ({ matches }) => {
       if (mx <= -threshold || (mx < -10 && fast)) next = Math.min(safeIndex + 1, cards.length - 1);
       else if (mx >= threshold || (mx > 10 && fast)) next = Math.max(safeIndex - 1, 0);
       track.style.transition = HERO_EASE;
-      track.style.transform = `translate3d(${-next * 100}%, 0, 0)`;
+      track.style.transform = heroTrackX(next);
       if (next !== safeIndex) setActiveIndex(next);
     },
     { axis: "x", filterTaps: true, pointer: { touch: true } }
@@ -569,6 +573,7 @@ body { margin: 0; }
 /* Liukuva track: kaikki kortit vierekkäin, translateX vaihtaa näkyvän. */
 .ahma-hero-track{
   display: flex;
+  gap: 12px;
   will-change: transform;
 }
 .ahma-hero-slide{
