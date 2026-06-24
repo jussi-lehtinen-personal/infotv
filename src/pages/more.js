@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { LuMail, LuSettings, LuHeart, LuChevronRight } from "react-icons/lu";
+import { LuMail, LuSettings, LuHeart, LuMessageSquare, LuChevronRight } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 
@@ -28,6 +28,11 @@ const More = () => {
             to="/supporters"
             icon={<LuHeart />}
             label="Kannattajajäsenet"
+          />
+          <ExternalRow
+            href="https://forms.office.com/pages/responsepage.aspx?id=lnGL4VX2Lku9oA4GU2KdCUogyNsQep9AiquFHORrgR1UN1ZONVk2VTEzSDJHS0QwN0EyQzlWTFNJMy4u&route=shorturl"
+            icon={<LuMessageSquare />}
+            label="Palaute"
           />
           <InternalRow
             to="/settings"

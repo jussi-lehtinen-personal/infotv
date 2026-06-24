@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDrag } from "@use-gesture/react";
 import {
@@ -185,34 +185,65 @@ const formatMatchDate = (m) => {
 // hero-kuvalla. Empty-fallbackin slot 0 saa hero_1.
 const HERO_BACKGROUNDS = ["/hero_1.png", "/hero_2.png", "/hero_3.png"];
 
-// Karusellin wrapper — näyttää aktiivisen kortin täysleveänä, dots indikoi
-// muut. Vaihto joko pisteitä klikkaamalla tai swipe-eleellä (vaaka).
+// Karusellin wrapper — liukuva track. Vaihto swipe-eleellä (vaaka, seuraa sormea
+// ja napsahtaa lähimpään korttiin) tai pisteitä klikkaamalla. filterTaps pitää
+// kortin klikkauksen (linkin) toimivana.
+const HERO_EASE = "transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)";
 const HeroCarousel = ({ matches }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const cards = matches.length > 0 ? matches : [null];
   const safeIndex = Math.min(activeIndex, cards.length - 1);
-  const bgImage = HERO_BACKGROUNDS[safeIndex % HERO_BACKGROUNDS.length];
+  const swipeable = cards.length > 1;
+  const trackRef = useRef(null);
 
-  // Swipe vasemmalle = seuraava kortti, oikealle = edellinen. filterTaps pitää
-  // kortin klikkauksen (linkin) toimivana; touch-action: pan-y sallii pystyscrollin.
+  // Aseta track-paikka mountissa + kun indeksi muuttuu (piste-klikki / drag).
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transition = HERO_EASE;
+    track.style.transform = `translate3d(${-safeIndex * 100}%, 0, 0)`;
+  }, [safeIndex]);
+
+  // Drag-follow: track seuraa sormea livenä, vapautuksessa napsahtaa lähimpään.
   const bind = useDrag(
-    ({ last, swipe: [sx], movement: [mx] }) => {
-      if (!last) return;
-      const dir = sx || (mx < -50 ? -1 : mx > 50 ? 1 : 0);
-      if (dir < 0) setActiveIndex((i) => Math.min(i + 1, cards.length - 1));
-      else if (dir > 0) setActiveIndex((i) => Math.max(i - 1, 0));
+    ({ active, movement: [mx], velocity: [vx] }) => {
+      const track = trackRef.current;
+      if (!track) return;
+      const width = track.parentElement?.clientWidth || window.innerWidth;
+      if (active) {
+        track.style.transition = "none";
+        track.style.transform = `translate3d(calc(${-safeIndex * 100}% + ${mx}px), 0, 0)`;
+        return;
+      }
+      const threshold = width * 0.2;
+      const fast = Math.abs(vx) > 0.4;
+      let next = safeIndex;
+      if (mx <= -threshold || (mx < -10 && fast)) next = Math.min(safeIndex + 1, cards.length - 1);
+      else if (mx >= threshold || (mx > 10 && fast)) next = Math.max(safeIndex - 1, 0);
+      track.style.transition = HERO_EASE;
+      track.style.transform = `translate3d(${-next * 100}%, 0, 0)`;
+      if (next !== safeIndex) setActiveIndex(next);
     },
-    { axis: "x", filterTaps: true }
+    { axis: "x", filterTaps: true, pointer: { touch: true } }
   );
 
-  const swipeable = cards.length > 1;
   return (
-    <div
-      className="ahma-hero-carousel"
-      {...(swipeable ? bind() : {})}
-      style={swipeable ? { touchAction: "pan-y" } : undefined}
-    >
-      <HeroMatchCard match={cards[safeIndex]} backgroundImage={bgImage} />
+    <div className="ahma-hero-carousel">
+      <div
+        className="ahma-hero-track"
+        ref={trackRef}
+        {...(swipeable ? bind() : {})}
+        style={swipeable ? { touchAction: "pan-y" } : undefined}
+      >
+        {cards.map((card, i) => (
+          <div className="ahma-hero-slide" key={i}>
+            <HeroMatchCard
+              match={card}
+              backgroundImage={HERO_BACKGROUNDS[i % HERO_BACKGROUNDS.length]}
+            />
+          </div>
+        ))}
+      </div>
       {cards.length > 1 && (
         <div className="ahma-hero-dots">
           {cards.map((_, i) => (
@@ -531,6 +562,18 @@ body { margin: 0; }
 /* Carousel-wrapper — sisältää kortin + dots-rivin alla */
 .ahma-hero-carousel{
   position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-item);
+}
+
+/* Liukuva track: kaikki kortit vierekkäin, translateX vaihtaa näkyvän. */
+.ahma-hero-track{
+  display: flex;
+  will-change: transform;
+}
+.ahma-hero-slide{
+  flex: 0 0 100%;
+  min-width: 0;
 }
 
 /* Carousel-pisteet — kortin alla erillisenä rivinä, klikattavissa.

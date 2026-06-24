@@ -666,8 +666,9 @@ html, body, #root{
   gap: 14px;
   /* Reserve clearance below the last card so it scrolls cleanly above
      the BottomNav. Combined with .gz-root having no bottom padding, the
-     scroll area extends behind the bar. */
-  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
+     scroll area extends behind the bar. Extra 28px so the last game isn't
+     flush against the bar. */
+  padding-bottom: calc(var(--ui-bottom-nav-clearance, 80px) + 28px);
 }
 
 .gz-dayblock{
