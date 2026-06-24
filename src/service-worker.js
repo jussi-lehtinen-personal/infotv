@@ -78,7 +78,7 @@ registerRoute(
     cacheName: 'team-logos',
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 100,
+        maxEntries: 300, // league-wide distinct logos; deduped by image file
         maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
       }),
     ],

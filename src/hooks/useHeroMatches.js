@@ -38,10 +38,25 @@ const isoDate = (d) => d.toISOString().slice(0, 10);
 //      tulevat näkyviin järkevässä ajassa.
 const LIVE_POLL_MS = 60_000;
 const IDLE_POLL_MS = 5 * 60_000;
+const CACHE_KEY = "ahma.heroMatches.v1";
+
+// Show last session's hero cards instantly (filtered to still-upcoming/live),
+// then refresh in the background — avoids a multi-second blank hero on every
+// visit.
+const loadCached = () => {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+    const arr = Array.isArray(c && c.matches) ? c.matches : [];
+    const now = new Date();
+    return arr.filter((m) => isLiveMatch(m) || parseMatchDate(m.date) > now);
+  } catch {
+    return [];
+  }
+};
 
 export function useHeroMatches() {
-  const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [matches, setMatches] = useState(loadCached);
+  const [loading, setLoading] = useState(() => matches.length === 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,24 +79,25 @@ export function useHeroMatches() {
       const isFutureOrLive = (m) =>
         isLiveMatch(m) || parseMatchDate(m.date) > now;
 
-      // Hae eteenpäin 2 viikon rinnakkaiserissä, kunnes löytyy tarpeeksi tulevia
-      // pelejä. Hoitaa pitkän kesätauon (seuraava peli voi olla viikkojen päässä)
-      // ja pysyy nopeana kaudella (ensimmäinen erä yleensä riittää). Kattona
-      // MAX_WEEKS, ettei skannata loputtomiin.
-      const MAX_WEEKS = 12;
+      // Hae tulevat pelit korkeintaan kahdessa round-tripissä, ettei lataus veny:
+      // 1) kuluva + seuraava viikko (riittää kaudella), 2) jos ei vielä tarpeeksi,
+      // loput ~10 viikkoa kerralla rinnakkain (hoitaa pitkän kesätauon).
+      const fetchWeeks = (offsets) =>
+        Promise.all(offsets.map((w) => fetchWeek(new Date(now.getTime() + w * 7 * 86400000))));
       const seen = new Set();
       const allMatches = [];
-      for (let base = 0; base < MAX_WEEKS; base += 2) {
-        const batch = await Promise.all([
-          fetchWeek(new Date(now.getTime() + base * 7 * 86400000)),
-          fetchWeek(new Date(now.getTime() + (base + 1) * 7 * 86400000)),
-        ]);
-        for (const m of batch.flat()) {
+      const collect = (arrs) => {
+        for (const m of arrs.flat()) {
           if (!m.id || seen.has(m.id)) continue;
           seen.add(m.id);
           allMatches.push(m);
         }
-        if (allMatches.filter(isFutureOrLive).length >= 3) break;
+      };
+      const enough = () => allMatches.filter(isFutureOrLive).length >= 3;
+
+      collect(await fetchWeeks([0, 1]));
+      if (!enough()) {
+        collect(await fetchWeeks([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]));
       }
 
       const sortLiveFirst = (a, b) => {
@@ -126,6 +142,11 @@ export function useHeroMatches() {
       if (cancelled) return;
       setMatches(cards);
       setLoading(false);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ matches: cards, ts: Date.now() }));
+      } catch {
+        /* ignore quota / private-mode errors */
+      }
 
       // Aikatauluta seuraava päivitys: tihennä jos LIVE-peli on listassa.
       const hasLive = cards.some(isLiveMatch);

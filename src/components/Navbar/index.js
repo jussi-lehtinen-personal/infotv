@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useDrag } from "@use-gesture/react";
 import {
   LuShoppingBag,
   LuChevronRight,
@@ -185,16 +186,32 @@ const formatMatchDate = (m) => {
 const HERO_BACKGROUNDS = ["/hero_1.png", "/hero_2.png", "/hero_3.png"];
 
 // Karusellin wrapper — näyttää aktiivisen kortin täysleveänä, dots indikoi
-// muut. Klikkaamalla pisteitä vaihtaa korttia. Ei swipe-elettä alkuvaiheessa
-// — voidaan lisätä myöhemmin samaan tapaan kuin /gamezone-sivulla.
+// muut. Vaihto joko pisteitä klikkaamalla tai swipe-eleellä (vaaka).
 const HeroCarousel = ({ matches }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const cards = matches.length > 0 ? matches : [null];
   const safeIndex = Math.min(activeIndex, cards.length - 1);
   const bgImage = HERO_BACKGROUNDS[safeIndex % HERO_BACKGROUNDS.length];
 
+  // Swipe vasemmalle = seuraava kortti, oikealle = edellinen. filterTaps pitää
+  // kortin klikkauksen (linkin) toimivana; touch-action: pan-y sallii pystyscrollin.
+  const bind = useDrag(
+    ({ last, swipe: [sx], movement: [mx] }) => {
+      if (!last) return;
+      const dir = sx || (mx < -50 ? -1 : mx > 50 ? 1 : 0);
+      if (dir < 0) setActiveIndex((i) => Math.min(i + 1, cards.length - 1));
+      else if (dir > 0) setActiveIndex((i) => Math.max(i - 1, 0));
+    },
+    { axis: "x", filterTaps: true }
+  );
+
+  const swipeable = cards.length > 1;
   return (
-    <div className="ahma-hero-carousel">
+    <div
+      className="ahma-hero-carousel"
+      {...(swipeable ? bind() : {})}
+      style={swipeable ? { touchAction: "pan-y" } : undefined}
+    >
       <HeroMatchCard match={cards[safeIndex]} backgroundImage={bgImage} />
       {cards.length > 1 && (
         <div className="ahma-hero-dots">

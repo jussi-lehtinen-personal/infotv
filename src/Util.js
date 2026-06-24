@@ -113,13 +113,25 @@ function simplifyLevel(level) {
   return s;
 }
 
+// Proxy a tulospalvelu logo URL through /api/getImage, keyed by the image FILE
+// (e.g. "10114407.png") — NOT the per-game teamId. The same team appears under
+// many teamIds, so a teamId key fragmented the browser/SW/function caches and
+// made identical logos on later weeks refetch (and sometimes drop). Keying by the
+// image makes a logo load once and reuse everywhere.
+const logoProxy = (url) => {
+  if (!url) return url;
+  const file = String(url).split("/").pop().split("?")[0];
+  if (!file) return url; // no image filename -> leave as-is
+  return "/api/getImage/" + file + "?uri=" + url;
+};
+
 export const processIncomingDataEvents = (events) => {
     var dataItems = []
     events.map((data) => 
     {
         if (!dev) {
-            data.home_logo = "/api/getImage/" + data.homeTeamId + "?uri=" + data.home_logo;
-            data.away_logo = "/api/getImage/" + data.awayTeamId + "?uri=" + data.away_logo;
+            data.home_logo = logoProxy(data.home_logo);
+            data.away_logo = logoProxy(data.away_logo);
         }
         data.level = simplifyLevel(data.level)
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
@@ -148,8 +160,8 @@ export const processIncomingDataEventsDoNotStrip = (events) => {
     events.map((data) => 
     {
         if (!dev) {
-            data.home_logo = "/api/getImage/" + data.homeTeamId + "?uri=" + data.home_logo;
-            data.away_logo = "/api/getImage/" + data.awayTeamId + "?uri=" + data.away_logo;
+            data.home_logo = logoProxy(data.home_logo);
+            data.away_logo = logoProxy(data.away_logo);
         }
 
         data.isFree = data.level !== 'II-divisioona'
