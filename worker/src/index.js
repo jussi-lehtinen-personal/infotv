@@ -268,11 +268,33 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // Image proxy: fetch a tulospalvelu logo (static file, no CSRF needed) and
+    // return it with CORS so the Azure proxy / canvas pages can use it.
+    if (url.pathname === "/getImage") {
+      const target = url.searchParams.get("uri");
+      if (!target || !target.startsWith(ORIGIN + "/")) return json({ error: "bad uri" }, 400);
+      try {
+        const img = await fetch(target, { headers: { "User-Agent": UA, Accept: "image/avif,image/webp,image/png,*/*;q=0.8" } });
+        if (!img.ok) return json({ error: `image HTTP ${img.status}` }, 502);
+        return new Response(img.body, {
+          status: 200,
+          headers: {
+            "content-type": img.headers.get("content-type") || "image/png",
+            "cache-control": "public, max-age=86400",
+            "access-control-allow-origin": "*",
+          },
+        });
+      } catch (e) {
+        return json({ error: String((e && e.message) || e) }, 502);
+      }
+    }
+
     try {
       const session = await bootstrap();
       if (url.pathname === "/getTeams") return json(await handleGetTeams(url, session));
       if (url.pathname === "/getGames") return json(await handleGetGames(url, session));
-      return json({ error: "not found", paths: ["/getTeams", "/getGames"] }, 404);
+      return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
     }
