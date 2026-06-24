@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { LuArrowLeft, LuShirt, LuUsers, LuPhone, LuMail } from "react-icons/lu";
 import { themeCSS } from "../theme";
-import { Surface } from "../components/ui/Surface";
-import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
 import { findJopoxTeam } from "../data/jopoxTeams";
+
+// Hero image. Swap to a real per-team hero photo later.
+const HERO_PLACEHOLDER = "/gamezone_3d.png";
 
 const isGoalie = (p) => /maalivahti|goalie|gk/i.test(p.position || "");
 const byNumber = (a, b) => {
@@ -13,61 +15,52 @@ const byNumber = (a, b) => {
   return na - nb;
 };
 
-const Avatar = ({ photo, label }) => {
+// "KAUSI 2026–2027" — the hockey season rolls to the next one in late spring
+// (the previous one ends ~May/June), matching tulospalvelu's "current" season.
+const seasonLabel = () => {
+  const d = new Date();
+  const start = d.getMonth() >= 5 ? d.getFullYear() : d.getFullYear() - 1;
+  return `KAUSI ${start}–${start + 1}`;
+};
+
+const Avatar = ({ photo, className }) => {
   const [failed, setFailed] = useState(false);
   if (photo && !failed) {
-    return <img className="tm-avatar" src={photo} alt="" loading="lazy" onError={() => setFailed(true)} />;
+    return (
+      <img className={className} src={photo} alt="" loading="lazy" onError={() => setFailed(true)} />
+    );
   }
   return (
-    <div className="tm-avatar tm-avatar--ph" aria-hidden="true">
+    <div className={`${className} tm-av--ph`} aria-hidden="true">
       <span className="material-symbols-rounded">&#xE7FD;</span>
-      {label ? <span className="tm-avatar-label">{label}</span> : null}
     </div>
   );
 };
 
 const PlayerCard = ({ p }) => (
-  <div className="tm-player">
-    <Avatar photo={p.photo} label={p.number} />
-    <div className="tm-player-info">
-      <div className="tm-player-name">
-        {p.firstName} {p.lastName}
+  <div className="tm-pcard">
+    <Avatar photo={p.photo} className="tm-pphoto" />
+    <div className="tm-pinfo">
+      <div className="tm-pnum">
+        {p.number != null ? p.number : ""}
         {p.captain ? <span className="tm-badge">C</span> : null}
         {p.viceCaptain ? <span className="tm-badge">A</span> : null}
       </div>
-      <div className="tm-player-meta">
-        {p.number != null ? `#${p.number}` : ""}
-        {p.position ? `${p.number != null ? " · " : ""}${p.position}` : ""}
-      </div>
+      <div className="tm-pname">{p.firstName}</div>
+      <div className="tm-pname">{p.lastName}</div>
+      {p.position && <div className="tm-ppos">{p.position}</div>}
     </div>
   </div>
 );
 
-const OfficialCard = ({ o }) => {
-  const hasContact = o.email || o.phone;
-  return (
-    <div className={`tm-official${hasContact ? " tm-official--lead" : ""}`}>
-      <Avatar photo={o.photo} />
-      <div className="tm-official-info">
-        <div className="tm-official-name">{o.name}</div>
-        <div className="tm-official-role">{o.role}</div>
-        {hasContact && (
-          <div className="tm-official-contact">
-            {o.email && <a href={`mailto:${o.email}`}>{o.email}</a>}
-            {o.phone && <a href={`tel:${o.phone.replace(/\s+/g, "")}`}>{o.phone}</a>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const Team = () => {
   const { subsiteId } = useParams();
+  const navigate = useNavigate();
   const known = findJopoxTeam(subsiteId);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [tab, setTab] = useState("players");
 
   useEffect(() => {
     let cancelled = false;
@@ -90,87 +83,137 @@ const Team = () => {
     };
   }, [subsiteId]);
 
-  const title = data?.teamName || known?.name || "Joukkue";
-
-  // officials: contacts first (head coach + manager), then the rest
-  const officials = (data?.officials || [])
-    .slice()
-    .sort((a, b) => (b.email || b.phone ? 1 : 0) - (a.email || a.phone ? 1 : 0));
+  const heroTitle = `Kiekko-Ahma ${known?.name || data?.teamName || ""}`.trim();
 
   const players = data?.players || [];
   const field = players.filter((p) => !isGoalie(p)).sort(byNumber);
   const goalies = players.filter(isGoalie).sort(byNumber);
+  const officials = data?.officials || [];
+  const contacts = officials.filter((o) => o.email || o.phone);
 
   return (
     <>
       <style>{css}</style>
       <div className="tm-root">
-        <Surface className="tm-card">
-          <PageHeader
-            title={title}
-            subtitle={known?.sub || null}
-            left={
-              <Link to="/teams" className="tm-back" aria-label="Takaisin">
-                <span className="material-symbols-rounded">&#xE5CB;</span>
-              </Link>
-            }
-          />
+        {/* HERO (placeholder = centered Ahma logo; swap to a per-team photo later) */}
+        <div className="tm-hero">
+          <img className="tm-hero-logo" src={HERO_PLACEHOLDER} alt="" />
+          <div className="tm-hero-top">
+            <button className="tm-icon-btn" onClick={() => navigate("/teams")} aria-label="Takaisin">
+              <LuArrowLeft />
+            </button>
+          </div>
+          <div className="tm-hero-scrim" />
+          <div className="tm-hero-titles">
+            <h1 className="tm-hero-name">{heroTitle}</h1>
+            <div className="tm-hero-season">{seasonLabel()}</div>
+          </div>
+        </div>
 
+        {/* TABS */}
+        <div className="tm-tabs" role="tablist">
+          {[
+            ["players", "Pelaajat", LuShirt],
+            ["officials", "Toimihenkilöt", LuUsers],
+            ["contacts", "Yhteystiedot", LuPhone],
+          ].map(([key, label, Icon]) => (
+            <button
+              key={key}
+              role="tab"
+              className={`tm-tab${tab === key ? " tm-tab--active" : ""}`}
+              onClick={() => setTab(key)}
+            >
+              <Icon className="tm-tab-ico" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* CONTENT */}
+        <div className="tm-content">
           {loading && (
-            <div className="tm-status">
-              <Spinner />
-            </div>
+            <div className="tm-status"><Spinner /></div>
           )}
-
           {error && (
             <div className="tm-status tm-status--error">
               Joukkueen tietoja ei saatu haettua. Yritä myöhemmin uudelleen.
             </div>
           )}
 
-          {!loading && !error && data && (
+          {!loading && !error && data && tab === "players" && (
             <>
               {data.description && <p className="tm-desc">{data.description}</p>}
-
-              {officials.length > 0 && (
-                <section className="tm-section">
-                  <h2 className="tm-section-title">Toimihenkilöt</h2>
-                  <div className="tm-officials">
-                    {officials.map((o, i) => (
-                      <OfficialCard key={i} o={o} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {field.length > 0 && (
-                <section className="tm-section">
-                  <h2 className="tm-section-title">Pelaajat</h2>
-                  <div className="tm-roster">
-                    {field.map((p, i) => (
-                      <PlayerCard key={i} p={p} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
+              <h2 className="tm-h">Pelaajat <span className="tm-count">({field.length})</span></h2>
+              <div className="tm-grid">
+                {field.map((p, i) => <PlayerCard key={i} p={p} />)}
+              </div>
               {goalies.length > 0 && (
-                <section className="tm-section">
-                  <h2 className="tm-section-title">Maalivahdit</h2>
-                  <div className="tm-roster">
-                    {goalies.map((p, i) => (
-                      <PlayerCard key={i} p={p} />
-                    ))}
+                <>
+                  <h2 className="tm-h">Maalivahdit <span className="tm-count">({goalies.length})</span></h2>
+                  <div className="tm-grid">
+                    {goalies.map((p, i) => <PlayerCard key={i} p={p} />)}
                   </div>
-                </section>
+                </>
               )}
-
-              {players.length === 0 && officials.length === 0 && (
-                <div className="tm-status">Ei kokoonpanoa saatavilla.</div>
-              )}
+              {players.length === 0 && <div className="tm-status">Ei kokoonpanoa saatavilla.</div>}
             </>
           )}
-        </Surface>
+
+          {!loading && !error && data && tab === "officials" && (
+            <>
+              <h2 className="tm-h">Toimihenkilöt <span className="tm-count">({officials.length})</span></h2>
+              <div className="tm-list">
+                {officials.map((o, i) => (
+                  <div className="tm-orow" key={i}>
+                    <Avatar photo={o.photo} className="tm-ophoto" />
+                    <div className="tm-oinfo">
+                      <div className="tm-oname">{o.name}</div>
+                      <div className="tm-orole">{o.role}</div>
+                    </div>
+                  </div>
+                ))}
+                {officials.length === 0 && <div className="tm-status">Ei toimihenkilöitä.</div>}
+              </div>
+            </>
+          )}
+
+          {!loading && !error && data && tab === "contacts" && (
+            <div className="tm-contacts">
+              {contacts.map((o, i) => {
+                const tel = o.phone ? `tel:${o.phone.replace(/\s+/g, "")}` : null;
+                const mail = o.email ? `mailto:${o.email}` : null;
+                return (
+                  <div className="tm-ccard" key={i}>
+                    <div className="tm-chead">
+                      <Avatar photo={o.photo} className="tm-cavatar" />
+                      <div className="tm-cmain">
+                        <div className="tm-crole">{o.role}</div>
+                        <div className="tm-cname">{o.name}</div>
+                      </div>
+                      <div className="tm-cactions">
+                        {tel && <a className="tm-cbtn" href={tel} aria-label="Soita"><LuPhone /></a>}
+                        {mail && <a className="tm-cbtn" href={mail} aria-label="Sähköposti"><LuMail /></a>}
+                      </div>
+                    </div>
+                    {o.phone && (
+                      <a className="tm-crow" href={tel}>
+                        <span className="tm-cico"><LuPhone /></span>
+                        <span>{o.phone}</span>
+                      </a>
+                    )}
+                    {o.email && (
+                      <a className="tm-crow" href={mail}>
+                        <span className="tm-cico"><LuMail /></span>
+                        <span>{o.email}</span>
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+              {contacts.length === 0 && <div className="tm-status">Ei yhteystietoja.</div>}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
@@ -187,110 +230,207 @@ body { margin: 0; }
 
 .tm-root {
   min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
-  background: var(--bg-gradient);
+  background: #0a0b0e;
   font-family: var(--font-family-base);
+  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
 }
-.tm-card { width: 100%; max-width: 640px; }
 
-.tm-card .ui-page-header {
-  margin-bottom: 14px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+/* HERO */
+.tm-hero {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 30%, rgba(245,158,11,0.10), rgba(12,14,19,0) 60%),
+    #0c0e13;
 }
-.tm-back {
-  display: flex; align-items: center;
-  color: rgba(255,255,255,0.6);
-  text-decoration: none; border-radius: 10px; padding: 2px;
-  transition: color 0.15s;
+/* Hero image — fills the whole hero area. */
+.tm-hero-logo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
-.tm-back:hover { color: var(--color-primary); }
-.tm-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
-
-.tm-status { text-align: center; padding: 28px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
-.tm-status--error { color: var(--color-loss); }
-
-.tm-desc { color: var(--gz-text-secondary); font-size: var(--gz-fs-sm); margin: 0 0 16px; }
-
-.tm-section { margin-bottom: 22px; }
-.tm-section:last-child { margin-bottom: 0; }
-.tm-section-title {
+.tm-hero-top {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: calc(env(safe-area-inset-top) + 12px) 14px 0;
+  z-index: 2;
+}
+.tm-icon-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(0,0,0,0.38); backdrop-filter: blur(6px);
+  border: none; color: #fff; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tm-icon-btn svg { width: 22px; height: 22px; }
+.tm-hero-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(8,10,15,0.15) 0%, rgba(8,10,15,0) 35%, rgba(8,10,15,0.55) 72%, var(--color-bg) 100%);
+}
+.tm-hero-titles {
+  position: absolute; left: 0; right: 0; bottom: 12px;
+  padding: 0 18px; z-index: 1;
+  text-align: center;
+}
+.tm-hero-name {
+  margin: 0;
+  font-size: clamp(26px, 7vw, 34px);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+.tm-hero-season {
+  margin-top: 2px;
   font-size: var(--gz-fs-sm);
   font-weight: var(--gz-fw-bold);
   letter-spacing: var(--gz-ls-wide);
+  color: rgba(255,255,255,0.72);
+}
+
+/* TABS */
+.tm-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  position: sticky; top: 0; z-index: 3;
+  background: var(--color-bg);
+}
+.tm-tab {
+  flex: 1 1 0;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 10px 6px;
+  background: none; border: none;
+  color: var(--gz-text-tertiary);
+  font-size: var(--gz-fs-sm);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tm-tab-ico { width: 20px; height: 20px; flex: 0 0 auto; }
+.tm-tab--active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+/* CONTENT */
+.tm-content { padding: 16px 12px 0; max-width: 760px; margin: 0 auto; }
+.tm-status { text-align: center; padding: 28px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
+.tm-status--error { color: var(--color-loss); }
+.tm-desc { color: var(--gz-text-secondary); font-size: var(--gz-fs-sm); margin: 0 0 14px; }
+
+.tm-h {
+  font-size: var(--gz-fs-md);
+  font-weight: 800;
+  letter-spacing: var(--gz-ls-wide);
   text-transform: uppercase;
-  color: var(--color-primary);
-  margin: 0 0 10px;
+  color: var(--gz-text-primary);
+  margin: 8px 0 10px;
 }
+.tm-count { color: var(--gz-text-tertiary); font-weight: var(--gz-fw-regular); }
 
-/* AVATAR */
-.tm-avatar {
-  flex: 0 0 auto;
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-}
-.tm-avatar--ph {
-  display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,0.30);
-  position: relative;
-}
-.tm-avatar--ph .material-symbols-rounded { font-size: 30px; line-height: 1; }
-.tm-avatar-label {
-  position: absolute; bottom: -2px; right: -2px;
-  background: var(--color-primary); color: #111;
-  font-size: 11px; font-weight: 800;
-  min-width: 18px; height: 18px; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center; padding: 0 4px;
-}
-
-/* OFFICIALS */
-.tm-officials { display: flex; flex-direction: column; gap: 8px; }
-.tm-official {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-item);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
-}
-.tm-official--lead { background: rgba(245,158,11,0.10); border-color: rgba(245,158,11,0.30); }
-.tm-official-info { min-width: 0; }
-.tm-official-name { font-weight: var(--gz-fw-bold); color: var(--gz-text-primary); }
-.tm-official-role { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); text-transform: uppercase; letter-spacing: var(--gz-ls-wide); }
-.tm-official-contact { margin-top: 4px; display: flex; flex-direction: column; gap: 1px; }
-.tm-official-contact a { color: var(--color-primary); text-decoration: none; font-size: var(--gz-fs-xs); }
-.tm-official-contact a:hover { text-decoration: underline; }
-
-/* ROSTER */
-.tm-roster {
+/* PLAYER GRID (2 columns) */
+.tm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  margin-bottom: 18px;
 }
-.tm-player {
+.tm-pcard {
   display: flex; align-items: center; gap: 12px;
-  padding: 8px 12px;
+  padding: 10px;
   border-radius: var(--radius-item);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.06);
 }
-.tm-player-info { min-width: 0; }
-.tm-player-name { font-weight: var(--gz-fw-bold); color: var(--gz-text-primary); }
-.tm-player-meta { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
+.tm-pphoto {
+  flex: 0 0 auto; width: 62px; height: 80px;
+  border-radius: 10px;
+  /* cover = never stretches (preserves aspect); top = keep the head, crop legs */
+  object-fit: cover; object-position: center top;
+  background: rgba(255,255,255,0.05);
+}
+.tm-pinfo { min-width: 0; line-height: 1.18; }
+.tm-pnum { font-size: 17px; font-weight: 800; color: var(--color-primary); }
+.tm-pname { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-medium); color: var(--gz-text-primary); }
+.tm-ppos { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 2px; }
 .tm-badge {
   display: inline-block; margin-left: 6px;
   font-size: 10px; font-weight: 800; color: var(--color-primary);
-  border: 1px solid var(--color-primary); border-radius: 4px;
-  padding: 0 3px; vertical-align: middle;
+  border: 1px solid var(--color-primary); border-radius: 4px; padding: 0 3px;
+  vertical-align: middle;
 }
 
+/* OFFICIALS / CONTACTS (single column) */
+.tm-list { display: flex; flex-direction: column; gap: 8px; }
+.tm-orow {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-item);
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.tm-orow--contact { background: rgba(245,158,11,0.09); border-color: rgba(245,158,11,0.28); }
+.tm-ophoto {
+  flex: 0 0 auto; width: 62px; height: 80px;
+  border-radius: 10px;
+  object-fit: cover; object-position: center top;
+  background: rgba(255,255,255,0.05);
+}
+.tm-av--ph {
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.28);
+}
+.tm-av--ph .material-symbols-rounded { font-size: 26px; }
+.tm-pphoto.tm-av--ph .material-symbols-rounded { font-size: 30px; }
+.tm-oinfo { min-width: 0; }
+.tm-oname { font-weight: var(--gz-fw-bold); color: var(--gz-text-primary); }
+.tm-orole { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); text-transform: uppercase; letter-spacing: var(--gz-ls-wide); }
+/* CONTACTS tab — richer cards (round avatar + role/name + call/mail) */
+.tm-contacts { display: flex; flex-direction: column; gap: 12px; }
+.tm-ccard {
+  border-radius: var(--radius-card);
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 14px;
+}
+.tm-chead { display: flex; align-items: center; gap: 12px; }
+.tm-cavatar {
+  flex: 0 0 auto; width: 58px; height: 58px;
+  border-radius: 50%;
+  object-fit: cover; object-position: center top;
+  background: rgba(255,255,255,0.06);
+}
+.tm-cmain { flex: 1 1 auto; min-width: 0; }
+.tm-crole { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); text-transform: uppercase; letter-spacing: var(--gz-ls-wide); }
+.tm-cname { font-size: var(--gz-fs-lg); font-weight: 800; color: var(--gz-text-primary); }
+.tm-cactions { display: flex; gap: 8px; flex: 0 0 auto; }
+.tm-cbtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  color: #fff; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tm-cbtn:active { background: rgba(255,255,255,0.10); }
+.tm-cbtn svg { width: 19px; height: 19px; }
+.tm-crow {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 12px; text-decoration: none;
+  color: var(--gz-text-secondary); font-size: var(--gz-fs-sm);
+}
+.tm-cico { display: flex; flex: 0 0 auto; color: var(--color-primary); }
+.tm-cico svg { width: 18px; height: 18px; }
+.tm-crow span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
 @media (min-width: 768px) {
-  .tm-root { padding: 26px 26px 28px; }
-  .tm-card { padding: 16px; }
+  .tm-grid { grid-template-columns: repeat(3, 1fr); }
 }
 `;
