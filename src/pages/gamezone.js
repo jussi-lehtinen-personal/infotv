@@ -18,6 +18,7 @@ import { NavButton, ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
 import { TopProgressBar } from "../components/ui/TopProgressBar";
 import { useWeekData } from "../hooks/useWeekData";
+import { isLiveMatch } from "../hooks/useHeroMatches";
 
 moment.locale("fi");
 
@@ -417,15 +418,9 @@ function MatchRow({ match, onClick }) {
   const level = simplifyLevel(match.level ?? "");
 
   const finishedType = Number(match.finished);
-  // A game is "live" only when it's not finished AND has actual goal values
-  // present. The backend returns "" for not-yet-started games, which the
-  // older `!= null` check let through and painted not-yet-played games red.
-  // Real live games at 0-0 still pass because their goals are the string
-  // "0" — non-empty, so distinguishable from "".
-  const hasGoalValues =
-    match.home_goals != null && match.home_goals !== "" &&
-    match.away_goals != null && match.away_goals !== "";
-  const isLive = finishedType === 0 && hasGoalValues;
+  // Live only if the game has actually started (shared helper) — the API returns
+  // 0-0 goals for future games too, so a goal-value check flags them as live.
+  const isLive = isLiveMatch(match);
   const isFinished = finishedType > 0;
 
   const homeGoals = isLive || isFinished ? match.home_goals ?? "" : "";

@@ -14,6 +14,7 @@ import { NavButton, ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
 import { TopProgressBar } from "../components/ui/TopProgressBar";
 import { useWeekData } from "../hooks/useWeekData";
+import { isLiveMatch } from "../hooks/useHeroMatches";
 
 moment.locale("fi");
 
@@ -546,7 +547,7 @@ function MatchRow({ match, onClick }) {
   const statusClass = "tw-status";
 
   const finishedType = Number(match.finished);
-  const isLive = finishedType === 0 && match.home_goals != null && match.away_goals != null;
+  const isLive = isLiveMatch(match);
   const isFinished = finishedType > 0;
 
   const homeGoals = (isLive || isFinished) ? (match.home_goals ?? "") : "";

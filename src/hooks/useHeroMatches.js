@@ -4,24 +4,23 @@ import {
   isGameForFavouriteTeam,
 } from "../Util";
 
-// Sama LIVE-tunnistuksen logiikka kuin /gamezone-sivun MatchRow:lla:
-// finished === 0 ei riitä, koska backend palauttaa sen myös tulevaisuuden
-// peleille. Vaaditaan että maalit ovat (ei-tyhjä) — silloin peli on aidosti
-// käynnissä.
-export const isLiveMatch = (match) => {
-  if (!match) return false;
-  const finishedType = Number(match.finished);
-  const hasGoalValues =
-    match.home_goals != null &&
-    match.home_goals !== "" &&
-    match.away_goals != null &&
-    match.away_goals !== "";
-  return finishedType === 0 && hasGoalValues;
-};
-
 // API palauttaa muodossa "YYYY-MM-DD HH:mm" — muunnetaan ISO-yhteensopivaksi
 // jotta Date-konstruktori toimii Safarissa.
 export const parseMatchDate = (s) => new Date(String(s).replace(" ", "T"));
+
+// LIVE-tunnistus (yhteinen kaikille sivuille): peli on käynnissä vain jos se on
+// jo ALKANUT eikä ole valmis. finished === 0 ei riitä (backend palauttaa sen myös
+// tulevaisuuden peleille), eikä maalien tarkistus auta — uusi tulospalvelu-API
+// palauttaa tulevallekin pelille 0–0 (numerot, ei tyhjää kuten ennen). Siksi
+// vaaditaan että aloitusaika on mennyt; ~6h ikkuna estää jumiutuneen
+// "finished=0":n näkymästä livenä loputtomiin.
+const LIVE_WINDOW_MS = 6 * 60 * 60_000;
+export const isLiveMatch = (match) => {
+  if (!match) return false;
+  if (Number(match.finished) !== 0) return false;
+  const elapsed = Date.now() - parseMatchDate(match.date).getTime();
+  return elapsed >= 0 && elapsed < LIVE_WINDOW_MS;
+};
 
 const isoDate = (d) => d.toISOString().slice(0, 10);
 
@@ -61,21 +60,29 @@ export function useHeroMatches() {
 
     const fetchAndUpdate = async () => {
       const now = new Date();
-      const [thisWeek, nextWeek] = await Promise.all([
-        fetchWeek(now),
-        fetchWeek(new Date(now.getTime() + 7 * 86400000)),
-      ]);
-      // Dedup viikkojen rajalla — sama peli voi näkyä molemmissa.
-      const seen = new Set();
-      const allMatches = [];
-      for (const m of [...thisWeek, ...nextWeek]) {
-        if (!m.id || seen.has(m.id)) continue;
-        seen.add(m.id);
-        allMatches.push(m);
-      }
 
       const isFutureOrLive = (m) =>
         isLiveMatch(m) || parseMatchDate(m.date) > now;
+
+      // Hae eteenpäin 2 viikon rinnakkaiserissä, kunnes löytyy tarpeeksi tulevia
+      // pelejä. Hoitaa pitkän kesätauon (seuraava peli voi olla viikkojen päässä)
+      // ja pysyy nopeana kaudella (ensimmäinen erä yleensä riittää). Kattona
+      // MAX_WEEKS, ettei skannata loputtomiin.
+      const MAX_WEEKS = 12;
+      const seen = new Set();
+      const allMatches = [];
+      for (let base = 0; base < MAX_WEEKS; base += 2) {
+        const batch = await Promise.all([
+          fetchWeek(new Date(now.getTime() + base * 7 * 86400000)),
+          fetchWeek(new Date(now.getTime() + (base + 1) * 7 * 86400000)),
+        ]);
+        for (const m of batch.flat()) {
+          if (!m.id || seen.has(m.id)) continue;
+          seen.add(m.id);
+          allMatches.push(m);
+        }
+        if (allMatches.filter(isFutureOrLive).length >= 3) break;
+      }
 
       const sortLiveFirst = (a, b) => {
         const aLive = isLiveMatch(a);
