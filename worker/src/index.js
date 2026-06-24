@@ -2,9 +2,11 @@
 //
 // Why this exists: tulospalvelu sits behind a CloudFront/AWS WAF that blocks our
 // Azure SWA egress IPs (West Europe shared pool). Cloudflare's egress passes the
-// WAF, so this Worker does the tulospalvelu work (CSRF bootstrap + helper calls +
-// transforms) and returns final JSON identical in shape to the old Azure
-// getTeams/getGames responses. The Azure functions become thin passthroughs to it.
+// WAF, so this Worker does the tulospalvelu work (helper calls + transforms) and
+// returns final JSON identical in shape to the old Azure getTeams/getGames
+// responses. The Azure functions become thin passthroughs to it.
+// (tulospalvelu dropped its CSRF token / session requirement in 2026, so no
+// bootstrap is needed — plain browser-like headers suffice.)
 //
 // Endpoints:
 //   GET /getTeams?season=YYYY
@@ -20,39 +22,18 @@ const IMAGE_URI = `${ORIGIN}/images/associations/weblogos/200x200/`;
 const HOME_DISTRICT_ID = 2;
 const DISTRICTS_ALL = [1, 2, 3, 4, 5, 6, 7, 8];
 
-/* ----------------------------- session / CSRF ----------------------------- */
+/* ------------------------------- helper GET ------------------------------- */
 
-// Load the landing page to obtain the PHPSESSID cookie + #xsrf-token. One
-// bootstrap per request; all subsequent helper calls happen in the same Worker
-// invocation (same egress), so there are no cross-IP session issues.
-async function bootstrap() {
-  const res = await fetch(`${ORIGIN}/?lang=fi`, {
-    headers: { "User-Agent": UA, Accept: "text/html", "Accept-Language": ACCEPT_LANG },
-  });
-  const html = await res.text();
-  const tm = html.match(/id="xsrf-token"[^>]*value="([^"]+)"/i);
-  const token = tm ? tm[1] : null;
-  const setCookie = res.headers.get("set-cookie") || "";
-  const cm = setCookie.match(/PHPSESSID=([^;]+)/);
-  const cookie = cm ? `PHPSESSID=${cm[1]}` : null;
-  if (!token || !cookie) {
-    throw new Error(
-      `bootstrap failed (status=${res.status}, token=${!!token}, cookie=${!!cookie}, bytes=${html.length})`
-    );
-  }
-  return { token, cookie };
-}
-
-async function tpGet(path, params, session) {
+// tulospalvelu no longer requires a CSRF token / PHPSESSID session (it dropped
+// that in 2026) — plain browser-like headers (UA + x-requested-with) are enough.
+async function tpGet(path, params) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
   const res = await fetch(`${ORIGIN}/${path}${qs}`, {
     headers: {
       "User-Agent": UA,
       Accept: "application/json",
       "Accept-Language": ACCEPT_LANG,
-      "x-csrf-token": session.token,
       "x-requested-with": "XMLHttpRequest",
-      Cookie: session.cookie,
     },
   });
   if (!res.ok) throw new Error(`GET ${path} -> HTTP ${res.status}`);
@@ -60,8 +41,8 @@ async function tpGet(path, params, session) {
 }
 
 // The search endpoint needs a real season number (season=0 is rejected).
-async function getCurrentSeason(session) {
-  const seasons = await tpGet("helpers/getseasons", null, session);
+async function getCurrentSeason() {
+  const seasons = await tpGet("helpers/getseasons", null);
   const cur = Array.isArray(seasons) ? seasons.find((s) => s.current === true) : null;
   if (cur) return cur.SeasonNumber;
   const now = new Date();
@@ -125,13 +106,13 @@ function processGroups(groups) {
   return teams;
 }
 
-async function handleGetTeams(url, session) {
-  const season = url.searchParams.get("season") || String(await getCurrentSeason(session));
+async function handleGetTeams(url) {
+  const season = url.searchParams.get("season") || String(await getCurrentSeason());
   const groups = await tpGet("serie/helpers/search-players-and-teams", {
     season,
     playerName: "",
     teamName: "Valkeakosken Kiekko-Ahma Ry",
-  }, session);
+  });
   return processGroups(Array.isArray(groups) ? groups : []);
 }
 
@@ -155,7 +136,7 @@ function isTruthy(v) {
 }
 
 // Fetch all Kiekko-Ahma games for one day + district (does NOT decide home/away).
-async function fetchDay(dateStr, districtId, session) {
+async function fetchDay(dateStr, districtId) {
   const json = await tpGet("helpers/getgames", {
     season: 0, // active season by date
     subSerieId: 0,
@@ -164,7 +145,7 @@ async function fetchDay(dateStr, districtId, session) {
     gamedays: -1,
     dog: dateStr,
     levelid: -1,
-  }, session);
+  });
 
   const out = [];
   for (const level of Array.isArray(json) ? json : []) {
@@ -202,7 +183,7 @@ async function fetchDay(dateStr, districtId, session) {
   return out;
 }
 
-async function handleGetGames(url, session) {
+async function handleGetGames(url) {
   const now = url.searchParams.has("date") ? new Date(url.searchParams.get("date")) : new Date();
   const includeAway = isTruthy(url.searchParams.get("includeAway"));
 
@@ -230,7 +211,7 @@ async function handleGetGames(url, session) {
     homeFilter = !includeAway;
   }
 
-  const results = await Promise.all(days.flatMap((day) => districts.map((d) => fetchDay(day, d, session))));
+  const results = await Promise.all(days.flatMap((day) => districts.map((d) => fetchDay(day, d))));
   const all = results.flat();
 
   const filtered = homeFilter ? all.filter((x) => x.isHomeGame) : all;
@@ -291,9 +272,8 @@ export default {
     }
 
     try {
-      const session = await bootstrap();
-      if (url.pathname === "/getTeams") return json(await handleGetTeams(url, session));
-      if (url.pathname === "/getGames") return json(await handleGetGames(url, session));
+      if (url.pathname === "/getTeams") return json(await handleGetTeams(url));
+      if (url.pathname === "/getGames") return json(await handleGetGames(url));
       return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
