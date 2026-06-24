@@ -654,3 +654,47 @@ code {
   0%   { left: -40%; }
   100% { left: 100%; }
 }
+
+/* CONTACT CARD (shared: team Yhteystiedot tab + organisation page) */
+.ui-contact-card {
+  border-radius: var(--radius-card);
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 14px;
+}
+.ui-contact-head { display: flex; align-items: center; gap: 12px; }
+.ui-contact-avatar {
+  flex: 0 0 auto; width: 58px; height: 58px;
+  border-radius: 50%;
+  object-fit: cover; object-position: center top;
+  background: rgba(255, 255, 255, 0.06);
+}
+.ui-contact-avatar--ph {
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255, 255, 255, 0.28);
+}
+.ui-contact-avatar--ph .material-symbols-rounded { font-size: 28px; }
+.ui-contact-main { flex: 1 1 auto; min-width: 0; }
+.ui-contact-role {
+  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
+  text-transform: uppercase; letter-spacing: var(--gz-ls-wide);
+}
+.ui-contact-name { font-size: var(--gz-fs-lg); font-weight: 800; color: var(--gz-text-primary); }
+.ui-contact-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.ui-contact-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #fff; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ui-contact-btn:active { background: rgba(255, 255, 255, 0.10); }
+.ui-contact-btn svg { width: 19px; height: 19px; }
+.ui-contact-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 12px; text-decoration: none;
+  color: var(--gz-text-secondary); font-size: var(--gz-fs-sm);
+}
+.ui-contact-ico { display: flex; flex: 0 0 auto; color: var(--color-primary); }
+.ui-contact-ico svg { width: 18px; height: 18px; }
+.ui-contact-row span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

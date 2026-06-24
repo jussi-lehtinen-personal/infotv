@@ -19,8 +19,8 @@ const More = () => {
         />
 
         <div className="more-list">
-          <ExternalRow
-            href="https://www.kiekko-ahma.fi/organisaatio"
+          <InternalRow
+            to="/organisaatio"
             icon={<LuMail />}
             label="Yhteystiedot"
           />

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { LuArrowLeft, LuShirt, LuUsers, LuPhone, LuMail } from "react-icons/lu";
+import { LuArrowLeft, LuShirt, LuUsers, LuPhone } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
+import { ContactCard } from "../components/ui/ContactCard";
 import { findJopoxTeam } from "../data/jopoxTeams";
 
 // Hero image. Swap to a real per-team hero photo later.
@@ -179,37 +180,16 @@ const Team = () => {
 
           {!loading && !error && data && tab === "contacts" && (
             <div className="tm-contacts">
-              {contacts.map((o, i) => {
-                const tel = o.phone ? `tel:${o.phone.replace(/\s+/g, "")}` : null;
-                const mail = o.email ? `mailto:${o.email}` : null;
-                return (
-                  <div className="tm-ccard" key={i}>
-                    <div className="tm-chead">
-                      <Avatar photo={o.photo} className="tm-cavatar" />
-                      <div className="tm-cmain">
-                        <div className="tm-crole">{o.role}</div>
-                        <div className="tm-cname">{o.name}</div>
-                      </div>
-                      <div className="tm-cactions">
-                        {tel && <a className="tm-cbtn" href={tel} aria-label="Soita"><LuPhone /></a>}
-                        {mail && <a className="tm-cbtn" href={mail} aria-label="Sähköposti"><LuMail /></a>}
-                      </div>
-                    </div>
-                    {o.phone && (
-                      <a className="tm-crow" href={tel}>
-                        <span className="tm-cico"><LuPhone /></span>
-                        <span>{o.phone}</span>
-                      </a>
-                    )}
-                    {o.email && (
-                      <a className="tm-crow" href={mail}>
-                        <span className="tm-cico"><LuMail /></span>
-                        <span>{o.email}</span>
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
+              {contacts.map((o, i) => (
+                <ContactCard
+                  key={i}
+                  name={o.name}
+                  role={o.role}
+                  email={o.email}
+                  phone={o.phone}
+                  photo={o.photo}
+                />
+              ))}
               {contacts.length === 0 && <div className="tm-status">Ei yhteystietoja.</div>}
             </div>
           )}
@@ -393,42 +373,8 @@ body { margin: 0; }
 .tm-oinfo { min-width: 0; }
 .tm-oname { font-weight: var(--gz-fw-bold); color: var(--gz-text-primary); }
 .tm-orole { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); text-transform: uppercase; letter-spacing: var(--gz-ls-wide); }
-/* CONTACTS tab — richer cards (round avatar + role/name + call/mail) */
+/* CONTACTS tab uses the shared <ContactCard> (.ui-contact-* in index.css) */
 .tm-contacts { display: flex; flex-direction: column; gap: 12px; }
-.tm-ccard {
-  border-radius: var(--radius-card);
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,0.07);
-  padding: 14px;
-}
-.tm-chead { display: flex; align-items: center; gap: 12px; }
-.tm-cavatar {
-  flex: 0 0 auto; width: 58px; height: 58px;
-  border-radius: 50%;
-  object-fit: cover; object-position: center top;
-  background: rgba(255,255,255,0.06);
-}
-.tm-cmain { flex: 1 1 auto; min-width: 0; }
-.tm-crole { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); text-transform: uppercase; letter-spacing: var(--gz-ls-wide); }
-.tm-cname { font-size: var(--gz-fs-lg); font-weight: 800; color: var(--gz-text-primary); }
-.tm-cactions { display: flex; gap: 8px; flex: 0 0 auto; }
-.tm-cbtn {
-  display: flex; align-items: center; justify-content: center;
-  width: 42px; height: 42px; border-radius: 12px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
-  color: #fff; text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.tm-cbtn:active { background: rgba(255,255,255,0.10); }
-.tm-cbtn svg { width: 19px; height: 19px; }
-.tm-crow {
-  display: flex; align-items: center; gap: 12px;
-  margin-top: 12px; text-decoration: none;
-  color: var(--gz-text-secondary); font-size: var(--gz-fs-sm);
-}
-.tm-cico { display: flex; flex: 0 0 auto; color: var(--color-primary); }
-.tm-cico svg { width: 18px; height: 18px; }
-.tm-crow span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 @media (min-width: 768px) {
   .tm-grid { grid-template-columns: repeat(3, 1fr); }
