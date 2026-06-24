@@ -1,12 +1,21 @@
 [
   {
+    "id": "syysleiri-2026",
+    "tag": "UUTINEN",
+    "title": "Kolmen päivän syysleiri 12.–14.10.",
+    "description": "Tekniikka, taito ja teho · ilmoittautuminen auki",
+    "date": "2026-06-24T09:00:00+03:00",
+    "image": "/gamezone-news/syysleiri-2026.png",
+    "url": "https://www.kiekko-ahma.fi"
+  },
+  {
     "id": "led-mainostaulu-kerhisgym-2026",
     "tag": "UUTINEN",
     "title": "LED-mainostaulu KerhisGymillä",
     "description": "Ennakkomyynti auki!",
     "date": "2026-05-10T10:47:00+03:00",
     "image": "/gamezone-news/kerhisgym-led-mainostaulu.jpg",
-    "url": "https://www.kiekko-ahma.fi/uutiset/55846/led-mainostaulu-kerhisgymilla"
+    "url": "https://www.kiekko-ahma.fi/uutiset/55980/kiekko-ahma-led-mainostaulu"
   },
   {
     "id": "paattajaiset-2025-2026",
