@@ -16,6 +16,7 @@ import { GamezoneLayout } from "./components/GamezoneLayout";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import Teams from "./pages/teams";
+import Team from "./pages/team";
 import News from "./pages/news";
 import More from "./pages/more";
 import Settings from "./pages/settings";
@@ -54,6 +55,7 @@ function App() {
                     element={<GamezoneSchedule />}
                 />
                 <Route path="/teams" element={<Teams />} />
+                <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/more" element={<More />} />
                 <Route path="/settings" element={<Settings />} />

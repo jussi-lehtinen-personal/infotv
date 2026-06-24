@@ -1,104 +1,48 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
 import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
-import { loadFavouriteTeams, saveFavouriteTeams } from "../Util";
+import { JOPOX_TEAMS } from "../data/jopoxTeams";
 
+// Team list driven by the Jopox subsites (works year-round, off-season too).
+// Each row opens the team page (/teams/:subsiteId) with roster + staff.
+// Favouriting moved to the match pages — not here (v1).
 const Teams = () => {
-    const [teams, setTeams] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-    // /teams käyttää Map-muotoa has/delete/set-operaatioiden takia. Shared
-    // helper palauttaa array:n; konvertoidaan Mapiksi kun ladataan.
-    const [favourites, setFavourites] = useState(
-        () => new Map(loadFavouriteTeams().map((t) => [t.teamKey, t]))
-    );
-
-    useEffect(() => {
-        fetch('/api/getTeams')
-            .then(r => r.json())
-            .then(data => {
-                setTeams(data);
-                setLoading(false);
-            })
-            .catch(() => {
-                setError(true);
-                setLoading(false);
-            });
-    }, []);
-
-    const toggleFavourite = (team) => {
-        setFavourites(prev => {
-            const next = new Map(prev);
-            if (next.has(team.teamKey)) {
-                next.delete(team.teamKey);
-            } else {
-                next.set(team.teamKey, team);
+  return (
+    <>
+      <style>{css}</style>
+      <div className="teams-root">
+        <Surface className="teams-card">
+          <PageHeader
+            title="JOUKKUEET"
+            subtitle="Valitse joukkue"
+            left={
+              <Link to="/" className="teams-back" aria-label="Takaisin">
+                <span className="material-symbols-rounded">&#xE5CB;</span>
+              </Link>
             }
-            saveFavouriteTeams(next);
-            return next;
-        });
-    };
+          />
 
-    return (
-        <>
-            <style>{css}</style>
-            <div className="teams-root">
-                <Surface className="teams-card">
-
-                    {/* HEADER */}
-                    <PageHeader
-                        title="JOUKKUEET"
-                        subtitle="Valitse suosikkijoukkueesi"
-                        left={
-                            <Link to="/" className="teams-back" aria-label="Takaisin">
-                                <span className="material-symbols-rounded">&#xE5CB;</span>
-                            </Link>
-                        }
-                    />
-
-                    {/* CONTENT */}
-                    {loading && (
-                        <div className="teams-status">Ladataan joukkueita…</div>
-                    )}
-
-                    {error && (
-                        <div className="teams-status teams-status--error">
-                            Joukkueiden haku epäonnistui. Yritä myöhemmin uudelleen.
-                        </div>
-                    )}
-
-                    {!loading && !error && teams.length === 0 && (
-                        <div className="teams-status">
-                            Joukkueita ei ole vielä saatavilla tälle kaudelle.
-                            <span className="teams-status-note">
-                                Joukkueet ilmestyvät automaattisesti, kun
-                                tulospalveluun tulee otteluita.
-                            </span>
-                        </div>
-                    )}
-
-                    {!loading && !error && teams.map(team => (
-                        <div key={team.teamKey} className="teams-row">
-                            <div className="teams-info">
-                                <div className="teams-name">{team.teamKey}</div>
-                                <div className="teams-short">{team.shortName}</div>
-                            </div>
-                            <button
-                                className={`teams-star${favourites.has(team.teamKey) ? ' teams-star--active' : ''}`}
-                                onClick={() => toggleFavourite(team)}
-                                aria-label={favourites.has(team.teamKey) ? 'Poista suosikeista' : 'Lisää suosikkeihin'}
-                            >
-                                <span className="material-symbols-rounded">&#xE838;</span>
-                            </button>
-                        </div>
-                    ))}
-
-                </Surface>
-            </div>
-        </>
-    );
+          {JOPOX_TEAMS.map((team) => (
+            <Link
+              key={team.subsiteId}
+              to={`/teams/${team.subsiteId}`}
+              className="teams-row"
+            >
+              <div className="teams-info">
+                <div className="teams-name">{team.name}</div>
+                {team.sub && <div className="teams-short">{team.sub}</div>}
+              </div>
+              <span className="teams-arrow material-symbols-rounded" aria-hidden="true">
+                &#xE5CC;
+              </span>
+            </Link>
+          ))}
+        </Surface>
+      </div>
+    </>
+  );
 };
 
 export default Teams;
@@ -120,26 +64,21 @@ body { margin: 0; }
   align-items: center;
   justify-content: flex-start;
   gap: 14px;
-  /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator + a small gap. */
   padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
-
   background: var(--bg-gradient);
   font-family: var(--font-family-base);
 }
 
-/* teams-card — ui-surface antaa bg/border/radius/shadow/padding */
 .teams-card {
   width: 100%;
   max-width: 520px;
 }
-
 .teams-card .ui-page-header {
   margin-bottom: 14px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-/* teams-back — back-link PageHeader left-slotissa */
 .teams-back {
   display: flex;
   align-items: center;
@@ -152,101 +91,58 @@ body { margin: 0; }
 .teams-back:hover { color: var(--color-primary); }
 .teams-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
 
-/* TEAM ROW */
+/* TEAM ROW (link) */
 .teams-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 12px;
-
   border-radius: var(--radius-item);
-  padding: 11px 14px;
+  padding: 13px 14px;
   margin-bottom: 8px;
-
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   box-shadow: var(--shadow-item);
+  text-decoration: none;
+  color: var(--gz-text-primary);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
 }
 .teams-row:last-child { margin-bottom: 0; }
+.teams-row:hover,
+.teams-row:active {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(245,158,11,0.35);
+}
 
 .teams-info { flex: 1; min-width: 0; }
-
 .teams-name {
   font-size: var(--gz-fs-md);
   font-weight: var(--gz-fw-bold);
   letter-spacing: var(--gz-ls-wide);
   color: var(--gz-text-primary);
 }
-
 .teams-short {
   font-size: var(--gz-fs-sm);
   font-weight: var(--gz-fw-regular);
   color: var(--gz-text-tertiary);
   margin-top: 2px;
 }
-
-/* STAR BUTTON */
-.teams-star {
+.teams-arrow {
   flex: 0 0 auto;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  transition: transform 0.15s;
-}
-.teams-star:hover { transform: scale(1.2); }
-
-.teams-star .material-symbols-rounded {
-  font-size: 28px;
-  line-height: 1;
-  color: rgba(255,255,255,0.25);
-  font-variation-settings: 'FILL' 0;
-  transition: color 0.2s, font-variation-settings 0.2s;
+  font-size: 24px;
+  color: rgba(255,255,255,0.35);
 }
 
-.teams-star--active .material-symbols-rounded {
-  color: var(--color-primary);
-  font-variation-settings: 'FILL' 1;
-}
-
-/* STATUS */
-.teams-status {
-  text-align: center;
-  font-size: var(--gz-fs-sm);
-  color: var(--gz-text-muted);
-  padding: 28px 0;
-}
-.teams-status--error { color: var(--color-loss); }
-
-/* Secondary explanatory line under the empty-state message. */
-.teams-status-note {
-  display: block;
-  margin-top: 6px;
-  font-size: var(--gz-fs-xs, 12px);
-  color: var(--gz-text-tertiary);
-}
-
-/* ============ TABLET ============ */
 @media (min-width: 768px) {
   .teams-root {
     padding: 26px 26px 28px;
     gap: 18px;
   }
-
   .teams-card {
     max-width: 980px;
     padding: 16px;
     background: rgba(255,255,255,0.10);
     border-color: rgba(255,255,255,0.16);
   }
-
-}
-
-/* ============ VERY SMALL ============ */
-@media (max-width: 380px) {
-  .teams-row { padding: 10px 12px; }
 }
 `;
