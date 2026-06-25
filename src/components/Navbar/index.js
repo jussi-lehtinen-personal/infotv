@@ -5,7 +5,7 @@ import {
   LuShoppingBag,
   LuChevronRight,
   LuGlobe,
-  LuNewspaper,
+  LuShield,
   LuMail,
   LuHeart,
 } from "react-icons/lu";
@@ -59,9 +59,9 @@ const Index = () => {
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
             <QuickTile
-              to="/news"
-              icon={<LuNewspaper />}
-              label="Uutiset"
+              to="/next_home_game"
+              icon={<LuShield />}
+              label="Edustus"
             />
             <QuickTile
               to="/organisaatio"
@@ -75,7 +75,12 @@ const Index = () => {
             />
           </div>
 
-          {news.length > 0 && <NewsSection news={news} />}
+          {news.length > 0 && (
+            <>
+              <hr className="ahma-divider" />
+              <NewsSection news={news} />
+            </>
+          )}
 
           <a
             href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
@@ -665,6 +670,15 @@ body { margin: 0; }
   text-transform: uppercase;
   color: var(--gz-text-secondary);
   text-align: center;
+}
+
+/* Erotin pikatoimintojen ja Ajankohtaista-osion välissä. */
+.ahma-divider{
+  width: 100%;
+  height: 0;
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 /* MENU ITEM */
