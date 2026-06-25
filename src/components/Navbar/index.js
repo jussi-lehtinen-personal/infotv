@@ -56,6 +56,8 @@ const Index = () => {
         <div className="ahma-menu">
           <HeroCarousel matches={heroMatches} />
 
+          <hr className="ahma-divider" />
+
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
             <QuickTile
@@ -82,27 +84,34 @@ const Index = () => {
             </>
           )}
 
-          <a
-            href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ahma-merch"
-          >
-            <LuShoppingBag className="ahma-merch-icon" aria-hidden="true" />
-            <div className="ahma-merch-text">
-              <div className="ahma-merch-title">AHMA FANITUOTTEET</div>
-              <div className="ahma-merch-subtitle">
-                <span>Näytä koko valikoima</span>
-                <LuChevronRight className="ahma-merch-arrow" aria-hidden="true" />
+          <hr className="ahma-divider" />
+
+          <div className="ahma-shop-section">
+            <div className="ahma-section-heading">Shop</div>
+            <a
+              href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ahma-merch"
+            >
+              <LuShoppingBag className="ahma-merch-icon" aria-hidden="true" />
+              <div className="ahma-merch-text">
+                <div className="ahma-merch-title">AHMA FANITUOTTEET</div>
+                <div className="ahma-merch-subtitle">
+                  <span>Näytä koko valikoima</span>
+                  <LuChevronRight className="ahma-merch-arrow" aria-hidden="true" />
+                </div>
               </div>
-            </div>
-            <img
-              className="ahma-merch-image"
-              src="/fanituotteet.png"
-              alt=""
-              aria-hidden="true"
-            />
-          </a>
+              <img
+                className="ahma-merch-image"
+                src="/fanituotteet.png"
+                alt=""
+                aria-hidden="true"
+              />
+            </a>
+          </div>
+
+          <hr className="ahma-divider" />
 
           <div className="ahma-social-section">
             <div className="ahma-section-heading">Seuraa meitä</div>
@@ -672,7 +681,8 @@ body { margin: 0; }
   text-align: center;
 }
 
-/* Erotin pikatoimintojen ja Ajankohtaista-osion välissä. */
+/* Erotin sektioiden välissä (hero / pikatoiminnot / ajankohtaista / shop /
+   some) — pitää osiot selvästi erillään. */
 .ahma-divider{
   width: 100%;
   height: 0;
@@ -895,7 +905,14 @@ body { margin: 0; }
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
-  margin-top: 8px;
+}
+
+/* SHOP — fanituote-bannerin osio omalla otsakkeellaan (sama tyyli kuin
+   Ajankohtaista / Seuraa meitä). */
+.ahma-shop-section{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* Pieni section-heading: PIKATOIMINNOT, SEURAA MEITÄ, jne.
