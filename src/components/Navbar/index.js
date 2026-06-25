@@ -4,13 +4,10 @@ import { useDrag } from "@use-gesture/react";
 import {
   LuShoppingBag,
   LuChevronRight,
-  LuTrophy,
-  LuCalendarDays,
-  LuShield,
-  LuUsers,
   LuGlobe,
-  LuMegaphone,
-  LuMoreHorizontal,
+  LuNewspaper,
+  LuMail,
+  LuHeart,
 } from "react-icons/lu";
 import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
 import { themeCSS } from "../../theme";
@@ -62,34 +59,19 @@ const Index = () => {
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
             <QuickTile
-              to="/gamezone?includeAway=1&options=1"
-              icon={<LuTrophy />}
-              label="Ottelut"
+              to="/news"
+              icon={<LuNewspaper />}
+              label="Uutiset"
             />
             <QuickTile
-              to="/gamezone/schedule"
-              icon={<LuCalendarDays />}
-              label="Jäävuorot"
+              to="/organisaatio"
+              icon={<LuMail />}
+              label="Yhteystiedot"
             />
             <QuickTile
-              to="/teams"
-              icon={<LuUsers />}
-              label="Joukkueet"
-            />
-            <QuickTile
-              to="/ads"
-              icon={<LuMegaphone />}
-              label="Mainokset"
-            />
-            <QuickTile
-              to="/next_home_game"
-              icon={<LuShield />}
-              label="Edustus"
-            />
-            <QuickTile
-              to="/more"
-              icon={<LuMoreHorizontal />}
-              label="Lisää"
+              to="/supporters"
+              icon={<LuHeart />}
+              label="Kannattajat"
             />
           </div>
 
@@ -162,7 +144,7 @@ const SocialBtn = ({ href, label, icon }) => (
 
 const QuickTile = ({ to, icon, label }) => (
   <Link to={to} className="ahma-quick-tile">
-    <span className="ahma-quick-icon" aria-hidden="true">{icon}</span>
+    <span className="ahma-quick-circle" aria-hidden="true">{icon}</span>
     <span className="ahma-quick-label">{label}</span>
   </Link>
 );
@@ -612,35 +594,22 @@ body { margin: 0; }
   border-radius: 4px;
 }
 
-/* PIKATOIMINNOT — 4-up icon grid for the most-used surfaces. Each tile
-   stacks an orange icon over a small label. Sits at the top of the menu,
-   replacing the previous full-width OTTELUT/JÄÄVUOROT/EDUSTUS/JOUKKUEET
-   rows. */
+/* PIKATOIMINNOT — 3 pyöreää nappia (ikoni ympyrässä + label alla) niille
+   toiminnoille joita bottom nav ei kata: Uutiset, Yhteystiedot,
+   Kannattajat. Ympyrä on frosted-glass + gradient-border kuten muutkin
+   napit, oranssi ikoni keskellä. */
 .ahma-quick{
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+  justify-items: center;
 }
 
 .ahma-quick-tile{
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 6px 9px 6px;
-  border-radius: var(--radius-item);
-  /* Glassmorphism + gradient-border:
-     - Sisätausta semi-transparentti, backdrop-filter sumentaa karhun
-     - Border on harmaa gradientti (kirkkaampi ylhäällä, tummempi alhaalla)
-       jolloin napilla on "lifted card" -reuna kuten refessä */
-  background:
-    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) border-box;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-item);
+  gap: 8px;
   text-decoration: none;
   color: var(--gz-text-primary);
   -webkit-tap-highlight-color: transparent;
@@ -653,29 +622,37 @@ body { margin: 0; }
   color: var(--gz-text-primary);
 }
 
-/* Hover/active eivät voi muuttaa background-shorthandia (rikkoisi gradient-
-   borderin multi-bg setupin). Käytetään sen sijaan box-shadow-rinkiä ja
-   pieniä transform-säätöjä. */
-.ahma-quick-tile:hover{
-  box-shadow: var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18);
-}
-
-.ahma-quick-tile:active{
-  transform: scale(0.97);
-  box-shadow: var(--shadow-item), 0 0 0 1px rgba(249, 115, 22, 0.45);
-}
-
-/* Ikoni renderöityy suoraan tilen päällä ilman erillistä väritettyä
-   container-laatikkoa — refessä ikoneilla ei ole tinted box -taustaa,
-   vain ikonin oma väri näkyy. Kaikki ikonit oransseja. */
-.ahma-quick-icon{
+/* Pyöreä nappi — frosted-glass + gradient-border. Hover/active eivät voi
+   muuttaa background-shorthandia (rikkoisi gradient-borderin multi-bg
+   setupin), joten käytetään box-shadow-rinkiä ja transformia. */
+.ahma-quick-circle{
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background:
+    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) border-box;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-item);
   color: var(--color-primary);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
 }
 
-.ahma-quick-icon svg{
+.ahma-quick-tile:hover .ahma-quick-circle{
+  box-shadow: var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18);
+}
+
+.ahma-quick-tile:active .ahma-quick-circle{
+  transform: scale(0.95);
+  box-shadow: var(--shadow-item), 0 0 0 1px rgba(249, 115, 22, 0.45);
+}
+
+.ahma-quick-circle svg{
   width: 26px;
   height: 26px;
   stroke-width: 1.75;
@@ -990,8 +967,9 @@ body { margin: 0; }
     gap: 12px;
   }
 
-  .ahma-quick-tile{
-    padding: 14px 6px 12px 6px;
+  .ahma-quick-circle{
+    width: 70px;
+    height: 70px;
   }
 }
 
