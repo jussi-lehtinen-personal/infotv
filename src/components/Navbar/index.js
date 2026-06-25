@@ -16,6 +16,7 @@ import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
 import { themeCSS } from "../../theme";
 import { splitTeamName } from "../../Util";
 import { AppHeader } from "../ui/AppHeader";
+import { NavDrawer } from "../ui/NavDrawer";
 import { NewsCard } from "../ui/NewsCard";
 import {
   useHeroMatches,
@@ -25,6 +26,7 @@ import {
 
 const Index = () => {
   const [news, setNews] = useState([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { matches: heroMatches } = useHeroMatches();
 
   useEffect(() => {
@@ -49,8 +51,10 @@ const Index = () => {
     <>
       <style>{styles}</style>
 
+      <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
       <div className="ahma-root">
-        <AppHeader />
+        <AppHeader onMenuClick={() => setDrawerOpen(true)} />
 
         <div className="ahma-menu">
           <HeroCarousel matches={heroMatches} />

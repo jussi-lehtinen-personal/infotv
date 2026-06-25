@@ -1,12 +1,23 @@
 import React from 'react';
-import { LuBell } from 'react-icons/lu';
+import { LuBell, LuMenu } from 'react-icons/lu';
 
-export const AppHeader = ({ unreadCount = 0, onBellClick }) => (
+export const AppHeader = ({ unreadCount = 0, onBellClick, onMenuClick }) => (
   <header className="ui-app-header">
-    {/* Tyhjä spacer vasemmalle pitää AHMA GAMEZONE -wordmarkin keskellä
-        kun hampurilainen on poistettu — sama leveys kuin oikean reunan
-        bell-napilla. */}
-    <span className="ui-app-header-spacer" aria-hidden="true" />
+    {/* Vasen reuna: hampurilainen avaa navigaatiovalikon. Jos onMenuClick
+        ei ole annettu, näytetään tyhjä spacer (sama leveys) joka pitää
+        keskimmäisen wordmarkin keskellä. */}
+    {onMenuClick ? (
+      <button
+        type="button"
+        className="ui-app-header-btn"
+        onClick={onMenuClick}
+        aria-label="Valikko"
+      >
+        <LuMenu aria-hidden="true" />
+      </button>
+    ) : (
+      <span className="ui-app-header-spacer" aria-hidden="true" />
+    )}
 
     <div className="ui-app-header-wordmark" aria-label="Ahma Gamezone">
       <span className="ui-app-header-wordmark-top">AHMA</span>

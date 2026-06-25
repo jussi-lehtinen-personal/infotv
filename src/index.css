@@ -314,6 +314,144 @@ code {
   box-shadow: 0 0 0 2px var(--color-bg);
 }
 
+/* Nav drawer — vasemmalta liukuva navigaatiovalikko (hampurilainen avaa
+   AppHeaderista). Portal peittää koko ruudun: tumma backdrop + drawer.
+   Suljettuna pois pointer-eventeistä ja näkyvistä, animoituu auki. */
+.ui-drawer-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  visibility: hidden;
+  pointer-events: none;
+}
+.ui-drawer-portal--open {
+  visibility: visible;
+  pointer-events: auto;
+}
+.ui-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.ui-drawer-portal--open .ui-drawer-backdrop {
+  opacity: 1;
+}
+.ui-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(82vw, 320px);
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 10px) 0 calc(env(safe-area-inset-bottom) + 14px);
+  background: #14161a;
+  border-right: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 8px 0 34px rgba(0, 0, 0, 0.5);
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow-y: auto;
+}
+.ui-drawer-portal--open .ui-drawer {
+  transform: translateX(0);
+}
+.ui-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 14px 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ui-drawer-wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  gap: 3px;
+}
+.ui-drawer-wordmark-top {
+  font-family: var(--font-family-display);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 0.9;
+  color: var(--color-primary);
+}
+.ui-drawer-wordmark-bottom {
+  font-family: var(--font-family-display);
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: 0.32em;
+  padding-left: 0.32em;
+  color: var(--gz-text-primary);
+  opacity: 0.85;
+}
+.ui-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--gz-text-secondary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s, color 0.15s;
+}
+.ui-drawer-close:hover { background: rgba(255, 255, 255, 0.06); color: var(--gz-text-primary); }
+.ui-drawer-close svg { width: 22px; height: 22px; }
+.ui-drawer-nav {
+  display: flex;
+  flex-direction: column;
+}
+.ui-drawer-section {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+}
+.ui-drawer-section + .ui-drawer-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin-top: 4px;
+  padding-top: 10px;
+}
+.ui-drawer-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 12px;
+  border-radius: var(--radius-item);
+  text-decoration: none;
+  color: var(--gz-text-primary);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s;
+}
+.ui-drawer-row:hover,
+.ui-drawer-row:active,
+.ui-drawer-row:visited,
+.ui-drawer-row:focus {
+  text-decoration: none;
+  color: var(--gz-text-primary);
+}
+.ui-drawer-row:hover { background: rgba(255, 255, 255, 0.05); }
+.ui-drawer-row:active { background: rgba(245, 158, 11, 0.12); }
+.ui-drawer-row-icon {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
+  color: var(--color-primary);
+}
+.ui-drawer-row-label {
+  flex: 1 1 auto;
+  font-size: var(--gz-fs-md);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+  color: var(--gz-text-primary);
+}
+
 /* News card — yksi uutisrivi: pikkukuva vasemmalla + otsikko & päivä
    oikealla. Käytössä etusivun Ajankohtaista-listassa ja /uutiset-sivulla. */
 .ui-news-card {
