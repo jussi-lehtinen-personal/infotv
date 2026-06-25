@@ -11,7 +11,7 @@ const Settings = () => {
         <PageHeader
           title="ASETUKSET"
           left={
-            <Link to="/more" className="settings-back" aria-label="Takaisin">
+            <Link to="/" className="settings-back" aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
             </Link>
           }

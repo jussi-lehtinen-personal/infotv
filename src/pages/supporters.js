@@ -58,7 +58,7 @@ const Supporters = () => {
           title="KANNATTAJAT"
           subtitle={subtitle}
           left={
-            <Link to="/more" className="sup-back" aria-label="Takaisin">
+            <Link to="/" className="sup-back" aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
             </Link>
           }
@@ -129,7 +129,7 @@ body { margin: 0; }
   font-family: var(--font-family-base);
 }
 
-/* Sama back-link -tyyli kuin /more ja /news -sivuilla. */
+/* Sama back-link -tyyli kuin /news -sivulla. */
 .sup-back {
   display: flex;
   align-items: center;

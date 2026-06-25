@@ -18,7 +18,6 @@ import GameAds from "./pages/game_ads";
 import Teams from "./pages/teams";
 import Team from "./pages/team";
 import News from "./pages/news";
-import More from "./pages/more";
 import Organisation from "./pages/organisation";
 import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
@@ -58,7 +57,6 @@ function App() {
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
-                <Route path="/more" element={<More />} />
                 <Route path="/organisaatio" element={<Organisation />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/supporters" element={<Supporters />} />

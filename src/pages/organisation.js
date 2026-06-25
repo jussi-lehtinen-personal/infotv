@@ -37,7 +37,7 @@ const Organisation = () => {
           title="YHTEYSTIEDOT"
           subtitle="Seuran organisaatio"
           left={
-            <Link to="/more" className="org-back" aria-label="Takaisin">
+            <Link to="/" className="org-back" aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
             </Link>
           }
