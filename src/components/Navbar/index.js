@@ -24,7 +24,7 @@ import {
 const Index = () => {
   const [news, setNews] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { matches: heroMatches } = useHeroMatches();
+  const { matches: heroMatches, loading: heroLoading } = useHeroMatches();
 
   useEffect(() => {
     fetch('/gamezone-news.json')
@@ -54,9 +54,7 @@ const Index = () => {
         <AppHeader onMenuClick={() => setDrawerOpen(true)} />
 
         <div className="ahma-menu">
-          <HeroCarousel matches={heroMatches} />
-
-          <hr className="ahma-divider" />
+          <HeroCarousel matches={heroMatches} loading={heroLoading} />
 
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
@@ -183,7 +181,7 @@ const formatMatchDate = (m) => {
 
 // Eri taustakuva per kortti-slot, kierrätetään kolmella saatavilla olevalla
 // hero-kuvalla. Empty-fallbackin slot 0 saa hero_1.
-const HERO_BACKGROUNDS = ["/hero_1.png", "/hero_2.png", "/hero_3.png"];
+const HERO_BACKGROUNDS = ["/hero_1.webp", "/hero_2.webp", "/hero_3.webp"];
 
 // Karusellin wrapper — liukuva track. Vaihto swipe-eleellä (vaaka, seuraa sormea
 // ja napsahtaa lähimpään korttiin) tai pisteitä klikkaamalla. filterTaps pitää
@@ -193,7 +191,7 @@ const HERO_EASE = "transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)";
 // että lepotilassa kortti on silti täysleveä.
 const HERO_GAP = 12; // px, must match .ahma-hero-track gap
 const heroTrackX = (i) => `translate3d(calc(${-i * 100}% - ${i * HERO_GAP}px), 0, 0)`;
-const HeroCarousel = ({ matches }) => {
+const HeroCarousel = ({ matches, loading }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const cards = matches.length > 0 ? matches : [null];
   const safeIndex = Math.min(activeIndex, cards.length - 1);
@@ -243,6 +241,7 @@ const HeroCarousel = ({ matches }) => {
           <div className="ahma-hero-slide" key={i}>
             <HeroMatchCard
               match={card}
+              loading={loading}
               backgroundImage={HERO_BACKGROUNDS[i % HERO_BACKGROUNDS.length]}
             />
           </div>
@@ -267,10 +266,20 @@ const HeroCarousel = ({ matches }) => {
   );
 };
 
-const HeroMatchCard = ({ match, backgroundImage = "/hero_1.png" }) => {
+const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp" }) => {
   const empty = !match;
   const live = !empty && isLiveMatch(match);
   const bgImage = backgroundImage;
+
+  // Tagin teksti: tyhjänä joko "Haetaan" (haku kesken) tai neutraali
+  // "Ottelut" (haku valmis, ei pelejä); muuten LIVE / Seuraava ottelu.
+  const tagLabel = empty
+    ? loading
+      ? "Haetaan"
+      : "Ottelut"
+    : live
+    ? "LIVE"
+    : "SEURAAVA OTTELU";
 
   // Empty-tilassa kortti ei vie minnekään (placeholder); muuten linkki
   // ulkoiseen tulospalvelu-sivuun.
@@ -298,12 +307,12 @@ const HeroMatchCard = ({ match, backgroundImage = "/hero_1.png" }) => {
       <div className="ahma-hero-content">
         <div className="ahma-hero-tag">
           {live && <span className="ahma-hero-live-dot" aria-hidden="true" />}
-          <span>{live ? "LIVE" : "SEURAAVA OTTELU"}</span>
+          <span>{tagLabel}</span>
           {league && <span className="ahma-hero-tag-league"> · {league}</span>}
         </div>
         {empty ? (
           <div className="ahma-hero-title ahma-hero-title--empty">
-            Ei tulevia otteluita
+            {loading ? "Haetaan tulevia otteluita…" : "Ei tulevia otteluita"}
           </div>
         ) : (
           <>

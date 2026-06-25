@@ -140,13 +140,31 @@ export function useHeroMatches() {
       }
 
       if (cancelled) return;
-      setMatches(cards);
-      setLoading(false);
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ matches: cards, ts: Date.now() }));
-      } catch {
-        /* ignore quota / private-mode errors */
+
+      if (cards.length > 0) {
+        // Tuoretta dataa → näytä ja muista se.
+        setMatches(cards);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ matches: cards, ts: Date.now() }));
+        } catch {
+          /* ignore quota / private-mode errors */
+        }
+      } else {
+        // Tämä hakukierros ei tuottanut otteluita (hetkellinen virhe TAI aidosti
+        // ei pelejä). Ei pyyhitä muistettuja kortteja tyhjällä — näytetään niitä
+        // kunnes ne vanhenevat. Karsitaan vain jo menneet pois; jos mitään ei
+        // jää jäljelle, vasta silloin näkyy "Ei tulevia otteluita".
+        setMatches((prev) => {
+          const stillValid = prev.filter(isFutureOrLive);
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ matches: stillValid, ts: Date.now() }));
+          } catch {
+            /* ignore */
+          }
+          return stillValid;
+        });
       }
+      setLoading(false);
 
       // Aikatauluta seuraava päivitys: tihennä jos LIVE-peli on listassa.
       const hasLive = cards.some(isLiveMatch);
