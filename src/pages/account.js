@@ -16,6 +16,7 @@ import {
   linkGoogle,
   loginGoogle,
   unlinkGoogle,
+  deleteAccount,
   logout,
 } from "../auth/authClient";
 
@@ -27,6 +28,7 @@ const Account = () => {
   const [notice, setNotice] = useState("");
   const [nickname, setNickname] = useState("");
   const [clientId, setClientId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const supported = browserSupportsWebAuthn();
 
   const refresh = useCallback(async () => {
@@ -75,6 +77,23 @@ const Account = () => {
     setNickname("");
     setNotice("");
     setError("");
+    setConfirmDelete(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      await deleteAccount();
+      setUser(null);
+      setConfirmDelete(false);
+      setNickname("");
+      setNotice("Tili poistettu.");
+    } catch (err) {
+      setError(err.message);
+    }
+    setBusy(false);
   };
 
   const handleAddPasskey = async () => {
@@ -195,6 +214,39 @@ const Account = () => {
               <button className="acc-btn acc-btn--ghost" onClick={handleLogout} disabled={busy}>
                 <LuLogOut aria-hidden="true" /> Kirjaudu ulos
               </button>
+
+              {!confirmDelete ? (
+                <button
+                  className="acc-danger-link"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={busy}
+                >
+                  Poista tili
+                </button>
+              ) : (
+                <div className="acc-confirm">
+                  <div className="acc-confirm-text">
+                    Oletko varma? Tämä poistaa tilisi, passkeyt ja mahdollisen
+                    Google-yhteyden pysyvästi. Tätä ei voi peruuttaa.
+                  </div>
+                  <div className="acc-confirm-actions">
+                    <button
+                      className="acc-btn acc-btn--danger"
+                      onClick={handleDeleteAccount}
+                      disabled={busy}
+                    >
+                      Poista pysyvästi
+                    </button>
+                    <button
+                      className="acc-btn acc-btn--ghost"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={busy}
+                    >
+                      Peruuta
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -203,15 +255,13 @@ const Account = () => {
               {/* KIRJAUDU */}
               <div className="acc-section">
                 <div className="acc-section-title">Kirjaudu</div>
+                <div className="acc-section-sub">Onko sinulla jo tili? Kirjaudu sisään</div>
                 {clientId && (
-                  <>
-                    <div className="acc-recommended">Suositus</div>
-                    <GoogleButton
-                      clientId={clientId}
-                      onCredential={handleLoginGoogle}
-                      text="signin_with"
-                    />
-                  </>
+                  <GoogleButton
+                    clientId={clientId}
+                    onCredential={handleLoginGoogle}
+                    text="signin_with"
+                  />
                 )}
                 <button
                   className="acc-btn acc-btn--secondary acc-fixed-btn"
@@ -222,15 +272,12 @@ const Account = () => {
                 </button>
               </div>
 
-              <div className="acc-rule" />
+              <div className="acc-divider"><span>tai</span></div>
 
               {/* LUO UUSI TILI */}
               <div className="acc-section">
                 <div className="acc-section-title">Luo uusi tili</div>
-                <p className="acc-intro">
-                  Oma käyttäjä passkeyllä: kirjaudut jatkossa sormenjäljellä tai
-                  kasvotunnistuksella — ei salasanaa, ei sähköpostia.
-                </p>
+                <div className="acc-section-sub">Uusi täällä? Luo oma Gamezone-tili</div>
                 <form className="acc-form" onSubmit={handleRegister}>
                   <label className="acc-label" htmlFor="acc-nick">Nimimerkki</label>
                   <input
@@ -369,6 +416,40 @@ body { margin: 0; }
   color: var(--gz-text-secondary);
 }
 .acc-btn--ghost:not(:disabled):hover { background: rgba(255,255,255,0.06); }
+.acc-btn--danger { background: #dc2626; color: #fff; }
+.acc-btn--danger:not(:disabled):hover { filter: brightness(1.08); }
+
+/* Delete account: subtle red trigger → inline confirmation panel. */
+.acc-danger-link {
+  background: none;
+  border: none;
+  padding: 6px;
+  color: var(--color-loss, #f87171);
+  font-size: var(--gz-fs-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.acc-danger-link:disabled { opacity: 0.5; cursor: default; }
+.acc-confirm {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-item);
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.30);
+}
+.acc-confirm-text {
+  font-size: var(--gz-fs-sm);
+  color: #fca5a5;
+  text-align: center;
+  line-height: 1.45;
+}
+.acc-confirm-actions { display: flex; gap: 8px; }
+.acc-confirm-actions .acc-btn { flex: 1; padding: 11px 10px; }
 
 .acc-divider {
   display: flex; align-items: center;
@@ -410,6 +491,12 @@ body { margin: 0; }
   letter-spacing: var(--gz-ls-wide);
   text-transform: uppercase;
   color: var(--gz-text-primary);
+}
+.acc-section-sub {
+  margin-top: -4px;
+  font-size: var(--gz-fs-sm);
+  color: var(--gz-text-tertiary);
+  text-align: center;
 }
 .acc-section .acc-intro { width: 100%; text-align: center; margin: 0; }
 .acc-section .acc-form { width: 100%; max-width: 280px; }

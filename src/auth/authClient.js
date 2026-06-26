@@ -160,6 +160,19 @@ export async function linkGoogle(credential) {
   return data.user;
 }
 
+// Permanently delete the signed-in account (profile + passkeys + Google link).
+export async function deleteAccount() {
+  const token = getToken();
+  const res = await fetch("/api/auth/account/delete", {
+    method: "POST",
+    headers: { "X-Ahma-Auth": token },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  clearToken();
+  return true;
+}
+
 // Remove the Google link from the signed-in account (passkey stays primary).
 export async function unlinkGoogle() {
   const token = getToken();
