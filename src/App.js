@@ -19,6 +19,7 @@ import Teams from "./pages/teams";
 import Team from "./pages/team";
 import News from "./pages/news";
 import Organisation from "./pages/organisation";
+import Account from "./pages/account";
 import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
 import Report from "./pages/report";
@@ -58,6 +59,7 @@ function App() {
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/organisaatio" element={<Organisation />} />
+                <Route path="/tili" element={<Account />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/supporters" element={<Supporters />} />
                 <Route

@@ -12,6 +12,7 @@ import {
   LuHeart,
   LuMessageSquare,
   LuSettings,
+  LuKeyRound,
   LuX,
 } from "react-icons/lu";
 
@@ -27,6 +28,7 @@ const NAV_SECTIONS = [
     { to: "/news", label: "Uutiset", Icon: LuNewspaper },
   ],
   [
+    { to: "/tili", label: "Tili", Icon: LuKeyRound },
     { to: "/organisaatio", label: "Yhteystiedot", Icon: LuMail },
     { to: "/supporters", label: "Kannattajajäsenet", Icon: LuHeart },
     {
