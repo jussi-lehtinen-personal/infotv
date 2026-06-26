@@ -5,7 +5,7 @@ import { LuKeyRound, LuLogOut } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
-import { getMe, registerPasskey, loginPasskey, logout } from "../auth/authClient";
+import { getMe, getCachedUser, registerPasskey, loginPasskey, logout } from "../auth/authClient";
 
 const Account = () => {
   const [user, setUser] = useState(null);
@@ -16,11 +16,16 @@ const Account = () => {
   const supported = browserSupportsWebAuthn();
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    // Optimistic: show the cached profile instantly, only spin if nothing cached.
+    const cached = getCachedUser();
+    if (cached) setUser(cached);
+    setLoading(!cached);
     try {
+      // null = logged out (no token / 401, token already cleared);
+      // throw = transient (network/cold start) → keep the cached user.
       setUser(await getMe());
     } catch {
-      setUser(null);
+      if (!cached) setUser(null);
     }
     setLoading(false);
   }, []);

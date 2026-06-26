@@ -5,10 +5,31 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 // localStorage. Identity anchor = userId on the server; this just carries the
 // bearer token.
 const TOKEN_KEY = "ahma.authToken";
+const USER_KEY = "ahma.authUser";
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
-export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+export const clearToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+};
+
+// Optimistic profile cache — lets the account page show "logged in" instantly
+// on revisit while /api/me revalidates in the background.
+const setCachedUser = (u) => {
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(u));
+  } catch {
+    /* ignore */
+  }
+};
+export const getCachedUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY));
+  } catch {
+    return null;
+  }
+};
 
 async function postJson(url, body) {
   const res = await fetch(url, {
@@ -27,7 +48,12 @@ function mapError(e) {
   if (name === "NotAllowedError") return "Peruutettu tai aikakatkaistu.";
   if (name === "InvalidStateError")
     return "Tällä laitteella on jo passkey tälle tilille.";
-  return (e && e.message) || "Passkey-toiminto epäonnistui.";
+  // Android Credential Manager occasionally hiccups ("couldn't communicate
+  // with the credentials manager") — usually transient.
+  const msg = (e && e.message) || "";
+  if (name === "UnknownError" || /credential/i.test(msg))
+    return "Avainhallinta ei vastannut. Yritä hetken kuluttua uudelleen.";
+  return msg || "Passkey-toiminto epäonnistui.";
 }
 
 export async function registerPasskey(nickname) {
@@ -46,6 +72,7 @@ export async function registerPasskey(nickname) {
     { response, challengeToken }
   );
   setToken(token);
+  setCachedUser(user);
   return user;
 }
 
@@ -65,21 +92,26 @@ export async function loginPasskey() {
     { response, challengeToken }
   );
   setToken(token);
+  setCachedUser(user);
   return user;
 }
 
 export async function getMe() {
   const token = getToken();
   if (!token) return null;
+  // Custom header (not Authorization) — SWA forwards custom headers to managed
+  // functions untouched, avoiding any platform handling of Authorization.
   const res = await fetch("/api/me", {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { "X-Ahma-Auth": token },
   });
   if (res.status === 401) {
     clearToken();
     return null;
   }
   if (!res.ok) throw new Error("Profiilin haku epäonnistui.");
-  return res.json();
+  const user = await res.json();
+  setCachedUser(user);
+  return user;
 }
 
 export function logout() {

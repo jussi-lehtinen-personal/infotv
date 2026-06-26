@@ -1,13 +1,15 @@
 const { verifySession } = require('./jwt');
 
-// Reads the Bearer token from the request and returns the userId, or null if
-// missing/invalid. Endpoints that require auth should 401 when this is null.
+// Reads the session token and returns the userId, or null if missing/invalid.
+// Primary transport is the custom X-Ahma-Auth header (SWA forwards custom
+// headers to managed functions untouched); falls back to Authorization: Bearer.
 async function requireAuth(request) {
-  const header = request.headers.get('authorization') || '';
-  const m = header.match(/^Bearer\s+(.+)$/i);
-  if (!m) return null;
+  const token =
+    request.headers.get('x-ahma-auth') ||
+    (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token) return null;
   try {
-    return await verifySession(m[1]);
+    return await verifySession(token);
   } catch {
     return null;
   }
