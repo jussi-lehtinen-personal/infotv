@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
-import { LuKeyRound, LuLogOut } from "react-icons/lu";
+import { LuKeyRound, LuLogOut, LuCheck } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
-import { getMe, getCachedUser, registerPasskey, loginPasskey, logout } from "../auth/authClient";
+import { GoogleButton } from "../auth/GoogleButton";
+import {
+  getMe,
+  getCachedUser,
+  getAuthConfig,
+  registerPasskey,
+  loginPasskey,
+  linkGoogle,
+  loginGoogle,
+  logout,
+} from "../auth/authClient";
 
 const Account = () => {
   const [user, setUser] = useState(null);
@@ -13,16 +23,14 @@ const Account = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [nickname, setNickname] = useState("");
+  const [clientId, setClientId] = useState("");
   const supported = browserSupportsWebAuthn();
 
   const refresh = useCallback(async () => {
-    // Optimistic: show the cached profile instantly, only spin if nothing cached.
     const cached = getCachedUser();
     if (cached) setUser(cached);
     setLoading(!cached);
     try {
-      // null = logged out (no token / 401, token already cleared);
-      // throw = transient (network/cold start) → keep the cached user.
       setUser(await getMe());
     } catch {
       if (!cached) setUser(null);
@@ -32,6 +40,7 @@ const Account = () => {
 
   useEffect(() => {
     refresh();
+    getAuthConfig().then((c) => setClientId(c.googleClientId || ""));
   }, [refresh]);
 
   const handleRegister = async (e) => {
@@ -63,6 +72,29 @@ const Account = () => {
     setNickname("");
   };
 
+  // Stable callbacks so the Google button isn't re-rendered each tick.
+  const handleLinkGoogle = useCallback(async (credential) => {
+    setError("");
+    setBusy(true);
+    try {
+      setUser(await linkGoogle(credential));
+    } catch (err) {
+      setError(err.message);
+    }
+    setBusy(false);
+  }, []);
+
+  const handleLoginGoogle = useCallback(async (credential) => {
+    setError("");
+    setBusy(true);
+    try {
+      setUser(await loginGoogle(credential));
+    } catch (err) {
+      setError(err.message);
+    }
+    setBusy(false);
+  }, []);
+
   return (
     <>
       <style>{css}</style>
@@ -92,6 +124,28 @@ const Account = () => {
               <div className="acc-user-icon" aria-hidden="true"><LuKeyRound /></div>
               <div className="acc-user-name">{user.nickname || "Käyttäjä"}</div>
               <div className="acc-user-sub">Kirjautunut passkeyllä</div>
+
+              <div className="acc-google-section">
+                {user.googleLinked ? (
+                  <div className="acc-google-linked">
+                    <LuCheck aria-hidden="true" /> Google yhdistetty — voit kirjautua muillakin laitteilla
+                  </div>
+                ) : (
+                  <>
+                    <div className="acc-google-label">
+                      Yhdistä Google-tili, niin voit kirjautua myös muilla laitteilla
+                    </div>
+                    {clientId && (
+                      <GoogleButton
+                        clientId={clientId}
+                        onCredential={handleLinkGoogle}
+                        text="continue_with"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+
               <button className="acc-btn acc-btn--ghost" onClick={handleLogout} disabled={busy}>
                 <LuLogOut aria-hidden="true" /> Kirjaudu ulos
               </button>
@@ -135,6 +189,19 @@ const Account = () => {
               >
                 Kirjaudu passkeyllä
               </button>
+
+              {clientId && (
+                <div className="acc-google-section">
+                  <div className="acc-google-label">
+                    Onko sinulla jo tili toisella laitteella?
+                  </div>
+                  <GoogleButton
+                    clientId={clientId}
+                    onCredential={handleLoginGoogle}
+                    text="signin_with"
+                  />
+                </div>
+              )}
             </>
           )}
 
@@ -272,6 +339,31 @@ body { margin: 0; }
 .acc-user-icon svg { width: 28px; height: 28px; }
 .acc-user-name { font-size: var(--gz-fs-lg); font-weight: var(--gz-fw-bold); color: var(--gz-text-primary); }
 .acc-user-sub { font-size: var(--gz-fs-sm); color: var(--gz-text-tertiary); margin-bottom: 8px; }
+
+/* Google linking / login section */
+.acc-google-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.acc-google-label {
+  font-size: var(--gz-fs-sm);
+  color: var(--gz-text-secondary);
+  text-align: center;
+  line-height: 1.4;
+}
+.acc-google-btn { display: flex; justify-content: center; min-height: 40px; }
+.acc-google-linked {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: var(--gz-fs-sm);
+  color: var(--color-win, #34d399);
+}
+.acc-google-linked svg { width: 18px; height: 18px; }
 
 .acc-status { text-align: center; padding: 24px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
 .acc-status--error { color: var(--color-loss); }

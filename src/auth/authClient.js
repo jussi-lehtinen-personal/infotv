@@ -117,3 +117,39 @@ export async function getMe() {
 export function logout() {
   clearToken();
 }
+
+// --- Google account linking (V2, multi-device) ---
+
+// Link the Google account to the currently-signed-in (passkey) user.
+export async function linkGoogle(credential) {
+  const token = getToken();
+  const res = await fetch("/api/auth/google/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Ahma-Auth": token },
+    body: JSON.stringify({ credential }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  setCachedUser(data.user);
+  return data.user;
+}
+
+// Sign in on a new device with a Google account already linked elsewhere.
+export async function loginGoogle(credential) {
+  const data = await postJson("/api/auth/google/login", { credential });
+  setToken(data.token);
+  setCachedUser(data.user);
+  return data.user;
+}
+
+let configCache = null;
+export async function getAuthConfig() {
+  if (configCache) return configCache;
+  try {
+    const res = await fetch("/api/authConfig");
+    configCache = res.ok ? await res.json() : { googleClientId: "" };
+  } catch {
+    configCache = { googleClientId: "" };
+  }
+  return configCache;
+}
