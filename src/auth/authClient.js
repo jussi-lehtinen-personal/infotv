@@ -56,10 +56,29 @@ function mapError(e) {
   return msg || "Passkey-toiminto epäonnistui.";
 }
 
-export async function registerPasskey(nickname) {
-  const { options, challengeToken } = await postJson(
+// Shared POST that optionally attaches the session token (authed register =
+// add a passkey to the current account).
+async function postAuthed(url, body, authed) {
+  const headers = { "Content-Type": "application/json" };
+  if (authed) {
+    const t = getToken();
+    if (t) headers["X-Ahma-Auth"] = t;
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return data;
+}
+
+async function doRegister(body, authed) {
+  const { options, challengeToken } = await postAuthed(
     "/api/auth/passkey/register/options",
-    { nickname }
+    body,
+    authed
   );
   let response;
   try {
@@ -67,14 +86,21 @@ export async function registerPasskey(nickname) {
   } catch (e) {
     throw new Error(mapError(e));
   }
-  const { token, user } = await postJson(
+  const { token, user } = await postAuthed(
     "/api/auth/passkey/register/verify",
-    { response, challengeToken }
+    { response, challengeToken },
+    authed
   );
-  setToken(token);
+  if (token) setToken(token);
   setCachedUser(user);
   return user;
 }
+
+// New account from a nickname.
+export const registerPasskey = (nickname) => doRegister({ nickname }, false);
+
+// Add a passkey to the currently signed-in account (e.g. Google-only user).
+export const addPasskey = () => doRegister({}, true);
 
 export async function loginPasskey() {
   const { options, challengeToken } = await postJson(

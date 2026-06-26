@@ -42,7 +42,7 @@ export const GoogleButton = ({ clientId, onCredential, text = "continue_with" })
           size: "large",
           shape: "pill",
           text,
-          width: 240,
+          width: 280,
         });
       })
       .catch(() => {

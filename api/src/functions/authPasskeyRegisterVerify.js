@@ -51,12 +51,16 @@ app.http('authPasskeyRegisterVerify', {
       const now = new Date().toISOString();
 
       await ensureTables();
-      await upsertEntity('Users', {
-        partitionKey: userId,
-        rowKey: 'profile',
-        nickname: ch.nickname,
-        createdAt: now,
-      });
+      // New account → create the profile. Existing account (adding a passkey)
+      // → leave the profile untouched so googleSub/email/createdAt survive.
+      if (!ch.existing) {
+        await upsertEntity('Users', {
+          partitionKey: userId,
+          rowKey: 'profile',
+          nickname: ch.nickname,
+          createdAt: now,
+        });
+      }
       await upsertEntity('Credentials', {
         partitionKey: userId,
         rowKey: toB64u(credentialID),

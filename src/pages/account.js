@@ -11,6 +11,7 @@ import {
   getCachedUser,
   getAuthConfig,
   registerPasskey,
+  addPasskey,
   loginPasskey,
   linkGoogle,
   loginGoogle,
@@ -23,6 +24,7 @@ const Account = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [nickname, setNickname] = useState("");
   const [clientId, setClientId] = useState("");
   const supported = browserSupportsWebAuthn();
@@ -71,6 +73,21 @@ const Account = () => {
     logout();
     setUser(null);
     setNickname("");
+    setNotice("");
+    setError("");
+  };
+
+  const handleAddPasskey = async () => {
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      setUser(await addPasskey());
+      setNotice("Passkey lisätty tälle laitteelle.");
+    } catch (err) {
+      setError(err.message);
+    }
+    setBusy(false);
   };
 
   // Stable callbacks so the Google button isn't re-rendered each tick.
@@ -135,7 +152,15 @@ const Account = () => {
             <div className="acc-user">
               <div className="acc-user-icon" aria-hidden="true"><LuKeyRound /></div>
               <div className="acc-user-name">{user.nickname || "Käyttäjä"}</div>
-              <div className="acc-user-sub">Kirjautunut passkeyllä</div>
+              <div className="acc-user-sub">Kirjautunut</div>
+
+              <button
+                className="acc-btn acc-btn--secondary acc-method-btn"
+                onClick={handleAddPasskey}
+                disabled={busy}
+              >
+                <LuKeyRound aria-hidden="true" /> Lisää passkey tälle laitteelle
+              </button>
 
               <div className="acc-google-section">
                 {user.googleLinked ? (
@@ -175,57 +200,66 @@ const Account = () => {
 
           {supported && !loading && !user && (
             <>
-              <p className="acc-intro">
-                Luo passkey niin voit kirjautua sormenjäljellä tai kasvotunnistuksella —
-                ilman salasanaa.
-              </p>
-
-              <form className="acc-form" onSubmit={handleRegister}>
-                <label className="acc-label" htmlFor="acc-nick">Nimimerkki</label>
-                <input
-                  id="acc-nick"
-                  className="acc-input"
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  placeholder="esim. Ahma-fani"
-                  maxLength={40}
-                  autoComplete="off"
-                />
+              {/* KIRJAUDU */}
+              <div className="acc-section">
+                <div className="acc-section-title">Kirjaudu</div>
+                {clientId && (
+                  <>
+                    <div className="acc-recommended">Suositus</div>
+                    <GoogleButton
+                      clientId={clientId}
+                      onCredential={handleLoginGoogle}
+                      text="signin_with"
+                    />
+                  </>
+                )}
                 <button
-                  className="acc-btn acc-btn--primary"
-                  type="submit"
-                  disabled={busy || nickname.trim().length < 1}
+                  className="acc-btn acc-btn--secondary acc-fixed-btn"
+                  onClick={handleLogin}
+                  disabled={busy}
                 >
-                  <LuKeyRound aria-hidden="true" /> Luo passkey
+                  Kirjaudu passkeyllä
                 </button>
-              </form>
+              </div>
 
-              <div className="acc-divider"><span>tai</span></div>
+              <div className="acc-rule" />
 
-              <button
-                className="acc-btn acc-btn--secondary"
-                onClick={handleLogin}
-                disabled={busy}
-              >
-                Kirjaudu passkeyllä
-              </button>
-
-              {clientId && (
-                <div className="acc-google-section">
-                  <div className="acc-google-label">
-                    Onko sinulla jo tili toisella laitteella?
-                  </div>
-                  <GoogleButton
-                    clientId={clientId}
-                    onCredential={handleLoginGoogle}
-                    text="signin_with"
+              {/* LUO UUSI TILI */}
+              <div className="acc-section">
+                <div className="acc-section-title">Luo uusi tili</div>
+                <p className="acc-intro">
+                  Oma käyttäjä passkeyllä: kirjaudut jatkossa sormenjäljellä tai
+                  kasvotunnistuksella — ei salasanaa, ei sähköpostia.
+                </p>
+                <form className="acc-form" onSubmit={handleRegister}>
+                  <label className="acc-label" htmlFor="acc-nick">Nimimerkki</label>
+                  <input
+                    id="acc-nick"
+                    className="acc-input"
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    placeholder="esim. Uusi käyttäjä"
+                    maxLength={40}
+                    autoComplete="off"
                   />
-                </div>
-              )}
+                  <button
+                    className="acc-btn acc-btn--primary"
+                    type="submit"
+                    disabled={busy || nickname.trim().length < 1}
+                  >
+                    <LuKeyRound aria-hidden="true" /> Luo tili
+                  </button>
+                </form>
+                <p className="acc-hint">
+                  Jos haluat käyttää samaa tiliä useammalta laitteelta, yhdistä
+                  Google-tili käyttäjääsi myöhemmin Tili-sivulta.
+                </p>
+              </div>
             </>
           )}
 
+          {notice && <div className="acc-notice">{notice}</div>}
           {error && <div className="acc-error">{error}</div>}
         </div>
       </div>
@@ -360,6 +394,46 @@ body { margin: 0; }
 .acc-user-icon svg { width: 28px; height: 28px; }
 .acc-user-name { font-size: var(--gz-fs-lg); font-weight: var(--gz-fw-bold); color: var(--gz-text-primary); }
 .acc-user-sub { font-size: var(--gz-fs-sm); color: var(--gz-text-tertiary); margin-bottom: 8px; }
+.acc-method-btn { width: 100%; }
+
+/* Signup view split into two titled sections: Kirjaudu / Luo uusi tili. */
+.acc-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.acc-section-title {
+  font-size: var(--gz-fs-md);
+  font-weight: 800;
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+  color: var(--gz-text-primary);
+}
+.acc-section .acc-intro { width: 100%; text-align: center; margin: 0; }
+.acc-section .acc-form { width: 100%; max-width: 280px; }
+.acc-fixed-btn { width: 100%; max-width: 280px; }
+.acc-rule { width: 100%; height: 1px; background: rgba(255,255,255,0.10); margin: 2px 0; }
+.acc-hint {
+  margin: 2px 0 0;
+  max-width: 320px;
+  font-size: var(--gz-fs-xs);
+  color: var(--gz-text-tertiary);
+  text-align: center;
+  line-height: 1.45;
+}
+.acc-recommended {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(245,158,11,0.15);
+  color: var(--color-primary);
+  font-size: var(--gz-fs-xs);
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
+  text-transform: uppercase;
+}
 
 /* Google linking / login section */
 .acc-google-section {
@@ -400,6 +474,15 @@ body { margin: 0; }
 
 .acc-status { text-align: center; padding: 24px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
 .acc-status--error { color: var(--color-loss); }
+.acc-notice {
+  padding: 10px 12px;
+  border-radius: var(--radius-item);
+  background: rgba(52,211,153,0.10);
+  border: 1px solid rgba(52,211,153,0.30);
+  color: #6ee7b7;
+  font-size: var(--gz-fs-sm);
+  text-align: center;
+}
 .acc-error {
   padding: 10px 12px;
   border-radius: var(--radius-item);

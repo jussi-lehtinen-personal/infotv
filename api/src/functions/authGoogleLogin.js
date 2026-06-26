@@ -1,12 +1,14 @@
 const { app } = require('@azure/functions');
+const crypto = require('crypto');
 const { verifyGoogleToken } = require('../lib/google');
-const { ensureTables, getEntity } = require('../lib/tables');
+const { ensureTables, getEntity, upsertEntity } = require('../lib/tables');
 const { signSession } = require('../lib/jwt');
 
 // POST /api/auth/google/login
-// New-device sign-in: resolves the userId previously linked to this Google
-// account and issues a session token. The account must already exist + be
-// linked (via google/link on the first device).
+// Sign in with Google. If this Google account is already linked, resolves that
+// userId; otherwise creates a fresh account anchored on the Google identity
+// (Google-only signup). Symmetric with passkey signup — the user can later add
+// a passkey to this account.
 app.http('authGoogleLogin', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -27,17 +29,29 @@ app.http('authGoogleLogin', {
 
       await ensureTables();
       const idx = await getEntity('GoogleIndex', g.sub, g.sub);
-      if (!idx) {
-        return {
-          status: 404,
-          jsonBody: {
-            error:
-              'Tällä Google-tilillä ei ole vielä tiliä. Luo passkey ja yhdistä Google toisella laitteella ensin.',
-          },
-        };
+
+      let userId;
+      if (idx) {
+        userId = idx.userId;
+      } else {
+        // Google-only signup: create a new account for this Google identity.
+        userId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        await upsertEntity('Users', {
+          partitionKey: userId,
+          rowKey: 'profile',
+          nickname: g.name || 'Käyttäjä',
+          email: g.email || '',
+          googleSub: g.sub,
+          createdAt: now,
+        });
+        await upsertEntity('GoogleIndex', {
+          partitionKey: g.sub,
+          rowKey: g.sub,
+          userId,
+        });
       }
 
-      const userId = idx.userId;
       const user = await getEntity('Users', userId, 'profile');
       const token = await signSession(userId);
       return {
