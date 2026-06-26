@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const crypto = require('crypto');
 const { verifyGoogleToken } = require('../lib/google');
-const { ensureTables, getEntity, upsertEntity } = require('../lib/tables');
+const { ensureTables, getEntity, upsertEntity, listByPartition } = require('../lib/tables');
 const { signSession } = require('../lib/jwt');
 
 // POST /api/auth/google/login
@@ -53,11 +53,17 @@ app.http('authGoogleLogin', {
       }
 
       const user = await getEntity('Users', userId, 'profile');
+      const creds = await listByPartition('Credentials', userId);
       const token = await signSession(userId);
       return {
         jsonBody: {
           token,
-          user: { userId, nickname: (user && user.nickname) || '', googleLinked: true },
+          user: {
+            userId,
+            nickname: (user && user.nickname) || '',
+            googleLinked: true,
+            hasPasskey: creds.length > 0,
+          },
         },
       };
     } catch (err) {

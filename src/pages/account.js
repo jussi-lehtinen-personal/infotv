@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
-import { LuKeyRound, LuLogOut, LuCheck } from "react-icons/lu";
+import { LuKeyRound, LuLogOut, LuCheck, LuTrash2 } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
@@ -173,13 +173,15 @@ const Account = () => {
               <div className="acc-user-name">{user.nickname || "Käyttäjä"}</div>
               <div className="acc-user-sub">Kirjautunut</div>
 
-              <button
-                className="acc-btn acc-btn--secondary acc-method-btn"
-                onClick={handleAddPasskey}
-                disabled={busy}
-              >
-                <LuKeyRound aria-hidden="true" /> Lisää passkey tälle laitteelle
-              </button>
+              {!user.hasPasskey && (
+                <button
+                  className="acc-btn acc-btn--secondary acc-method-btn"
+                  onClick={handleAddPasskey}
+                  disabled={busy}
+                >
+                  <LuKeyRound aria-hidden="true" /> Lisää passkey tälle laitteelle
+                </button>
+              )}
 
               <div className="acc-google-section">
                 {user.googleLinked ? (
@@ -217,11 +219,11 @@ const Account = () => {
 
               {!confirmDelete ? (
                 <button
-                  className="acc-danger-link"
+                  className="acc-btn acc-btn--danger-outline"
                   onClick={() => setConfirmDelete(true)}
                   disabled={busy}
                 >
-                  Poista tili
+                  <LuTrash2 aria-hidden="true" /> Poista tili
                 </button>
               ) : (
                 <div className="acc-confirm">
@@ -418,6 +420,12 @@ body { margin: 0; }
 .acc-btn--ghost:not(:disabled):hover { background: rgba(255,255,255,0.06); }
 .acc-btn--danger { background: #dc2626; color: #fff; }
 .acc-btn--danger:not(:disabled):hover { filter: brightness(1.08); }
+.acc-btn--danger-outline {
+  background: transparent;
+  border-color: rgba(239,68,68,0.45);
+  color: #f87171;
+}
+.acc-btn--danger-outline:not(:disabled):hover { background: rgba(239,68,68,0.10); }
 
 /* Delete account: subtle red trigger → inline confirmation panel. */
 .acc-danger-link {

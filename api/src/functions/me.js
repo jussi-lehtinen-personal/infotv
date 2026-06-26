@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
-const { ensureTables, getEntity } = require('../lib/tables');
+const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
 
 // GET /api/me — returns the current user's profile (requires Bearer token).
 app.http('me', {
@@ -18,11 +18,13 @@ app.http('me', {
       if (!user) {
         return { status: 404, jsonBody: { error: 'Käyttäjää ei löytynyt.' } };
       }
+      const creds = await listByPartition('Credentials', userId);
       return {
         jsonBody: {
           userId,
           nickname: user.nickname || '',
           googleLinked: !!user.googleSub,
+          hasPasskey: creds.length > 0,
         },
       };
     } catch (err) {

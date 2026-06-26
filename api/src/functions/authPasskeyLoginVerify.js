@@ -71,7 +71,17 @@ app.http('authPasskeyLoginVerify', {
 
       const user = await getEntity('Users', userId, 'profile');
       const token = await signSession(userId);
-      return { jsonBody: { token, user: { userId, nickname: (user && user.nickname) || '' } } };
+      return {
+        jsonBody: {
+          token,
+          user: {
+            userId,
+            nickname: (user && user.nickname) || '',
+            googleLinked: !!(user && user.googleSub),
+            hasPasskey: true,
+          },
+        },
+      };
     } catch (err) {
       context.log('login/verify failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };

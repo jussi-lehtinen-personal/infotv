@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { verifyGoogleToken } = require('../lib/google');
-const { ensureTables, getEntity, upsertEntity, deleteEntity } = require('../lib/tables');
+const { ensureTables, getEntity, upsertEntity, deleteEntity, listByPartition } = require('../lib/tables');
 
 // POST /api/auth/google/link  (authed)
 // Links the caller's Google account to their existing userId so other devices
@@ -59,10 +59,16 @@ app.http('authGoogleLink', {
         userId,
       });
 
+      const creds = await listByPartition('Credentials', userId);
       return {
         jsonBody: {
           ok: true,
-          user: { userId, nickname: user.nickname || '', googleLinked: true },
+          user: {
+            userId,
+            nickname: user.nickname || '',
+            googleLinked: true,
+            hasPasskey: creds.length > 0,
+          },
         },
       };
     } catch (err) {

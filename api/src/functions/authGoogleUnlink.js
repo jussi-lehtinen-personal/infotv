@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
-const { ensureTables, getEntity, upsertEntity, deleteEntity } = require('../lib/tables');
+const { ensureTables, getEntity, upsertEntity, deleteEntity, listByPartition } = require('../lib/tables');
 
 // POST /api/auth/google/unlink  (authed)
 // Removes the Google link from the caller's account. The passkey stays as the
@@ -28,10 +28,16 @@ app.http('authGoogleUnlink', {
       user.email = '';
       await upsertEntity('Users', user);
 
+      const creds = await listByPartition('Credentials', userId);
       return {
         jsonBody: {
           ok: true,
-          user: { userId, nickname: user.nickname || '', googleLinked: false },
+          user: {
+            userId,
+            nickname: user.nickname || '',
+            googleLinked: false,
+            hasPasskey: creds.length > 0,
+          },
         },
       };
     } catch (err) {

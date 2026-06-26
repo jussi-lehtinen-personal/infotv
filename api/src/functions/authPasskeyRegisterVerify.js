@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { verifyRegistrationResponse, rpID, rpOrigin, toB64u } = require('../lib/webauthn');
 const { readChallenge } = require('../lib/challenge');
-const { ensureTables, upsertEntity } = require('../lib/tables');
+const { ensureTables, upsertEntity, getEntity } = require('../lib/tables');
 const { signSession } = require('../lib/jwt');
 
 // POST /api/auth/passkey/register/verify
@@ -72,8 +72,19 @@ app.http('authPasskeyRegisterVerify', {
         createdAt: now,
       });
 
+      const profile = await getEntity('Users', userId, 'profile');
       const token = await signSession(userId);
-      return { jsonBody: { token, user: { userId, nickname: ch.nickname } } };
+      return {
+        jsonBody: {
+          token,
+          user: {
+            userId,
+            nickname: (profile && profile.nickname) || ch.nickname,
+            googleLinked: !!(profile && profile.googleSub),
+            hasPasskey: true,
+          },
+        },
+      };
     } catch (err) {
       context.log('register/verify failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };
