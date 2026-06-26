@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { verifyGoogleToken } = require('../lib/google');
-const { ensureTables, getEntity, upsertEntity } = require('../lib/tables');
+const { ensureTables, getEntity, upsertEntity, deleteEntity } = require('../lib/tables');
 
 // POST /api/auth/google/link  (authed)
 // Links the caller's Google account to their existing userId so other devices
@@ -42,6 +42,12 @@ app.http('authGoogleLink', {
       const user = await getEntity('Users', userId, 'profile');
       if (!user) {
         return { status: 404, jsonBody: { error: 'Käyttäjää ei löytynyt.' } };
+      }
+
+      // Switching accounts: drop the stale GoogleIndex entry for the old sub
+      // so it no longer resolves to this user on google/login.
+      if (user.googleSub && user.googleSub !== g.sub) {
+        await deleteEntity('GoogleIndex', user.googleSub, user.googleSub);
       }
 
       user.googleSub = g.sub;

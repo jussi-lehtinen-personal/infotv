@@ -48,6 +48,14 @@ async function upsertEntity(table, entity) {
   return client(table).upsertEntity(entity, 'Replace');
 }
 
+async function deleteEntity(table, partitionKey, rowKey) {
+  try {
+    await client(table).deleteEntity(partitionKey, rowKey);
+  } catch (e) {
+    if (e.statusCode !== 404) throw e;
+  }
+}
+
 async function listByPartition(table, partitionKey) {
   const out = [];
   const iter = client(table).listEntities({
@@ -57,4 +65,4 @@ async function listByPartition(table, partitionKey) {
   return out;
 }
 
-module.exports = { ensureTables, getEntity, upsertEntity, listByPartition };
+module.exports = { ensureTables, getEntity, upsertEntity, deleteEntity, listByPartition };

@@ -134,6 +134,19 @@ export async function linkGoogle(credential) {
   return data.user;
 }
 
+// Remove the Google link from the signed-in account (passkey stays primary).
+export async function unlinkGoogle() {
+  const token = getToken();
+  const res = await fetch("/api/auth/google/unlink", {
+    method: "POST",
+    headers: { "X-Ahma-Auth": token },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  setCachedUser(data.user);
+  return data.user;
+}
+
 // Sign in on a new device with a Google account already linked elsewhere.
 export async function loginGoogle(credential) {
   const data = await postJson("/api/auth/google/login", { credential });

@@ -14,6 +14,7 @@ import {
   loginPasskey,
   linkGoogle,
   loginGoogle,
+  unlinkGoogle,
   logout,
 } from "../auth/authClient";
 
@@ -95,6 +96,17 @@ const Account = () => {
     setBusy(false);
   }, []);
 
+  const handleUnlinkGoogle = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      setUser(await unlinkGoogle());
+    } catch (err) {
+      setError(err.message);
+    }
+    setBusy(false);
+  };
+
   return (
     <>
       <style>{css}</style>
@@ -127,9 +139,18 @@ const Account = () => {
 
               <div className="acc-google-section">
                 {user.googleLinked ? (
-                  <div className="acc-google-linked">
-                    <LuCheck aria-hidden="true" /> Google yhdistetty — voit kirjautua muillakin laitteilla
-                  </div>
+                  <>
+                    <div className="acc-google-linked">
+                      <LuCheck aria-hidden="true" /> Google yhdistetty — voit kirjautua muillakin laitteilla
+                    </div>
+                    <button
+                      className="acc-link-btn"
+                      onClick={handleUnlinkGoogle}
+                      disabled={busy}
+                    >
+                      Poista Google-yhteys
+                    </button>
+                  </>
                 ) : (
                   <>
                     <div className="acc-google-label">
@@ -364,6 +385,18 @@ body { margin: 0; }
   color: var(--color-win, #34d399);
 }
 .acc-google-linked svg { width: 18px; height: 18px; }
+.acc-link-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--gz-text-tertiary);
+  font-size: var(--gz-fs-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.acc-link-btn:hover { color: var(--gz-text-secondary); }
+.acc-link-btn:disabled { opacity: 0.5; cursor: default; }
 
 .acc-status { text-align: center; padding: 24px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
 .acc-status--error { color: var(--color-loss); }
