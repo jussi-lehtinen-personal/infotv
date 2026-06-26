@@ -20,11 +20,21 @@ import {
   isLiveMatch,
   parseMatchDate,
 } from "../../hooks/useHeroMatches";
+import { getCachedUser, getMe } from "../../auth/authClient";
 
 const Index = () => {
   const [news, setNews] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(getCachedUser);
   const { matches: heroMatches, loading: heroLoading } = useHeroMatches();
+
+  // Optimistic from cache, then revalidate. getMe returns null if logged out
+  // (token cleared on 401) and throws on transient errors → keep the cache.
+  useEffect(() => {
+    getMe()
+      .then((u) => setAuthUser(u))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/gamezone-news.json')
@@ -51,7 +61,7 @@ const Index = () => {
       <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       <div className="ahma-root">
-        <AppHeader onMenuClick={() => setDrawerOpen(true)} />
+        <AppHeader onMenuClick={() => setDrawerOpen(true)} user={authUser} />
 
         <div className="ahma-menu">
           <HeroCarousel matches={heroMatches} loading={heroLoading} />

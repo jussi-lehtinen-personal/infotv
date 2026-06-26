@@ -228,11 +228,46 @@ code {
    ilmoituskello punaisella badge-merkillä. Päivitetään myöhemmin
    muillekin Gamezone-sivuille jos tarvitaan. */
 .ui-app-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  min-height: 40px;
   padding: 4px 6px;
+}
+/* Oikean reunan nappiryhmä: profiili + ilmoituskello. */
+.ui-app-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+/* Profiililinkki: pyöreä ikoni + valinnainen nimimerkki (katkaistu). */
+.ui-app-header-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 8px 0 6px;
+  border-radius: 20px;
+  color: var(--gz-text-primary);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s;
+}
+.ui-app-header-profile:hover,
+.ui-app-header-profile:visited,
+.ui-app-header-profile:active { color: var(--gz-text-primary); text-decoration: none; }
+.ui-app-header-profile:hover { background: rgba(255, 255, 255, 0.06); }
+.ui-app-header-profile-icon { width: 24px; height: 24px; flex: 0 0 auto; }
+.ui-app-header-profile-name {
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: var(--gz-fw-bold);
+  letter-spacing: var(--gz-ls-wide);
 }
 .ui-app-header-btn {
   position: relative;
@@ -268,11 +303,16 @@ code {
   height: 24px;
 }
 .ui-app-header-wordmark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   line-height: 1;
   gap: 3px;
+  pointer-events: none;
 }
 .ui-app-header-wordmark-top,
 .ui-app-header-wordmark-bottom {
