@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const { verifyRegistrationResponse, rpID, rpOrigin, toB64u } = require('../lib/webauthn');
 const { readChallenge } = require('../lib/challenge');
 const { ensureTables, upsertEntity, getEntity } = require('../lib/tables');
+const { reserveUsername } = require('../lib/usernames');
 const { signSession } = require('../lib/jwt');
 
 // POST /api/auth/passkey/register/verify
@@ -51,6 +52,14 @@ app.http('authPasskeyRegisterVerify', {
       const now = new Date().toISOString();
 
       await ensureTables();
+      // New account → reserve the username atomically (race-safe) before
+      // writing anything; existing account (adding a passkey) keeps its name.
+      if (!ch.existing) {
+        const reserved = await reserveUsername(ch.nickname, userId);
+        if (!reserved) {
+          return { status: 409, jsonBody: { error: 'Käyttäjätunnus on jo varattu.' } };
+        }
+      }
       // New account → create the profile. Existing account (adding a passkey)
       // → leave the profile untouched so googleSub/email/createdAt survive.
       if (!ch.existing) {

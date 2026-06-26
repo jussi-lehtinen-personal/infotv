@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition, deleteEntity } = require('../lib/tables');
+const { releaseUsername } = require('../lib/usernames');
 
 // POST /api/auth/account/delete  (authed)
 // Permanently removes the caller's account: profile, all passkey credentials,
@@ -21,6 +22,9 @@ app.http('authAccountDelete', {
 
       if (user && user.googleSub) {
         await deleteEntity('GoogleIndex', user.googleSub, user.googleSub);
+      }
+      if (user && user.nickname) {
+        await releaseUsername(user.nickname);
       }
 
       const creds = await listByPartition('Credentials', userId);

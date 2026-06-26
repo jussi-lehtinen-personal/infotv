@@ -29,6 +29,7 @@ const Account = () => {
   const [nickname, setNickname] = useState("");
   const [clientId, setClientId] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const supported = browserSupportsWebAuthn();
 
   const refresh = useCallback(async () => {
@@ -54,6 +55,7 @@ const Account = () => {
     setBusy(true);
     try {
       setUser(await registerPasskey(nickname.trim()));
+      setShowCreate(false);
     } catch (err) {
       setError(err.message);
     }
@@ -78,6 +80,7 @@ const Account = () => {
     setNotice("");
     setError("");
     setConfirmDelete(false);
+    setShowCreate(false);
   };
 
   const handleDeleteAccount = async () => {
@@ -276,42 +279,68 @@ const Account = () => {
 
               <div className="acc-divider"><span>tai</span></div>
 
-              {/* LUO UUSI TILI */}
-              <div className="acc-section">
-                <div className="acc-section-title">Luo uusi tili</div>
-                <div className="acc-section-sub">Uusi täällä? Luo oma Gamezone-tili</div>
-                <form className="acc-form" onSubmit={handleRegister}>
-                  <label className="acc-label" htmlFor="acc-nick">Nimimerkki</label>
-                  <input
-                    id="acc-nick"
-                    className="acc-input"
-                    type="text"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    placeholder="esim. Uusi käyttäjä"
-                    maxLength={40}
-                    autoComplete="off"
-                  />
-                  <button
-                    className="acc-btn acc-btn--primary"
-                    type="submit"
-                    disabled={busy || nickname.trim().length < 1}
-                  >
-                    <LuKeyRound aria-hidden="true" /> Luo tili
-                  </button>
-                </form>
-                <p className="acc-hint">
-                  Jos haluat käyttää samaa tiliä useammalta laitteelta, yhdistä
-                  Google-tili käyttäjääsi myöhemmin Tili-sivulta.
-                </p>
-              </div>
+              <button
+                className="acc-btn acc-btn--secondary acc-fixed-btn"
+                onClick={() => {
+                  setError("");
+                  setShowCreate(true);
+                }}
+                disabled={busy}
+              >
+                Luo uusi tili
+              </button>
             </>
           )}
 
           {notice && <div className="acc-notice">{notice}</div>}
-          {error && <div className="acc-error">{error}</div>}
+          {error && !showCreate && <div className="acc-error">{error}</div>}
         </div>
       </div>
+
+      {showCreate && !user && (
+        <div
+          className="acc-modal-backdrop"
+          onClick={() => !busy && setShowCreate(false)}
+        >
+          <div className="acc-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="acc-section-title">Luo uusi tili</div>
+            <div className="acc-section-sub">Uusi täällä? Luo oma Gamezone-tili</div>
+            <form className="acc-form" onSubmit={handleRegister}>
+              <label className="acc-label" htmlFor="acc-nick">Käyttäjätunnus</label>
+              <input
+                id="acc-nick"
+                className="acc-input"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="esim. Uusi käyttäjä"
+                maxLength={40}
+                autoComplete="off"
+                autoFocus
+              />
+              <button
+                className="acc-btn acc-btn--primary"
+                type="submit"
+                disabled={busy || nickname.trim().length < 1}
+              >
+                <LuKeyRound aria-hidden="true" /> Luo tili
+              </button>
+            </form>
+            <p className="acc-hint">
+              Jos haluat käyttää samaa tiliä useammalta laitteelta, yhdistä
+              Google-tili käyttäjääsi myöhemmin Tili-sivulta.
+            </p>
+            {error && <div className="acc-error">{error}</div>}
+            <button
+              className="acc-link-btn"
+              onClick={() => setShowCreate(false)}
+              disabled={busy}
+            >
+              Peruuta
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };
@@ -510,6 +539,35 @@ body { margin: 0; }
 .acc-section .acc-form { width: 100%; max-width: 280px; }
 .acc-fixed-btn { width: 100%; max-width: 280px; }
 .acc-rule { width: 100%; height: 1px; background: rgba(255,255,255,0.10); margin: 2px 0; }
+
+/* Create-account dialog. */
+.acc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.6);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.acc-modal {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 20px;
+  border-radius: var(--radius-card);
+  background: #1c1c1f;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: var(--shadow-card);
+}
+.acc-modal .acc-form { width: 100%; max-width: 300px; }
+.acc-modal .acc-error { width: 100%; }
 .acc-hint {
   margin: 2px 0 0;
   max-width: 320px;

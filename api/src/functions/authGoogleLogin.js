@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const crypto = require('crypto');
 const { verifyGoogleToken } = require('../lib/google');
 const { ensureTables, getEntity, upsertEntity, listByPartition } = require('../lib/tables');
+const { reserveUniqueUsername } = require('../lib/usernames');
 const { signSession } = require('../lib/jwt');
 
 // POST /api/auth/google/login
@@ -37,10 +38,12 @@ app.http('authGoogleLogin', {
         // Google-only signup: create a new account for this Google identity.
         userId = crypto.randomUUID();
         const now = new Date().toISOString();
+        // Reserve a unique username (suffix on collision so signup never fails).
+        const nickname = await reserveUniqueUsername(g.name || 'Käyttäjä', userId);
         await upsertEntity('Users', {
           partitionKey: userId,
           rowKey: 'profile',
-          nickname: g.name || 'Käyttäjä',
+          nickname,
           email: g.email || '',
           googleSub: g.sub,
           createdAt: now,

@@ -6,7 +6,7 @@ const { TableClient } = require('@azure/data-tables');
 // the SDK talk to Azurite over http; it's a no-op for the cloud https endpoint.
 const CONN = process.env.TABLES_CONNECTION_STRING;
 
-const TABLE_NAMES = ['Users', 'Credentials', 'GoogleIndex'];
+const TABLE_NAMES = ['Users', 'Credentials', 'GoogleIndex', 'Usernames'];
 const clients = {};
 let ensured = false;
 
@@ -48,6 +48,18 @@ async function upsertEntity(table, entity) {
   return client(table).upsertEntity(entity, 'Replace');
 }
 
+// Atomic insert: returns true if created, false if the key already exists (409).
+// Used to reserve unique usernames without a race.
+async function insertEntity(table, entity) {
+  try {
+    await client(table).createEntity(entity);
+    return true;
+  } catch (e) {
+    if (e.statusCode === 409) return false;
+    throw e;
+  }
+}
+
 async function deleteEntity(table, partitionKey, rowKey) {
   try {
     await client(table).deleteEntity(partitionKey, rowKey);
@@ -65,4 +77,4 @@ async function listByPartition(table, partitionKey) {
   return out;
 }
 
-module.exports = { ensureTables, getEntity, upsertEntity, deleteEntity, listByPartition };
+module.exports = { ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition };

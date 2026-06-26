@@ -4,6 +4,7 @@ const { generateRegistrationOptions, rpID, RP_NAME, fromB64u } = require('../lib
 const { issueChallenge } = require('../lib/challenge');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
+const { isUsernameFree } = require('../lib/usernames');
 
 // POST /api/auth/passkey/register/options
 // Anonymous → mints a new account (nickname required) and returns creation
@@ -45,7 +46,11 @@ app.http('authPasskeyRegisterOptions', {
         // New account.
         nickname = String(body.nickname || '').trim();
         if (nickname.length < 1 || nickname.length > 40) {
-          return { status: 400, jsonBody: { error: 'Anna nimimerkki (1–40 merkkiä).' } };
+          return { status: 400, jsonBody: { error: 'Anna käyttäjätunnus (1–40 merkkiä).' } };
+        }
+        await ensureTables();
+        if (!(await isUsernameFree(nickname))) {
+          return { status: 409, jsonBody: { error: 'Käyttäjätunnus on jo varattu.' } };
         }
         userId = crypto.randomUUID();
       }
