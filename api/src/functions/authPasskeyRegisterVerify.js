@@ -1,0 +1,78 @@
+const { app } = require('@azure/functions');
+const { verifyRegistrationResponse, rpID, rpOrigin, toB64u } = require('../lib/webauthn');
+const { readChallenge } = require('../lib/challenge');
+const { ensureTables, upsertEntity } = require('../lib/tables');
+const { signSession } = require('../lib/jwt');
+
+// POST /api/auth/passkey/register/verify
+// Body: { response, challengeToken }. Verifies the attestation, stores the
+// user + credential, returns an app session token.
+app.http('authPasskeyRegisterVerify', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'auth/passkey/register/verify',
+  handler: async (request, context) => {
+    try {
+      const body = await request.json().catch(() => ({}));
+      const { response, challengeToken } = body;
+      if (!response || !challengeToken) {
+        return { status: 400, jsonBody: { error: 'Puuttuva response/challengeToken.' } };
+      }
+
+      let ch;
+      try {
+        ch = await readChallenge(challengeToken);
+      } catch {
+        return { status: 400, jsonBody: { error: 'Vanhentunut tai virheellinen haaste.' } };
+      }
+      if (ch.flow !== 'register') {
+        return { status: 400, jsonBody: { error: 'Väärä haaste.' } };
+      }
+
+      const verification = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: ch.challenge,
+        expectedOrigin: rpOrigin(),
+        expectedRPID: rpID(),
+        requireUserVerification: false,
+      });
+      if (!verification.verified || !verification.registrationInfo) {
+        return { status: 400, jsonBody: { error: 'Passkeyn vahvistus epäonnistui.' } };
+      }
+
+      const {
+        credentialID,
+        credentialPublicKey,
+        counter,
+        credentialDeviceType,
+        credentialBackedUp,
+      } = verification.registrationInfo;
+      const userId = ch.userId;
+      const now = new Date().toISOString();
+
+      await ensureTables();
+      await upsertEntity('Users', {
+        partitionKey: userId,
+        rowKey: 'profile',
+        nickname: ch.nickname,
+        createdAt: now,
+      });
+      await upsertEntity('Credentials', {
+        partitionKey: userId,
+        rowKey: toB64u(credentialID),
+        publicKey: toB64u(credentialPublicKey),
+        counter,
+        transports: JSON.stringify((response.response && response.response.transports) || []),
+        deviceType: credentialDeviceType || '',
+        backedUp: !!credentialBackedUp,
+        createdAt: now,
+      });
+
+      const token = await signSession(userId);
+      return { jsonBody: { token, user: { userId, nickname: ch.nickname } } };
+    } catch (err) {
+      context.log('register/verify failed: ' + (err && err.stack || err));
+      return { status: 500, jsonBody: { error: String(err && err.message || err) } };
+    }
+  },
+});
