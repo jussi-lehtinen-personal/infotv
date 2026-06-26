@@ -11,7 +11,6 @@ import {
   getCachedUser,
   getAuthConfig,
   registerPasskey,
-  addPasskey,
   loginPasskey,
   linkGoogle,
   loginGoogle,
@@ -99,19 +98,6 @@ const Account = () => {
     setBusy(false);
   };
 
-  const handleAddPasskey = async () => {
-    setError("");
-    setNotice("");
-    setBusy(true);
-    try {
-      setUser(await addPasskey());
-      setNotice("Passkey lisätty tälle laitteelle.");
-    } catch (err) {
-      setError(err.message);
-    }
-    setBusy(false);
-  };
-
   // Stable callbacks so the Google button isn't re-rendered each tick.
   const handleLinkGoogle = useCallback(async (credential) => {
     setError("");
@@ -176,29 +162,21 @@ const Account = () => {
               <div className="acc-user-name">{user.nickname || "Käyttäjä"}</div>
               <div className="acc-user-sub">Kirjautunut</div>
 
-              {!user.hasPasskey && (
-                <button
-                  className="acc-btn acc-btn--secondary acc-method-btn"
-                  onClick={handleAddPasskey}
-                  disabled={busy}
-                >
-                  <LuKeyRound aria-hidden="true" /> Lisää passkey tälle laitteelle
-                </button>
-              )}
-
               <div className="acc-google-section">
                 {user.googleLinked ? (
                   <>
                     <div className="acc-google-linked">
-                      <LuCheck aria-hidden="true" /> Google yhdistetty — voit kirjautua muillakin laitteilla
+                      <LuCheck aria-hidden="true" /> Google yhdistetty — kirjautuminen toimii kaikilla laitteillasi
                     </div>
-                    <button
-                      className="acc-link-btn"
-                      onClick={handleUnlinkGoogle}
-                      disabled={busy}
-                    >
-                      Poista Google-yhteys
-                    </button>
+                    {user.hasPasskey && (
+                      <button
+                        className="acc-link-btn"
+                        onClick={handleUnlinkGoogle}
+                        disabled={busy}
+                      >
+                        Poista Google-yhteys
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -279,16 +257,19 @@ const Account = () => {
 
               <div className="acc-divider"><span>tai</span></div>
 
-              <button
-                className="acc-btn acc-btn--secondary acc-fixed-btn"
-                onClick={() => {
-                  setError("");
-                  setShowCreate(true);
-                }}
-                disabled={busy}
-              >
-                Luo uusi tili
-              </button>
+              <div className="acc-section">
+                <div className="acc-section-sub">Uusi täällä? Luo oma Gamezone-tili</div>
+                <button
+                  className="acc-btn acc-btn--secondary acc-fixed-btn"
+                  onClick={() => {
+                    setError("");
+                    setShowCreate(true);
+                  }}
+                  disabled={busy}
+                >
+                  Luo uusi tili
+                </button>
+              </div>
             </>
           )}
 
@@ -304,7 +285,6 @@ const Account = () => {
         >
           <div className="acc-modal" onClick={(e) => e.stopPropagation()}>
             <div className="acc-section-title">Luo uusi tili</div>
-            <div className="acc-section-sub">Uusi täällä? Luo oma Gamezone-tili</div>
             <form className="acc-form" onSubmit={handleRegister}>
               <label className="acc-label" htmlFor="acc-nick">Käyttäjätunnus</label>
               <input

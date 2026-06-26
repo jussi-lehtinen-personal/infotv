@@ -246,10 +246,10 @@ code {
 .ui-app-header-profile {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 40px;
   height: 40px;
-  padding: 0 8px 0 6px;
-  border-radius: 20px;
+  border-radius: 50%;
   color: var(--gz-text-primary);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
@@ -260,14 +260,19 @@ code {
 .ui-app-header-profile:active { color: var(--gz-text-primary); text-decoration: none; }
 .ui-app-header-profile:hover { background: rgba(255, 255, 255, 0.06); }
 .ui-app-header-profile-icon { width: 24px; height: 24px; flex: 0 0 auto; }
-.ui-app-header-profile-name {
-  max-width: 84px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
+/* Logged-in avatar: first letter of the name in an orange disc (Google-style). */
+.ui-app-header-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #1a1206;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1;
 }
 .ui-app-header-btn {
   position: relative;

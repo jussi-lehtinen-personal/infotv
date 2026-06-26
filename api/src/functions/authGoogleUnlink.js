@@ -21,6 +21,18 @@ app.http('authGoogleUnlink', {
         return { status: 404, jsonBody: { error: 'Käyttäjää ei löytynyt.' } };
       }
 
+      // Don't let the user remove their only way in: refuse if there is no
+      // passkey to fall back on.
+      const creds = await listByPartition('Credentials', userId);
+      if (creds.length === 0) {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'Google-yhteyttä ei voi poistaa, koska se on ainoa kirjautumistapasi.',
+          },
+        };
+      }
+
       if (user.googleSub) {
         await deleteEntity('GoogleIndex', user.googleSub, user.googleSub);
       }
@@ -28,7 +40,6 @@ app.http('authGoogleUnlink', {
       user.email = '';
       await upsertEntity('Users', user);
 
-      const creds = await listByPartition('Credentials', userId);
       return {
         jsonBody: {
           ok: true,

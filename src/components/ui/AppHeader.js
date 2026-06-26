@@ -36,9 +36,12 @@ export const AppHeader = ({
     <div className="ui-app-header-right">
       {/* Profiili: ikoni + (kirjautuneena) nimimerkki, max-width katkaistuna. */}
       <Link to={profileTo} className="ui-app-header-profile" aria-label="Tili">
-        <LuUserCircle className="ui-app-header-profile-icon" aria-hidden="true" />
-        {user && user.nickname && (
-          <span className="ui-app-header-profile-name">{user.nickname}</span>
+        {user && user.nickname ? (
+          <span className="ui-app-header-avatar" aria-hidden="true">
+            {user.nickname.charAt(0).toUpperCase()}
+          </span>
+        ) : (
+          <LuUserCircle className="ui-app-header-profile-icon" aria-hidden="true" />
         )}
       </Link>
 
