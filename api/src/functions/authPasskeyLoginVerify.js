@@ -4,7 +4,6 @@ const {
   rpID,
   rpOrigin,
   fromB64u,
-  userIdFromHandle,
 } = require('../lib/webauthn');
 const { readChallenge } = require('../lib/challenge');
 const { ensureTables, getEntity, upsertEntity } = require('../lib/tables');
@@ -35,11 +34,13 @@ app.http('authPasskeyLoginVerify', {
         return { status: 400, jsonBody: { error: 'Väärä haaste.' } };
       }
 
-      const handle = response.response && response.response.userHandle;
-      if (!handle) {
+      // SimpleWebAuthn v9 sets options.user.id = userID (our string) verbatim,
+      // and the browser returns it as response.userHandle (base64url) at login.
+      // It IS the userId — use it directly, do NOT decode it.
+      const userId = response.response && response.response.userHandle;
+      if (!userId) {
         return { status: 400, jsonBody: { error: 'Passkey ei palauttanut käyttäjää.' } };
       }
-      const userId = userIdFromHandle(handle);
 
       await ensureTables();
       const cred = await getEntity('Credentials', userId, response.id);

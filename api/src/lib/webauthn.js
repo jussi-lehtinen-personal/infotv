@@ -16,11 +16,10 @@ const RP_NAME = 'Kiekko-Ahma Gamezone';
 const toB64u = (u8) => Buffer.from(u8).toString('base64url');
 const fromB64u = (s) => new Uint8Array(Buffer.from(s, 'base64url'));
 
-// At registration we set userID = our userId string; SimpleWebAuthn encodes it
-// into options.user.id, and the authenticator returns it as response.userHandle
-// (base64url) at login → decode back to the userId string.
-const userIdFromHandle = (handleB64u) =>
-  Buffer.from(handleB64u, 'base64url').toString('utf8');
+// Note on userId <-> userHandle: SimpleWebAuthn v9 puts our `userID` string
+// into options.user.id verbatim, and the browser returns it unchanged as
+// response.userHandle (base64url) at login. So the login handler uses
+// response.userHandle directly as the userId — no decoding needed.
 
 module.exports = {
   generateRegistrationOptions,
@@ -32,5 +31,4 @@ module.exports = {
   RP_NAME,
   toB64u,
   fromB64u,
-  userIdFromHandle,
 };
