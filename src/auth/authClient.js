@@ -130,7 +130,9 @@ export async function getMe() {
   const res = await fetch("/api/me", {
     headers: { "X-Ahma-Auth": token },
   });
-  if (res.status === 401) {
+  // 401 = bad/expired token, 404 = account deleted → log out and clear the
+  // stale token (otherwise the app stays stuck "logged in" to a gone account).
+  if (res.status === 401 || res.status === 404) {
     clearToken();
     return null;
   }
