@@ -280,6 +280,43 @@ code {
   border-radius: 50%;
   object-fit: cover;
 }
+
+/* Update bar — shown when a new app version is waiting (PWA). */
+.ui-update-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
+  background: var(--color-primary);
+  color: #1a1206;
+  font-family: var(--font-family-base);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.ui-update-bar-text {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ui-update-bar-btn {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: none;
+  background: #1a1206;
+  color: var(--color-primary);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ui-update-bar-btn:disabled { opacity: 0.6; cursor: default; }
 .ui-app-header-btn {
   position: relative;
   display: inline-flex;

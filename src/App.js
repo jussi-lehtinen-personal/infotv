@@ -14,6 +14,7 @@ import Gamezone from "./pages/gamezone";
 import GamezoneSchedule from "./pages/gamezone_schedule";
 import { GamezoneLayout } from "./components/GamezoneLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import Ads from "./pages/ads";
 import GameAds from "./pages/game_ads";
 import Teams from "./pages/teams";
@@ -31,6 +32,7 @@ import NextHomeGame from "./pages/next_home_game";
 function App() {
   return (
     <Router>
+      <UpdatePrompt />
       <ErrorBoundary>
         <Routes>
             <Route

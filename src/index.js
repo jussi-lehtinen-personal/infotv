@@ -13,8 +13,15 @@ root.render(
   </React.StrictMode>
 );
 
-// Register service worker for PWA (offline support + caching)
-serviceWorkerRegistration.register();
+// Register service worker for PWA (offline support + caching). When a new
+// version is installed and waiting, stash the registration and notify the app
+// so it can show an "Update" bar (see UpdatePrompt).
+serviceWorkerRegistration.register({
+  onUpdate: (registration) => {
+    window.__ahmaSwReg = registration;
+    window.dispatchEvent(new CustomEvent('ahma:sw-update'));
+  },
+});
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

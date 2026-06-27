@@ -43,6 +43,12 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      // An update may already be installed + waiting when the app loads
+      // (e.g. detected on a previous session). Prompt for it immediately.
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        if (config && config.onUpdate) config.onUpdate(registration);
+      }
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -51,11 +57,11 @@ function registerValidSW(swUrl, config) {
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              console.log('New content available; activating now...');
-              const target = registration.waiting || installingWorker;
-              target?.postMessage({ type: 'SKIP_WAITING' });
-
-              // optional: edelleen callback jos haluat näyttää toastin
+              // A new version is installed and waiting. Don't auto-activate —
+              // let the app show an "Update" bar so the reload isn't a surprise
+              // (and so it works reliably, incl. iOS). The bar posts SKIP_WAITING
+              // on tap, which triggers the controllerchange reload above.
+              console.log('New content available; prompting to update.');
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
