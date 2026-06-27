@@ -5,7 +5,7 @@ import {
   LuShoppingBag,
   LuChevronRight,
   LuGlobe,
-  LuShield,
+  LuAward,
   LuMail,
   LuHeart,
 } from "react-icons/lu";
@@ -69,9 +69,9 @@ const Index = () => {
           <div className="ahma-section-heading">Pikatoiminnot</div>
           <div className="ahma-quick">
             <QuickTile
-              to="/next_home_game"
-              icon={<LuShield />}
-              label="Edustus"
+              to="/partners"
+              icon={<LuAward />}
+              label="Kumppanit"
             />
             <QuickTile
               to="/organization"
