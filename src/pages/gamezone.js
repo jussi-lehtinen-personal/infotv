@@ -17,7 +17,7 @@ import { ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
 import { TopProgressBar } from "../components/ui/TopProgressBar";
 import { useWeekData } from "../hooks/useWeekData";
-import { useWeekAvailability } from "../hooks/useWeekAvailability";
+import { useLazyAvailability } from "../hooks/useWeekAvailability";
 import { useGoBack } from "../hooks/useGoBack";
 import { isLiveMatch } from "../hooks/useHeroMatches";
 
@@ -109,7 +109,25 @@ const Gamezone = () => {
     loading, bgFetching,
   } = useWeekData(timestamp, includeAway);
 
-  const availability = useWeekAvailability(curDate, includeAway, 2);
+  const { request: requestAvailability, getCount: getWeekCount } = useLazyAvailability(includeAway);
+
+  // A long, freely-scrollable range of weeks (~1 year back, ~2 forward). The
+  // strip lazy-loads availability for visible weeks; this list itself is static.
+  const allWeeks = useMemo(() => {
+    const start = getMonday(new Date());
+    start.setDate(start.getDate() - 52 * 7);
+    const list = [];
+    for (let i = 0; i < 157; i += 1) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i * 7);
+      list.push({ monday: d, key: moment(d).format("YYYY-MM-DD") });
+    }
+    return list;
+  }, []);
+  const selectedKey = useMemo(
+    () => moment(getMonday(new Date(curDate))).format("YYYY-MM-DD"),
+    [curDate]
+  );
 
   // Carousel refs
   const trackRef = useRef(null);
@@ -184,17 +202,18 @@ const Gamezone = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, []);
 
-  const goPrevWeek = useCallback(() => commitTo(-1), [commitTo]);
-  const goNextWeek = useCallback(() => commitTo(1), [commitTo]);
-
-  // Jump straight to a week by offset (VK carousel chip / calendar). Direct
-  // navigation (no slide) since jumps can span many weeks.
-  const jumpWeeks = useCallback(
-    (offset) => {
-      if (!offset) return;
-      navigate(buildWeekUrl(offset), { replace: true });
+  // Jump straight to a specific week (VK strip chip). Direct navigation (no
+  // slide) since jumps can span many weeks.
+  const goToWeek = useCallback(
+    (mondayStr) => {
+      if (!mondayStr || mondayStr === selectedKey) return;
+      const params = [];
+      if (includeAway) params.push("includeAway=1");
+      if (showOptions) params.push("options=1");
+      const qs = params.length ? "?" + params.join("&") : "";
+      navigate(`/gamezone/${mondayStr}${qs}`, { replace: true });
     },
-    [navigate, buildWeekUrl]
+    [navigate, includeAway, showOptions, selectedKey]
   );
 
   // Calendar: native date picker → jump to that date's week.
@@ -315,11 +334,11 @@ const Gamezone = () => {
           )}
 
           <WeekStrip
-            weeks={availability}
-            centerKey={getMonday(new Date(curDate)).getTime()}
-            onSelect={jumpWeeks}
-            onPrev={goPrevWeek}
-            onNext={goNextWeek}
+            weeks={allWeeks}
+            selectedKey={selectedKey}
+            onSelect={goToWeek}
+            getCount={getWeekCount}
+            request={requestAvailability}
           />
         </div>
       </div>
@@ -349,36 +368,65 @@ export default Gamezone;
 /*          WEEK STRIP           */
 /* ============================= */
 
-function WeekStrip({ weeks, centerKey, onSelect, onPrev, onNext }) {
+function WeekStrip({ weeks, selectedKey, onSelect, getCount, request }) {
   const scrollRef = useRef(null);
   const selRef = useRef(null);
+  const firstCenter = useRef(true);
 
-  // Centre the selected chip whenever the selected week changes.
+  // Centre the selected chip. First time = instant jump (it can be ~1y in);
+  // later = smooth when the selected week changes (chip tap / list swipe).
   useEffect(() => {
     const el = selRef.current;
     const cont = scrollRef.current;
     if (!el || !cont) return;
     const left = el.offsetLeft - (cont.clientWidth - el.clientWidth) / 2;
-    cont.scrollTo({ left, behavior: "smooth" });
-  }, [centerKey]);
+    cont.scrollTo({ left, behavior: firstCenter.current ? "auto" : "smooth" });
+    firstCenter.current = false;
+  }, [selectedKey]);
+
+  // Lazy-load availability for chips as they scroll into view (debounced in
+  // the hook). rootMargin pre-requests a little ahead of the viewport.
+  useEffect(() => {
+    const cont = scrollRef.current;
+    if (!cont || typeof IntersectionObserver === "undefined") return undefined;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) request(e.target.dataset.key);
+        });
+      },
+      { root: cont, rootMargin: "0px 260px", threshold: 0.01 }
+    );
+    cont.querySelectorAll("[data-key]").forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [request, weeks]);
+
+  const scrollByChip = (dir) => {
+    const cont = scrollRef.current;
+    if (!cont) return;
+    const chip = cont.querySelector("[data-key]");
+    const step = chip ? chip.clientWidth + 8 : 100;
+    cont.scrollBy({ left: dir * step, behavior: "smooth" });
+  };
 
   return (
     <div className="gz-weekstrip">
-      <button className="gz-week-arrow" onClick={onPrev} aria-label="Edellinen viikko">
+      <button className="gz-week-arrow" onClick={() => scrollByChip(-1)} aria-label="Edellinen viikko">
         <LuChevronLeft aria-hidden="true" />
       </button>
 
       <div className="gz-week-scroll" ref={scrollRef}>
         {weeks.map((w) => {
-          const sel = w.offset === 0;
+          const sel = w.key === selectedKey;
           const wk = moment(w.monday).isoWeek();
-          const hasGames = w.count > 0;
+          const hasGames = getCount(w.key) > 0;
           return (
             <button
-              key={w.offset}
+              key={w.key}
+              data-key={w.key}
               ref={sel ? selRef : null}
               className={`gz-week-chip${sel ? " gz-week-chip--sel" : ""}`}
-              onClick={() => onSelect(w.offset)}
+              onClick={() => onSelect(w.key)}
             >
               <span className="gz-week-num">VK {wk}</span>
               <span className="gz-week-range">{computeWeekRange(w.monday)}</span>
@@ -388,7 +436,7 @@ function WeekStrip({ weeks, centerKey, onSelect, onPrev, onNext }) {
         })}
       </div>
 
-      <button className="gz-week-arrow" onClick={onNext} aria-label="Seuraava viikko">
+      <button className="gz-week-arrow" onClick={() => scrollByChip(1)} aria-label="Seuraava viikko">
         <LuChevronRight aria-hidden="true" />
       </button>
     </div>
@@ -739,7 +787,6 @@ html, body, #root{
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 2px 6px;

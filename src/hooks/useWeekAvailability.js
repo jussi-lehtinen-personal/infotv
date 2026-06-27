@@ -1,59 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
-import moment from "moment";
+import { useCallback, useRef, useState } from "react";
 
-import { getMonday, buildGamesQueryUri, processIncomingDataEvents } from "../Util";
+import { buildGamesQueryUri, processIncomingDataEvents } from "../Util";
 
-// Module cache: weekKey -> game count. Shared across renders/instances so the
-// VK carousel's dots don't refetch on every swipe. getGames responses are also
-// SW-cached (NetworkFirst), so any overlap with useWeekData is cheap.
+// Module caches, shared across renders/instances so the VK strip's dots don't
+// refetch on scroll. count: weekKey -> number; inFlight: keys being fetched.
 const availCache = new Map();
-const availKey = (monday, includeAway) =>
-  moment(monday).format("YYYY-MM-DD") + "|" + (includeAway ? "all" : "home");
+const inFlight = new Set();
+const availKey = (mondayStr, includeAway) => mondayStr + "|" + (includeAway ? "all" : "home");
 
 /**
- * Game availability for a window of weeks centred on curDate. Returns one entry
- * per week with `count` (number | undefined while loading). Used to colour the
- * VK-week carousel dots (orange = has games, grey = none / loading).
+ * Lazy game-availability for the infinite VK week strip. `request(mondayStr)`
+ * queues a week to fetch (debounced ~350ms, so fast scrolling doesn't storm the
+ * API); `getCount(mondayStr)` reads the cached count (number, or undefined while
+ * unknown). The component re-renders as counts arrive. mondayStr = "YYYY-MM-DD".
  */
-export function useWeekAvailability(curDate, includeAway, halfRange = 2) {
-  // Bumped when a fetch resolves, to re-render with the new count.
+export function useLazyAvailability(includeAway) {
   const [, setTick] = useState(0);
+  const pending = useRef(new Set());
+  const timer = useRef(null);
 
-  const weeks = useMemo(() => {
-    const centerMon = getMonday(new Date(curDate));
-    const list = [];
-    for (let off = -halfRange; off <= halfRange; off += 1) {
-      const mon = new Date(centerMon);
-      mon.setDate(mon.getDate() + off * 7);
-      list.push({ offset: off, monday: mon, key: availKey(mon, includeAway) });
-    }
-    return list;
-  }, [curDate, includeAway, halfRange]);
+  const getCount = useCallback(
+    (mondayStr) => availCache.get(availKey(mondayStr, includeAway)),
+    [includeAway]
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    weeks.forEach(({ monday, key }) => {
-      if (availCache.has(key)) return;
-      const uri = buildGamesQueryUri(moment(monday).format("YYYY-MM-DD"), { includeAway });
-      fetch(uri)
+  const flush = useCallback(() => {
+    const weeks = [...pending.current];
+    pending.current.clear();
+    weeks.forEach((mondayStr) => {
+      const k = availKey(mondayStr, includeAway);
+      if (availCache.has(k) || inFlight.has(k)) return;
+      inFlight.add(k);
+      fetch(buildGamesQueryUri(mondayStr, { includeAway }))
         .then((r) => r.json())
         .then((d) => {
-          availCache.set(key, processIncomingDataEvents(d).length);
-          if (!cancelled) setTick((t) => t + 1);
+          availCache.set(k, processIncomingDataEvents(d).length);
         })
         .catch(() => {
-          /* leave uncached → retried next time the window includes it */
+          /* leave uncached → retried if requested again */
+        })
+        .finally(() => {
+          inFlight.delete(k);
+          setTick((t) => t + 1);
         });
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [weeks, includeAway]);
+  }, [includeAway]);
 
-  return weeks.map((w) => ({
-    offset: w.offset,
-    monday: w.monday,
-    count: availCache.get(w.key),
-    loading: !availCache.has(w.key),
-  }));
+  const request = useCallback(
+    (mondayStr) => {
+      if (!mondayStr) return;
+      const k = availKey(mondayStr, includeAway);
+      if (availCache.has(k) || inFlight.has(k)) return;
+      pending.current.add(mondayStr);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(flush, 350);
+    },
+    [flush, includeAway]
+  );
+
+  return { request, getCount };
 }
