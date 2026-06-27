@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { flushSync } from "react-dom";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDrag } from "@use-gesture/react";
+import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -12,15 +13,17 @@ import {
   isGameForFavouriteTeam,
 } from "../Util";
 import { themeCSS } from "../theme";
-import { Surface } from "../components/ui/Surface";
-import { PageHeader } from "../components/ui/PageHeader";
-import { NavButton, ToggleButton } from "../components/ui/Buttons";
+import { ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
 import { TopProgressBar } from "../components/ui/TopProgressBar";
 import { useWeekData } from "../hooks/useWeekData";
+import { useWeekAvailability } from "../hooks/useWeekAvailability";
+import { useGoBack } from "../hooks/useGoBack";
 import { isLiveMatch } from "../hooks/useHeroMatches";
 
 moment.locale("fi");
+
+const HERO = "/games_hero.webp";
 
 const goToSite = (uri) => {
   window.location.href = uri;
@@ -62,6 +65,7 @@ const Gamezone = () => {
   const { timestamp } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const goBack = useGoBack("/");
 
   const { includeAway, showOptions } = useMemo(() => {
     const sp = new URLSearchParams(location.search ?? "");
@@ -99,6 +103,8 @@ const Gamezone = () => {
     curMatches, prevMatches, nextMatches,
     loading, bgFetching,
   } = useWeekData(timestamp, includeAway);
+
+  const availability = useWeekAvailability(curDate, includeAway, 2);
 
   // Carousel refs
   const trackRef = useRef(null);
@@ -150,8 +156,6 @@ const Gamezone = () => {
       if (!track) return;
       animatingRef.current = true;
 
-      // direction -1 (prev) → animate track right (panel 0 visible) → tx 0%
-      // direction +1 (next) → animate track left (panel 2 visible) → tx -66.666%
       const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
       track.style.transition = "transform 220ms ease-out";
       track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
@@ -178,8 +182,41 @@ const Gamezone = () => {
   const goPrevWeek = useCallback(() => commitTo(-1), [commitTo]);
   const goNextWeek = useCallback(() => commitTo(1), [commitTo]);
 
-  // Swipe gesture. Writes transform directly to the DOM during active drag so
-  // there are no React re-renders per frame (smooth 60fps on iOS).
+  // Jump straight to a week by offset (VK carousel chip / calendar). Direct
+  // navigation (no slide) since jumps can span many weeks.
+  const jumpWeeks = useCallback(
+    (offset) => {
+      if (!offset) return;
+      navigate(buildWeekUrl(offset), { replace: true });
+    },
+    [navigate, buildWeekUrl]
+  );
+
+  // Calendar: native date picker → jump to that date's week.
+  const dateInputRef = useRef(null);
+  const openPicker = useCallback(() => {
+    const el = dateInputRef.current;
+    if (!el) return;
+    if (el.showPicker) {
+      try { el.showPicker(); return; } catch {}
+    }
+    el.focus();
+  }, []);
+  const onPickDate = useCallback(
+    (e) => {
+      const v = e.target.value;
+      if (!v) return;
+      const params = [];
+      if (includeAway) params.push("includeAway=1");
+      if (showOptions) params.push("options=1");
+      const qs = params.length ? "?" + params.join("&") : "";
+      navigate(`/gamezone/${v}${qs}`, { replace: true });
+    },
+    [includeAway, showOptions, navigate]
+  );
+
+  // Swipe gesture (unchanged): writes transform directly to the DOM during
+  // active drag so there are no React re-renders per frame.
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
       if (animatingRef.current) {
@@ -190,8 +227,6 @@ const Gamezone = () => {
       const track = trackRef.current;
       if (!track) return;
 
-      // iOS Safari edge-swipe is the native back gesture. Skip drags that start
-      // within 20px of either edge so the browser handles them.
       if (first && (x < 20 || x > window.innerWidth - 20)) {
         cancel();
         return;
@@ -224,44 +259,79 @@ const Gamezone = () => {
   const onToggleHome = useCallback(() => setOnlyHome((v) => !v), []);
   const onToggleFavourites = useCallback(() => setOnlyFavourites((v) => !v), []);
 
-  const sharedPanelProps = {
-    includeAway,
+  const title = useMemo(
+    () => computeWeekTitle(curDate, includeAway, onlyHome),
+    [curDate, includeAway, onlyHome]
+  );
+
+  const listProps = {
     showOptions,
     onlyHome,
     onlyFavourites,
     favouriteTeams,
-    onPrev: goPrevWeek,
-    onNext: goNextWeek,
-    onToggleHome,
-    onToggleFavourites,
   };
 
   return (
     <div className="gz-root">
       <style>{css}</style>
 
+      {/* ===== Fixed top chrome: hero + title + filters + week strip ===== */}
+      <div className="gz-top">
+        <img className="gz-top-img" src={HERO} alt="" />
+        <div className="gz-top-scrim" />
+        <div className="gz-top-content">
+          <div className="gz-top-bar">
+            <button className="gz-icon-btn" onClick={goBack} aria-label="Takaisin">
+              <LuArrowLeft aria-hidden="true" />
+            </button>
+            <div className="gz-top-title">{title}</div>
+            <button className="gz-icon-btn" onClick={openPicker} aria-label="Valitse päivä">
+              <LuCalendarDays aria-hidden="true" />
+            </button>
+            <input
+              ref={dateInputRef}
+              type="date"
+              className="gz-date-input"
+              onChange={onPickDate}
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+          </div>
+
+          {showOptions && (
+            <div className="gz-filter-row">
+              <ToggleButton onClick={onToggleHome} active={onlyHome} icon="&#xE88A;">
+                Kotipelit
+              </ToggleButton>
+              <ToggleButton onClick={onToggleFavourites} active={onlyFavourites} icon="&#xE838;">
+                Suosikit
+              </ToggleButton>
+            </div>
+          )}
+
+          <WeekStrip
+            weeks={availability}
+            centerKey={getMonday(new Date(curDate)).getTime()}
+            onSelect={jumpWeeks}
+            onPrev={goPrevWeek}
+            onNext={goNextWeek}
+          />
+        </div>
+      </div>
+
+      {/* ===== Swipeable match-list carousel ===== */}
       <div className="gz-carousel-viewport">
         <div className="gz-carousel-track" ref={trackRef} {...bind()}>
-          <WeekPanel
-            {...sharedPanelProps}
-            weekDate={prevDate}
-            matches={prevMatches}
-            isCurrent={false}
-          />
-          <WeekPanel
-            {...sharedPanelProps}
+          <WeekList {...listProps} weekDate={prevDate} matches={prevMatches} isCurrent={false} />
+          <WeekList
+            {...listProps}
             weekDate={curDate}
             matches={curMatches}
             isCurrent={true}
             loading={loading}
             bgFetching={bgFetching}
           />
-          <WeekPanel
-            {...sharedPanelProps}
-            weekDate={nextDate}
-            matches={nextMatches}
-            isCurrent={false}
-          />
+          <WeekList {...listProps} weekDate={nextDate} matches={nextMatches} isCurrent={false} />
         </div>
       </div>
     </div>
@@ -271,13 +341,62 @@ const Gamezone = () => {
 export default Gamezone;
 
 /* ============================= */
-/*           WEEK PANEL          */
+/*          WEEK STRIP           */
 /* ============================= */
 
-function WeekPanel({
+function WeekStrip({ weeks, centerKey, onSelect, onPrev, onNext }) {
+  const scrollRef = useRef(null);
+  const selRef = useRef(null);
+
+  // Centre the selected chip whenever the selected week changes.
+  useEffect(() => {
+    const el = selRef.current;
+    const cont = scrollRef.current;
+    if (!el || !cont) return;
+    const left = el.offsetLeft - (cont.clientWidth - el.clientWidth) / 2;
+    cont.scrollTo({ left, behavior: "smooth" });
+  }, [centerKey]);
+
+  return (
+    <div className="gz-weekstrip">
+      <button className="gz-week-arrow" onClick={onPrev} aria-label="Edellinen viikko">
+        <LuChevronLeft aria-hidden="true" />
+      </button>
+
+      <div className="gz-week-scroll" ref={scrollRef}>
+        {weeks.map((w) => {
+          const sel = w.offset === 0;
+          const wk = moment(w.monday).isoWeek();
+          const hasGames = w.count > 0;
+          return (
+            <button
+              key={w.offset}
+              ref={sel ? selRef : null}
+              className={`gz-week-chip${sel ? " gz-week-chip--sel" : ""}`}
+              onClick={() => onSelect(w.offset)}
+            >
+              <span className="gz-week-num">VK {wk}</span>
+              <span className="gz-week-range">{computeWeekRange(w.monday)}</span>
+              <span className={`gz-week-dot${hasGames ? " gz-week-dot--games" : ""}`} />
+            </button>
+          );
+        })}
+      </div>
+
+      <button className="gz-week-arrow" onClick={onNext} aria-label="Seuraava viikko">
+        <LuChevronRight aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+/* ============================= */
+/*           WEEK LIST           */
+/* ============================= */
+
+function WeekList({
   weekDate,
   matches,
-  includeAway,
   showOptions,
   onlyHome,
   onlyFavourites,
@@ -285,16 +404,8 @@ function WeekPanel({
   isCurrent,
   loading,
   bgFetching,
-  onPrev,
-  onNext,
-  onToggleHome,
-  onToggleFavourites,
 }) {
-  // Reset the matches scroll position to top whenever the panel's week
-  // changes (i.e. after a swipe). Without this, the same DOM node persists
-  // across navigation and keeps its previous scrollTop, so a swipe lands
-  // mid-list. Tied to weekDate.getTime() so background cache refreshes
-  // (which keep the same week) don't yank the scroll while the user reads.
+  // Reset scroll to top whenever the panel's week changes (after a swipe).
   const containerRef = useRef(null);
   const weekDateMs = weekDate.getTime();
   useLayoutEffect(() => {
@@ -351,38 +462,14 @@ function WeekPanel({
     </div>
   );
 
-  const title = useMemo(
-    () => computeWeekTitle(weekDate, includeAway, onlyHome),
-    [weekDate, includeAway, onlyHome]
-  );
-  const weekRange = useMemo(() => computeWeekRange(weekDate), [weekDate]);
-
   const showSpinner = isCurrent && loading;
 
   return (
     <div className={`gz-carousel-panel ${isCurrent ? "" : "gz-carousel-panel--inactive"}`}>
       <div className="gz-panel-inner">
-        <Surface className="gz-header">
-          <PageHeader
-            title={title}
-            subtitle={weekRange}
-            left={<NavButton onClick={onPrev} icon="&#xE5CB;" ariaLabel="Edellinen viikko" />}
-            right={<NavButton onClick={onNext} icon="&#xE5CC;" ariaLabel="Seuraava viikko" />}
-          />
-          {showOptions && (
-            <div className="gz-filter-row">
-              <ToggleButton onClick={onToggleHome} active={onlyHome} icon="&#xE88A;">
-                Kotipelit
-              </ToggleButton>
-              <ToggleButton onClick={onToggleFavourites} active={onlyFavourites} icon="&#xE838;">
-                Suosikit
-              </ToggleButton>
-            </div>
-          )}
-          {isCurrent && <TopProgressBar visible={bgFetching && !loading} />}
-        </Surface>
+        {isCurrent && <TopProgressBar visible={bgFetching && !loading} />}
 
-        <div ref={containerRef} className="ui-surface gz-container">
+        <div ref={containerRef} className="gz-container">
           {showSpinner && <Spinner text="Ladataan otteluita..." />}
 
           {!showSpinner && (onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
@@ -398,6 +485,10 @@ function WeekPanel({
                 <span>Ei pelejä tällä viikolla.</span>
               )}
             </div>
+          )}
+
+          {!showSpinner && !(onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
+            <div className="gz-empty"><span>Ei pelejä tällä viikolla.</span></div>
           )}
 
           {!showSpinner && visibleGroups.length > 0 && (
@@ -418,8 +509,6 @@ function MatchRow({ match, onClick }) {
   const level = simplifyLevel(match.level ?? "");
 
   const finishedType = Number(match.finished);
-  // Live only if the game has actually started (shared helper) — the API returns
-  // 0-0 goals for future games too, so a goal-value check flags them as live.
   const isLive = isLiveMatch(match);
   const isFinished = finishedType > 0;
 
@@ -430,10 +519,6 @@ function MatchRow({ match, onClick }) {
   const ag = parseInt(match.away_goals, 10);
   const hasResult = isFinished && !isNaN(hg) && !isNaN(ag);
 
-  // Ahma-centric result colour: green = Ahma won, red = Ahma lost, light grey = draw.
-  // Drives both the left edge bar and the divider between teams and scores.
-  // Live-pelillä ei korosteta vasenta reunaa erikseen — pelkät score-numerot
-  // saavat oranssin sävyn (alempana homeScoreStyle/awayScoreStyle).
   const resultColor = (() => {
     if (!hasResult) return null;
     const ahmaGoals = match.isHomeGame ? hg : ag;
@@ -443,9 +528,6 @@ function MatchRow({ match, onClick }) {
     return "#e8e8e8";
   })();
 
-  // Winner highlighted, loser muted. Winner's score uses the Ahma-centric
-  // result colour (green when Ahma wins, red when opponent wins so Ahma's
-  // loss reads as red on the opponent's score). Loser's score and name fade.
   const ahmaIsHome = match.isHomeGame === true;
   const ahmaIsAway = match.isHomeGame === false;
   const homeIsWinner = hasResult && hg > ag;
@@ -551,30 +633,13 @@ html, body, #root{
 }
 
 .gz-root{
-  /* Lock to viewport so the carousel can't push the page taller (which would
-     stretch the background gradient and let the body scroll past the cards). */
   height: 100vh;
   height: 100dvh;
-
   display: flex;
   flex-direction: column;
-
   touch-action: pan-y;
   overflow: hidden;
-
-  /* No bottom padding — the carousel viewport extends all the way to the
-     viewport bottom so content can scroll *under* the BottomNav (which is
-     fixed and frosted/elevated). The match list itself reserves
-     --ui-bottom-nav-clearance worth of padding-bottom (see .gz-list) so
-     when scrolled fully the last card lands above the bar. */
-  padding:
-    max(10px, env(safe-area-inset-top))
-    max(7px, env(safe-area-inset-right))
-    0
-    max(7px, env(safe-area-inset-left));
-
-  background: var(--bg-gradient);
-
+  background: var(--color-bg);
   font-family: var(--font-family-base);
 }
 
@@ -583,7 +648,132 @@ html, body, #root{
   line-height: 1;
 }
 
-/* Carousel viewport — clips the 300%-wide track */
+/* ===== TOP CHROME (hero bg behind title + filters + week strip) ===== */
+.gz-top{
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+.gz-top-img{
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+.gz-top-scrim{
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(8,10,15,0.45) 0%, rgba(8,10,15,0.25) 35%, rgba(8,10,15,0.7) 80%, var(--color-bg) 100%);
+}
+.gz-top-content{
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 12px;
+}
+
+.gz-top-bar{
+  display: flex; align-items: center; gap: 10px;
+  position: relative;
+}
+.gz-top-title{
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: clamp(18px, 5.2vw, 24px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gz-icon-btn{
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.38);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: none; color: #fff; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gz-icon-btn svg{ width: 22px; height: 22px; }
+/* Hidden native date input anchored to the calendar button. */
+.gz-date-input{
+  position: absolute; right: 0; top: 40px;
+  width: 1px; height: 1px; opacity: 0; pointer-events: none;
+  border: 0; padding: 0; margin: 0;
+}
+
+.gz-filter-row{
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ===== WEEK STRIP ===== */
+.gz-weekstrip{
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.gz-week-arrow{
+  flex: 0 0 auto;
+  width: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gz-week-arrow svg{ width: 22px; height: 22px; }
+.gz-week-scroll{
+  flex: 1 1 auto;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.gz-week-scroll::-webkit-scrollbar{ display: none; }
+.gz-week-chip{
+  flex: 0 0 auto;
+  width: 92px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px;
+  padding: 8px 6px 7px;
+  border-radius: 14px;
+  background: rgba(20,22,26,0.6);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.gz-week-chip--sel{
+  border-color: var(--color-primary);
+  background: rgba(245,158,11,0.10);
+}
+.gz-week-num{
+  font-size: 15px; font-weight: 800;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.85);
+}
+.gz-week-chip--sel .gz-week-num{ color: var(--color-primary); }
+.gz-week-range{
+  font-size: 11px;
+  color: var(--gz-text-tertiary);
+  white-space: nowrap;
+}
+.gz-week-dot{
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,0.28);
+  margin-top: 1px;
+}
+.gz-week-dot--games{ background: var(--color-primary); }
+
+/* ===== CAROUSEL ===== */
 .gz-carousel-viewport{
   flex: 1 1 auto;
   min-height: 0;
@@ -593,8 +783,6 @@ html, body, #root{
   display: flex;
   flex-direction: column;
 }
-
-/* Carousel track — 3 panels side-by-side; transform driven imperatively from JS */
 .gz-carousel-track{
   display: flex;
   flex-direction: row;
@@ -604,10 +792,6 @@ html, body, #root{
   will-change: transform;
   touch-action: pan-y;
 }
-
-/* One week panel — fills viewport width, flex column for header + matches.
-   Horizontal padding creates the visible gap between adjacent panels during
-   swipe; box-sizing: border-box keeps the 33.333% width math intact. */
 .gz-carousel-panel{
   flex: 0 0 33.3333%;
   box-sizing: border-box;
@@ -616,39 +800,19 @@ html, body, #root{
   display: flex;
   flex-direction: column;
 }
-
-/* Off-screen panels don't receive taps */
 .gz-carousel-panel--inactive{
   pointer-events: none;
 }
-
-/* Centred content wrapper inside each panel — keeps rows readable on tablet/fold
-   without losing full-width swipe area. */
 .gz-panel-inner{
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
 }
 
-/* Header */
-.gz-header{
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  margin: 0 auto 10px auto;
-  max-width: none !important;
-  padding: 10px 12px;
-  flex: 0 0 auto;
-}
-
-/* Container scrolls vertically when its panel's matches don't fit. Putting
-   the scroll context on the Surface (rather than the inner list) keeps the
-   bottom padding inside the scrollable area so the last card is fully
-   reachable, and avoids the carousel growing the page height. */
 .gz-container{
   flex: 1 1 auto;
   display: flex;
@@ -664,10 +828,6 @@ html, body, #root{
   display: flex;
   flex-direction: column;
   gap: 14px;
-  /* Reserve clearance below the last card so it scrolls cleanly above
-     the BottomNav. Combined with .gz-root having no bottom padding, the
-     scroll area extends behind the bar. Extra 28px so the last game isn't
-     flush against the bar. */
   padding-bottom: calc(var(--ui-bottom-nav-clearance, 80px) + 28px);
 }
 
@@ -693,21 +853,16 @@ html, body, #root{
   opacity: 0.95;
 }
 
-/* Match card: column layout — top row (time / level / venue) + body (teams ▏ scores).
-   Left edge is a gradient strip rendered via ::before so it can fade vertically. */
 .gz-row{
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 16px 18px 16px 30px;
-
   border-radius: var(--radius-item);
   border: 1px solid rgba(255, 255, 255, 0.10);
-
   background: rgba(255, 255, 255, 0.05);
   box-shadow: var(--shadow-item);
-
   cursor: pointer;
   user-select: none;
   overflow: hidden;
@@ -716,9 +871,7 @@ html, body, #root{
 .gz-row::before{
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
+  left: 0; top: 0; bottom: 0;
   width: 7px;
   background: linear-gradient(
     180deg,
@@ -732,7 +885,6 @@ html, body, #root{
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Top row: time + level badge + venue */
 .gz-row-top{
   display: flex;
   align-items: center;
@@ -751,9 +903,6 @@ html, body, #root{
   line-height: 1;
 }
 
-/* Live-indikaattori ottelulistan kortissa — punainen pulssipiste + LIVE
-   teksti. Sama tyyli kuin etusivun hero-kortissa, jotta livet erottuvat
-   nopeasti. */
 .gz-live{
   display: inline-flex;
   align-items: center;
@@ -769,8 +918,7 @@ html, body, #root{
 
 .gz-live-dot{
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 7px; height: 7px;
   border-radius: 50%;
   background: #ef4444;
   box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
@@ -831,7 +979,6 @@ html, body, #root{
   min-width: 0;
 }
 
-/* Body: 3-column grid (teams | separator | scores), 3 rows (home / divider / away) */
 .gz-row-body{
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -852,8 +999,6 @@ html, body, #root{
 .gz-team-row--home{ grid-row: 1; }
 .gz-team-row--away{ grid-row: 3; }
 
-/* Subtle horizontal line between the two team rows. Lives in column 1
-   only so it doesn't intersect the colored vertical separator. */
 .gz-team-divider{
   grid-row: 2;
   grid-column: 1;
@@ -878,7 +1023,6 @@ html, body, #root{
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-
   font-size: var(--gz-fs-md);
   font-weight: var(--gz-fw-bold);
   letter-spacing: var(--gz-ls-wide);
@@ -893,9 +1037,6 @@ html, body, #root{
   background: var(--gz-result-color, rgba(255, 255, 255, 0.22));
   align-self: stretch;
   border-radius: 1px;
-  /* Slight extension beyond the body grid so the separator reads as longer.
-     Kept conservative because small-screen card padding is only ~10px and a
-     larger negative margin pushes the separator into the card edges. */
   margin: -4px 0;
 }
 
@@ -912,15 +1053,6 @@ html, body, #root{
 
 .gz-team-score--home{ grid-row: 1; }
 .gz-team-score--away{ grid-row: 3; }
-
-.gz-filter-row{
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  padding-top: 8px;
-  margin-top: 4px;
-  border-top: 1px solid var(--color-surface-divider);
-}
 
 .gz-empty{
   flex: 1 1 auto;
@@ -939,53 +1071,20 @@ html, body, #root{
 }
 .gz-empty-link:hover{ opacity: 0.8; }
 
-
-/* Narrow phones / folded foldables (~280–380px) */
+/* Narrow phones */
 @media (max-width: 380px){
-  .gz-row{
-    padding: 10px 12px 10px 20px;
-    gap: 10px;
-  }
-
-  .gz-time{
-    font-size: 14px;
-  }
-
-  .gz-team-logo{
-    width: 32px;
-    height: 32px;
-  }
-
-  .gz-team-name{
-    font-size: 14px;
-  }
-
-  .gz-team-score{
-    font-size: 22px;
-    min-width: 24px;
-  }
-
-  .gz-location{
-    font-size: 11px;
-  }
+  .gz-row{ padding: 10px 12px 10px 20px; gap: 10px; }
+  .gz-time{ font-size: 14px; }
+  .gz-team-logo{ width: 32px; height: 32px; }
+  .gz-team-name{ font-size: 14px; }
+  .gz-team-score{ font-size: 22px; min-width: 24px; }
+  .gz-location{ font-size: 11px; }
+  .gz-week-chip{ width: 84px; }
 }
 
-/* Tablet / unfolded foldable (≥768px) — more padding, slightly wider content */
+/* Tablet */
 @media (min-width: 768px){
-  .gz-root{
-    padding: 14px 14px 22px 14px;
-  }
-
-  .gz-panel-inner{
-    max-width: 760px;
-  }
-
-  .gz-header{
-    padding: 10px 16px;
-  }
-
-  .gz-container{
-    padding: 14px 16px;
-  }
+  .gz-panel-inner{ max-width: 760px; }
+  .gz-container{ padding: 14px 16px; }
 }
 `;
