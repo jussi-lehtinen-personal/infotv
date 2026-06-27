@@ -60,8 +60,8 @@ function App() {
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
-                <Route path="/organisaatio" element={<Organisation />} />
-                <Route path="/tili" element={<Account />} />
+                <Route path="/organization" element={<Organisation />} />
+                <Route path="/account" element={<Account />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/supporters" element={<Supporters />} />
                 <Route

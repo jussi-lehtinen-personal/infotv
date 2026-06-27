@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
 import { ContactCard } from "../components/ui/ContactCard";
+import { useGoBack } from "../hooks/useGoBack";
 
 const Organisation = () => {
+  const goBack = useGoBack("/");
   const [officials, setOfficials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -37,9 +38,9 @@ const Organisation = () => {
           title="YHTEYSTIEDOT"
           subtitle="Seuran organisaatio"
           left={
-            <Link to="/" className="org-back" aria-label="Takaisin">
+            <button type="button" className="org-back" onClick={goBack} aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
-            </Link>
+            </button>
           }
         />
 
@@ -95,6 +96,7 @@ body { margin: 0; }
   display: flex; align-items: center;
   color: rgba(255,255,255,0.6);
   text-decoration: none; border-radius: 10px; padding: 2px;
+  background: none; border: none; cursor: pointer;
   transition: color 0.15s;
 }
 .org-back:hover { color: var(--color-primary); }

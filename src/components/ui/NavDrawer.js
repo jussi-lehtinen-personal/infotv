@@ -27,8 +27,8 @@ const NAV_SECTIONS = [
     { to: "/news", label: "Uutiset", Icon: LuNewspaper },
   ],
   [
-    { to: "/tili", label: "Minä", Icon: LuUser },
-    { to: "/organisaatio", label: "Yhteystiedot", Icon: LuMail },
+    { to: "/account", label: "Minä", Icon: LuUser },
+    { to: "/organization", label: "Yhteystiedot", Icon: LuMail },
     { to: "/supporters", label: "Kannattajajäsenet", Icon: LuHeart },
     {
       href: "https://forms.office.com/pages/responsepage.aspx?id=lnGL4VX2Lku9oA4GU2KdCUogyNsQep9AiquFHORrgR1UN1ZONVk2VTEzSDJHS0QwN0EyQzlWTFNJMy4u&route=shorturl",

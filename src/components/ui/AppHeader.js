@@ -7,7 +7,7 @@ export const AppHeader = ({
   onBellClick,
   onMenuClick,
   user = null,
-  profileTo = '/tili',
+  profileTo = '/account',
 }) => (
   <header className="ui-app-header">
     {/* Vasen reuna: hampurilainen avaa navigaatiovalikon. Jos onMenuClick

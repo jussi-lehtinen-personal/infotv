@@ -18,6 +18,7 @@ import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
 import { GoogleButton } from "../auth/GoogleButton";
+import { useGoBack } from "../hooks/useGoBack";
 import {
   getMe,
   getCachedUser,
@@ -60,6 +61,7 @@ const Account = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const supported = browserSupportsWebAuthn();
+  const goBack = useGoBack("/");
 
   const refresh = useCallback(async () => {
     const cached = getCachedUser();
@@ -173,9 +175,9 @@ const Account = () => {
             <img className="acc-hero-img" src={HERO} alt="" />
             <div className="acc-hero-scrim" />
             <div className="acc-hero-top">
-              <Link to="/" className="acc-icon-btn" aria-label="Takaisin">
+              <button type="button" className="acc-icon-btn" onClick={goBack} aria-label="Takaisin">
                 <LuArrowLeft aria-hidden="true" />
-              </Link>
+              </button>
               <div className="acc-hero-title">Minä</div>
               <span className="acc-icon-spacer" aria-hidden="true" />
             </div>
@@ -279,9 +281,9 @@ const Account = () => {
           <PageHeader
             title="MINÄ"
             left={
-              <Link to="/" className="acc-back" aria-label="Takaisin">
+              <button type="button" className="acc-back" onClick={goBack} aria-label="Takaisin">
                 <span className="material-symbols-rounded">&#xE5CB;</span>
-              </Link>
+              </button>
             }
           />
 
@@ -418,6 +420,7 @@ body { margin: 0; }
   display: flex; align-items: center;
   color: rgba(255,255,255,0.6);
   text-decoration: none; border-radius: 10px; padding: 2px;
+  background: none; border: none; cursor: pointer;
   transition: color 0.15s;
 }
 .acc-back:hover { color: var(--color-primary); }
@@ -464,6 +467,7 @@ body { margin: 0; }
   background: rgba(0,0,0,0.38);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   color: #fff; text-decoration: none;
+  border: none; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .acc-icon-btn svg { width: 22px; height: 22px; }

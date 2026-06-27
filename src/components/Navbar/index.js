@@ -74,7 +74,7 @@ const Index = () => {
               label="Edustus"
             />
             <QuickTile
-              to="/organisaatio"
+              to="/organization"
               icon={<LuMail />}
               label="Yhteystiedot"
             />

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
 import { NewsCard } from "../components/ui/NewsCard";
+import { useGoBack } from "../hooks/useGoBack";
 
 const News = () => {
+  const goBack = useGoBack("/");
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -36,9 +37,9 @@ const News = () => {
         <PageHeader
           title="UUTISET"
           left={
-            <Link to="/" className="news-back" aria-label="Takaisin">
+            <button type="button" className="news-back" onClick={goBack} aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
-            </Link>
+            </button>
           }
         />
 
@@ -97,6 +98,9 @@ body { margin: 0; }
   text-decoration: none;
   border-radius: 10px;
   padding: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
   transition: color 0.15s;
 }
 .news-back:hover { color: var(--color-primary); }

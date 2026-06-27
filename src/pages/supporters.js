@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
+import { useGoBack } from "../hooks/useGoBack";
 
 // Kannattajajäsenten lista. Data tulee staattisesta public/supporters.json
 // -tiedostosta — sama kevyt malli kuin /news (gamezone-news.json). Listan
@@ -19,6 +19,7 @@ const toName = (entry) => {
 };
 
 const Supporters = () => {
+  const goBack = useGoBack("/");
   const [names, setNames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -58,9 +59,9 @@ const Supporters = () => {
           title="KANNATTAJAT"
           subtitle={subtitle}
           left={
-            <Link to="/" className="sup-back" aria-label="Takaisin">
+            <button type="button" className="sup-back" onClick={goBack} aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
-            </Link>
+            </button>
           }
         />
 
@@ -137,6 +138,9 @@ body { margin: 0; }
   text-decoration: none;
   border-radius: 10px;
   padding: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
   transition: color 0.15s;
 }
 .sup-back:hover { color: var(--color-primary); }

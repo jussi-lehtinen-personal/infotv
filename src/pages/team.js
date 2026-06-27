@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useGoBack } from "../hooks/useGoBack";
 import { LuArrowLeft, LuShirt, LuUsers, LuPhone } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
@@ -56,7 +57,7 @@ const PlayerCard = ({ p }) => (
 
 const Team = () => {
   const { subsiteId } = useParams();
-  const navigate = useNavigate();
+  const goBack = useGoBack("/teams");
   const known = findJopoxTeam(subsiteId);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +101,7 @@ const Team = () => {
         <div className="tm-hero">
           <img className="tm-hero-logo" src={HERO_PLACEHOLDER} alt="" />
           <div className="tm-hero-top">
-            <button className="tm-icon-btn" onClick={() => navigate("/teams")} aria-label="Takaisin">
+            <button className="tm-icon-btn" onClick={goBack} aria-label="Takaisin">
               <LuArrowLeft />
             </button>
           </div>

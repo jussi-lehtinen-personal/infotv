@@ -1,9 +1,10 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
+import { useGoBack } from "../hooks/useGoBack";
 
 const Settings = () => {
+  const goBack = useGoBack("/");
   return (
     <>
       <style>{css}</style>
@@ -11,9 +12,9 @@ const Settings = () => {
         <PageHeader
           title="ASETUKSET"
           left={
-            <Link to="/" className="settings-back" aria-label="Takaisin">
+            <button type="button" className="settings-back" onClick={goBack} aria-label="Takaisin">
               <span className="material-symbols-rounded">&#xE5CB;</span>
-            </Link>
+            </button>
           }
         />
 
@@ -53,6 +54,9 @@ body { margin: 0; }
   text-decoration: none;
   border-radius: 10px;
   padding: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 .settings-back:hover { color: var(--color-primary); }
 .settings-back .material-symbols-rounded { font-size: 30px; line-height: 1; }

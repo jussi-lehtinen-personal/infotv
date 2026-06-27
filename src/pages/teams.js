@@ -1,6 +1,7 @@
 import React from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { LuArrowLeft, LuChevronRight } from "react-icons/lu";
+import { useGoBack } from "../hooks/useGoBack";
 import { themeCSS } from "../theme";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
 
@@ -11,7 +12,7 @@ const HERO = "/teams_hero.webp";
 // Each row opens the team page (/teams/:subsiteId) with roster + staff.
 // Favouriting moved to the match pages — not here (v1).
 const Teams = () => {
-  const navigate = useNavigate();
+  const goBack = useGoBack("/");
   return (
     <>
       <style>{css}</style>
@@ -22,7 +23,7 @@ const Teams = () => {
           <div className="teams-hero-top">
             <button
               className="teams-icon-btn"
-              onClick={() => navigate("/")}
+              onClick={goBack}
               aria-label="Takaisin"
             >
               <LuArrowLeft />
