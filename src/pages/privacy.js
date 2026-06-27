@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { LuShieldCheck, LuScale, LuChevronRight, LuTrash2 } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -13,7 +13,6 @@ const Privacy = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     getMe().then((u) => u && setUser(u)).catch(() => {});
@@ -64,19 +63,17 @@ const Privacy = () => {
           </div>
 
           <div className="pr-links">
-            <button className="pr-link-row" onClick={() => setNotice("Tietosuojaseloste tulossa pian.")}>
+            <Link className="pr-link-row" to="/legal/privacy">
               <span className="pr-link-icon"><LuShieldCheck aria-hidden="true" /></span>
               <span className="pr-link-label">Tietosuojaseloste</span>
               <LuChevronRight className="pr-link-arrow" aria-hidden="true" />
-            </button>
-            <button className="pr-link-row" onClick={() => setNotice("Käyttöehdot tulossa pian.")}>
+            </Link>
+            <Link className="pr-link-row" to="/legal/terms">
               <span className="pr-link-icon"><LuScale aria-hidden="true" /></span>
               <span className="pr-link-label">Käyttöehdot</span>
               <LuChevronRight className="pr-link-arrow" aria-hidden="true" />
-            </button>
+            </Link>
           </div>
-
-          {notice && <div className="pr-notice">{notice}</div>}
 
           {!confirmDelete ? (
             <button
@@ -185,9 +182,11 @@ body { margin: 0; }
   width: 100%; padding: 14px 16px;
   background: none; border: none; text-align: left; cursor: pointer;
   color: var(--gz-text-primary);
+  text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s;
 }
+.pr-link-row:visited, .pr-link-row:hover, .pr-link-row:active { color: var(--gz-text-primary); text-decoration: none; }
 .pr-link-row + .pr-link-row { border-top: 1px solid rgba(255,255,255,0.06); }
 .pr-link-row:hover { background: rgba(255,255,255,0.03); }
 .pr-link-icon {
