@@ -11,7 +11,7 @@ const PartnerCard = ({ p }) => {
   const showImg = p.image && !failed;
   const inner = (
     <>
-      <div className={`pt-logo-box${p.light ? " pt-logo-box--dark" : ""}`}>
+      <div className={`pt-logo-box${p.light ? " pt-logo-box--bare" : ""}`}>
         {showImg ? (
           <img
             className="pt-logo"
@@ -161,10 +161,11 @@ body { margin: 0; }
   padding: 10px;
   box-sizing: border-box;
 }
-/* Light/white wordmarks (flagged server-side) get a dark box so they show. */
-.pt-logo-box--dark {
-  background: #1f1f1f;
-  border: 1px solid rgba(255,255,255,0.1);
+/* Light/white transparent logos (flagged server-side) sit straight on the
+   card background so they blend seamlessly — no white box. Dark transparent
+   and opaque (white-bg) logos keep the white box above. */
+.pt-logo-box--bare {
+  background: transparent;
 }
 .pt-logo {
   max-width: 100%;
