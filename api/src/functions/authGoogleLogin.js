@@ -4,6 +4,7 @@ const { verifyGoogleToken } = require('../lib/google');
 const { ensureTables, getEntity, upsertEntity, listByPartition } = require('../lib/tables');
 const { reserveUniqueUsername } = require('../lib/usernames');
 const { signSession } = require('../lib/jwt');
+const { avatarUrl } = require('../lib/blob');
 
 // POST /api/auth/google/login
 // Sign in with Google. If this Google account is already linked, resolves that
@@ -66,6 +67,7 @@ app.http('authGoogleLogin', {
             nickname: (user && user.nickname) || '',
             googleLinked: true,
             hasPasskey: creds.length > 0,
+            avatar: avatarUrl(userId, user),
           },
         },
       };

@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
+const { avatarUrl } = require('../lib/blob');
 
 // GET /api/me — returns the current user's profile (requires Bearer token).
 app.http('me', {
@@ -25,6 +26,7 @@ app.http('me', {
           nickname: user.nickname || '',
           googleLinked: !!user.googleSub,
           hasPasskey: creds.length > 0,
+          avatar: avatarUrl(userId, user),
         },
       };
     } catch (err) {

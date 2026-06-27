@@ -9,6 +9,7 @@
   "dependencies": {
     "@azure/data-tables": "^13.2.2",
     "@azure/functions": "^4.0.0",
+    "@azure/storage-blob": "^12.25.0",
     "@simplewebauthn/server": "^9.0.3",
     "jose": "^4.15.9",
     "moment": "^2.30.1",

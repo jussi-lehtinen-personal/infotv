@@ -274,6 +274,12 @@ code {
   font-size: 15px;
   line-height: 1;
 }
+.ui-app-header-avatar-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
 .ui-app-header-btn {
   position: relative;
   display: inline-flex;

@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { verifyGoogleToken } = require('../lib/google');
 const { ensureTables, getEntity, upsertEntity, deleteEntity, listByPartition } = require('../lib/tables');
+const { avatarUrl } = require('../lib/blob');
 
 // POST /api/auth/google/link  (authed)
 // Links the caller's Google account to their existing userId so other devices
@@ -68,6 +69,7 @@ app.http('authGoogleLink', {
             nickname: user.nickname || '',
             googleLinked: true,
             hasPasskey: creds.length > 0,
+            avatar: avatarUrl(userId, user),
           },
         },
       };

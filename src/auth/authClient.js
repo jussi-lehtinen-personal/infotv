@@ -175,6 +175,21 @@ export async function deleteAccount() {
   return true;
 }
 
+// Upload a (client-resized) avatar image blob. Returns the new avatar URL.
+export async function uploadAvatar(blob) {
+  const token = getToken();
+  const res = await fetch("/api/avatar", {
+    method: "POST",
+    headers: { "X-Ahma-Auth": token, "Content-Type": blob.type || "image/webp" },
+    body: blob,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  const cached = getCachedUser();
+  if (cached) setCachedUser({ ...cached, avatar: data.avatar });
+  return data.avatar;
+}
+
 // Remove the Google link from the signed-in account (passkey stays primary).
 export async function unlinkGoogle() {
   const token = getToken();

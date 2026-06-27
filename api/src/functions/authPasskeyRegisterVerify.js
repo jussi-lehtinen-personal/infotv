@@ -3,6 +3,7 @@ const { verifyRegistrationResponse, rpID, rpOrigin, toB64u } = require('../lib/w
 const { readChallenge } = require('../lib/challenge');
 const { ensureTables, upsertEntity, getEntity } = require('../lib/tables');
 const { reserveUsername } = require('../lib/usernames');
+const { avatarUrl } = require('../lib/blob');
 const { signSession } = require('../lib/jwt');
 
 // POST /api/auth/passkey/register/verify
@@ -91,6 +92,7 @@ app.http('authPasskeyRegisterVerify', {
             nickname: (profile && profile.nickname) || ch.nickname,
             googleLinked: !!(profile && profile.googleSub),
             hasPasskey: true,
+            avatar: avatarUrl(userId, profile),
           },
         },
       };

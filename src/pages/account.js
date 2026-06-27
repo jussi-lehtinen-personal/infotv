@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import {
@@ -28,9 +28,32 @@ import {
   linkGoogle,
   loginGoogle,
   unlinkGoogle,
+  uploadAvatar,
   deleteAccount,
   logout,
 } from "../auth/authClient";
+
+// Crop+resize a picked image to a square webp blob, client-side (no server
+// image lib needed). Center-crop (cover) to `size`px.
+async function resizeToBlob(file, size = 256) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const scale = Math.max(size / bitmap.width, size / bitmap.height);
+  const w = bitmap.width * scale;
+  const h = bitmap.height * scale;
+  ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
+  if (bitmap.close) bitmap.close();
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Kuvan käsittely epäonnistui."))),
+      "image/webp",
+      0.85
+    );
+  });
+}
 
 // Hero background for the signed-in "MINÄ" view.
 const HERO = "/profile_hero.webp";
@@ -62,6 +85,7 @@ const Account = () => {
   const [showCreate, setShowCreate] = useState(false);
   const supported = browserSupportsWebAuthn();
   const goBack = useGoBack("/");
+  const fileInputRef = useRef(null);
 
   const refresh = useCallback(async () => {
     const cached = getCachedUser();
@@ -164,6 +188,25 @@ const Account = () => {
     setBusy(false);
   };
 
+  const handleAvatarPick = () => fileInputRef.current && fileInputRef.current.click();
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      const blob = await resizeToBlob(file, 256);
+      const avatar = await uploadAvatar(blob);
+      setUser((u) => (u ? { ...u, avatar } : u));
+      setNotice("Profiilikuva päivitetty.");
+    } catch (err) {
+      setError(err.message || "Kuvan lataus epäonnistui.");
+    }
+    setBusy(false);
+  };
+
   return (
     <>
       <style>{css}</style>
@@ -183,14 +226,28 @@ const Account = () => {
             </div>
             <div className="acc-hero-center">
               <div className="acc-avatar-wrap">
-                <div className="acc-avatar">{initials(user.nickname)}</div>
+                <div className="acc-avatar">
+                  {user.avatar ? (
+                    <img className="acc-avatar-img" src={user.avatar} alt="" />
+                  ) : (
+                    initials(user.nickname)
+                  )}
+                </div>
                 <button
                   className="acc-avatar-edit"
-                  onClick={() => setNotice("Profiilikuvan vaihto tulossa pian.")}
+                  onClick={handleAvatarPick}
+                  disabled={busy}
                   aria-label="Vaihda kuva"
                 >
                   <LuPencil aria-hidden="true" />
                 </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarFile}
+                  style={{ display: "none" }}
+                />
               </div>
               <div className="acc-me-name">{user.nickname || "Käyttäjä"}</div>
               <div className="acc-me-sub">Kirjautunut</div>
@@ -486,6 +543,12 @@ body { margin: 0; }
   border: 3px solid var(--color-primary);
   box-shadow: 0 0 0 5px rgba(245,158,11,0.14), 0 10px 28px rgba(0,0,0,0.55);
   color: #fff; font-weight: 800; font-size: 42px; letter-spacing: 0.03em;
+  overflow: hidden;
+}
+.acc-avatar-img{
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 .acc-avatar-edit {
   position: absolute; right: 0; bottom: 6px;

@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, upsertEntity, deleteEntity, listByPartition } = require('../lib/tables');
+const { avatarUrl } = require('../lib/blob');
 
 // POST /api/auth/google/unlink  (authed)
 // Removes the Google link from the caller's account. The passkey stays as the
@@ -48,6 +49,7 @@ app.http('authGoogleUnlink', {
             nickname: user.nickname || '',
             googleLinked: false,
             hasPasskey: creds.length > 0,
+            avatar: avatarUrl(userId, user),
           },
         },
       };

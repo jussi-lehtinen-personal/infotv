@@ -8,6 +8,7 @@ const {
 const { readChallenge } = require('../lib/challenge');
 const { ensureTables, getEntity, upsertEntity } = require('../lib/tables');
 const { signSession } = require('../lib/jwt');
+const { avatarUrl } = require('../lib/blob');
 
 // POST /api/auth/passkey/login/verify
 // Body: { response, challengeToken }. Resolves userId from the assertion's
@@ -79,6 +80,7 @@ app.http('authPasskeyLoginVerify', {
             nickname: (user && user.nickname) || '',
             googleLinked: !!(user && user.googleSub),
             hasPasskey: true,
+            avatar: avatarUrl(userId, user),
           },
         },
       };
