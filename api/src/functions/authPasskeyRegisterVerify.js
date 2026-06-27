@@ -57,7 +57,7 @@ app.http('authPasskeyRegisterVerify', {
       if (!ch.existing) {
         const reserved = await reserveUsername(ch.nickname, userId);
         if (!reserved) {
-          return { status: 409, jsonBody: { error: 'Käyttäjätunnus on jo varattu.' } };
+          return { status: 409, jsonBody: { error: 'Nimimerkki on jo varattu.' } };
         }
       }
       // New account → create the profile. Existing account (adding a passkey)

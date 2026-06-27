@@ -46,11 +46,11 @@ app.http('authPasskeyRegisterOptions', {
         // New account.
         nickname = String(body.nickname || '').trim();
         if (nickname.length < 1 || nickname.length > 40) {
-          return { status: 400, jsonBody: { error: 'Anna käyttäjätunnus (1–40 merkkiä).' } };
+          return { status: 400, jsonBody: { error: 'Anna nimimerkki (1–40 merkkiä).' } };
         }
         await ensureTables();
         if (!(await isUsernameFree(nickname))) {
-          return { status: 409, jsonBody: { error: 'Käyttäjätunnus on jo varattu.' } };
+          return { status: 409, jsonBody: { error: 'Nimimerkki on jo varattu.' } };
         }
         userId = crypto.randomUUID();
       }

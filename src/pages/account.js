@@ -286,7 +286,7 @@ const Account = () => {
           <div className="acc-modal" onClick={(e) => e.stopPropagation()}>
             <div className="acc-section-title">Luo uusi tili</div>
             <form className="acc-form" onSubmit={handleRegister}>
-              <label className="acc-label" htmlFor="acc-nick">Käyttäjätunnus</label>
+              <label className="acc-label" htmlFor="acc-nick">Nimimerkki</label>
               <input
                 id="acc-nick"
                 className="acc-input"
