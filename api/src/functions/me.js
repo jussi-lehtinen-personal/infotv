@@ -24,6 +24,7 @@ app.http('me', {
         jsonBody: {
           userId,
           nickname: user.nickname || '',
+          email: user.email || null,
           googleLinked: !!user.googleSub,
           hasPasskey: creds.length > 0,
           avatar: avatarUrl(userId, user),

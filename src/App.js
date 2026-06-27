@@ -21,6 +21,7 @@ import Team from "./pages/team";
 import News from "./pages/news";
 import Organisation from "./pages/organisation";
 import Account from "./pages/account";
+import Privacy from "./pages/privacy";
 import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
 import Report from "./pages/report";
@@ -62,6 +63,7 @@ function App() {
                 <Route path="/news" element={<News />} />
                 <Route path="/organization" element={<Organisation />} />
                 <Route path="/account" element={<Account />} />
+                <Route path="/account/privacy" element={<Privacy />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/supporters" element={<Supporters />} />
                 <Route

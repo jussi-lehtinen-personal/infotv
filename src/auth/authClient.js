@@ -175,6 +175,20 @@ export async function deleteAccount() {
   return true;
 }
 
+// Change the nickname (unique). Returns the updated user.
+export async function renameNickname(nickname) {
+  const token = getToken();
+  const res = await fetch("/api/me/nickname", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-Ahma-Auth": token },
+    body: JSON.stringify({ nickname }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  setCachedUser(data.user);
+  return data.user;
+}
+
 // Upload a (client-resized) avatar image blob. Returns the new avatar URL.
 export async function uploadAvatar(blob) {
   const token = getToken();

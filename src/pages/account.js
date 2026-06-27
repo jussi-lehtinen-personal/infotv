@@ -5,10 +5,8 @@ import {
   LuKeyRound,
   LuLogOut,
   LuCheck,
-  LuTrash2,
   LuArrowLeft,
   LuPencil,
-  LuUser,
   LuBell,
   LuSettings,
   LuShield,
@@ -29,7 +27,7 @@ import {
   loginGoogle,
   unlinkGoogle,
   uploadAvatar,
-  deleteAccount,
+  renameNickname,
   logout,
 } from "../auth/authClient";
 
@@ -67,10 +65,9 @@ const initials = (name) => {
 };
 
 const MENU = [
-  { key: "profiili", Icon: LuUser, title: "Profiili", sub: "Muokkaa tietojasi" },
   { key: "ilmoitukset", Icon: LuBell, title: "Ilmoitukset", sub: "Hallinnoi ilmoituksia" },
   { key: "asetukset", Icon: LuSettings, title: "Asetukset", sub: "Sovelluksen asetukset", to: "/settings" },
-  { key: "tietosuoja", Icon: LuShield, title: "Tietosuoja", sub: "Tietosuoja ja käyttöehdot" },
+  { key: "tietosuoja", Icon: LuShield, title: "Tietosuoja", sub: "Tietosuoja ja käyttöehdot", to: "/account/privacy" },
 ];
 
 const Account = () => {
@@ -81,8 +78,9 @@ const Account = () => {
   const [notice, setNotice] = useState("");
   const [nickname, setNickname] = useState("");
   const [clientId, setClientId] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showRename, setShowRename] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
   const supported = browserSupportsWebAuthn();
   const goBack = useGoBack("/");
   const fileInputRef = useRef(null);
@@ -134,20 +132,18 @@ const Account = () => {
     setNickname("");
     setNotice("");
     setError("");
-    setConfirmDelete(false);
     setShowCreate(false);
+    setShowRename(false);
   };
 
-  const handleDeleteAccount = async () => {
+  const handleRename = async (e) => {
+    e.preventDefault();
     setError("");
-    setNotice("");
     setBusy(true);
     try {
-      await deleteAccount();
-      setUser(null);
-      setConfirmDelete(false);
-      setNickname("");
-      setNotice("Tili poistettu.");
+      setUser(await renameNickname(renameValue.trim()));
+      setShowRename(false);
+      setNotice("Nimimerkki päivitetty.");
     } catch (err) {
       setError(err.message);
     }
@@ -249,8 +245,24 @@ const Account = () => {
                   style={{ display: "none" }}
                 />
               </div>
-              <div className="acc-me-name">{user.nickname || "Käyttäjä"}</div>
+              <div className="acc-me-name">
+                <span>{user.nickname || "Käyttäjä"}</span>
+                <button
+                  type="button"
+                  className="acc-name-edit"
+                  onClick={() => {
+                    setRenameValue(user.nickname || "");
+                    setError("");
+                    setShowRename(true);
+                  }}
+                  disabled={busy}
+                  aria-label="Muokkaa nimimerkkiä"
+                >
+                  <LuPencil aria-hidden="true" />
+                </button>
+              </div>
               <div className="acc-me-sub">Kirjautunut</div>
+              {user.email && <div className="acc-me-email">{user.email}</div>}
             </div>
           </div>
 
@@ -302,31 +314,6 @@ const Account = () => {
             <button className="acc-btn acc-btn--ghost acc-full-btn" onClick={handleLogout} disabled={busy}>
               <LuLogOut aria-hidden="true" /> Kirjaudu ulos
             </button>
-
-            {!confirmDelete ? (
-              <button
-                className="acc-btn acc-btn--danger-outline acc-full-btn"
-                onClick={() => setConfirmDelete(true)}
-                disabled={busy}
-              >
-                <LuTrash2 aria-hidden="true" /> Poista tili
-              </button>
-            ) : (
-              <div className="acc-confirm">
-                <div className="acc-confirm-text">
-                  Oletko varma? Tämä poistaa tilisi, passkeyt ja mahdollisen
-                  Google-yhteyden pysyvästi. Tätä ei voi peruuttaa.
-                </div>
-                <div className="acc-confirm-actions">
-                  <button className="acc-btn acc-btn--danger" onClick={handleDeleteAccount} disabled={busy}>
-                    Poista pysyvästi
-                  </button>
-                  <button className="acc-btn acc-btn--ghost" onClick={() => setConfirmDelete(false)} disabled={busy}>
-                    Peruuta
-                  </button>
-                </div>
-              </div>
-            )}
 
             {notice && <div className="acc-notice">{notice}</div>}
             {error && <div className="acc-error">{error}</div>}
@@ -437,6 +424,45 @@ const Account = () => {
             <button
               className="acc-link-btn"
               onClick={() => setShowCreate(false)}
+              disabled={busy}
+            >
+              Peruuta
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showRename && user && (
+        <div
+          className="acc-modal-backdrop"
+          onClick={() => !busy && setShowRename(false)}
+        >
+          <div className="acc-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="acc-section-title">Muokkaa nimimerkkiä</div>
+            <form className="acc-form" onSubmit={handleRename}>
+              <label className="acc-label" htmlFor="acc-rename">Nimimerkki</label>
+              <input
+                id="acc-rename"
+                className="acc-input"
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                maxLength={40}
+                autoComplete="off"
+                autoFocus
+              />
+              <button
+                className="acc-btn acc-btn--primary"
+                type="submit"
+                disabled={busy || renameValue.trim().length < 1}
+              >
+                Tallenna
+              </button>
+            </form>
+            {error && <div className="acc-error">{error}</div>}
+            <button
+              className="acc-link-btn"
+              onClick={() => setShowRename(false)}
               disabled={busy}
             >
               Peruuta
@@ -563,11 +589,28 @@ body { margin: 0; }
 .acc-avatar-edit svg { width: 16px; height: 16px; }
 .acc-me-name {
   margin-top: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
   font-size: 24px; font-weight: 800;
   text-transform: uppercase; letter-spacing: 0.01em;
   color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.6);
 }
+.acc-name-edit {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(0,0,0,0.35); border: none; color: #fff;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.acc-name-edit svg { width: 15px; height: 15px; }
+.acc-name-edit:disabled { opacity: 0.5; cursor: default; }
 .acc-me-sub { font-size: var(--gz-fs-sm); color: rgba(255,255,255,0.72); }
+.acc-me-email {
+  margin-top: 2px;
+  max-width: 260px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--gz-fs-xs);
+  color: rgba(255,255,255,0.55);
+}
 
 /* ===== MINÄ BODY ===== */
 .acc-body {
