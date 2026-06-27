@@ -11,7 +11,7 @@ const PartnerCard = ({ p }) => {
   const showImg = p.image && !failed;
   const inner = (
     <>
-      <div className="pt-logo-box">
+      <div className={`pt-logo-box${p.light ? " pt-logo-box--dark" : ""}`}>
         {showImg ? (
           <img
             className="pt-logo"
@@ -161,12 +161,15 @@ body { margin: 0; }
   padding: 10px;
   box-sizing: border-box;
 }
+/* Light/white wordmarks (flagged server-side) get a dark box so they show. */
+.pt-logo-box--dark {
+  background: #1f1f1f;
+  border: 1px solid rgba(255,255,255,0.1);
+}
 .pt-logo {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  /* Thin dark edge so white/very-light logos stay visible on the white box. */
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.55));
 }
 .pt-logo-fallback {
   color: #333; font-weight: 700; font-size: 14px; text-align: center;
