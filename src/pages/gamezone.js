@@ -25,6 +25,11 @@ moment.locale("fi");
 
 const HERO = "/games_hero.webp";
 
+// Robust date parse — the feed uses "YYYY-MM-DD HH:mm" (space, not T). Safari/
+// iOS rejects that via native Date, yielding "Invalid Date". ISO-ify the space
+// and parse strictly so it works on every platform.
+const mdate = (s) => moment(String(s || "").replace(" ", "T"), moment.ISO_8601);
+
 const goToSite = (uri) => {
   window.location.href = uri;
 };
@@ -417,13 +422,14 @@ function WeekList({
   const groups = useMemo(() => {
     const map = new Map();
     for (const m of matches) {
-      const key = moment(m.date).format("YYYY-MM-DD");
+      const md = mdate(m.date);
+      const key = md.isValid() ? md.format("YYYY-MM-DD") : String(m.date || "").slice(0, 10);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(m);
     }
     const days = Array.from(map.keys()).sort((a, b) => (a < b ? -1 : 1));
     for (const day of days) {
-      map.get(day).sort((a, b) => new Date(a.date) - new Date(b.date));
+      map.get(day).sort((a, b) => mdate(a.date).valueOf() - mdate(b.date).valueOf());
     }
     return days.map((day) => ({ day, items: map.get(day) }));
   }, [matches]);
@@ -505,7 +511,8 @@ function WeekList({
 /* ============================= */
 
 function MatchRow({ match, onClick }) {
-  const timeStr = moment(match.date).format("HH:mm");
+  const md = mdate(match.date);
+  const timeStr = md.isValid() ? md.format("HH:mm") : "";
   const level = simplifyLevel(match.level ?? "");
 
   const finishedType = Number(match.finished);
