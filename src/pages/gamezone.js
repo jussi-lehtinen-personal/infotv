@@ -558,9 +558,10 @@ function MatchRow({ match, onClick }) {
                    : null;
   const rink = match.rink || "";
 
-  const rowStyle = resultColor
-    ? { borderLeftColor: resultColor, "--gz-result-color": resultColor }
-    : undefined;
+  // Left indicator line only when there's something to show: live (orange) or
+  // a finished result (green win / red loss / grey draw). Plain upcoming = none.
+  const lineColor = resultColor || (isLive ? "#f97316" : null);
+  const rowStyle = lineColor ? { "--gz-result-color": lineColor } : undefined;
 
   return (
     <div
@@ -734,7 +735,10 @@ html, body, #root{
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 2px;
+  padding: 2px 6px;
+  /* Fade partial chips at the edges so they don't hard-clip mid-card. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 }
 .gz-week-scroll::-webkit-scrollbar{ display: none; }
 .gz-week-chip{
@@ -834,7 +838,6 @@ html, body, #root{
 .gz-dayblock{
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .gz-dayheader{
@@ -853,26 +856,26 @@ html, body, #root{
   opacity: 0.95;
 }
 
+/* Flat match rows — no card. Divider between games, optional coloured left
+   line for indication (live / result). */
 .gz-row{
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px 18px 16px 30px;
-  border-radius: var(--radius-item);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: var(--shadow-item);
+  padding: 16px 8px 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
   user-select: none;
-  overflow: hidden;
 }
+.gz-row:last-child{ border-bottom: none; }
 
 .gz-row::before{
   content: "";
   position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 7px;
+  left: 0; top: 12px; bottom: 12px;
+  width: 4px;
+  border-radius: 2px;
   background: linear-gradient(
     180deg,
     var(--gz-result-color, transparent) 0%,
@@ -882,7 +885,7 @@ html, body, #root{
 }
 
 .gz-row:hover{
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .gz-row-top{
@@ -1073,7 +1076,7 @@ html, body, #root{
 
 /* Narrow phones */
 @media (max-width: 380px){
-  .gz-row{ padding: 10px 12px 10px 20px; gap: 10px; }
+  .gz-row{ padding: 12px 6px 12px 16px; gap: 10px; }
   .gz-time{ font-size: 14px; }
   .gz-team-logo{ width: 32px; height: 32px; }
   .gz-team-name{ font-size: 14px; }
