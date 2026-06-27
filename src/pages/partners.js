@@ -165,6 +165,8 @@ body { margin: 0; }
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  /* Thin dark edge so white/very-light logos stay visible on the white box. */
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.55));
 }
 .pt-logo-fallback {
   color: #333; font-weight: 700; font-size: 14px; text-align: center;
