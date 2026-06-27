@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LuHome, LuTrophy, LuCalendarDays, LuUsers } from "react-icons/lu";
+import { LuHome, LuTrophy, LuCalendarDays, LuUsers, LuUser } from "react-icons/lu";
 
 // "Ottelut" includes both /gamezone and /gamezone/<date>, but NOT
 // /gamezone/schedule (that's its own button).
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: "/gamezone?includeAway=1&options=1", label: "Ottelut", Icon: LuTrophy, isActive: isMatchesPath },
   { to: "/gamezone/schedule", label: "Jäävuorot", Icon: LuCalendarDays, isActive: (p) => p === "/gamezone/schedule" },
   { to: "/teams", label: "Joukkueet", Icon: LuUsers, isActive: (p) => p === "/teams" },
+  { to: "/tili", label: "Minä", Icon: LuUser, isActive: (p) => p === "/tili" },
 ];
 
 export const BottomNav = () => {
