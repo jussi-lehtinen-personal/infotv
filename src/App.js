@@ -26,6 +26,7 @@ import Privacy from "./pages/privacy";
 import Legal from "./pages/legal";
 import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
+import Partners from "./pages/partners";
 import Report from "./pages/report";
 import NextHomeGame from "./pages/next_home_game";
 
@@ -70,6 +71,7 @@ function App() {
                 <Route path="/legal/:doc" element={<Legal />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/supporters" element={<Supporters />} />
+                <Route path="/partners" element={<Partners />} />
                 <Route
                     path="/ads"
                     element={<Ads />}

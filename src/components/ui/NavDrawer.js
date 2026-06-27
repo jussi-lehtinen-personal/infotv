@@ -10,6 +10,7 @@ import {
   LuNewspaper,
   LuMail,
   LuHeart,
+  LuAward,
   LuMessageSquare,
   LuUser,
   LuX,
@@ -30,6 +31,7 @@ const NAV_SECTIONS = [
     { to: "/account", label: "Minä", Icon: LuUser },
     { to: "/organization", label: "Yhteystiedot", Icon: LuMail },
     { to: "/supporters", label: "Kannattajajäsenet", Icon: LuHeart },
+    { to: "/partners", label: "Yhteistyökumppanit", Icon: LuAward },
     {
       href: "https://forms.office.com/pages/responsepage.aspx?id=lnGL4VX2Lku9oA4GU2KdCUogyNsQep9AiquFHORrgR1UN1ZONVk2VTEzSDJHS0QwN0EyQzlWTFNJMy4u&route=shorturl",
       label: "Palaute",
