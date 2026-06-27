@@ -51,8 +51,8 @@ app.http('authPasskeyLoginVerify', {
       const verification = await verifyAuthenticationResponse({
         response,
         expectedChallenge: ch.challenge,
-        expectedOrigin: rpOrigin(),
-        expectedRPID: rpID(),
+        expectedOrigin: ch.origin || rpOrigin(),
+        expectedRPID: ch.rpID || rpID(),
         authenticator: {
           credentialID: fromB64u(cred.rowKey),
           credentialPublicKey: fromB64u(cred.publicKey),

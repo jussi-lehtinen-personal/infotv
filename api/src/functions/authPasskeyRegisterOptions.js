@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const crypto = require('crypto');
-const { generateRegistrationOptions, rpID, RP_NAME, fromB64u } = require('../lib/webauthn');
+const { generateRegistrationOptions, rpFromRequest, RP_NAME, fromB64u } = require('../lib/webauthn');
 const { issueChallenge } = require('../lib/challenge');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
@@ -55,9 +55,10 @@ app.http('authPasskeyRegisterOptions', {
         userId = crypto.randomUUID();
       }
 
+      const { origin, rpID: rId } = rpFromRequest(request);
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
-        rpID: rpID(),
+        rpID: rId,
         userID: userId,
         userName: nickname,
         attestationType: 'none',
@@ -74,6 +75,8 @@ app.http('authPasskeyRegisterOptions', {
         userId,
         nickname,
         existing,
+        rpID: rId,
+        origin,
       });
 
       return { jsonBody: { options, challengeToken } };

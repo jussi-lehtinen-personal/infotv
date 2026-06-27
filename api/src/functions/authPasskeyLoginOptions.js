@@ -1,5 +1,5 @@
 const { app } = require('@azure/functions');
-const { generateAuthenticationOptions, rpID } = require('../lib/webauthn');
+const { generateAuthenticationOptions, rpFromRequest } = require('../lib/webauthn');
 const { issueChallenge } = require('../lib/challenge');
 
 // POST /api/auth/passkey/login/options
@@ -11,13 +11,16 @@ app.http('authPasskeyLoginOptions', {
   route: 'auth/passkey/login/options',
   handler: async (request, context) => {
     try {
+      const { origin, rpID: rId } = rpFromRequest(request);
       const options = await generateAuthenticationOptions({
-        rpID: rpID(),
+        rpID: rId,
         userVerification: 'preferred',
       });
       const challengeToken = await issueChallenge({
         flow: 'login',
         challenge: options.challenge,
+        rpID: rId,
+        origin,
       });
       return { jsonBody: { options, challengeToken } };
     } catch (err) {

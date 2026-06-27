@@ -33,8 +33,8 @@ app.http('authPasskeyRegisterVerify', {
       const verification = await verifyRegistrationResponse({
         response,
         expectedChallenge: ch.challenge,
-        expectedOrigin: rpOrigin(),
-        expectedRPID: rpID(),
+        expectedOrigin: ch.origin || rpOrigin(),
+        expectedRPID: ch.rpID || rpID(),
         requireUserVerification: false,
       });
       if (!verification.verified || !verification.registrationInfo) {
