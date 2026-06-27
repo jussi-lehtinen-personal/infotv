@@ -4,6 +4,38 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Spinner } from "../components/ui/Spinner";
 import { useGoBack } from "../hooks/useGoBack";
 
+// One partner card. Falls back to the name as a wordmark if the logo image is
+// missing or fails to load (some Jopox imagebank files 404).
+const PartnerCard = ({ p }) => {
+  const [failed, setFailed] = useState(false);
+  const showImg = p.image && !failed;
+  const inner = (
+    <>
+      <div className="pt-logo-box">
+        {showImg ? (
+          <img
+            className="pt-logo"
+            src={p.image}
+            alt={p.name}
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <span className="pt-logo-fallback">{p.name}</span>
+        )}
+      </div>
+      {showImg && <div className="pt-name">{p.name}</div>}
+    </>
+  );
+  return p.url ? (
+    <a className="pt-card" href={p.url} target="_blank" rel="noopener noreferrer">
+      {inner}
+    </a>
+  ) : (
+    <div className="pt-card">{inner}</div>
+  );
+};
+
 const Partners = () => {
   const goBack = useGoBack("/");
   const [partners, setPartners] = useState([]);
@@ -29,28 +61,6 @@ const Partners = () => {
     };
   }, []);
 
-  const Card = ({ p }) => {
-    const inner = (
-      <>
-        <div className="pt-logo-box">
-          {p.image ? (
-            <img className="pt-logo" src={p.image} alt={p.name} loading="lazy" />
-          ) : (
-            <span className="pt-logo-fallback">{p.name}</span>
-          )}
-        </div>
-        <div className="pt-name">{p.name}</div>
-      </>
-    );
-    return p.url ? (
-      <a className="pt-card" href={p.url} target="_blank" rel="noopener noreferrer">
-        {inner}
-      </a>
-    ) : (
-      <div className="pt-card">{inner}</div>
-    );
-  };
-
   return (
     <>
       <style>{css}</style>
@@ -75,7 +85,7 @@ const Partners = () => {
         {!loading && !error && (
           <div className="pt-grid">
             {partners.map((p, i) => (
-              <Card key={i} p={p} />
+              <PartnerCard key={i} p={p} />
             ))}
             {partners.length === 0 && (
               <div className="pt-status">Ei kumppaneita saatavilla.</div>
@@ -157,7 +167,8 @@ body { margin: 0; }
   object-fit: contain;
 }
 .pt-logo-fallback {
-  color: #333; font-weight: 700; font-size: 13px; text-align: center;
+  color: #333; font-weight: 700; font-size: 14px; text-align: center;
+  line-height: 1.3; word-break: break-word;
 }
 .pt-name {
   font-size: var(--gz-fs-sm);
