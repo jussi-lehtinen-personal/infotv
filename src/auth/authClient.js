@@ -225,6 +225,20 @@ export async function loginGoogle(credential) {
   return data.user;
 }
 
+// Admin-only registered-user stats. Returns { status, data }: status 'ok',
+// 'forbidden' (with youAre = your userId, to add to ADMIN_USER_IDS), or
+// 'unauthorized'.
+export async function getStats() {
+  const token = getToken();
+  if (!token) return { status: "unauthorized" };
+  const res = await fetch("/api/stats", { headers: { "X-Ahma-Auth": token } });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) return { status: "unauthorized" };
+  if (res.status === 403) return { status: "forbidden", youAre: data.youAre };
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return { status: "ok", data };
+}
+
 let configCache = null;
 export async function getAuthConfig() {
   if (configCache) return configCache;

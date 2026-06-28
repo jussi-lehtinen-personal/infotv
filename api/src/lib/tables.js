@@ -77,4 +77,16 @@ async function listByPartition(table, partitionKey) {
   return out;
 }
 
-module.exports = { ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition };
+// Full-table scan, optionally filtered. Table Storage has no COUNT, so admin
+// stats iterate the whole table — fine at small scale. `filter` is an OData
+// expression (e.g. "RowKey eq 'profile'") or omitted for everything.
+async function listEntities(table, filter) {
+  const out = [];
+  const iter = client(table).listEntities(
+    filter ? { queryOptions: { filter } } : undefined
+  );
+  for await (const e of iter) out.push(e);
+  return out;
+}
+
+module.exports = { ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities };
