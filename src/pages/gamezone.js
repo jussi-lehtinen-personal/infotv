@@ -802,8 +802,8 @@ html, body, #root{
   gap: 4px;
   padding: 8px 6px 7px;
   border-radius: 14px;
-  background: rgba(20,22,26,0.6);
-  border: 1.5px solid rgba(255,255,255,0.12);
+  background: rgba(16,18,22,0.88);
+  border: 1.5px solid rgba(255,255,255,0.18);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

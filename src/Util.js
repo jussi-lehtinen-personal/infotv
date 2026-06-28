@@ -66,11 +66,13 @@ export const componentStyles = {
 }
 
 export const getMatchLink = (index, data) => {
-    console.log("Navigate to " + index)
-    var uri = "https://tulospalvelu.leijonat.fi/game/?season=0"
-    uri += "&gameid=" + data.id
-    uri += "&lang=fi"
-    return uri
+    // tulospalvelu's public game page needs the game's actual season number —
+    // unlike the helper API, season=0 does NOT auto-resolve here, so older-season
+    // games opened an empty page. A season spans autumn→spring and is named after
+    // its spring year, so derive it from the game date (July+ → next year).
+    const d = moment(String(data.date || "").replace(" ", "T"), moment.ISO_8601)
+    const season = d.isValid() ? (d.month() >= 6 ? d.year() + 1 : d.year()) : 0
+    return `https://tulospalvelu.leijonat.fi/game?season=${season}&gameid=${data.id}&lang=fi`
 }
 
 export const getAdsUri = (index, data) => {
