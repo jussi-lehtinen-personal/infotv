@@ -1,4 +1,5 @@
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
+import { FAVOURITE_TEAMS_STORAGE_KEY } from "../Util";
 
 // Client side of the passkey auth flow. Talks to the SWA Functions RP
 // (api/src/functions/authPasskey*) and stores the app session JWT in
@@ -12,6 +13,19 @@ const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
 export const clearToken = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  // Favourites are account-bound (login required) → drop the local mirror on
+  // logout so a signed-out user has no favourites at all.
+  try { localStorage.removeItem(FAVOURITE_TEAMS_STORAGE_KEY); } catch { /* ignore */ }
+};
+
+// Mirror the account's favourites into the shared localStorage key so readers
+// (Util.loadFavouriteTeams → gamezone filter + Minä feed) stay in sync.
+const mirrorFavourites = (favourites) => {
+  try {
+    if (Array.isArray(favourites)) {
+      localStorage.setItem(FAVOURITE_TEAMS_STORAGE_KEY, JSON.stringify(favourites));
+    }
+  } catch { /* ignore */ }
 };
 
 // Optimistic profile cache — lets the account page show "logged in" instantly
@@ -139,11 +153,29 @@ export async function getMe() {
   if (!res.ok) throw new Error("Profiilin haku epäonnistui.");
   const user = await res.json();
   setCachedUser(user);
+  mirrorFavourites(user.favourites);
   return user;
 }
 
 export function logout() {
   clearToken();
+}
+
+// Persist favourite teams to the account (login required) + mirror locally.
+export async function saveFavourites(favourites) {
+  const token = getToken();
+  if (!token) throw new Error("Kirjautuminen vaaditaan.");
+  const res = await fetch("/api/me/favourites", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-Ahma-Auth": token },
+    body: JSON.stringify({ favourites }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  mirrorFavourites(data.favourites);
+  const cached = getCachedUser();
+  if (cached) setCachedUser({ ...cached, favourites: data.favourites });
+  return data.favourites;
 }
 
 // --- Google account linking (V2, multi-device) ---

@@ -21,6 +21,7 @@ import { useWeekData } from "../hooks/useWeekData";
 import { useLazyAvailability } from "../hooks/useWeekAvailability";
 import { useGoBack } from "../hooks/useGoBack";
 import { isLiveMatch } from "../hooks/useHeroMatches";
+import { getCachedUser, getMe } from "../auth/authClient";
 
 moment.locale("fi");
 
@@ -88,6 +89,17 @@ const Gamezone = () => {
     try { return localStorage.getItem("ahma_only_favourites") === "1"; } catch { return false; }
   });
   const [favouriteTeams, setFavouriteTeams] = useState(loadFavouriteTeams);
+  // Auth: favourites are account-bound + hidden from signed-out users, so the
+  // "Suosikit" filter only appears when logged in. getMe mirrors the account's
+  // favourites into localStorage (or clears them on logout) → reload after.
+  const [user, setUser] = useState(getCachedUser);
+  useEffect(() => {
+    let cancelled = false;
+    getMe()
+      .then((u) => { if (!cancelled) { setUser(u); setFavouriteTeams(loadFavouriteTeams()); } })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   // Tulospalvelu teams (for resolving Jopox favourites -> levelGroups by name).
   const [tpTeams, setTpTeams] = useState([]);
 
@@ -310,7 +322,8 @@ const Gamezone = () => {
   const listProps = {
     showOptions,
     onlyHome,
-    onlyFavourites,
+    // Favourites are hidden from signed-out users → filter/empty-state off.
+    onlyFavourites: !!user && onlyFavourites,
     favouriteTeams,
     favouriteMatchers,
   };
@@ -347,9 +360,11 @@ const Gamezone = () => {
               <ToggleButton onClick={onToggleHome} active={onlyHome} icon="&#xE88A;">
                 Kotipelit
               </ToggleButton>
-              <ToggleButton onClick={onToggleFavourites} active={onlyFavourites} icon="&#xE838;">
-                Suosikit
-              </ToggleButton>
+              {user && (
+                <ToggleButton onClick={onToggleFavourites} active={onlyFavourites} icon="&#xE838;">
+                  Suosikit
+                </ToggleButton>
+              )}
             </div>
           )}
 

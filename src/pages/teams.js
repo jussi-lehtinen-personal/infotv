@@ -6,28 +6,35 @@ import { themeCSS } from "../theme";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
 import {
   loadFavouriteTeams,
-  saveFavouriteTeams,
   makeJopoxFavourite,
   isFavouriteSubsite,
 } from "../Util";
+import { getCachedUser, getMe, saveFavourites } from "../auth/authClient";
 
 // Hero image. Swap to the real teams hero shot when provided.
 const HERO = "/teams_hero.webp";
 
 // Team list driven by the Jopox subsites (works year-round, off-season too).
-// Each row opens the team page (/teams/:subsiteId) with roster + staff, and a
-// star toggles the team as a favourite (canonical picker — drives the Minä feed
-// + the gamezone "Suosikit" filter). Favourites persist in localStorage
-// (shared Util helpers).
+// Each row opens the team page (/teams/:subsiteId) with roster + staff. When
+// signed in, a star toggles the team as a favourite (canonical picker — drives
+// the Minä feed + the gamezone "Suosikit" filter); favourites are account-bound
+// and hidden entirely from signed-out users.
 const Teams = () => {
   const goBack = useGoBack("/");
+  const [user, setUser] = useState(getCachedUser);
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
 
-  // Stay in sync if favourites change elsewhere (e.g. gamezone) and we return.
+  // Hydrate auth + account favourites (getMe mirrors them to localStorage).
   useEffect(() => {
-    const onFocus = () => setFavourites(loadFavouriteTeams());
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    let cancelled = false;
+    getMe()
+      .then((u) => {
+        if (cancelled) return;
+        setUser(u);
+        setFavourites(loadFavouriteTeams());
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const toggleFavourite = useCallback((team) => {
@@ -35,7 +42,8 @@ const Teams = () => {
       const next = isFavouriteSubsite(prev, team.subsiteId)
         ? prev.filter((t) => String(t.subsiteId) !== String(team.subsiteId))
         : [...prev, makeJopoxFavourite(team)];
-      saveFavouriteTeams(next);
+      // Persist to the account (mirrors to localStorage). Revert on failure.
+      saveFavourites(next).catch(() => setFavourites(prev));
       return next;
     });
   }, []);
@@ -81,19 +89,21 @@ const Teams = () => {
                     {team.sub && <div className="teams-short">{team.sub}</div>}
                   </div>
                 </Link>
-                <button
-                  type="button"
-                  className={`teams-fav${isFav ? " teams-fav--on" : ""}`}
-                  onClick={() => toggleFavourite(team)}
-                  aria-pressed={isFav}
-                  aria-label={
-                    isFav
-                      ? `Poista ${team.name} suosikeista`
-                      : `Lisää ${team.name} suosikkeihin`
-                  }
-                >
-                  <LuStar className="teams-fav-ico" aria-hidden="true" />
-                </button>
+                {user && (
+                  <button
+                    type="button"
+                    className={`teams-fav${isFav ? " teams-fav--on" : ""}`}
+                    onClick={() => toggleFavourite(team)}
+                    aria-pressed={isFav}
+                    aria-label={
+                      isFav
+                        ? `Poista ${team.name} suosikeista`
+                        : `Lisää ${team.name} suosikkeihin`
+                    }
+                  >
+                    <LuStar className="teams-fav-ico" aria-hidden="true" />
+                  </button>
+                )}
               </div>
             );
           })}

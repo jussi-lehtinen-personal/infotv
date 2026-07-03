@@ -67,7 +67,12 @@ const Feed = () => {
   useEffect(() => {
     let cancelled = false;
     getMe()
-      .then((u) => { if (!cancelled) setUser(u); })
+      .then((u) => {
+        if (cancelled) return;
+        setUser(u);
+        // getMe mirrors the account's favourites to localStorage → reload them.
+        setFavourites(loadFavouriteTeams());
+      })
       .catch(() => { if (!cancelled) setUser(null); })
       .finally(() => { if (!cancelled) setAuthLoading(false); });
     return () => { cancelled = true; };

@@ -20,6 +20,8 @@ app.http('me', {
         return { status: 404, jsonBody: { error: 'Käyttäjää ei löytynyt.' } };
       }
       const creds = await listByPartition('Credentials', userId);
+      let favourites = [];
+      try { favourites = user.favourites ? JSON.parse(user.favourites) : []; } catch { favourites = []; }
       return {
         jsonBody: {
           userId,
@@ -28,6 +30,7 @@ app.http('me', {
           googleLinked: !!user.googleSub,
           hasPasskey: creds.length > 0,
           avatar: avatarUrl(userId, user),
+          favourites,
         },
       };
     } catch (err) {
