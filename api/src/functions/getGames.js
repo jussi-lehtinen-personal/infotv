@@ -7,6 +7,10 @@ var moment = require('moment');
 // week-level response cache so client load is decoupled from Worker calls.
 
 const weekCache = new Map();
+// Single-flight: coalesce concurrent cache-misses for the same week so a burst
+// of users (or the current-week TTL expiring under load) triggers ONE upstream
+// fetch, not one per request. cacheKey -> in-progress Promise<matches>.
+const inFlight = new Map();
 
 const TTL_CURRENT = 30_000;           // 30 s  – current week, live scores
 const TTL_FUTURE  = 15 * 60_000;      // 15 min – future week
@@ -32,6 +36,15 @@ function getWeekTtl(weekStart) {
     if (weekStr === currentStr) return TTL_CURRENT;
     if (weekStr < currentStr) return TTL_PAST;
     return TTL_FUTURE;
+}
+
+// Let the browser + any shared/CDN cache serve repeat requests for the same
+// week so 100 users viewing the same week collapse to ~1 origin fetch per TTL.
+// s-maxage targets shared caches; stale-while-revalidate keeps it snappy.
+function cacheControl(weekStart) {
+    const s = Math.round(getWeekTtl(weekStart) / 1000);
+    const swr = Math.max(30, Math.round(s / 2));
+    return { 'Cache-Control': `public, max-age=${s}, s-maxage=${s}, stale-while-revalidate=${swr}` };
 }
 
 const isTruthy = (v) => {
@@ -78,22 +91,37 @@ app.http('getGames', {
             const cached = weekCache.get(cacheKey);
             if (cached && (Date.now() - cached.timestamp) < weekTtl) {
                 context.log('Week cache hit for: ' + cacheKey);
-                return { jsonBody: cached.data };
+                return { jsonBody: cached.data, headers: cacheControl(startOfWeek) };
             }
 
-            let matches;
-            if (includeAway) {
-                // Two Worker calls (districts 1-4 and 5-8), merged.
-                const parts = await Promise.all(
-                    AWAY_SPLIT.map(d => workerGet(`/getGames?date=${dateStr}&districts=${d}`, context))
-                );
-                matches = dedupSort(parts.flat());
+            // Single-flight: if a fetch for this week is already running, join it
+            // instead of firing a duplicate upstream request.
+            let promise = inFlight.get(cacheKey);
+            if (!promise) {
+                promise = (async () => {
+                    let matches;
+                    if (includeAway) {
+                        // Two Worker calls (districts 1-4 and 5-8), merged.
+                        const parts = await Promise.all(
+                            AWAY_SPLIT.map(d => workerGet(`/getGames?date=${dateStr}&districts=${d}`, context))
+                        );
+                        matches = dedupSort(parts.flat());
+                    } else {
+                        matches = await workerGet(`/getGames?date=${dateStr}`, context);
+                    }
+                    weekCache.set(cacheKey, { data: matches, timestamp: Date.now() });
+                    return matches;
+                })();
+                inFlight.set(cacheKey, promise);
+                promise.finally(() => {
+                    if (inFlight.get(cacheKey) === promise) inFlight.delete(cacheKey);
+                });
             } else {
-                matches = await workerGet(`/getGames?date=${dateStr}`, context);
+                context.log('Joining in-flight fetch for: ' + cacheKey);
             }
 
-            weekCache.set(cacheKey, { data: matches, timestamp: Date.now() });
-            return { jsonBody: matches };
+            const matches = await promise;
+            return { jsonBody: matches, headers: cacheControl(startOfWeek) };
         } catch (err) {
             context.log('getGames failed: ' + (err && err.stack || err));
             return { status: 500, jsonBody: { error: String(err && err.message || err) } };
