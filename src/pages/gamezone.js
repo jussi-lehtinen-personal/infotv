@@ -11,6 +11,7 @@ import {
   getMatchLink,
   loadFavouriteTeams,
   isGameForFavouriteTeam,
+  resolveFavouriteMatchers,
 } from "../Util";
 import { themeCSS } from "../theme";
 import { ToggleButton } from "../components/ui/Buttons";
@@ -87,6 +88,24 @@ const Gamezone = () => {
     try { return localStorage.getItem("ahma_only_favourites") === "1"; } catch { return false; }
   });
   const [favouriteTeams, setFavouriteTeams] = useState(loadFavouriteTeams);
+  // Tulospalvelu teams (for resolving Jopox favourites -> levelGroups by name).
+  const [tpTeams, setTpTeams] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/getTeams")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (!cancelled && Array.isArray(d)) setTpTeams(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Suosikit peleihin matchattaviksi: Jopox-suosikit ratkaistaan getTeams:sta
+  // nimen perusteella (kausikestävä), vanhat tp-natiivit sellaisenaan.
+  const favouriteMatchers = useMemo(
+    () => resolveFavouriteMatchers(favouriteTeams, tpTeams),
+    [favouriteTeams, tpTeams]
+  );
 
   useEffect(() => {
     try { localStorage.setItem("ahma_only_home", onlyHome ? "1" : "0"); } catch {}
@@ -293,6 +312,7 @@ const Gamezone = () => {
     onlyHome,
     onlyFavourites,
     favouriteTeams,
+    favouriteMatchers,
   };
 
   return (
@@ -454,6 +474,7 @@ function WeekList({
   onlyHome,
   onlyFavourites,
   favouriteTeams,
+  favouriteMatchers,
   isCurrent,
   loading,
   bgFetching,
@@ -491,11 +512,11 @@ function WeekList({
     }
     if (showOptions && onlyFavourites && favouriteTeams.length > 0) {
       result = result
-        .map((g) => ({ ...g, items: g.items.filter((m) => isGameForFavouriteTeam(m, favouriteTeams)) }))
+        .map((g) => ({ ...g, items: g.items.filter((m) => isGameForFavouriteTeam(m, favouriteMatchers)) }))
         .filter((g) => g.items.length > 0);
     }
     return result;
-  }, [groups, showOptions, onlyHome, onlyFavourites, favouriteTeams]);
+  }, [groups, showOptions, onlyHome, onlyFavourites, favouriteTeams, favouriteMatchers]);
 
   const renderDayBlock = (g) => (
     <div key={g.day} className="gz-dayblock">

@@ -18,7 +18,8 @@ const NAV_ITEMS = [
   { to: "/gamezone?includeAway=1&options=1", label: "Ottelut", Icon: LuTrophy, isActive: isMatchesPath },
   { to: "/gamezone/schedule", label: "Jäävuorot", Icon: LuCalendarDays, isActive: (p) => p === "/gamezone/schedule" },
   { to: "/teams", label: "Joukkueet", Icon: LuUsers, isActive: (p) => p === "/teams" },
-  { to: "/account", label: "Minä", Icon: LuUser, isActive: (p) => p === "/account" },
+  // "Minä" opens the feed; the profile is reached from the feed's avatar.
+  { to: "/feed", label: "Minä", Icon: LuUser, isActive: (p) => p === "/feed" || p === "/account" },
 ];
 
 export const BottomNav = () => {

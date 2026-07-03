@@ -1,18 +1,45 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowLeft, LuChevronRight } from "react-icons/lu";
+import { LuArrowLeft, LuStar } from "react-icons/lu";
 import { useGoBack } from "../hooks/useGoBack";
 import { themeCSS } from "../theme";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
+import {
+  loadFavouriteTeams,
+  saveFavouriteTeams,
+  makeJopoxFavourite,
+  isFavouriteSubsite,
+} from "../Util";
 
 // Hero image. Swap to the real teams hero shot when provided.
 const HERO = "/teams_hero.webp";
 
 // Team list driven by the Jopox subsites (works year-round, off-season too).
-// Each row opens the team page (/teams/:subsiteId) with roster + staff.
-// Favouriting moved to the match pages — not here (v1).
+// Each row opens the team page (/teams/:subsiteId) with roster + staff, and a
+// star toggles the team as a favourite (canonical picker — drives the Minä feed
+// + the gamezone "Suosikit" filter). Favourites persist in localStorage
+// (shared Util helpers).
 const Teams = () => {
   const goBack = useGoBack("/");
+  const [favourites, setFavourites] = useState(loadFavouriteTeams);
+
+  // Stay in sync if favourites change elsewhere (e.g. gamezone) and we return.
+  useEffect(() => {
+    const onFocus = () => setFavourites(loadFavouriteTeams());
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  const toggleFavourite = useCallback((team) => {
+    setFavourites((prev) => {
+      const next = isFavouriteSubsite(prev, team.subsiteId)
+        ? prev.filter((t) => String(t.subsiteId) !== String(team.subsiteId))
+        : [...prev, makeJopoxFavourite(team)];
+      saveFavouriteTeams(next);
+      return next;
+    });
+  }, []);
+
   return (
     <>
       <style>{css}</style>
@@ -38,25 +65,38 @@ const Teams = () => {
 
         {/* LIST */}
         <div className="teams-list">
-          {JOPOX_TEAMS.map((team) => (
-            <Link
-              key={team.subsiteId}
-              to={`/teams/${team.subsiteId}`}
-              className="teams-row"
-            >
-              <img
-                className="teams-logo"
-                src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"}
-                alt=""
-                aria-hidden="true"
-              />
-              <div className="teams-info">
-                <div className="teams-name">{team.name}</div>
-                {team.sub && <div className="teams-short">{team.sub}</div>}
+          {JOPOX_TEAMS.map((team) => {
+            const isFav = isFavouriteSubsite(favourites, team.subsiteId);
+            return (
+              <div className="teams-row" key={team.subsiteId}>
+                <Link to={`/teams/${team.subsiteId}`} className="teams-row-link">
+                  <img
+                    className="teams-logo"
+                    src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  <div className="teams-info">
+                    <div className="teams-name">{team.name}</div>
+                    {team.sub && <div className="teams-short">{team.sub}</div>}
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  className={`teams-fav${isFav ? " teams-fav--on" : ""}`}
+                  onClick={() => toggleFavourite(team)}
+                  aria-pressed={isFav}
+                  aria-label={
+                    isFav
+                      ? `Poista ${team.name} suosikeista`
+                      : `Lisää ${team.name} suosikkeihin`
+                  }
+                >
+                  <LuStar className="teams-fav-ico" aria-hidden="true" />
+                </button>
               </div>
-              <LuChevronRight className="teams-arrow" aria-hidden="true" />
-            </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
     </>
@@ -151,24 +191,33 @@ body { margin: 0; }
   gap: 8px;
 }
 
-/* TEAM ROW (link) */
+/* TEAM ROW (card = link + favourite star) */
 .teams-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   border-radius: var(--radius-item);
-  padding: 11px 14px;
+  padding: 11px 8px 11px 14px;
   background: #1a1a1a;
   border: 1px solid rgba(255,255,255,0.06);
-  text-decoration: none;
   color: var(--gz-text-primary);
-  -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, border-color 0.15s;
 }
 .teams-row:hover,
 .teams-row:active {
   background: #202020;
   border-color: rgba(245,158,11,0.35);
+}
+/* The navigating part of the row (logo + info). */
+.teams-row-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .teams-logo {
@@ -192,12 +241,28 @@ body { margin: 0; }
   color: var(--gz-text-tertiary);
   margin-top: 2px;
 }
-.teams-arrow {
+/* Favourite star button */
+.teams-fav {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  color: rgba(255,255,255,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.30);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, background 0.15s, transform 0.1s;
 }
+.teams-fav:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); }
+.teams-fav:active { transform: scale(0.88); }
+.teams-fav-ico { width: 22px; height: 22px; }
+.teams-fav--on { color: var(--color-primary); }
+.teams-fav--on:hover { color: var(--color-primary); }
+.teams-fav--on .teams-fav-ico { fill: var(--color-primary); }
 
 @media (min-width: 768px) {
   .teams-list { max-width: 760px; }

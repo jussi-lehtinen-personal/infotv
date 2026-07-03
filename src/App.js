@@ -21,6 +21,7 @@ import Teams from "./pages/teams";
 import Team from "./pages/team";
 import News from "./pages/news";
 import Organisation from "./pages/organisation";
+import Feed from "./pages/feed";
 import Account from "./pages/account";
 import Privacy from "./pages/privacy";
 import Legal from "./pages/legal";
@@ -67,6 +68,7 @@ function App() {
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/organization" element={<Organisation />} />
+                <Route path="/feed" element={<Feed />} />
                 <Route path="/account" element={<Account />} />
                 <Route path="/account/privacy" element={<Privacy />} />
                 <Route path="/legal/:doc" element={<Legal />} />

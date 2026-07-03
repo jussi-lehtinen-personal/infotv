@@ -288,6 +288,76 @@ export const saveFavouriteTeams = (teams) => {
   );
 };
 
+// Rakentaa suosikkitietueen /teams-sivun Jopox-joukkueesta. `subsiteId` ajaa
+// Minä-feediä (julkinen Jopox-tapahtuma-API). `levelGroups` jää tyhjäksi:
+// pelikohtainen tulospalvelu-mäppäys (levelId/statGroupId) tulee myöhemmin,
+// siihen asti isGameForFavouriteTeam ei matchaa näitä (tyhjä ryhmälista) eikä
+// gamezonen suodatin hajoa. `teamKey` erottaa nämä tulospalvelu-pohjaisista.
+export const makeJopoxFavourite = (team) => ({
+  teamKey: `jopox-${team.subsiteId}`,
+  subsiteId: team.subsiteId,
+  name: team.name,
+  shortName: team.name,
+  levelGroups: [],
+});
+
+// Onko annettu Jopox-subsite suosikeissa?
+export const isFavouriteSubsite = (favourites, subsiteId) =>
+  favourites.some((t) => String(t.subsiteId) === String(subsiteId));
+
+// Ratkaisee Jopox-suosikin tulospalvelu-identiteetit ({shortName, levelGroups})
+// annetusta getTeams-listasta NIMEN perusteella, jotta se kestää kausivaihdokset
+// (ikäluokat + värivariantit muuttuvat vuosittain) — ei kovakoodattuja
+// levelId:itä. Matchaus: Jopox "U15" -> kaikki tulospalvelun U15-tiimit
+// (myös "U15 Musta"), "Edustus" -> "Miehet", "Edustus naiset" -> "Naiset",
+// "Leijona-Kiekkokoulu" -> ei osumia (ei kilpapelejä). Käytössä gamezonen
+// suosikkisuodattimessa yhdessä isGameForFavouriteTeam:n kanssa.
+const normTeamKey = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+export const resolveFavouriteTpTeams = (favourite, tpTeams) => {
+  if (!favourite || !Array.isArray(tpTeams)) return [];
+  const name = String(favourite.name || favourite.teamKey || "");
+  const ageM = name.match(/U\s*(\d+)/i);
+
+  let matches;
+  if (ageM) {
+    // Ikänumero: "U15" osuu teamKeyihin "U15", "U15 Musta", myös yhdistelmä "U13/14".
+    const n = ageM[1];
+    const re = new RegExp(`^U0*${n}\\b|/0*${n}\\b`, "i");
+    matches = tpTeams.filter((t) => re.test(String(t.teamKey)));
+  } else if (/naiset/i.test(name)) {
+    matches = tpTeams.filter((t) => normTeamKey(t.teamKey).includes("naiset"));
+  } else if (/edustus|miehet/i.test(name)) {
+    matches = tpTeams.filter((t) => {
+      const k = normTeamKey(t.teamKey);
+      return (k.includes("miehet") || k.includes("edustus")) && !k.includes("naiset");
+    });
+  } else {
+    matches = []; // esim. Leijona-Kiekkokoulu — ei kilpapelejä tulospalvelussa
+  }
+
+  return matches.map((t) => ({
+    shortName: t.shortName,
+    levelGroups: Array.isArray(t.levelGroups) ? t.levelGroups : [],
+  }));
+};
+
+// Muuntaa käyttäjän suosikit peleihin matchattaviksi {shortName, levelGroups}
+// -entryiksi. Jopox-pohjaiset (subsiteId, tyhjä levelGroups) ratkaistaan
+// getTeams-listasta; mahdolliset vanhat tulospalvelu-natiivit (levelGroups jo
+// täynnä) käytetään sellaisenaan.
+export const resolveFavouriteMatchers = (favourites, tpTeams) => {
+  const out = [];
+  for (const fav of favourites || []) {
+    if (Array.isArray(fav.levelGroups) && fav.levelGroups.length > 0) {
+      out.push({ shortName: fav.shortName, levelGroups: fav.levelGroups });
+    } else if (fav.subsiteId != null) {
+      out.push(...resolveFavouriteTpTeams(fav, tpTeams));
+    }
+  }
+  return out;
+};
+
 export const splitTeamName = (name) => {
   if (!name) return { main: "", sub: null };
 
