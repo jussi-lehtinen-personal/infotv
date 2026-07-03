@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn } from "react-icons/lu";
+import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuClock, LuPlane } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { themeCSS } from "../theme";
@@ -15,6 +15,37 @@ moment.locale("fi");
 // in the background (stale-while-revalidate) instead of flashing a spinner.
 const eventsCache = new Map();
 const EVENTS_TTL = 5 * 60_000; // match the server cache
+
+// Per-card expand/collapse state. Cards default to EXPANDED; we only remember
+// which ones the user has COLLAPSED (localStorage), so it persists across visits.
+const COLLAPSED_KEY = "ahma_feed_collapsed";
+const loadCollapsed = () => {
+  try {
+    const a = JSON.parse(localStorage.getItem(COLLAPSED_KEY));
+    return new Set(Array.isArray(a) ? a : []);
+  } catch {
+    return new Set();
+  }
+};
+const saveCollapsed = (set) => {
+  try {
+    // Cap so a long history of collapsed ids can't grow unbounded.
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...set].slice(-300)));
+  } catch {
+    /* ignore */
+  }
+};
+
+// Stable id for an event (react key + collapsed-state key).
+const eventKey = (e) => e.eventId ?? `${e.date}|${e.title}`;
+
+// Pull the "17.00 - 19.00" time range out of the subtitle ("13.07.2026 17.00 -
+// 19.00, Wareena"); fall back to just the start time.
+const timeRange = (e) => {
+  const m = String(e.subtitle || "").match(/(\d{1,2}[.:]\d{2})\s*-\s*(\d{1,2}[.:]\d{2})/);
+  if (m) return `${m[1]} – ${m[2]}`;
+  return e.uiTime || null;
+};
 
 // Tag each team's events with its name and interleave into one sorted stream.
 const mergeStream = (teams, listsPerTeam) => {
@@ -49,26 +80,58 @@ const dayLabel = (key) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-const EventRow = ({ e, showTeam }) => {
+const EventRow = ({ e, showTeam, expanded, onToggle }) => {
   const isGame = e.type === "game";
+  const range = timeRange(e);
   return (
-    <div className={`fd-event${isGame ? " fd-event--game" : ""}`}>
-      <div className="fd-event-icon">
-        {isGame ? <LuTrophy aria-hidden="true" /> : <LuCalendarDays aria-hidden="true" />}
-      </div>
-      <div className="fd-event-main">
-        {showTeam && <div className="fd-event-team">{e.teamName}</div>}
-        <div className="fd-event-title">{e.title}</div>
-        {e.place && (
-          <div className="fd-event-place">
-            <LuMapPin className="fd-event-place-ico" aria-hidden="true" />
-            {e.place}
-          </div>
-        )}
-      </div>
-      <div className="fd-event-when">
-        {e.uiTime && <div className="fd-event-time">klo {e.uiTime}</div>}
-      </div>
+    <div className={`fd-event${isGame ? " fd-event--game" : ""}${expanded ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="fd-event-head"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <div className="fd-event-icon">
+          {isGame ? <LuTrophy aria-hidden="true" /> : <LuCalendarDays aria-hidden="true" />}
+        </div>
+        <div className="fd-event-main">
+          {showTeam && <div className="fd-event-team">{e.teamName}</div>}
+          <div className="fd-event-title">{e.title}</div>
+        </div>
+        <div className="fd-event-when">
+          {e.uiTime && <div className="fd-event-time">klo {e.uiTime}</div>}
+        </div>
+        <LuChevronDown className="fd-event-chev" aria-hidden="true" />
+      </button>
+
+      {expanded && (
+        <div className="fd-event-details">
+          {range && (
+            <div className="fd-detail">
+              <LuClock className="fd-detail-ico" aria-hidden="true" />
+              <span>{range}</span>
+            </div>
+          )}
+          {e.place && (
+            <div className="fd-detail">
+              <LuMapPin className="fd-detail-ico" aria-hidden="true" />
+              <span>{e.place}</span>
+            </div>
+          )}
+          {isGame && e.league && (
+            <div className="fd-detail">
+              <LuTrophy className="fd-detail-ico" aria-hidden="true" />
+              <span>{e.league}</span>
+            </div>
+          )}
+          {isGame && (
+            <div className="fd-detail">
+              <LuPlane className="fd-detail-ico" aria-hidden="true" />
+              <span>{e.awayGame ? "Vieraspeli" : "Kotipeli"}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -80,6 +143,17 @@ const Feed = () => {
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
   const [events, setEvents] = useState(null); // null = loading, [] = loaded/empty
   const [eventsError, setEventsError] = useState(false);
+  const [collapsed, setCollapsed] = useState(loadCollapsed); // ids of collapsed cards
+
+  const toggleCard = useCallback((id) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveCollapsed(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -248,9 +322,18 @@ const Feed = () => {
                 <div className="fd-day" key={d.key}>
                   <div className="fd-day-head">{d.label}</div>
                   <div className="fd-events">
-                    {d.items.map((e, i) => (
-                      <EventRow key={e.eventId ?? `${d.key}-${i}`} e={e} showTeam={showTeam} />
-                    ))}
+                    {d.items.map((e) => {
+                      const id = eventKey(e);
+                      return (
+                        <EventRow
+                          key={id}
+                          e={e}
+                          showTeam={showTeam}
+                          expanded={!collapsed.has(id)}
+                          onToggle={() => toggleCard(id)}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -389,13 +472,22 @@ body { margin: 0; }
 /* EVENTS */
 .fd-events { display: flex; flex-direction: column; gap: 8px; }
 .fd-event {
-  display: flex; align-items: center; gap: 12px;
-  padding: 11px 14px;
   border-radius: var(--radius-item);
   background: #1a1a1a;
   border: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
 }
 .fd-event--game { border-color: rgba(245,158,11,0.30); background: rgba(245,158,11,0.06); }
+
+/* Clickable header row (toggles expand/collapse). */
+.fd-event-head {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  background: none; border: none; text-align: left; font: inherit;
+  color: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
 .fd-event-icon {
   flex: 0 0 auto;
   width: 38px; height: 38px; border-radius: 10px;
@@ -417,12 +509,24 @@ body { margin: 0; }
   color: var(--gz-text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.fd-event-place {
-  display: flex; align-items: center; gap: 4px;
-  margin-top: 2px;
-  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
-}
-.fd-event-place-ico { width: 13px; height: 13px; flex: 0 0 auto; }
 .fd-event-when { flex: 0 0 auto; text-align: right; }
 .fd-event-time { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-bold); color: var(--gz-text-secondary); }
+.fd-event-chev {
+  flex: 0 0 auto; width: 18px; height: 18px;
+  color: var(--gz-text-tertiary);
+  transition: transform 0.18s ease;
+}
+.fd-event.is-open .fd-event-chev { transform: rotate(180deg); }
+
+/* Expanded details */
+.fd-event-details {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.fd-detail {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--gz-fs-sm); color: var(--gz-text-secondary);
+}
+.fd-detail-ico { width: 15px; height: 15px; flex: 0 0 auto; color: var(--gz-text-tertiary); }
 `;
