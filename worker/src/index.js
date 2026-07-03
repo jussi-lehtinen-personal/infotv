@@ -232,8 +232,48 @@ function json(body, status = 200) {
   });
 }
 
+/* ------------------------------ edge caching ------------------------------ */
+// Cache the final response in the Cloudflare Cache API (caches.default), keyed
+// by URL. This layer is SHARED across every Azure function instance hitting this
+// colo, so tulospalvelu sees ~1 fetch per week-URL per TTL no matter how many
+// instances/users exist. The Azure in-memory weekCache stays as a fast local
+// layer on top. Current-week TTL is kept short so layering with Azure's 30 s
+// doesn't add much staleness to live scores (a dedicated live endpoint is the
+// real fix — see memory project_gamezone_scaling #4).
+const TTL_GAMES_CURRENT_S = 15;
+const TTL_GAMES_FUTURE_S = 15 * 60;
+const TTL_GAMES_PAST_S = 6 * 60 * 60;
+const TTL_TEAMS_S = 60 * 60;
+
+function weekTtlSeconds(url) {
+  const now = url.searchParams.has("date") ? new Date(url.searchParams.get("date")) : new Date();
+  const weekStr = fmtDate(getMonday(now));
+  const currentStr = fmtDate(getMonday(new Date()));
+  if (weekStr === currentStr) return TTL_GAMES_CURRENT_S;
+  if (weekStr < currentStr) return TTL_GAMES_PAST_S;
+  return TTL_GAMES_FUTURE_S;
+}
+
+// Serve `url` from the edge cache if present; otherwise run `compute`, cache the
+// JSON with `ttlSeconds`, and return it. Errors from compute propagate (not
+// cached). Keyed by URL only (the x-proxy-key header is excluded).
+async function cachedJson(ctx, url, ttlSeconds, compute) {
+  const cache = caches.default;
+  const key = new Request(url.toString(), { method: "GET" });
+  const hit = await cache.match(key);
+  if (hit) return hit;
+
+  const data = await compute();
+  const resp = json(data);
+  resp.headers.set("cache-control", `public, max-age=${ttlSeconds}`);
+  const put = cache.put(key, resp.clone());
+  if (ctx && ctx.waitUntil) ctx.waitUntil(put);
+  else await put;
+  return resp;
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
@@ -272,8 +312,10 @@ export default {
     }
 
     try {
-      if (url.pathname === "/getTeams") return json(await handleGetTeams(url));
-      if (url.pathname === "/getGames") return json(await handleGetGames(url));
+      if (url.pathname === "/getTeams")
+        return await cachedJson(ctx, url, TTL_TEAMS_S, () => handleGetTeams(url));
+      if (url.pathname === "/getGames")
+        return await cachedJson(ctx, url, weekTtlSeconds(url), () => handleGetGames(url));
       return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
