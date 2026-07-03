@@ -11,7 +11,7 @@ const fetch = require("node-fetch");
 // directly — same as getTeamRoster.) See memory: reference_jopox_kiekkoahma,
 // project_gamezone_feed_plan.
 
-const TTL = 5 * 60_000;      // 5 min – event lists change a few times a day
+const TTL = 15 * 60_000;     // 15 min – event lists change a few times a day
 const MAX_MONTHS = 4;        // horizon: current month + 3 ahead
 const MAX_EVENTS = 80;       // safety cap on the returned list
 const cache = new Map();     // subsiteId -> { data, timestamp }

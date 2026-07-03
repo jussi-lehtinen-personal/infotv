@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuClock, LuPlane } from "react-icons/lu";
 import moment from "moment";
@@ -14,29 +14,38 @@ moment.locale("fi");
 // across mounts so revisiting /feed paints instantly from cache and revalidates
 // in the background (stale-while-revalidate) instead of flashing a spinner.
 const eventsCache = new Map();
-const EVENTS_TTL = 5 * 60_000; // match the server cache
+const EVENTS_TTL = 15 * 60_000; // match the server cache
 
-// Per-card expand/collapse state. Cards default to EXPANDED; we only remember
-// which ones the user has COLLAPSED (localStorage), so it persists across visits.
-const COLLAPSED_KEY = "ahma_feed_collapsed";
-const loadCollapsed = () => {
+// Per-event free-text description (eventId -> string|null), fetched lazily when
+// a card is expanded. null = known to have no description (don't refetch).
+const detailCache = new Map();
+
+// Per-card expand state. DEFAULT: only this week's events start expanded (keeps
+// the list tidy + limits how many detail fetches fire on load). We remember the
+// user's explicit overrides (localStorage) so toggles persist across visits.
+const CARDS_KEY = "ahma_feed_cards";
+const loadCardState = () => {
   try {
-    const a = JSON.parse(localStorage.getItem(COLLAPSED_KEY));
-    return new Set(Array.isArray(a) ? a : []);
+    const o = JSON.parse(localStorage.getItem(CARDS_KEY));
+    return o && typeof o === "object" ? o : {};
   } catch {
-    return new Set();
+    return {};
   }
 };
-const saveCollapsed = (set) => {
+const saveCardState = (obj) => {
   try {
-    // Cap so a long history of collapsed ids can't grow unbounded.
-    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...set].slice(-300)));
+    const keys = Object.keys(obj);
+    const trimmed =
+      keys.length > 300
+        ? Object.fromEntries(keys.slice(-300).map((k) => [k, obj[k]]))
+        : obj;
+    localStorage.setItem(CARDS_KEY, JSON.stringify(trimmed));
   } catch {
     /* ignore */
   }
 };
 
-// Stable id for an event (react key + collapsed-state key).
+// Stable id for an event (react key + card-state key).
 const eventKey = (e) => e.eventId ?? `${e.date}|${e.title}`;
 
 // Pull the "17.00 - 19.00" time range out of the subtitle ("13.07.2026 17.00 -
@@ -83,6 +92,34 @@ const dayLabel = (key) => {
 const EventRow = ({ e, showTeam, expanded, onToggle }) => {
   const isGame = e.type === "game";
   const range = timeRange(e);
+  const detailKey = `${e.subsiteId}|${e.eventId}`;
+  const [desc, setDesc] = useState(() => detailCache.get(detailKey));
+
+  // Lazily fetch the event's free-text description, but ONLY when the card is
+  // expanded (and cache it) — a 10-min server cache keeps Jopox from flooding.
+  useEffect(() => {
+    if (!expanded || e.eventId == null) return;
+    if (detailCache.has(detailKey)) {
+      setDesc(detailCache.get(detailKey));
+      return;
+    }
+    let cancelled = false;
+    const params = new URLSearchParams({
+      eventId: String(e.eventId),
+      subsiteId: String(e.subsiteId ?? ""),
+      type: e.type,
+    });
+    fetch(`/api/getEventDetail?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        const val = d.description || null;
+        detailCache.set(detailKey, val);
+        if (!cancelled) setDesc(val);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [expanded, detailKey, e.eventId, e.subsiteId, e.type]);
+
   return (
     <div className={`fd-event${isGame ? " fd-event--game" : ""}${expanded ? " is-open" : ""}`}>
       <button
@@ -130,6 +167,7 @@ const EventRow = ({ e, showTeam, expanded, onToggle }) => {
               <span>{e.awayGame ? "Vieraspeli" : "Kotipeli"}</span>
             </div>
           )}
+          {desc && <div className="fd-event-desc">{desc}</div>}
         </div>
       )}
     </div>
@@ -143,14 +181,12 @@ const Feed = () => {
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
   const [events, setEvents] = useState(null); // null = loading, [] = loaded/empty
   const [eventsError, setEventsError] = useState(false);
-  const [collapsed, setCollapsed] = useState(loadCollapsed); // ids of collapsed cards
+  const [cardState, setCardState] = useState(loadCardState); // { id: bool } overrides
 
-  const toggleCard = useCallback((id) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      saveCollapsed(next);
+  const toggleCard = useCallback((id, current) => {
+    setCardState((prev) => {
+      const next = { ...prev, [id]: !current };
+      saveCardState(next);
       return next;
     });
   }, []);
@@ -243,6 +279,41 @@ const Feed = () => {
       .map((key) => ({ key, label: dayLabel(key), items: map.get(key) }));
   }, [events]);
 
+  // Default-expanded = each team's NEXT (earliest) event only. events are sorted
+  // ascending, so the first event seen per subsiteId is that team's next one.
+  const defaultExpanded = useMemo(() => {
+    const seenTeam = new Set();
+    const ids = new Set();
+    for (const e of events || []) {
+      const sid = String(e.subsiteId);
+      if (!seenTeam.has(sid)) {
+        seenTeam.add(sid);
+        ids.add(eventKey(e));
+      }
+    }
+    return ids;
+  }, [events]);
+
+  // Incremental render: show day-groups in chunks, growing as the user scrolls
+  // near the bottom. Off-screen days aren't mounted, so their cards don't fetch
+  // details until scrolled into view.
+  const DAY_CHUNK = 4;
+  const [visibleDays, setVisibleDays] = useState(DAY_CHUNK);
+  useEffect(() => { setVisibleDays(DAY_CHUNK); }, [events]);
+  const sentinelRef = useRef(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) setVisibleDays((n) => n + DAY_CHUNK);
+      },
+      { rootMargin: "400px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [days.length]);
+
   const showTeam = teams.length > 1;
 
   const header = (
@@ -318,25 +389,29 @@ const Feed = () => {
                   <div className="fd-empty-text">Harjoitukset ja pelit ilmestyvät tähän, kun niitä on kalenterissa.</div>
                 </div>
               )}
-              {days.map((d) => (
+              {days.slice(0, visibleDays).map((d) => (
                 <div className="fd-day" key={d.key}>
                   <div className="fd-day-head">{d.label}</div>
                   <div className="fd-events">
                     {d.items.map((e) => {
                       const id = eventKey(e);
+                      const expanded = id in cardState ? cardState[id] : defaultExpanded.has(id);
                       return (
                         <EventRow
                           key={id}
                           e={e}
                           showTeam={showTeam}
-                          expanded={!collapsed.has(id)}
-                          onToggle={() => toggleCard(id)}
+                          expanded={expanded}
+                          onToggle={() => toggleCard(id, expanded)}
                         />
                       );
                     })}
                   </div>
                 </div>
               ))}
+              {events && visibleDays < days.length && (
+                <div ref={sentinelRef} className="fd-sentinel" aria-hidden="true" />
+              )}
             </>
           )}
         </div>
@@ -529,4 +604,13 @@ body { margin: 0; }
   font-size: var(--gz-fs-sm); color: var(--gz-text-secondary);
 }
 .fd-detail-ico { width: 15px; height: 15px; flex: 0 0 auto; color: var(--gz-text-tertiary); }
+.fd-sentinel { height: 1px; }
+.fd-event-desc {
+  white-space: pre-line;
+  margin-top: 3px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-size: var(--gz-fs-sm); line-height: 1.5;
+  color: var(--gz-text-secondary);
+}
 `;
