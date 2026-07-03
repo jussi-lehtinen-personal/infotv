@@ -81,7 +81,11 @@ export function useWeekData(timestamp, includeAway) {
 
     const doFetch = () => {
       setBgFetching(true);
-      const uri = buildGamesQueryUri(timestamp, { includeAway });
+      // Fetch by the week's MONDAY so every consumer (strip, match list, prefetch)
+      // hits one identical URL per week → shared browser/edge cache entry (and the
+      // server already keys its week cache by Monday anyway).
+      const mondayStr = moment(getMonday(new Date(curDate))).format("YYYY-MM-DD");
+      const uri = buildGamesQueryUri(mondayStr, { includeAway });
       fetch(uri, { signal: ac.signal })
         .then((r) => r.json())
         .then((d) => {
@@ -130,8 +134,8 @@ export function useWeekData(timestamp, includeAway) {
     const timer = setTimeout(() => {
       [[prevDate, prevKey], [nextDate, nextKey]].forEach(([date, key]) => {
         if (weekCache.has(key)) return;
-        const formattedDate = moment(date).format("YYYY-MM-DD");
-        const uri = buildGamesQueryUri(formattedDate, { includeAway });
+        const mondayStr = moment(getMonday(new Date(date))).format("YYYY-MM-DD");
+        const uri = buildGamesQueryUri(mondayStr, { includeAway });
         fetch(uri)
           .then((r) => r.json())
           .then((d) => {
