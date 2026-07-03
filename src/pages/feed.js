@@ -89,7 +89,7 @@ const dayLabel = (key) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-const EventRow = ({ e, showTeam, expanded, onToggle }) => {
+const EventRow = ({ e, expanded, onToggle }) => {
   const isGame = e.type === "game";
   const range = timeRange(e);
   const detailKey = `${e.subsiteId}|${e.eventId}`;
@@ -132,7 +132,7 @@ const EventRow = ({ e, showTeam, expanded, onToggle }) => {
           {isGame ? <LuTrophy aria-hidden="true" /> : <LuCalendarDays aria-hidden="true" />}
         </div>
         <div className="fd-event-main">
-          {showTeam && <div className="fd-event-team">{e.teamName}</div>}
+          {e.teamName && <div className="fd-event-team">{e.teamName}</div>}
           <div className="fd-event-title">{e.title}</div>
         </div>
         <div className="fd-event-when">
@@ -314,8 +314,6 @@ const Feed = () => {
     return () => io.disconnect();
   }, [days.length]);
 
-  const showTeam = teams.length > 1;
-
   const header = (
     <div className="fd-head">
       <h1 className="fd-head-title">Minä</h1>
@@ -400,7 +398,6 @@ const Feed = () => {
                         <EventRow
                           key={id}
                           e={e}
-                          showTeam={showTeam}
                           expanded={expanded}
                           onToggle={() => toggleCard(id, expanded)}
                         />
