@@ -10,6 +10,23 @@ import { getMe, getCachedUser } from "../auth/authClient";
 
 moment.locale("fi");
 
+// Module-scope cache of each team's events (subsiteId -> { events, ts }), shared
+// across mounts so revisiting /feed paints instantly from cache and revalidates
+// in the background (stale-while-revalidate) instead of flashing a spinner.
+const eventsCache = new Map();
+const EVENTS_TTL = 5 * 60_000; // match the server cache
+
+// Tag each team's events with its name and interleave into one sorted stream.
+const mergeStream = (teams, listsPerTeam) => {
+  const out = [];
+  teams.forEach((t, i) => {
+    for (const e of listsPerTeam[i] || []) {
+      out.push({ ...e, teamName: t.name, subsiteId: t.subsiteId });
+    }
+  });
+  return out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+};
+
 // The "Minä" feed: a signed-in user's favourite team(s) upcoming events
 // (harjoitukset + games), sourced from the PUBLIC Jopox calendar API via the
 // getTeamEvents proxy. Multiple favourites are INTERLEAVED into one
@@ -93,36 +110,50 @@ const Feed = () => {
   // Stable dependency for the fetch effect (array ref changes every render).
   const teamsKey = teams.map((t) => t.subsiteId).join(",");
 
-  // Fetch each favourite team's events, tag with the team, interleave by date.
+  // Fetch each favourite team's events (stale-while-revalidate): seed instantly
+  // from cache (no spinner / no list reset → scroll stays put), then revalidate
+  // only stale/missing teams in the background and update in place.
   useEffect(() => {
     if (!user || teams.length === 0) {
       setEvents(null);
       return;
     }
     let cancelled = false;
-    setEvents(null);
+    const now = Date.now();
+
+    // Seed from any cached team data so the list paints immediately.
+    const seed = teams.map((t) => eventsCache.get(String(t.subsiteId))?.events);
+    if (seed.some(Boolean)) {
+      setEvents(mergeStream(teams, seed.map((l) => l || [])));
+    } else {
+      setEvents(null); // nothing cached yet → show the spinner once
+    }
     setEventsError(false);
+
     let anyError = false;
     Promise.all(
-      teams.map((t) =>
-        fetch(`/api/getTeamEvents?subsiteId=${encodeURIComponent(t.subsiteId)}`)
+      teams.map((t) => {
+        const key = String(t.subsiteId);
+        const cached = eventsCache.get(key);
+        if (cached && now - cached.ts < EVENTS_TTL) return Promise.resolve(cached.events);
+        return fetch(`/api/getTeamEvents?subsiteId=${encodeURIComponent(t.subsiteId)}`)
           .then((r) => (r.ok ? r.json() : Promise.reject()))
-          .then((d) =>
-            (d.events || []).map((e) => ({ ...e, teamName: t.name, subsiteId: t.subsiteId }))
-          )
-          .catch(() => { anyError = true; return []; })
-      )
+          .then((d) => {
+            const evs = d.events || [];
+            eventsCache.set(key, { events: evs, ts: Date.now() });
+            return evs;
+          })
+          .catch(() => { anyError = true; return (cached && cached.events) || []; });
+      })
     ).then((lists) => {
       if (cancelled) return;
-      const merged = lists
-        .flat()
-        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const merged = mergeStream(teams, lists);
       setEvents(merged);
       setEventsError(anyError && merged.length === 0);
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, teamsKey]);
+  }, [user?.userId, teamsKey]);
 
   // Group the interleaved stream into day blocks.
   const days = useMemo(() => {
