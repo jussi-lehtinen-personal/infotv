@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn } from "react-icons/lu";
 import moment from "moment";
@@ -12,9 +12,10 @@ moment.locale("fi");
 
 // The "Minä" feed: a signed-in user's favourite team(s) upcoming events
 // (harjoitukset + games), sourced from the PUBLIC Jopox calendar API via the
-// getTeamEvents proxy. No Jopox login needed (that's a later tier). Profile is
-// reached from the avatar (top-right) → /account.
-// See memory: project_gamezone_feed_plan.
+// getTeamEvents proxy. Multiple favourites are INTERLEAVED into one
+// chronological stream (day headers), each event tagged with its team. No
+// Jopox login needed (that's a later tier). Profile → avatar (top-right) →
+// /account. See memory: project_gamezone_feed_plan.
 
 const initials = (name) => {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
@@ -23,15 +24,15 @@ const initials = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-// Robust date parse — API dates are "YYYY-MM-DDTHH:mm:ss" (already ISO).
-const fmtDay = (iso) => {
-  const m = moment(iso);
-  if (!m.isValid()) return "";
-  const label = m.format("dd D.M."); // "ma 13.7."
-  return label.charAt(0).toUpperCase() + label.slice(1);
+// "Maanantai 13.7." from a "YYYY-MM-DD" key.
+const dayLabel = (key) => {
+  const m = moment(key, "YYYY-MM-DD");
+  if (!m.isValid()) return key;
+  const s = m.format("dddd D.M.");
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-const EventRow = ({ e }) => {
+const EventRow = ({ e, showTeam }) => {
   const isGame = e.type === "game";
   return (
     <div className={`fd-event${isGame ? " fd-event--game" : ""}`}>
@@ -39,6 +40,7 @@ const EventRow = ({ e }) => {
         {isGame ? <LuTrophy aria-hidden="true" /> : <LuCalendarDays aria-hidden="true" />}
       </div>
       <div className="fd-event-main">
+        {showTeam && <div className="fd-event-team">{e.teamName}</div>}
         <div className="fd-event-title">{e.title}</div>
         {e.place && (
           <div className="fd-event-place">
@@ -48,64 +50,9 @@ const EventRow = ({ e }) => {
         )}
       </div>
       <div className="fd-event-when">
-        <div className="fd-event-day">{e.uiDate ? fmtDay(e.date) : ""}</div>
         {e.uiTime && <div className="fd-event-time">klo {e.uiTime}</div>}
       </div>
     </div>
-  );
-};
-
-// One favourite team's section: name header + its events (own loading/empty).
-const TeamSection = ({ team }) => {
-  const [events, setEvents] = useState(null); // null = loading
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setEvents(null);
-    setError(false);
-    fetch(`/api/getTeamEvents?subsiteId=${encodeURIComponent(team.subsiteId)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => {
-        if (!cancelled) setEvents(d.events || []);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [team.subsiteId]);
-
-  return (
-    <section className="fd-section">
-      <div className="fd-section-head">
-        <LuStar className="fd-section-star" aria-hidden="true" />
-        <h2 className="fd-section-title">{team.name}</h2>
-        <Link to={`/teams/${team.subsiteId}`} className="fd-section-link">
-          Joukkue
-        </Link>
-      </div>
-
-      {events === null && !error && (
-        <div className="fd-section-status"><Spinner /></div>
-      )}
-      {error && (
-        <div className="fd-section-status fd-section-status--error">
-          Tapahtumia ei saatu haettua.
-        </div>
-      )}
-      {events && events.length === 0 && (
-        <div className="fd-section-status">Ei tulevia tapahtumia.</div>
-      )}
-      {events && events.length > 0 && (
-        <div className="fd-events">
-          {events.map((e, i) => (
-            <EventRow key={e.eventId ?? i} e={e} />
-          ))}
-        </div>
-      )}
-    </section>
   );
 };
 
@@ -114,22 +61,16 @@ const Feed = () => {
   const [user, setUser] = useState(getCachedUser);
   const [authLoading, setAuthLoading] = useState(!getCachedUser());
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
+  const [events, setEvents] = useState(null); // null = loading, [] = loaded/empty
+  const [eventsError, setEventsError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     getMe()
-      .then((u) => {
-        if (!cancelled) setUser(u);
-      })
-      .catch(() => {
-        if (!cancelled) setUser(null);
-      })
-      .finally(() => {
-        if (!cancelled) setAuthLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((u) => { if (!cancelled) setUser(u); })
+      .catch(() => { if (!cancelled) setUser(null); })
+      .finally(() => { if (!cancelled) setAuthLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   // Reload favourites when returning to the tab (they may change on /teams).
@@ -140,7 +81,59 @@ const Feed = () => {
   }, [reloadFavs]);
 
   // Only Jopox-sourced favourites (carry a subsiteId) drive the feed.
-  const teams = favourites.filter((t) => t.subsiteId != null);
+  const teams = useMemo(
+    () => favourites.filter((t) => t.subsiteId != null),
+    [favourites]
+  );
+  // Stable dependency for the fetch effect (array ref changes every render).
+  const teamsKey = teams.map((t) => t.subsiteId).join(",");
+
+  // Fetch each favourite team's events, tag with the team, interleave by date.
+  useEffect(() => {
+    if (!user || teams.length === 0) {
+      setEvents(null);
+      return;
+    }
+    let cancelled = false;
+    setEvents(null);
+    setEventsError(false);
+    let anyError = false;
+    Promise.all(
+      teams.map((t) =>
+        fetch(`/api/getTeamEvents?subsiteId=${encodeURIComponent(t.subsiteId)}`)
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((d) =>
+            (d.events || []).map((e) => ({ ...e, teamName: t.name, subsiteId: t.subsiteId }))
+          )
+          .catch(() => { anyError = true; return []; })
+      )
+    ).then((lists) => {
+      if (cancelled) return;
+      const merged = lists
+        .flat()
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      setEvents(merged);
+      setEventsError(anyError && merged.length === 0);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, teamsKey]);
+
+  // Group the interleaved stream into day blocks.
+  const days = useMemo(() => {
+    if (!events) return [];
+    const map = new Map();
+    for (const e of events) {
+      const key = String(e.date || "").slice(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(e);
+    }
+    return Array.from(map.keys())
+      .sort()
+      .map((key) => ({ key, label: dayLabel(key), items: map.get(key) }));
+  }, [events]);
+
+  const showTeam = teams.length > 1;
 
   const header = (
     <div className="fd-head">
@@ -167,9 +160,7 @@ const Feed = () => {
         {header}
 
         <div className="fd-body">
-          {authLoading && (
-            <div className="fd-center"><Spinner /></div>
-          )}
+          {authLoading && <div className="fd-center"><Spinner /></div>}
 
           {/* Signed out → login gate */}
           {!authLoading && !user && (
@@ -195,19 +186,35 @@ const Feed = () => {
                 Merkitse joukkue suosikiksi tähdellä, niin sen tapahtumat
                 ilmestyvät tänne.
               </p>
-              <Link className="fd-btn fd-btn--primary" to="/teams">
-                Joukkueet
-              </Link>
+              <Link className="fd-btn fd-btn--primary" to="/teams">Joukkueet</Link>
             </div>
           )}
 
-          {/* Signed in with favourites → feed */}
+          {/* Signed in with favourites → interleaved stream */}
           {!authLoading && user && teams.length > 0 && (
-            <div className="fd-sections">
-              {teams.map((t) => (
-                <TeamSection key={t.subsiteId} team={t} />
+            <>
+              {events === null && !eventsError && (
+                <div className="fd-center"><Spinner /></div>
+              )}
+              {eventsError && (
+                <div className="fd-status fd-status--error">
+                  Tapahtumia ei saatu haettua. Yritä myöhemmin uudelleen.
+                </div>
+              )}
+              {events && events.length === 0 && !eventsError && (
+                <div className="fd-status">Ei tulevia tapahtumia.</div>
+              )}
+              {days.map((d) => (
+                <div className="fd-day" key={d.key}>
+                  <div className="fd-day-head">{d.label}</div>
+                  <div className="fd-events">
+                    {d.items.map((e, i) => (
+                      <EventRow key={e.eventId ?? `${d.key}-${i}`} e={e} showTeam={showTeam} />
+                    ))}
+                  </div>
+                </div>
               ))}
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -262,6 +269,8 @@ body { margin: 0; }
   padding: 14px 12px 0;
 }
 .fd-center { display: flex; justify-content: center; padding: 48px 0; }
+.fd-status { text-align: center; padding: 28px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
+.fd-status--error { color: var(--color-loss); }
 
 /* GATE (signed-out / no favourite) */
 .fd-gate {
@@ -303,29 +312,16 @@ body { margin: 0; }
 .fd-btn--primary { background: var(--color-primary); color: #1a1206; }
 .fd-btn--primary:hover { filter: brightness(1.08); }
 
-/* SECTIONS */
-.fd-sections { display: flex; flex-direction: column; gap: 22px; }
-.fd-section-head {
-  display: flex; align-items: center; gap: 8px;
-  margin: 0 2px 10px;
-}
-.fd-section-star { flex: 0 0 auto; width: 18px; height: 18px; color: var(--color-primary); fill: var(--color-primary); }
-.fd-section-title {
-  flex: 1; min-width: 0; margin: 0;
-  font-size: var(--gz-fs-md); font-weight: 800;
+/* DAY BLOCKS */
+.fd-day { margin-bottom: 18px; }
+.fd-day-head {
+  position: sticky; top: 66px; z-index: 2;
+  padding: 6px 2px 8px;
+  font-size: var(--gz-fs-sm); font-weight: 800;
   letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
-  color: var(--gz-text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--color-primary);
+  background: linear-gradient(180deg, var(--color-bg) 70%, rgba(17,17,17,0));
 }
-.fd-section-link {
-  flex: 0 0 auto;
-  font-size: var(--gz-fs-xs); font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
-  color: var(--color-primary); text-decoration: none;
-  padding: 4px 6px;
-}
-.fd-section-status { text-align: center; padding: 18px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
-.fd-section-status--error { color: var(--color-loss); }
 
 /* EVENTS */
 .fd-events { display: flex; flex-direction: column; gap: 8px; }
@@ -347,6 +343,12 @@ body { margin: 0; }
 .fd-event--game .fd-event-icon { background: rgba(245,158,11,0.15); color: var(--color-primary); }
 .fd-event-icon svg { width: 20px; height: 20px; }
 .fd-event-main { flex: 1; min-width: 0; }
+.fd-event-team {
+  font-size: var(--gz-fs-xs); font-weight: 800;
+  letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 1px;
+}
 .fd-event-title {
   font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
   color: var(--gz-text-primary);
@@ -359,6 +361,5 @@ body { margin: 0; }
 }
 .fd-event-place-ico { width: 13px; height: 13px; flex: 0 0 auto; }
 .fd-event-when { flex: 0 0 auto; text-align: right; }
-.fd-event-day { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-bold); color: var(--gz-text-secondary); }
-.fd-event-time { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
+.fd-event-time { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-bold); color: var(--gz-text-secondary); }
 `;
