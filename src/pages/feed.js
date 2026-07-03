@@ -196,7 +196,7 @@ const Feed = () => {
         {header}
 
         <div className="fd-body">
-          {authLoading && <div className="fd-center"><Spinner /></div>}
+          {authLoading && <div className="fd-center"><Spinner text="Ladataan…" /></div>}
 
           {/* Signed out → login gate */}
           {!authLoading && !user && (
@@ -230,7 +230,7 @@ const Feed = () => {
           {!authLoading && user && teams.length > 0 && (
             <>
               {events === null && !eventsError && (
-                <div className="fd-center"><Spinner /></div>
+                <div className="fd-center"><Spinner text="Ladataan tapahtumia…" /></div>
               )}
               {eventsError && (
                 <div className="fd-status fd-status--error">
@@ -238,7 +238,11 @@ const Feed = () => {
                 </div>
               )}
               {events && events.length === 0 && !eventsError && (
-                <div className="fd-status">Ei tulevia tapahtumia.</div>
+                <div className="fd-empty">
+                  <div className="fd-empty-icon"><LuCalendarDays aria-hidden="true" /></div>
+                  <div className="fd-empty-title">Ei tulevia tapahtumia</div>
+                  <div className="fd-empty-text">Harjoitukset ja pelit ilmestyvät tähän, kun niitä on kalenterissa.</div>
+                </div>
               )}
               {days.map((d) => (
                 <div className="fd-day" key={d.key}>
@@ -307,6 +311,29 @@ body { margin: 0; }
 .fd-center { display: flex; justify-content: center; padding: 48px 0; }
 .fd-status { text-align: center; padding: 28px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
 .fd-status--error { color: var(--color-loss); }
+
+/* EMPTY (signed in, favourite picked, but no upcoming events) */
+.fd-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 40px 22px 24px;
+  max-width: 360px; margin: 12px auto 0;
+}
+.fd-empty-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--gz-text-tertiary);
+}
+.fd-empty-icon svg { width: 26px; height: 26px; }
+.fd-empty-title {
+  font-size: var(--gz-fs-md); font-weight: 800;
+  letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
+  color: var(--gz-text-secondary);
+}
+.fd-empty-text {
+  font-size: var(--gz-fs-sm); color: var(--gz-text-tertiary); line-height: 1.5;
+}
 
 /* GATE (signed-out / no favourite) */
 .fd-gate {
