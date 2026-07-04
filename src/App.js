@@ -12,6 +12,7 @@ import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
 import Gamezone from "./pages/gamezone";
 import GamezoneSchedule from "./pages/gamezone_schedule";
+import BoxScore from "./pages/game";
 import { GamezoneLayout } from "./components/GamezoneLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
@@ -64,6 +65,7 @@ function App() {
                     path="/gamezone/schedule"
                     element={<GamezoneSchedule />}
                 />
+                <Route path="/gamezone/game/:id" element={<BoxScore />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
