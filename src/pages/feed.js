@@ -75,8 +75,8 @@ function annotateSources(items) {
 }
 const SOURCE_LABEL = {
   both: "OK",
-  tp: "Vain tulospalvelu",
-  jopox: "Vain Jopox",
+  tp: "Tulospalvelu",
+  jopox: "Jopox",
 };
 
 // The "Minä" feed: a signed-in user's favourite team(s) upcoming events
