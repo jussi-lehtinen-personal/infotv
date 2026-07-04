@@ -186,6 +186,7 @@ const Timeline = ({ report }) => {
     const evs = [
       ...(report.goals || []).map((g) => ({ ...g, kind: "goal" })),
       ...(report.penalties || []).map((p) => ({ ...p, kind: "penalty" })),
+      ...(report.extras || []), // goalie changes (MV) + timeouts (AL), kind set already
     ].sort((a, b) => a.period - b.period || toSecs(a.time) - toSecs(b.time));
     const map = new Map();
     for (const e of evs) {
@@ -228,16 +229,27 @@ const Timeline = ({ report }) => {
 //         a third row).
 const EventRow = ({ e }) => {
   const isGoal = e.kind === "goal";
-  const rawName = (isGoal ? e.scorer.name : e.player.name) || "";
-  // A penalty with no player (blank or a "Null" sentinel) is a team/bench penalty.
-  const name =
-    !isGoal && (!rawName.trim() || /^\s*null\b/i.test(rawName))
-      ? "Joukkuerangaistus"
-      : formatName(rawName);
+  const isPen = e.kind === "penalty";
+  const isExtra = !isGoal && !isPen; // gk (MV) / timeout (AL)
+
+  const rawName = isGoal ? e.scorer.name || "" : isPen ? e.player.name || "" : "";
+  const name = isExtra
+    ? e.kind === "gk"
+      ? formatName(e.name)
+      : e.name
+    : isPen && (!rawName.trim() || /^\s*null\b/i.test(rawName))
+    ? "Joukkuerangaistus"
+    : formatName(rawName);
   const sub = isGoal
     ? (e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "")
-    : e.reason || "";
+    : isPen
+    ? e.reason || ""
+    : e.sub || "";
   const strength = isGoal && e.strength === "YV" ? "Ylivoima" : isGoal && e.strength === "AV" ? "Alivoima" : null;
+
+  const badge = isGoal ? "MAALI" : isPen ? "JÄÄHY" : e.badge; // MV / AL
+  const badgeMod = isGoal ? "goal" : isPen ? "pen" : "extra";
+  const value = isGoal ? e.running.replace("-", " – ") : isPen ? `${e.minutes} min` : null;
 
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
@@ -245,17 +257,8 @@ const EventRow = ({ e }) => {
       <div className="bx-ev-content">
         <div className="bx-ev-line">
           <div className="bx-ev-pill">
-            {isGoal ? (
-              <>
-                <span className="bx-ev-badge bx-ev-badge--goal">MAALI</span>
-                <span className="bx-ev-val">{e.running.replace("-", " – ")}</span>
-              </>
-            ) : (
-              <>
-                <span className="bx-ev-badge bx-ev-badge--pen">JÄÄHY</span>
-                <span className="bx-ev-val bx-ev-val--pen">{e.minutes} min</span>
-              </>
-            )}
+            <span className={`bx-ev-badge bx-ev-badge--${badgeMod}`}>{badge}</span>
+            {value != null && <span className={`bx-ev-val${isPen ? " bx-ev-val--pen" : ""}`}>{value}</span>}
           </div>
           <div className="bx-ev-name">
             {name}
@@ -552,6 +555,7 @@ body { margin: 0; }
 }
 .bx-ev-badge--goal { background: var(--color-primary); color: #1a1206; }
 .bx-ev-badge--pen  { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
+.bx-ev-badge--extra { background: transparent; color: var(--gz-text-tertiary); border: 1px solid rgba(255,255,255,0.20); }
 .bx-ev-val, .bx-ev-val--pen { color: var(--color-primary); }
 
 .bx-ev-name {

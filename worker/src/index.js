@@ -418,6 +418,19 @@ function buildBoxScore(report, meta) {
     })),
   }));
 
+  // Other timeline events: goalie changes (MV) + timeouts (AL). GK_start is the
+  // starting goalie, not an "event" → skipped.
+  const extras = logs
+    .filter((l) => ["GK_out", "GK_in", "GK_change", "Timeout"].includes(l.Type))
+    .map((l) => {
+      const base = { period: l.Period, time: clock(l.GameTime), side: side(l.TeamId) };
+      if (l.Type === "Timeout") return { ...base, kind: "timeout", badge: "AL", name: "Aikalisä", sub: "" };
+      const gk = clean(l.GoalkeeperName);
+      const sub =
+        l.Type === "GK_out" ? "Maalivahti pois" : l.Type === "GK_in" ? "Maalivahti takaisin" : "Maalivahdin vaihto";
+      return { ...base, kind: "gk", badge: "MV", name: gk, sub };
+    });
+
   const finished = Number(g.FinishedType) > 0;
   const started = finished || logs.length > 0;
 
@@ -431,6 +444,7 @@ function buildBoxScore(report, meta) {
     periods,
     goals,
     penalties,
+    extras,
     goalies,
     referees: (report.Referees || []).map((r) => ({ role: r.RefereeRole, name: r.RefereeName })),
     spectators: g.Spectators ?? null,
@@ -553,7 +567,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "5";
+const CACHE_VERSION = "6";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
