@@ -215,13 +215,15 @@ const EventRow = ({ e }) => {
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
       <div className="bx-ev-time">{e.time}</div>
-      <div className="bx-ev-pill">
-        {isGoal ? e.running.replace("-", " – ") : `${e.minutes} min`}
-      </div>
-      <div className="bx-ev-namecol">
-        <div className="bx-ev-name">
-          {name}
-          {strength && <span className="bx-ev-str"> ({strength})</span>}
+      <div className="bx-ev-content">
+        <div className="bx-ev-line">
+          <div className={`bx-ev-pill bx-ev-pill--${isGoal ? "goal" : "pen"}`}>
+            {isGoal ? e.running.replace("-", " – ") : `${e.minutes} min`}
+          </div>
+          <div className="bx-ev-name">
+            {name}
+            {strength && <span className="bx-ev-str"> ({strength})</span>}
+          </div>
         </div>
         {sub && <div className="bx-ev-sub">{sub}</div>}
       </div>
@@ -409,39 +411,46 @@ body { margin: 0; }
   display: flex; align-items: flex-start; gap: 9px;
   padding: 9px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  width: 92%; /* wide so the assist/reason line has room before it truncates */
+  width: 92%;
 }
 .bx-ev--home { margin-right: auto; }
-.bx-ev--away { margin-left: auto; flex-direction: row-reverse; text-align: right; }
+.bx-ev--away { margin-left: auto; flex-direction: row-reverse; }
 
-/* fixed-width time → the pill (and its leading icon) starts at a fixed x → the
-   goal-puck and the penalty-number line up in a column */
+/* fixed-width time on the outer edge → the pill starts at a fixed x → pills line
+   up in a column; both rows of content sit AFTER the time (no extra indent) */
 .bx-ev-time {
-  flex: 0 0 40px; width: 40px; padding-top: 2px;
+  flex: 0 0 40px; width: 40px; padding-top: 4px;
   font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); font-variant-numeric: tabular-nums;
 }
 .bx-ev--home .bx-ev-time { text-align: left; }
 .bx-ev--away .bx-ev-time { text-align: right; }
 
-/* pill: amber background for both goals (score) and penalties (minutes + min),
-   natural width right after the fixed-width time so they line up in a column */
+/* content = row 1 (pill + name, vertically centred) over row 2 (assists/reason);
+   both start at the same (pill) edge, so no indent under the name */
+.bx-ev-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.bx-ev--away .bx-ev-content { align-items: flex-end; }
+.bx-ev-line { display: flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
+.bx-ev--away .bx-ev-line { flex-direction: row-reverse; }
+
+/* pill: goal = filled amber; penalty = amber outline (transparent) so the two
+   read apart; both fonts show on the dark background */
 .bx-ev-pill {
   flex: 0 0 auto;
-  display: inline-flex; align-items: center; justify-content: center;
   font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
   padding: 3px 8px; border-radius: 6px; box-sizing: border-box; white-space: nowrap;
-  color: #1a1206; background: var(--color-primary);
 }
+.bx-ev-pill--goal { color: #1a1206; background: var(--color-primary); border: 1px solid var(--color-primary); }
+.bx-ev-pill--pen  { color: var(--color-primary); background: transparent; border: 1px solid var(--color-primary); }
 
-/* name (row 1) + assists/reason (row 2) — each ONE line, truncated with … */
-.bx-ev-namecol { flex: 1 1 auto; min-width: 0; }
 .bx-ev-name {
+  flex: 0 1 auto; min-width: 0;
   font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .bx-ev-str { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-tertiary); }
 .bx-ev-sub {
-  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px;
+  max-width: 100%;
+  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
