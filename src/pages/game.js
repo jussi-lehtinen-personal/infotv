@@ -155,9 +155,9 @@ const GameHeader = ({ game, report }) => {
   const finType = report ? report.finishedType : Number(game.finished) || 0;
   const status = finished
     ? finType === 3
-      ? "Voittomaalikilpailun jälkeen"
+      ? "Päättynyt (VL)"
       : finType === 2
-      ? "Jatkoajan jälkeen"
+      ? "Päättynyt (JA)"
       : "Päättynyt"
     : started
     ? "Käynnissä"
@@ -207,20 +207,25 @@ const Timeline = ({ report }) => {
   }, [report]);
 
   const periods = report.periods || [];
-  const periodScore = (n) => periods[n - 1] && periods[n - 1].replace("-", " – ");
+  // Show every PLAYED period (periods minus the total) — including an empty
+  // overtime with no events — plus any period that has events.
+  const maxEvPeriod = byPeriod.size ? Math.max(...byPeriod.keys()) : 0;
+  const played = Math.max(periods.length - 1, maxEvPeriod);
+  if (played <= 0) return null;
 
-  if (byPeriod.size === 0) return null;
+  const periodLabel = (n) => (n <= 3 ? `${n}. erä` : `${n - 3}. jatkoerä`);
+  const periodScore = (n) => periods[n - 1] && periods[n - 1].replace("-", " – ");
 
   return (
     <div className="bx-timeline">
-      {[...byPeriod.keys()].sort((a, b) => a - b).map((n) => (
+      {Array.from({ length: played }, (_, i) => i + 1).map((n) => (
         <div className="bx-per" key={n}>
           <div className="bx-per-head">
-            <span>{n}. erä</span>
+            <span>{periodLabel(n)}</span>
             {periodScore(n) && <span className="bx-per-score">{periodScore(n)}</span>}
           </div>
           <div className="bx-per-evs">
-            {byPeriod.get(n).map((e, i) => (
+            {(byPeriod.get(n) || []).map((e, i) => (
               <EventRow key={i} e={e} />
             ))}
           </div>
@@ -336,18 +341,26 @@ const personName = (last, first) =>
 
 const WinningShots = ({ shots, game }) => {
   if (!shots || shots.length === 0) return null;
+  // Running shootout score: a goal shows the tally after it, a miss a grey dash.
+  let soHome = 0;
+  let soAway = 0;
+  const rows = shots.map((w) => {
+    if (w.scored) {
+      if (w.side === "home") soHome += 1;
+      else soAway += 1;
+    }
+    return { ...w, tally: `${soHome}–${soAway}` };
+  });
   return (
     <div className="bx-section">
       <div className="bx-section-title">Voittomaalikilpailu</div>
       <div className="bx-ws">
-        {shots.map((w, i) => (
+        {rows.map((w, i) => (
           <div className={`bx-ws-row${w.winner ? " is-win" : ""}`} key={i}>
             <img className="bx-ws-logo" src={w.side === "home" ? game.home_logo : game.away_logo} alt="" />
             {w.jersey ? <span className="bx-ws-num">{w.jersey}</span> : null}
             <span className="bx-ws-name">{personName(w.last, w.first)}</span>
-            <span className={`bx-ws-mark${w.scored ? " is-goal" : ""}`} aria-hidden="true">
-              {w.scored ? "✓" : "✗"}
-            </span>
+            <span className={`bx-ws-mark${w.scored ? " is-goal" : ""}`}>{w.scored ? w.tally : "–"}</span>
           </div>
         ))}
       </div>
@@ -690,7 +703,11 @@ body { margin: 0; }
   flex: 1 1 auto; min-width: 0; color: var(--gz-text-primary); font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.bx-ws-mark { flex: 0 0 auto; width: 20px; text-align: center; font-size: 15px; font-weight: 800; color: var(--gz-text-tertiary); }
+.bx-ws-mark {
+  flex: 0 0 auto; min-width: 34px; text-align: right;
+  font-size: var(--gz-fs-sm); font-weight: 800; color: var(--gz-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
 .bx-ws-mark.is-goal { color: var(--color-primary); }
 
 /* MATCH INFO (Ottelun lisätiedot) */
