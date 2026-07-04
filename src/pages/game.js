@@ -303,8 +303,10 @@ const EventRow = ({ e }) => {
             {value != null && <span className={`bx-ev-val${isPen ? " bx-ev-val--pen" : ""}`}>{value}</span>}
           </div>
           <div className="bx-ev-name">
+            {/* strength mirrors: right of the name for home, left for away */}
+            {strength && e.side === "away" && <span className="bx-ev-str">({strength}) </span>}
             {name}
-            {strength && <span className="bx-ev-str"> ({strength})</span>}
+            {strength && e.side !== "away" && <span className="bx-ev-str"> ({strength})</span>}
           </div>
         </div>
         {sub && <div className="bx-ev-sub">{sub}</div>}
