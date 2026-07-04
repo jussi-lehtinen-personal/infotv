@@ -7,7 +7,7 @@ import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { loadFavouriteTeams } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
-import { buildTeamAgenda, opponentLogo } from "../lib/agenda";
+import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
 import { isGameForFavourite } from "../lib/teamMatch";
 
@@ -89,6 +89,9 @@ const EventRow = ({ e, expanded, onToggle }) => {
   const oppLogo = opponentLogo(tp);
   const played = tp && Number(tp.finished) > 0;
   const score = played ? `${tp.home_goals ?? ""}–${tp.away_goals ?? ""}` : null;
+  // Games: show just the opponent (the favourite is already on the team line)
+  // so the long "Kiekko-Ahma – X" doesn't crowd out the time on the right.
+  const heading = isGame && tp ? opponentName(tp) || e.title : e.title;
   const detailKey = `${e.subsiteId}|${e.eventId}`;
   const [desc, setDesc] = useState(() => detailCache.get(detailKey));
 
@@ -135,8 +138,15 @@ const EventRow = ({ e, expanded, onToggle }) => {
           )}
         </div>
         <div className="fd-event-main">
-          {e.teamName && <div className="fd-event-team">{e.teamName}</div>}
-          <div className="fd-event-title">{e.title}</div>
+          {e.teamName && (
+            <div className="fd-event-team">
+              {e.teamName}
+              {isGame && e.home != null && (
+                <span className="fd-event-ha">{e.home ? "koti" : "vieras"}</span>
+              )}
+            </div>
+          )}
+          <div className="fd-event-title">{heading}</div>
         </div>
         <div className="fd-event-when">
           {score ? (
@@ -250,7 +260,7 @@ const Feed = () => {
       teams.forEach((t, i) => {
         const jopox = jopoxRef.current[i] || [];
         const tp = peekSeasonGames().filter((g) => isGameForFavourite(g, t));
-        all.push(...buildTeamAgenda(jopox, tp, t.name));
+        all.push(...buildTeamAgenda(jopox, tp, t.name, t.subsiteId));
       });
       return all
         .filter((e) => String(e.date || "").slice(0, 10) >= todayStr)
@@ -621,17 +631,26 @@ body { margin: 0; }
 }
 .fd-event-main { flex: 1; min-width: 0; }
 .fd-event-team {
+  display: flex; align-items: center; gap: 6px;
   font-size: var(--gz-fs-xs); font-weight: 800;
   letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
   color: var(--color-primary);
   margin-bottom: 1px;
+}
+/* koti/vieras chip next to the team on a game row */
+.fd-event-ha {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 999px;
+  color: var(--gz-text-tertiary);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
 }
 .fd-event-title {
   font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
   color: var(--gz-text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.fd-event-when { flex: 0 0 auto; text-align: right; }
+.fd-event-when { flex: 0 0 auto; text-align: right; white-space: nowrap; padding-left: 4px; }
 .fd-event-time { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-bold); color: var(--gz-text-secondary); }
 .fd-event-score {
   font-size: var(--gz-fs-md); font-weight: 800;

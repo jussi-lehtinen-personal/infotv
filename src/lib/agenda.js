@@ -19,8 +19,18 @@ export function opponentLogo(tpGame) {
   return ahmaHome ? tpGame.away_logo : tpGame.home_logo;
 }
 
-// Normalise a Jopox event into an agenda item.
-function fromJopox(e, teamName) {
+// The opponent's name (Ahma is the favourite) — a short title for game cards so
+// the full "Kiekko-Ahma Musta – HPK Oranssi" doesn't crowd out the time.
+export function opponentName(tpGame) {
+  if (!tpGame) return null;
+  const ahmaHome = /ahma/i.test(tpGame.home || "");
+  return ahmaHome ? tpGame.away : tpGame.home;
+}
+
+// Normalise a Jopox event into an agenda item. `subsiteId` is the team's Jopox
+// subsite (getTeamEvents returns it only at the top level, not per event) — it's
+// needed together with eventId to fetch the free-text description.
+function fromJopox(e, teamName, subsiteId) {
   return {
     key: `jx-${e.eventId}`,
     type: e.type === "game" ? "game" : "event",
@@ -34,13 +44,13 @@ function fromJopox(e, teamName) {
     tp: null, // filled if a tulospalvelu game matches
     home: e.awayGame == null ? null : !e.awayGame,
     eventId: e.eventId, // for the Jopox description (getEventDetail)
-    subsiteId: e.subsiteId,
+    subsiteId: e.subsiteId ?? subsiteId ?? null,
   };
 }
 
 // Normalise a tulospalvelu game into an agenda item (optionally merging a matched
 // Jopox game's place/eventId).
-function fromTp(g, teamName, jx) {
+function fromTp(g, teamName, jx, subsiteId) {
   return {
     key: `tp-${g.id}`,
     type: "game",
@@ -54,18 +64,18 @@ function fromTp(g, teamName, jx) {
     tp: g, // logos, goals, finished, isHomeGame, id
     home: g.isHomeGame,
     eventId: jx ? jx.eventId : null,
-    subsiteId: jx ? jx.subsiteId : null,
+    subsiteId: (jx && (jx.subsiteId ?? subsiteId)) ?? null,
   };
 }
 
 // Merge a team's Jopox events with its tulospalvelu games into one sorted agenda.
-export function buildTeamAgenda(jopoxEvents, tpGames, teamName) {
+export function buildTeamAgenda(jopoxEvents, tpGames, teamName, subsiteId) {
   const items = [];
   const jopoxGamesByKey = new Map();
 
   for (const e of jopoxEvents || []) {
     if (e.type === "game") jopoxGamesByKey.set(gameKey(e.date, e.uiTime), e);
-    else items.push(fromJopox(e, teamName)); // practices / other events
+    else items.push(fromJopox(e, teamName, subsiteId)); // practices / other events
   }
 
   const usedJopox = new Set();
@@ -73,12 +83,12 @@ export function buildTeamAgenda(jopoxEvents, tpGames, teamName) {
     const k = gameKey(g.date, null);
     const jx = jopoxGamesByKey.get(k) || null;
     if (jx) usedJopox.add(k);
-    items.push(fromTp(g, teamName, jx));
+    items.push(fromTp(g, teamName, jx, subsiteId));
   }
 
   // Jopox-only games (friendlies not in tulospalvelu).
   for (const [k, e] of jopoxGamesByKey) {
-    if (!usedJopox.has(k)) items.push(fromJopox(e, teamName));
+    if (!usedJopox.has(k)) items.push(fromJopox(e, teamName, subsiteId));
   }
 
   items.sort((a, b) => {
