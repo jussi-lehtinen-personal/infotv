@@ -201,8 +201,12 @@ const Timeline = ({ report }) => {
 //         a third row).
 const EventRow = ({ e }) => {
   const isGoal = e.kind === "goal";
-  // A penalty with no player marked is a team/bench penalty.
-  const name = formatName(isGoal ? e.scorer.name : e.player.name) || (isGoal ? "" : "Joukkuerangaistus");
+  const rawName = (isGoal ? e.scorer.name : e.player.name) || "";
+  // A penalty with no player (blank or a "Null" sentinel) is a team/bench penalty.
+  const name =
+    !isGoal && (!rawName.trim() || /^\s*null\b/i.test(rawName))
+      ? "Joukkuerangaistus"
+      : formatName(rawName);
   const sub = isGoal
     ? (e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "")
     : e.reason || "";
@@ -211,14 +215,9 @@ const EventRow = ({ e }) => {
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
       <div className="bx-ev-time">{e.time}</div>
-      {isGoal ? (
-        <div className="bx-ev-pill bx-ev-pill--goal">
-          <img className="bx-puck" src="/puck.webp" alt="" />
-          <span>{e.running.replace("-", " – ")}</span>
-        </div>
-      ) : (
-        <div className="bx-ev-pill bx-ev-pill--pen">{e.minutes}</div>
-      )}
+      <div className="bx-ev-pill">
+        {isGoal ? e.running.replace("-", " – ") : `${e.minutes} min`}
+      </div>
       <div className="bx-ev-namecol">
         <div className="bx-ev-name">
           {name}
@@ -286,8 +285,10 @@ const Footer = ({ report, game }) => {
           <div className="bx-info">
           {refs.length > 0 && (
             <div className="bx-info-row">
-              <span className="bx-info-label"><LuFlag aria-hidden="true" /> Tuomari</span>
-              <span className="bx-info-val">{refs.join(" · ")}</span>
+              <span className="bx-info-label"><LuFlag aria-hidden="true" /> {refs.length > 1 ? "Tuomarit" : "Tuomari"}</span>
+              <span className="bx-info-val">
+                {refs.map((r, i) => <div key={i}>{r}</div>)}
+              </span>
             </div>
           )}
           {venue && (
@@ -408,7 +409,7 @@ body { margin: 0; }
   display: flex; align-items: flex-start; gap: 9px;
   padding: 9px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  width: 62%; /* per side; leaves the opposite half empty */
+  width: 92%; /* wide so the assist/reason line has room before it truncates */
 }
 .bx-ev--home { margin-right: auto; }
 .bx-ev--away { margin-left: auto; flex-direction: row-reverse; text-align: right; }
@@ -422,18 +423,15 @@ body { margin: 0; }
 .bx-ev--home .bx-ev-time { text-align: left; }
 .bx-ev--away .bx-ev-time { text-align: right; }
 
-/* pill: icon FIRST (goal → puck + score; penalty → the number is the icon),
-   natural width right after the time */
+/* pill: amber background for both goals (score) and penalties (minutes + min),
+   natural width right after the fixed-width time so they line up in a column */
 .bx-ev-pill {
   flex: 0 0 auto;
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
   font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
-  padding: 3px 8px; border-radius: 6px; box-sizing: border-box;
+  padding: 3px 8px; border-radius: 6px; box-sizing: border-box; white-space: nowrap;
+  color: #1a1206; background: var(--color-primary);
 }
-.bx-ev-pill--goal { color: #fff; background: transparent; border: 1px solid rgba(255,255,255,0.20); }
-.bx-ev-pill--pen  { color: #1a1206; background: var(--color-primary); }
-.bx-ev--away .bx-ev-pill { flex-direction: row-reverse; } /* icon on the clock side */
-.bx-puck { flex: 0 0 auto; display: block; width: 14px; height: 14px; object-fit: contain; }
 
 /* name (row 1) + assists/reason (row 2) — each ONE line, truncated with … */
 .bx-ev-namecol { flex: 1 1 auto; min-width: 0; }
