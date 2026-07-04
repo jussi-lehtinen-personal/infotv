@@ -8,3 +8,10 @@ compatibility_date = "2024-11-01"
 #   wrangler secret put PROXY_KEY
 # or in the dashboard: Worker -> Settings -> Variables -> add encrypted PROXY_KEY.
 # When unset, the Worker serves without auth (fine for the Phase-1 validation).
+
+# Persistent map ext-id -> real getgames GameID for the box score (see
+# project_boxscore_plan). The mapping never changes, so KV is a permanent cache;
+# the code degrades gracefully (re-resolves) if the binding is absent.
+[[kv_namespaces]]
+binding = "GAME_IDS"
+id = "1ed1f45544974010976093924eae98e0"

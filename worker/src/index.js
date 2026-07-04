@@ -303,6 +303,172 @@ async function handleGetSeasonGames(url) {
   return { fetchedAt: new Date().toISOString(), games: built };
 }
 
+/* ------------------------------ getGameReport ----------------------------- */
+// Box score for ONE game. Two decoupled steps:
+//   A. resolve the REAL getgames GameID from the season-cache identity
+//      (date + homeTeamId + awayTeamId). ext id ≠ getgames id and there's no
+//      formula, so we day-scan getgames — but NOT all 8 districts blindly:
+//      district 2 (Häme) first (all home games + most Ahma series live there),
+//      widening only on a miss. The mapping never changes → hard-cache it in KV
+//      (env.GAME_IDS), so this scan runs ≤ once per game ever. Works without KV
+//      too (degrades to re-resolving each call).
+//   B. fetch the report directly by the real id — 1 subrequest, poll-friendly
+//      (the light "live" path; short TTL while in progress, long once finished).
+
+const DISTRICT_TRY_ORDER = [HOME_DISTRICT_ID, 1, 3, 4, 5, 6, 7, 8];
+
+// season = spring year (a season spans autumn→spring, named by its spring year);
+// the report rejects season=0.
+function seasonFromDate(dateStr) {
+  const [y, m] = String(dateStr).split(/[- ]/);
+  return Number(m) >= 7 ? Number(y) + 1 : Number(y);
+}
+
+async function resolveRealId(env, extId, dateStr, homeTeamId, awayTeamId) {
+  const kvKey = `gid:${extId}`;
+  if (env && env.GAME_IDS) {
+    const cached = await env.GAME_IDS.get(kvKey);
+    if (cached) return Number(cached);
+  }
+  const dog = String(dateStr).slice(0, 10);
+  for (const d of DISTRICT_TRY_ORDER) {
+    let games;
+    try {
+      games = await fetchDay(dog, d);
+    } catch {
+      continue;
+    }
+    const hit = games.find(
+      (g) => String(g.homeTeamId) === String(homeTeamId) && String(g.awayTeamId) === String(awayTeamId)
+    );
+    if (hit) {
+      if (env && env.GAME_IDS) await env.GAME_IDS.put(kvKey, String(hit.id)); // permanent
+      return hit.id;
+    }
+  }
+  return null;
+}
+
+// "422" seconds of running game clock → "7:02".
+function clock(secs) {
+  const s = Number(secs) || 0;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// tulospalvelu gamereport JSON → our box score. Names are inline in
+// GameLogsUpdate (no roster lookup). `side` maps a TeamId to home/away.
+function buildBoxScore(report, meta) {
+  const g = (report.GamesUpdate || [])[0] || {};
+  const home = g.HomeTeam || {};
+  const away = g.AwayTeam || {};
+  const side = (teamId) => (String(teamId) === String(home.Id) ? "home" : "away");
+  const logs = Array.isArray(report.GameLogsUpdate) ? report.GameLogsUpdate : [];
+  const clean = (n) => String(n || "").trim();
+
+  const goals = logs
+    .filter((l) => l.Type === "Goal")
+    .map((l) => ({
+      period: l.Period,
+      time: clock(l.GameTime),
+      side: side(l.TeamId),
+      scorer: { jersey: l.ScorerJersey, name: clean(l.ScorerName) },
+      assists: [clean(l.FirstAssistName), clean(l.SecondAssistName)].filter(Boolean),
+      strength: l.GoalType || "EV", // "YV"=PP, "AV"=SH, ""→EV
+      running: `${l.HomeTeamGoals}-${l.AwayTeamGoals}`,
+    }));
+
+  const penalties = logs
+    .filter((l) => l.Type === "Penalty")
+    .map((l) => ({
+      period: l.Period,
+      time: clock(l.GameTime),
+      side: side(l.TeamId),
+      player: { jersey: l.Jersey, name: clean(l.Name) },
+      minutes: l.PenaltyMinutesNumber,
+      reason: l.PenaltyReasonsFI || null,
+      reasonAbbr: l.PenaltyReasonsAbbreviation || null,
+    }));
+
+  const ps = report.PeriodSummary || {};
+  const periods = (ps.PeriodGoals || []).map((p) => p.Goals); // last entry = total
+
+  const goalies = (report.GoalkeeperSummary || []).map((t) => ({
+    team: t.TeamName,
+    side: t.TeamName === home.Name ? "home" : t.TeamName === away.Name ? "away" : null,
+    keepers: (t.TeamGoalkeepers || []).map((k) => ({
+      name: k.GkName,
+      jersey: k.GkJersey,
+      saves: (k.GkSaves || []).map((s) => ({ period: s.Period, saves: s.Saves })),
+    })),
+  }));
+
+  const finished = Number(g.FinishedType) > 0;
+  const started = finished || logs.length > 0;
+
+  return {
+    realId: meta.realId,
+    season: meta.season,
+    finished,
+    started,
+    status: g.GameStatus ?? null,
+    score: { home: home.Goals ?? null, away: away.Goals ?? null },
+    periods,
+    goals,
+    penalties,
+    goalies,
+    referees: (report.Referees || []).map((r) => ({ role: r.RefereeRole, name: r.RefereeName })),
+    spectators: g.Spectators ?? null,
+    arena: g.Arena || null,
+    settings: report.GameSettings || null,
+  };
+}
+
+const TTL_REPORT_LIVE_S = 30; // in progress: keep fresh
+const TTL_REPORT_UPCOMING_S = 5 * 60; // not started yet
+const TTL_REPORT_FINISHED_S = 24 * 60 * 60; // final: immutable
+
+async function handleGetGameReport(url, env, ctx) {
+  const date = url.searchParams.get("date");
+  const homeTeamId = url.searchParams.get("home");
+  const awayTeamId = url.searchParams.get("away");
+  const extId = url.searchParams.get("extId") || `${date}|${homeTeamId}|${awayTeamId}`;
+  if (!date || !homeTeamId || !awayTeamId) {
+    return json({ error: "date, home, away required" }, 400);
+  }
+
+  // Edge cache with a status-dependent TTL (decided after we see the report).
+  const cache = caches.default;
+  const keyUrl = new URL(url.toString());
+  keyUrl.searchParams.set("__cv", CACHE_VERSION);
+  const key = new Request(keyUrl.toString(), { method: "GET" });
+  const hit = await cache.match(key);
+  if (hit) return hit;
+
+  const realId = await resolveRealId(env, extId, date, homeTeamId, awayTeamId);
+  if (realId == null) {
+    const resp = json({ resolved: false });
+    resp.headers.set("cache-control", "public, max-age=600"); // retry in 10 min
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(key, resp.clone()));
+    return resp;
+  }
+
+  const season = seasonFromDate(date);
+  const report = await tpGet("gamereport/getgamereportdata", { season, gameid: realId });
+  const box = buildBoxScore(report, { realId, season });
+  const ttl = box.finished
+    ? TTL_REPORT_FINISHED_S
+    : box.started
+    ? TTL_REPORT_LIVE_S
+    : TTL_REPORT_UPCOMING_S;
+
+  const resp = json({ resolved: true, ...box });
+  resp.headers.set("cache-control", `public, max-age=${ttl}`);
+  const put = cache.put(key, resp.clone());
+  if (ctx && ctx.waitUntil) ctx.waitUntil(put);
+  else await put;
+  return resp;
+}
+
 /* --------------------------------- router --------------------------------- */
 
 function json(body, status = 200) {
@@ -408,7 +574,9 @@ export default {
         return await cachedJson(ctx, url, weekTtlSeconds(url), () => handleGetGames(url));
       if (url.pathname === "/getSeasonGames")
         return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url));
-      return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getImage"] }, 404);
+      if (url.pathname === "/getGameReport")
+        return await handleGetGameReport(url, env, ctx);
+      return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
     }
