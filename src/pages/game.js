@@ -230,7 +230,7 @@ const Timeline = ({ report }) => {
 const EventRow = ({ e }) => {
   const isGoal = e.kind === "goal";
   const isPen = e.kind === "penalty";
-  const isExtra = !isGoal && !isPen; // gk (MV) / timeout (AL)
+  // other kinds: "gk" (MV) / "timeout" (AL)
 
   const rawName = isGoal ? e.scorer.name || "" : isPen ? e.player.name || "" : "";
   let name;
