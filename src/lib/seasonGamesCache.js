@@ -19,7 +19,8 @@ const LS_KEY = `ahma.seasonGames.v${VERSION}`;
 const TTL = 30 * 60_000; // 30 min
 
 let games = null; // processed games array (null = not loaded)
-let ts = 0;
+let ts = 0; // last local revalidation time (freshness)
+let fetchedAt = null; // worker's snapshot stamp — unchanged ⇒ skip reprocessing
 let inflight = null;
 const subs = new Set();
 
@@ -29,6 +30,7 @@ const subs = new Set();
     if (raw && Array.isArray(raw.games) && typeof raw.ts === "number") {
       games = raw.games;
       ts = raw.ts;
+      fetchedAt = raw.fetchedAt || null;
     }
   } catch {
     /* ignore */
@@ -37,14 +39,34 @@ const subs = new Set();
 
 function persist() {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ games, ts }));
+    localStorage.setItem(LS_KEY, JSON.stringify({ games, ts, fetchedAt }));
   } catch {
     /* quota / private mode */
   }
 }
 
+// Revalidation triggers (SWR): without these, the cache would only refetch on a
+// component mount — keeping the app open and scrolling would NEVER refresh. So
+// on the first subscriber we install focus / visibility / online listeners + a
+// slow interval; each calls fetchSeasonGames() which no-ops unless stale (30 min)
+// and, when it does fetch, hits the cheap cached Azure/worker layers. (Live
+// scores are separate — getLive.) Installed once for the app's lifetime.
+let revalidationInstalled = false;
+function installRevalidation() {
+  if (revalidationInstalled || typeof window === "undefined") return;
+  revalidationInstalled = true;
+  const revalidate = () => fetchSeasonGames().catch(() => {});
+  window.addEventListener("focus", revalidate);
+  window.addEventListener("online", revalidate);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") revalidate();
+  });
+  setInterval(revalidate, TTL); // catches "open for hours, never blurred"
+}
+
 export function subscribe(fn) {
   subs.add(fn);
+  installRevalidation();
   return () => subs.delete(fn);
 }
 function notify() {
@@ -74,15 +96,27 @@ export function fetchSeasonGames(opts = {}) {
 
   inflight = fetch("/api/getSeasonGames")
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-    .then((raw) => {
-      games = processIncomingDataEvents(Array.isArray(raw) ? raw : []);
+    .then((body) => {
+      // Response is { fetchedAt, games } (tolerate a bare array too, transition).
+      const stamp = body && !Array.isArray(body) ? body.fetchedAt || null : null;
+      const raw = Array.isArray(body) ? body : (body && body.games) || [];
+
+      // Unchanged snapshot → reset freshness, but DON'T reprocess/notify (skips
+      // reprocessing 459 games + all consumer re-renders/re-filters).
+      if (games !== null && stamp && stamp === fetchedAt) {
+        ts = Date.now();
+        return games;
+      }
+
+      fetchedAt = stamp;
+      games = processIncomingDataEvents(raw);
       ts = Date.now();
       persist();
+      notify();
       return games;
     })
     .finally(() => {
       inflight = null;
     });
-  inflight.then(() => notify(), () => {});
   return inflight;
 }

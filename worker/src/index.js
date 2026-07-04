@@ -278,7 +278,11 @@ async function handleGetSeasonGames(url) {
   });
   const list = Array.isArray(games) ? games : [];
   // date is "YYYY-MM-DD HH:mm" → lexical sort is chronological.
-  return list.map(buildExtGame).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const built = list.map(buildExtGame).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // Stamp WHEN this snapshot was fetched from tulospalvelu. Frozen into the 24 h
+  // Cache-API entry, so every client that gets the cached response sees the same
+  // `fetchedAt` → the client can skip reprocessing/merging when it's unchanged.
+  return { fetchedAt: new Date().toISOString(), games: built };
 }
 
 /* --------------------------------- router --------------------------------- */
