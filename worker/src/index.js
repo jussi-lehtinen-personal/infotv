@@ -439,6 +439,30 @@ function buildBoxScore(report, meta) {
   };
 }
 
+// game/helpers/getrosters → the GAME lineups (who dressed): number, name, role
+// (MV=goalie / KP=field), captain, line + staff (coaches). Withheld → empty.
+function rosterPlayer(p) {
+  return {
+    number: p.JerseyNr || "",
+    last: p.LastName || "",
+    first: p.FirstName || "",
+    role: p.RoleAbbrv || "",
+    captain: p.Captain || "",
+    line: p.Line,
+  };
+}
+function buildRosters(r) {
+  const side = (roster) => ({
+    players: ((roster && roster.Players) || []).map(rosterPlayer),
+    staff: ((roster && roster.Staff) || []).map((s) => ({
+      last: s.LastName || "",
+      first: s.FirstName || "",
+      role: s.RoleName || "",
+    })),
+  });
+  return { home: side(r.HomeTeamGameRoster), away: side(r.AwayTeamGameRoster) };
+}
+
 const TTL_REPORT_LIVE_S = 30; // in progress: keep fresh
 const TTL_REPORT_UPCOMING_S = 5 * 60; // not started yet
 const TTL_REPORT_FINISHED_S = 24 * 60 * 60; // final: immutable
@@ -469,8 +493,12 @@ async function handleGetGameReport(url, env, ctx) {
   }
 
   const season = seasonFromDate(date);
-  const report = await tpGet("gamereport/getgamereportdata", { season, gameid: realId });
+  const [report, rostersRaw] = await Promise.all([
+    tpGet("gamereport/getgamereportdata", { season, gameid: realId }),
+    tpGet("game/helpers/getrosters", { gameid: realId, season }).catch(() => null),
+  ]);
   const box = buildBoxScore(report, { realId, season });
+  box.rosters = rostersRaw ? buildRosters(rostersRaw) : null;
   const ttl = box.finished
     ? TTL_REPORT_FINISHED_S
     : box.started
@@ -525,7 +553,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "4";
+const CACHE_VERSION = "5";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;

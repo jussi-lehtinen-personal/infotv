@@ -56,6 +56,7 @@ const BoxScore = () => {
     () => (state && state.game) || peekSeasonGames().find((g) => String(g.id) === String(id)) || null
   );
   const [report, setReport] = useState(undefined); // undefined=loading, null=none, obj
+  const [tab, setTab] = useState("events"); // "events" | "rosters"
 
   useEffect(() => {
     if (game) return;
@@ -107,9 +108,35 @@ const BoxScore = () => {
             )}
             {report && (
               <>
-                <Timeline report={report} />
-                <Goalies goalies={report.goalies} game={game} />
-                <Footer report={report} game={game} />
+                <div className="bx-tabs" role="tablist">
+                  <button
+                    type="button"
+                    className={`bx-tab${tab === "events" ? " is-active" : ""}`}
+                    role="tab"
+                    aria-selected={tab === "events"}
+                    onClick={() => setTab("events")}
+                  >
+                    Tapahtumat
+                  </button>
+                  <button
+                    type="button"
+                    className={`bx-tab${tab === "rosters" ? " is-active" : ""}`}
+                    role="tab"
+                    aria-selected={tab === "rosters"}
+                    onClick={() => setTab("rosters")}
+                  >
+                    Kokoonpanot
+                  </button>
+                </div>
+                {tab === "events" ? (
+                  <>
+                    <Timeline report={report} />
+                    <Goalies goalies={report.goalies} game={game} />
+                    <Footer report={report} game={game} />
+                  </>
+                ) : (
+                  <Rosters rosters={report.rosters} game={game} />
+                )}
               </>
             )}
           </div>
@@ -268,6 +295,65 @@ const Goalies = ({ goalies, game }) => {
           })
         )}
       </div>
+    </div>
+  );
+};
+
+// "MIKKOLA" + "Jusu" → "Mikkola Jusu"
+const personName = (last, first) =>
+  `${String(last || "")
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w))
+    .join(" ")} ${first || ""}`.trim();
+
+const RosterTeam = ({ side, logo, name }) => {
+  const players = [...((side && side.players) || [])].sort((a, b) => {
+    const ga = a.role === "MV" ? 0 : 1;
+    const gb = b.role === "MV" ? 0 : 1;
+    if (ga !== gb) return ga - gb;
+    return (Number(a.number) || 99) - (Number(b.number) || 99);
+  });
+  const staff = (side && side.staff) || [];
+  return (
+    <div className="bx-rteam">
+      <div className="bx-rteam-head">
+        <img className="bx-rteam-logo" src={logo} alt="" />
+        <span>{splitTeamName(name || "").main}</span>
+      </div>
+      <div className="bx-rlist">
+        {players.map((p, i) => (
+          <div className="bx-rplayer" key={i}>
+            <span className="bx-rnum">{p.number}</span>
+            <span className="bx-rname">{personName(p.last, p.first)}</span>
+            {p.role === "MV" && <span className="bx-rtag">MV</span>}
+            {p.captain && <span className="bx-rtag bx-rtag--c">{p.captain}</span>}
+          </div>
+        ))}
+      </div>
+      {staff.length > 0 && (
+        <div className="bx-rstaff">
+          {staff.map((s, i) => (
+            <div className="bx-rstaff-row" key={i}>
+              <span>{personName(s.last, s.first)}</span>
+              <span className="bx-rstaff-role">{s.role}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Rosters = ({ rosters, game }) => {
+  const empty =
+    !rosters || (!(rosters.home && rosters.home.players.length) && !(rosters.away && rosters.away.players.length));
+  if (empty) {
+    return <div className="bx-note">Kokoonpanoja ei ole saatavilla tälle ottelulle.</div>;
+  }
+  return (
+    <div className="bx-rosters">
+      <RosterTeam side={rosters.home} logo={game.home_logo} name={game.home} />
+      <RosterTeam side={rosters.away} logo={game.away_logo} name={game.away} />
     </div>
   );
 };
@@ -453,6 +539,51 @@ body { margin: 0; }
   font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* TABS */
+.bx-tabs { display: flex; gap: 4px; margin: 2px 0 14px; border-bottom: 1px solid rgba(255,255,255,0.10); }
+.bx-tab {
+  flex: 1 1 auto; padding: 10px 8px; background: none; border: none; cursor: pointer;
+  font-size: var(--gz-fs-sm); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--gz-text-tertiary); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  -webkit-tap-highlight-color: transparent;
+}
+.bx-tab.is-active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+/* ROSTERS (Kokoonpanot) */
+.bx-rosters { display: flex; flex-direction: column; gap: 18px; }
+.bx-rteam-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+  font-size: var(--gz-fs-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--gz-text-primary);
+}
+.bx-rteam-logo {
+  width: 26px; height: 26px; box-sizing: border-box; border-radius: 6px;
+  background: #fff; object-fit: contain; padding: 2px;
+}
+.bx-rlist { display: flex; flex-direction: column; }
+.bx-rplayer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: var(--gz-fs-sm);
+}
+.bx-rnum {
+  flex: 0 0 26px; text-align: center; font-weight: 800; color: var(--gz-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.bx-rname { flex: 1 1 auto; min-width: 0; color: var(--gz-text-primary); font-weight: 600; }
+.bx-rtag {
+  flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
+  padding: 1px 5px; border-radius: 4px;
+  color: var(--gz-text-tertiary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+}
+.bx-rtag--c { color: var(--color-primary); background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.30); }
+.bx-rstaff {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.bx-rstaff-row { display: flex; justify-content: space-between; gap: 10px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
+.bx-rstaff-role { flex: 0 0 auto; }
 
 /* GOALIES */
 .bx-section { margin-bottom: 16px; }
