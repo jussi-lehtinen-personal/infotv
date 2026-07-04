@@ -10,9 +10,8 @@ import {
   getMonday,
   getMatchLink,
   loadFavouriteTeams,
-  isGameForFavouriteTeam,
-  resolveFavouriteMatchers,
 } from "../Util";
+import { isGameForAnyFavourite } from "../lib/teamMatch";
 import { themeCSS } from "../theme";
 import { ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
@@ -100,24 +99,6 @@ const Gamezone = () => {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
-  // Tulospalvelu teams (for resolving Jopox favourites -> levelGroups by name).
-  const [tpTeams, setTpTeams] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/getTeams")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => { if (!cancelled && Array.isArray(d)) setTpTeams(d); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  // Suosikit peleihin matchattaviksi: Jopox-suosikit ratkaistaan getTeams:sta
-  // nimen perusteella (kausikestävä), vanhat tp-natiivit sellaisenaan.
-  const favouriteMatchers = useMemo(
-    () => resolveFavouriteMatchers(favouriteTeams, tpTeams),
-    [favouriteTeams, tpTeams]
-  );
 
   useEffect(() => {
     try { localStorage.setItem("ahma_only_home", onlyHome ? "1" : "0"); } catch {}
@@ -325,7 +306,6 @@ const Gamezone = () => {
     // Favourites are hidden from signed-out users → filter/empty-state off.
     onlyFavourites: !!user && onlyFavourites,
     favouriteTeams,
-    favouriteMatchers,
   };
 
   return (
@@ -492,7 +472,6 @@ function WeekList({
   onlyHome,
   onlyFavourites,
   favouriteTeams,
-  favouriteMatchers,
   isCurrent,
   loading,
   bgFetching,
@@ -530,11 +509,11 @@ function WeekList({
     }
     if (showOptions && onlyFavourites && favouriteTeams.length > 0) {
       result = result
-        .map((g) => ({ ...g, items: g.items.filter((m) => isGameForFavouriteTeam(m, favouriteMatchers)) }))
+        .map((g) => ({ ...g, items: g.items.filter((m) => isGameForAnyFavourite(m, favouriteTeams)) }))
         .filter((g) => g.items.length > 0);
     }
     return result;
-  }, [groups, showOptions, onlyHome, onlyFavourites, favouriteTeams, favouriteMatchers]);
+  }, [groups, showOptions, onlyHome, onlyFavourites, favouriteTeams]);
 
   const renderDayBlock = (g) => (
     <div key={g.day} className="gz-dayblock">

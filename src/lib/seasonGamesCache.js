@@ -1,4 +1,5 @@
-import { processIncomingDataEvents } from "../Util";
+import moment from "moment";
+import { getMonday, processIncomingDataEvents } from "../Util";
 
 // Single client cache for the WHOLE season's Kiekko-Ahma games (from
 // /api/getSeasonGames → worker → all ~35 series). This is the one source that
@@ -24,6 +25,30 @@ let fetchedAt = null; // worker's snapshot stamp — unchanged ⇒ skip reproces
 let inflight = null;
 const subs = new Set();
 
+// The Monday ("YYYY-MM-DD") of a week. Accepts a Date or a game-date string
+// ("YYYY-MM-DD HH:mm"). getMonday mutates, so always pass it a copy.
+export const mondayOf = (date) => {
+  const d = date instanceof Date ? new Date(date) : new Date(String(date).replace(" ", "T"));
+  return moment(getMonday(d)).format("YYYY-MM-DD");
+};
+
+// Precomputed week index so consumers do O(1) lookups instead of filtering all
+// ~459 games with moment per render. Rebuilt once whenever `games` changes.
+let weekIndex = null; // Map<mondayStr, game[]>
+function rebuildIndex() {
+  const idx = new Map();
+  for (const g of games || []) {
+    const mon = mondayOf(g.date);
+    let arr = idx.get(mon);
+    if (!arr) {
+      arr = [];
+      idx.set(mon, arr);
+    }
+    arr.push(g);
+  }
+  weekIndex = idx;
+}
+
 (function hydrate() {
   try {
     const raw = JSON.parse(localStorage.getItem(LS_KEY));
@@ -31,6 +56,7 @@ const subs = new Set();
       games = raw.games;
       ts = raw.ts;
       fetchedAt = raw.fetchedAt || null;
+      rebuildIndex();
     }
   } catch {
     /* ignore */
@@ -86,6 +112,16 @@ export function peekSeasonGames() {
 export function isSeasonLoaded() {
   return games !== null;
 }
+export function isSeasonFetching() {
+  return inflight !== null;
+}
+
+// Games in the week starting `monday` ("YYYY-MM-DD"), home-only unless includeAway.
+// O(1) week lookup + a small per-week filter.
+export function gamesForWeek(monday, includeAway) {
+  const wk = (weekIndex && weekIndex.get(monday)) || [];
+  return includeAway ? wk : wk.filter((g) => g.isHomeGame);
+}
 
 // Fetch/revalidate the season schedule (SWR): returns cached if fresh, else
 // fetches (deduped), processes, stores, notifies.
@@ -110,6 +146,7 @@ export function fetchSeasonGames(opts = {}) {
 
       fetchedAt = stamp;
       games = processIncomingDataEvents(raw);
+      rebuildIndex();
       ts = Date.now();
       persist();
       notify();
