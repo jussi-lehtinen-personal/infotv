@@ -233,18 +233,22 @@ const EventRow = ({ e }) => {
   const isExtra = !isGoal && !isPen; // gk (MV) / timeout (AL)
 
   const rawName = isGoal ? e.scorer.name || "" : isPen ? e.player.name || "" : "";
-  const name = isExtra
-    ? e.kind === "gk"
-      ? formatName(e.name)
-      : e.name
-    : isPen && (!rawName.trim() || /^\s*null\b/i.test(rawName))
-    ? "Joukkuerangaistus"
-    : formatName(rawName);
-  const sub = isGoal
-    ? (e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "")
-    : isPen
-    ? e.reason || ""
-    : e.sub || "";
+  let name;
+  let sub;
+  if (isGoal) {
+    name = formatName(rawName);
+    sub = e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "";
+  } else if (isPen) {
+    name = !rawName.trim() || /^\s*null\b/i.test(rawName) ? "Joukkuerangaistus" : formatName(rawName);
+    sub = e.reason || "";
+  } else if (e.kind === "gk") {
+    const gk = formatName(e.name);
+    name = gk || e.sub; // the goalie's name, or the action itself when no name is given
+    sub = gk ? e.sub : "";
+  } else {
+    name = e.name; // timeout → "Aikalisä"
+    sub = "";
+  }
   const strength = isGoal && e.strength === "YV" ? "Ylivoima" : isGoal && e.strength === "AV" ? "Alivoima" : null;
 
   const badge = isGoal ? "MAALI" : isPen ? "JÄÄHY" : e.badge; // MV / AL
