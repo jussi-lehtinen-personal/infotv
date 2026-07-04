@@ -11,11 +11,12 @@ import { processIncomingDataEvents } from "../Util";
 
 const VERSION = 1;
 const LS_KEY = `ahma.seasonGames.v${VERSION}`;
-// Short revalidation window (the long 24 h cache lives in the worker only, to
-// avoid layered TTLs compounding). localStorage still paints instantly (SWR);
-// consumers call fetchSeasonGames() on mount to revalidate through the cheap
-// cached Azure/worker layers.
-const TTL = 5 * 60_000; // 5 min
+// Client revalidation window. The long 24 h cache lives in the worker only (to
+// avoid layered TTLs compounding); Azure + browser stay at 5 min. The client can
+// be calmer (30 min) since the schedule is very stable and localStorage paints
+// instantly anyway (SWR) — consumers call fetchSeasonGames() on mount to
+// revalidate through the cheap cached Azure/worker layers.
+const TTL = 30 * 60_000; // 30 min
 
 let games = null; // processed games array (null = not loaded)
 let ts = 0;
