@@ -90,8 +90,13 @@ const EventRow = ({ e, expanded, onToggle }) => {
   const played = tp && Number(tp.finished) > 0;
   const score = played ? `${tp.home_goals ?? ""}–${tp.away_goals ?? ""}` : null;
   // Games: show just the opponent (the favourite is already on the team line)
-  // so the long "Kiekko-Ahma – X" doesn't crowd out the time on the right.
-  const heading = isGame && tp ? opponentName(tp) || e.title : e.title;
+  // so the long "Kiekko-Ahma – X" doesn't crowd out the time on the right. For
+  // Jopox-only games with a blank home team the title comes as "– Diskos U14";
+  // strip a dangling leading/trailing dash so it never renders as "– Team".
+  const rawHeading = isGame && tp ? opponentName(tp) || e.title : e.title;
+  const heading = isGame
+    ? String(rawHeading || "").replace(/^\s*[–-]\s*/, "").replace(/\s*[–-]\s*$/, "").trim() || rawHeading
+    : rawHeading;
   const detailKey = `${e.subsiteId}|${e.eventId}`;
   const [desc, setDesc] = useState(() => detailCache.get(detailKey));
 
