@@ -7,6 +7,7 @@ import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { loadFavouriteTeams } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
+import { useTpGame, opponentLogo } from "../lib/agenda";
 
 moment.locale("fi");
 
@@ -92,6 +93,9 @@ const dayLabel = (key) => {
 const EventRow = ({ e, expanded, onToggle }) => {
   const isGame = e.type === "game";
   const range = timeRange(e);
+  // Enrich games with tulospalvelu data (opponent logo now; live score later).
+  const tpGame = useTpGame(e);
+  const oppLogo = opponentLogo(tpGame);
   const detailKey = `${e.subsiteId}|${e.eventId}`;
   const [desc, setDesc] = useState(() => detailCache.get(detailKey));
 
@@ -128,8 +132,14 @@ const EventRow = ({ e, expanded, onToggle }) => {
         onClick={onToggle}
         aria-expanded={expanded}
       >
-        <div className="fd-event-icon">
-          {isGame ? <LuTrophy aria-hidden="true" /> : <LuCalendarDays aria-hidden="true" />}
+        <div className={`fd-event-icon${isGame && oppLogo ? " fd-event-icon--logo" : ""}`}>
+          {isGame && oppLogo ? (
+            <img className="fd-event-opplogo" src={oppLogo} alt="" />
+          ) : isGame ? (
+            <LuTrophy aria-hidden="true" />
+          ) : (
+            <LuCalendarDays aria-hidden="true" />
+          )}
         </div>
         <div className="fd-event-main">
           {e.teamName && <div className="fd-event-team">{e.teamName}</div>}
@@ -569,6 +579,9 @@ body { margin: 0; }
 }
 .fd-event--game .fd-event-icon { background: rgba(245,158,11,0.15); color: var(--color-primary); }
 .fd-event-icon svg { width: 20px; height: 20px; }
+/* Opponent logo replaces the trophy once the tulospalvelu game is matched. */
+.fd-event-icon--logo { background: rgba(255,255,255,0.06); }
+.fd-event-opplogo { width: 30px; height: 30px; object-fit: contain; }
 .fd-event-main { flex: 1; min-width: 0; }
 .fd-event-team {
   font-size: var(--gz-fs-xs); font-weight: 800;

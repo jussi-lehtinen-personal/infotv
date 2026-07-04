@@ -56,6 +56,8 @@ function transformEvent(e) {
             : decodeEntities(e.title),
         subtitle: decodeEntities(e.subtitle) || null,
         league: decodeEntities(e.leagueName) || null,
+        gameHometeam: decodeEntities(e.gameHometeam) || null,
+        gameGuestteam: decodeEntities(e.gameGuestteam) || null,
         awayGame: !!e.awayGame,
         date: e.date || null,
         uiDate: decodeEntities(e.uiDate) || null,
