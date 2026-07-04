@@ -59,6 +59,26 @@ const timeRange = (e) => {
 // Chronological sort key from an agenda item's date ("YYYY-MM-DD HH:mm" or ISO).
 const sortKey = (e) => String(e.date || "").replace(" ", "T");
 
+// Tag each GAME with which source(s) it came from, so out-of-sync entries stand
+// out (a QA aid — this is how the U14 wrong-time bug surfaced):
+//   both   tp + Jopox matched (same date+time)      → in sync
+//   tp     only tulospalvelu (not in Jopox calendar)
+//   jopox  only Jopox (friendly/tournament, no tp)
+// A game entered at two different times shows as two same-day cards (one "tp",
+// one "jopox") — the discrepancy reads directly off the tags, so we don't try to
+// infer a "same game, wrong time" link (can't tell it from two genuinely
+// different games on one day). Practices get no source tag. Mutates + returns.
+const gameSource = (e) => (e.tp && e.eventId ? "both" : e.tp ? "tp" : "jopox");
+function annotateSources(items) {
+  for (const it of items) it.source = it.type === "game" ? gameSource(it) : null;
+  return items;
+}
+const SOURCE_LABEL = {
+  both: "Molemmat",
+  tp: "Vain tulospalvelu",
+  jopox: "Vain Jopox",
+};
+
 // The "Minä" feed: a signed-in user's favourite team(s) upcoming events
 // (harjoitukset + games), sourced from the PUBLIC Jopox calendar API via the
 // getTeamEvents proxy. Multiple favourites are INTERLEAVED into one
@@ -148,6 +168,11 @@ const EventRow = ({ e, expanded, onToggle }) => {
               {e.teamName}
               {isGame && e.home != null && (
                 <span className="fd-event-ha">{e.home ? "koti" : "vieras"}</span>
+              )}
+              {isGame && e.source && (
+                <span className={`fd-src fd-src--${e.source}`}>
+                  {SOURCE_LABEL[e.source]}
+                </span>
               )}
             </div>
           )}
@@ -267,9 +292,10 @@ const Feed = () => {
         const tp = peekSeasonGames().filter((g) => isGameForFavourite(g, t));
         all.push(...buildTeamAgenda(jopox, tp, t.name, t.subsiteId));
       });
-      return all
+      const upcoming = all
         .filter((e) => String(e.date || "").slice(0, 10) >= todayStr)
         .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+      return annotateSources(upcoming);
     };
     const rebuild = () => { if (!cancelled) setEvents(computeMerged()); };
 
@@ -650,6 +676,15 @@ body { margin: 0; }
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.10);
 }
+/* Data-source chip: which system(s) a game came from (QA aid, spot out-of-sync) */
+.fd-src {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 999px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.fd-src--both   { color: #4ade80; background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.35); }
+.fd-src--tp     { color: #fbbf24; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
+.fd-src--jopox  { color: #60a5fa; background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.38); }
 .fd-event-title {
   font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
   color: var(--gz-text-primary);
