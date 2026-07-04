@@ -207,28 +207,49 @@ const Timeline = ({ report }) => {
   }, [report]);
 
   const periods = report.periods || [];
-  // The LAST periods entry is the game total, so played periods = length - 1
-  // (fall back to events if the period list is missing). A shootout's winning
-  // goal is logged in a period BEYOND the total → it's excluded here (it belongs
-  // to the Voittomaalikilpailu section, not the timeline).
+  const finType = report.finishedType || 0;
   const maxEvPeriod = byPeriod.size ? Math.max(...byPeriod.keys()) : 0;
-  const played = periods.length > 1 ? periods.length - 1 : maxEvPeriod;
-  if (played <= 0) return null;
+  // Regular periods = the PeriodGoals minus the total, capped at 3.
+  const regCount = Math.max(0, periods.length - 1) ? Math.min(3, periods.length - 1) : Math.min(3, maxEvPeriod);
 
-  const periodLabel = (n) => (n <= 3 ? `${n}. erä` : `${n - 3}. jatkoerä`);
-  const periodScore = (n) => periods[n - 1] && periods[n - 1].replace("-", " – ");
+  const blocks = [];
+  for (let n = 1; n <= regCount; n++) {
+    blocks.push({
+      label: `${n}. erä`,
+      score: periods[n - 1] ? periods[n - 1].replace("-", " – ") : null,
+      events: byPeriod.get(n) || [],
+    });
+  }
+
+  // Overtime: tulospalvelu logs the OT/shootout decider in a period BEYOND the 3
+  // regulars (the PeriodGoals "0-0" OT cell is an unreliable placeholder). Gather
+  // every event past period 3 into a "jatkoerä". For a shootout (finType 3) the
+  // decider is a goal that belongs to the Voittomaalikilpailu section → drop it;
+  // for OT (finType 2) the OT winner stays. Derive the OT score from its goals.
+  if (finType >= 2 || maxEvPeriod > 3) {
+    let ot = [];
+    for (const [p, evs] of byPeriod) if (p > 3) ot = ot.concat(evs);
+    if (finType === 3) ot = ot.filter((e) => e.kind !== "goal");
+    ot.sort((a, b) => toSecs(a.time) - toSecs(b.time));
+    let oh = 0;
+    let oa = 0;
+    for (const e of ot) if (e.kind === "goal") e.side === "home" ? (oh += 1) : (oa += 1);
+    blocks.push({ label: "Jatkoaika", score: `${oh} – ${oa}`, events: ot });
+  }
+
+  if (blocks.length === 0) return null;
 
   return (
     <div className="bx-timeline">
-      {Array.from({ length: played }, (_, i) => i + 1).map((n) => (
-        <div className="bx-per" key={n}>
+      {blocks.map((b, i) => (
+        <div className="bx-per" key={i}>
           <div className="bx-per-head">
-            <span>{periodLabel(n)}</span>
-            {periodScore(n) && <span className="bx-per-score">{periodScore(n)}</span>}
+            <span>{b.label}</span>
+            {b.score && <span className="bx-per-score">{b.score}</span>}
           </div>
           <div className="bx-per-evs">
-            {(byPeriod.get(n) || []).map((e, i) => (
-              <EventRow key={i} e={e} />
+            {b.events.map((e, j) => (
+              <EventRow key={j} e={e} />
             ))}
           </div>
         </div>
