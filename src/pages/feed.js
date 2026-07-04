@@ -7,7 +7,9 @@ import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { loadFavouriteTeams } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
-import { useTpGame, opponentLogo } from "../lib/agenda";
+import { buildTeamAgenda, opponentLogo } from "../lib/agenda";
+import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
+import { isGameForFavourite } from "../lib/teamMatch";
 
 moment.locale("fi");
 
@@ -46,9 +48,6 @@ const saveCardState = (obj) => {
   }
 };
 
-// Stable id for an event (react key + card-state key).
-const eventKey = (e) => e.eventId ?? `${e.date}|${e.title}`;
-
 // Pull the "17.00 - 19.00" time range out of the subtitle ("13.07.2026 17.00 -
 // 19.00, Wareena"); fall back to just the start time.
 const timeRange = (e) => {
@@ -57,16 +56,8 @@ const timeRange = (e) => {
   return e.uiTime || null;
 };
 
-// Tag each team's events with its name and interleave into one sorted stream.
-const mergeStream = (teams, listsPerTeam) => {
-  const out = [];
-  teams.forEach((t, i) => {
-    for (const e of listsPerTeam[i] || []) {
-      out.push({ ...e, teamName: t.name, subsiteId: t.subsiteId });
-    }
-  });
-  return out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-};
+// Chronological sort key from an agenda item's date ("YYYY-MM-DD HH:mm" or ISO).
+const sortKey = (e) => String(e.date || "").replace(" ", "T");
 
 // The "Minä" feed: a signed-in user's favourite team(s) upcoming events
 // (harjoitukset + games), sourced from the PUBLIC Jopox calendar API via the
@@ -93,9 +84,11 @@ const dayLabel = (key) => {
 const EventRow = ({ e, expanded, onToggle }) => {
   const isGame = e.type === "game";
   const range = timeRange(e);
-  // Enrich games with tulospalvelu data (opponent logo now; live score later).
-  const tpGame = useTpGame(e);
-  const oppLogo = opponentLogo(tpGame);
+  // The tulospalvelu game (logos/score) is already on the item (buildTeamAgenda).
+  const tp = e.tp;
+  const oppLogo = opponentLogo(tp);
+  const played = tp && Number(tp.finished) > 0;
+  const score = played ? `${tp.home_goals ?? ""}–${tp.away_goals ?? ""}` : null;
   const detailKey = `${e.subsiteId}|${e.eventId}`;
   const [desc, setDesc] = useState(() => detailCache.get(detailKey));
 
@@ -146,7 +139,11 @@ const EventRow = ({ e, expanded, onToggle }) => {
           <div className="fd-event-title">{e.title}</div>
         </div>
         <div className="fd-event-when">
-          {e.uiTime && <div className="fd-event-time">klo {e.uiTime}</div>}
+          {score ? (
+            <div className="fd-event-score">{score}</div>
+          ) : e.uiTime ? (
+            <div className="fd-event-time">klo {e.uiTime}</div>
+          ) : null}
         </div>
         <LuChevronDown className="fd-event-chev" aria-hidden="true" />
       </button>
@@ -171,10 +168,10 @@ const EventRow = ({ e, expanded, onToggle }) => {
               <span>{e.league}</span>
             </div>
           )}
-          {isGame && (
+          {isGame && e.home != null && (
             <div className="fd-detail">
               <LuPlane className="fd-detail-ico" aria-hidden="true" />
-              <span>{e.awayGame ? "Vieraspeli" : "Kotipeli"}</span>
+              <span>{e.home ? "Kotipeli" : "Vieraspeli"}</span>
             </div>
           )}
           {desc && <div className="fd-event-desc">{desc}</div>}
@@ -230,9 +227,12 @@ const Feed = () => {
   // Stable dependency for the fetch effect (array ref changes every render).
   const teamsKey = teams.map((t) => t.subsiteId).join(",");
 
-  // Fetch each favourite team's events (stale-while-revalidate): seed instantly
-  // from cache (no spinner / no list reset → scroll stays put), then revalidate
-  // only stale/missing teams in the background and update in place.
+  // Build the merged agenda per favourite: Jopox events (harjoitukset + Jopox
+  // games, from getTeamEvents) ⊕ the team's tulospalvelu games (from the season
+  // cache, filtered by age) — deduped by date+time so tp-only games (e.g. U15
+  // sarjapelit not in Jopox) also show. Interleave all favourites chronologically.
+  // SWR: seed from caches, revalidate Jopox + the season schedule in the bg.
+  const jopoxRef = useRef([]);
   useEffect(() => {
     if (!user || teams.length === 0) {
       setEvents(null);
@@ -241,15 +241,29 @@ const Feed = () => {
     let cancelled = false;
     const now = Date.now();
 
-    // Seed from any cached team data so the list paints immediately.
-    const seed = teams.map((t) => eventsCache.get(String(t.subsiteId))?.events);
-    if (seed.some(Boolean)) {
-      setEvents(mergeStream(teams, seed.map((l) => l || [])));
-    } else {
-      setEvents(null); // nothing cached yet → show the spinner once
-    }
+    const computeMerged = () => {
+      const all = [];
+      teams.forEach((t, i) => {
+        const jopox = jopoxRef.current[i] || [];
+        const tp = peekSeasonGames().filter((g) => isGameForFavourite(g, t));
+        all.push(...buildTeamAgenda(jopox, tp, t.name));
+      });
+      all.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+      return all;
+    };
+    const rebuild = () => { if (!cancelled) setEvents(computeMerged()); };
+
+    // Seed from caches so the list paints immediately.
+    jopoxRef.current = teams.map((t) => eventsCache.get(String(t.subsiteId))?.events || null);
+    if (jopoxRef.current.some(Boolean) || peekSeasonGames().length) rebuild();
+    else setEvents(null);
     setEventsError(false);
 
+    // Load/revalidate the season schedule + re-merge when it arrives or updates.
+    fetchSeasonGames().catch(() => {});
+    const unsub = subscribeSeason(rebuild);
+
+    // Fetch each team's Jopox events (SWR from eventsCache).
     let anyError = false;
     Promise.all(
       teams.map((t) => {
@@ -267,11 +281,13 @@ const Feed = () => {
       })
     ).then((lists) => {
       if (cancelled) return;
-      const merged = mergeStream(teams, lists);
+      jopoxRef.current = lists;
+      const merged = computeMerged();
       setEvents(merged);
       setEventsError(anyError && merged.length === 0);
     });
-    return () => { cancelled = true; };
+
+    return () => { cancelled = true; unsub(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId, teamsKey]);
 
@@ -289,16 +305,16 @@ const Feed = () => {
       .map((key) => ({ key, label: dayLabel(key), items: map.get(key) }));
   }, [events]);
 
-  // Default-expanded = each team's NEXT (earliest) event only. events are sorted
-  // ascending, so the first event seen per subsiteId is that team's next one.
+  // Default-expanded = each team's NEXT (earliest) item only. events are sorted
+  // ascending, so the first item seen per team is that team's next one.
   const defaultExpanded = useMemo(() => {
     const seenTeam = new Set();
     const ids = new Set();
     for (const e of events || []) {
-      const sid = String(e.subsiteId);
-      if (!seenTeam.has(sid)) {
-        seenTeam.add(sid);
-        ids.add(eventKey(e));
+      const tn = String(e.teamName);
+      if (!seenTeam.has(tn)) {
+        seenTeam.add(tn);
+        ids.add(e.key);
       }
     }
     return ids;
@@ -402,7 +418,7 @@ const Feed = () => {
                   <div className="fd-day-head">{d.label}</div>
                   <div className="fd-events">
                     {d.items.map((e) => {
-                      const id = eventKey(e);
+                      const id = e.key;
                       const expanded = id in cardState ? cardState[id] : defaultExpanded.has(id);
                       return (
                         <EventRow
@@ -596,6 +612,12 @@ body { margin: 0; }
 }
 .fd-event-when { flex: 0 0 auto; text-align: right; }
 .fd-event-time { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-bold); color: var(--gz-text-secondary); }
+.fd-event-score {
+  font-size: var(--gz-fs-md); font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
 .fd-event-chev {
   flex: 0 0 auto; width: 18px; height: 18px;
   color: var(--gz-text-tertiary);
