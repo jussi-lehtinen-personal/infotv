@@ -140,7 +140,7 @@ const Gamezone = () => {
     loading, bgFetching,
   } = useWeekData(timestamp, includeAway);
 
-  const { request: requestAvailability, getCount: getWeekCount } = useLazyAvailability(includeAway);
+  const { request: requestAvailability, getCount: getWeekCount, isPending: isWeekPending } = useLazyAvailability(includeAway);
 
   // A long, freely-scrollable range of weeks (~1 year back, ~2 forward). The
   // strip lazy-loads availability for visible weeks; this list itself is static.
@@ -374,6 +374,7 @@ const Gamezone = () => {
             onSelect={goToWeek}
             getCount={getWeekCount}
             request={requestAvailability}
+            isPending={isWeekPending}
           />
         </div>
       </div>
@@ -403,7 +404,7 @@ export default Gamezone;
 /*          WEEK STRIP           */
 /* ============================= */
 
-function WeekStrip({ weeks, selectedKey, onSelect, getCount, request }) {
+function WeekStrip({ weeks, selectedKey, onSelect, getCount, request, isPending }) {
   const scrollRef = useRef(null);
   const selRef = useRef(null);
   const firstCenter = useRef(true);
@@ -454,7 +455,9 @@ function WeekStrip({ weeks, selectedKey, onSelect, getCount, request }) {
         {weeks.map((w) => {
           const sel = w.key === selectedKey;
           const wk = moment(w.monday).isoWeek();
-          const hasGames = getCount(w.key) > 0;
+          const count = getCount(w.key);
+          const hasGames = count > 0;
+          const loading = count === undefined && isPending(w.key);
           return (
             <button
               key={w.key}
@@ -465,7 +468,7 @@ function WeekStrip({ weeks, selectedKey, onSelect, getCount, request }) {
             >
               <span className="gz-week-num">VK {wk}</span>
               <span className="gz-week-range">{computeWeekRange(w.monday)}</span>
-              <span className={`gz-week-dot${hasGames ? " gz-week-dot--games" : ""}`} />
+              <span className={`gz-week-dot${hasGames ? " gz-week-dot--games" : ""}${loading ? " gz-week-dot--loading" : ""}`} />
             </button>
           );
         })}
@@ -866,6 +869,11 @@ html, body, #root{
   margin-top: 1px;
 }
 .gz-week-dot--games{ background: var(--color-primary); }
+.gz-week-dot--loading{ animation: gz-dot-pulse 0.9s ease-in-out infinite; }
+@keyframes gz-dot-pulse{
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50%      { opacity: 0.95; transform: scale(1.2); }
+}
 
 /* ===== CAROUSEL ===== */
 .gz-carousel-viewport{

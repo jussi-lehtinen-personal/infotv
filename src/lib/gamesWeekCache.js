@@ -95,6 +95,10 @@ function notify() {
 export function peekWeek(monday, includeAway) {
   return cache.get(keyOf(monday, includeAway));
 }
+// Is a fetch for this week currently in flight? (for loading indicators)
+export function isPendingWeek(monday, includeAway) {
+  return inflight.has(keyOf(monday, includeAway));
+}
 // Matches array (empty if unknown) — convenience for consumers that only render.
 export function peekMatches(monday, includeAway) {
   return cache.get(keyOf(monday, includeAway))?.matches ?? [];
@@ -126,8 +130,9 @@ export function fetchWeek(monday, includeAway, opts = {}) {
         inflight.delete(key);
       });
     inflight.set(key, p);
-    // Notify only on success; failures leave the (possibly stale) cache intact.
-    p.then(() => notify(), () => {});
+    notify(); // fetch STARTED → let loading indicators show
+    // Notify again on success; failures leave the (possibly stale) cache intact.
+    p.then(() => notify(), () => notify());
   }
   return p;
 }

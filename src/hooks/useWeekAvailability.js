@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
-import { fetchWeek, peekWeek, subscribe } from "../lib/gamesWeekCache";
+import { fetchWeek, peekWeek, isPendingWeek, subscribe } from "../lib/gamesWeekCache";
 
 /**
  * Lazy game-availability for the infinite VK week strip, backed by the shared
@@ -28,6 +28,12 @@ export function useLazyAvailability(includeAway) {
     [includeAway]
   );
 
+  // Is this week's count currently loading? (for the strip's loading dot)
+  const isPending = useCallback(
+    (mondayStr) => isPendingWeek(mondayStr, includeAway),
+    [includeAway]
+  );
+
   const flush = useCallback(() => {
     const weeks = [...pending.current];
     pending.current.clear();
@@ -47,5 +53,5 @@ export function useLazyAvailability(includeAway) {
     [flush, includeAway]
   );
 
-  return { request, getCount };
+  return { request, getCount, isPending };
 }
