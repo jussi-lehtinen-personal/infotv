@@ -192,39 +192,34 @@ const Timeline = ({ report }) => {
   );
 };
 
-// A hockey puck (à la the Wikipedia Ice_hockey_puck.svg): a solid short cylinder
-// seen at a slight angle — top face + side wall + bottom curve. Fills read on the
-// dark transparent token.
-const Puck = () => (
-  <svg className="bx-puck" viewBox="0 0 40 26" aria-hidden="true">
-    <path d="M3 11 a17 6 0 0 0 34 0 v5 a17 6 0 0 1 -34 0 z" fill="#333" />
-    <ellipse cx="20" cy="11" rx="17" ry="6" fill="#4d4d4d" />
-    <ellipse cx="20" cy="11" rx="17" ry="6" fill="none" stroke="#1c1c1c" strokeWidth="1.2" />
-  </svg>
-);
-
+// One event = exactly 2 rows.
+//  Row 1: [fixed-width time] [pill] [name (+strength)]. The pill ALWAYS starts
+//         with an icon (goal → puck + score; penalty → the minutes number IS the
+//         icon). Time is fixed-width and the pill follows it, so the icons line
+//         up in a column. Mirrored per side (icon on the clock side).
+//  Row 2: assists (goal) or reason (penalty) — ONE line, truncated with … (never
+//         a third row).
 const EventRow = ({ e }) => {
   const isGoal = e.kind === "goal";
-  const name = formatName(isGoal ? e.scorer.name : e.player.name);
+  // A penalty with no player marked is a team/bench penalty.
+  const name = formatName(isGoal ? e.scorer.name : e.player.name) || (isGoal ? "" : "Joukkuerangaistus");
   const sub = isGoal
     ? (e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "")
     : e.reason || "";
-  // Strength sits on the OPPOSITE end from the score token (name in between),
-  // mirrored per side by the row's flex direction.
   const strength = isGoal && e.strength === "YV" ? "Ylivoima" : isGoal && e.strength === "AV" ? "Alivoima" : null;
 
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
-      <div className="bx-ev-min">{e.time}</div>
+      <div className="bx-ev-time">{e.time}</div>
       {isGoal ? (
-        <div className="bx-ev-tok bx-ev-tok--goal">
-          <Puck />
-          {e.running.replace("-", " – ")}
+        <div className="bx-ev-pill bx-ev-pill--goal">
+          <img className="bx-puck" src="/puck.webp" alt="" />
+          <span>{e.running.replace("-", " – ")}</span>
         </div>
       ) : (
-        <div className="bx-ev-tok bx-ev-tok--pen">{e.minutes}</div>
+        <div className="bx-ev-pill bx-ev-pill--pen">{e.minutes}</div>
       )}
-      <div className="bx-ev-body">
+      <div className="bx-ev-namecol">
         <div className="bx-ev-name">
           {name}
           {strength && <span className="bx-ev-str"> ({strength})</span>}
@@ -415,41 +410,44 @@ body { margin: 0; }
   display: flex; align-items: flex-start; gap: 9px;
   padding: 9px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  width: 66%; /* fixed → the score tokens line up in a column per side */
+  width: 62%; /* per side; leaves the opposite half empty */
 }
 .bx-ev--home { margin-right: auto; }
 .bx-ev--away { margin-left: auto; flex-direction: row-reverse; text-align: right; }
-.bx-ev-min {
-  flex: 0 0 auto; width: 42px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
-  font-variant-numeric: tabular-nums;
+
+/* fixed-width time → the pill (and its leading icon) starts at a fixed x → the
+   goal-puck and the penalty-number line up in a column */
+.bx-ev-time {
+  flex: 0 0 40px; width: 40px; padding-top: 2px;
+  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); font-variant-numeric: tabular-nums;
 }
-.bx-ev--home .bx-ev-min { text-align: left; }
-.bx-ev--away .bx-ev-min { text-align: right; }
-.bx-ev-tok {
-  flex: 0 0 auto; min-width: 46px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+.bx-ev--home .bx-ev-time { text-align: left; }
+.bx-ev--away .bx-ev-time { text-align: right; }
+
+/* pill: icon FIRST (goal → puck + score; penalty → the number is the icon),
+   natural width right after the time */
+.bx-ev-pill {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 5px;
   font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
-  padding: 3px 7px; border-radius: 6px;
+  padding: 3px 8px; border-radius: 6px; box-sizing: border-box;
 }
-.bx-ev-tok--goal { color: #fff; background: transparent; border: 1px solid rgba(255,255,255,0.20); }
-.bx-ev-tok--pen { color: #1a1206; background: var(--color-primary); border: 1px solid var(--color-primary); min-width: 26px; }
-/* puck sits on the clock side (home → left of score, away → right) */
-.bx-ev--away .bx-ev-tok { flex-direction: row-reverse; }
-.bx-puck { flex: 0 0 auto; display: block; width: 18px; height: 12px; }
-.bx-ev-body { flex: 1 1 auto; min-width: 0; }
-.bx-ev-str {
-  flex: 0 0 auto; white-space: nowrap;
-  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
+.bx-ev-pill--goal { color: #fff; background: transparent; border: 1px solid rgba(255,255,255,0.20); }
+.bx-ev-pill--pen  { color: #1a1206; background: var(--color-primary); }
+.bx-ev--away .bx-ev-pill { flex-direction: row-reverse; } /* icon on the clock side */
+.bx-puck { flex: 0 0 auto; display: block; width: 14px; height: 14px; object-fit: contain; }
+
+/* name (row 1) + assists/reason (row 2) — each ONE line, truncated with … */
+.bx-ev-namecol { flex: 1 1 auto; min-width: 0; }
+.bx-ev-name {
+  font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.bx-ev-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
-.bx-jersey { color: var(--gz-text-tertiary); font-weight: 800; }
-.bx-ev-sub { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
-.bx-strength {
-  margin: 0 5px; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
-  padding: 1px 5px; border-radius: 4px; vertical-align: middle;
+.bx-ev-str { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-tertiary); }
+.bx-ev-sub {
+  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.bx-strength--yv { color: #fbbf24; background: rgba(245,158,11,0.15); }
-.bx-strength--av { color: #60a5fa; background: rgba(96,165,250,0.15); }
 
 /* GOALIES */
 .bx-section { margin-bottom: 16px; }
