@@ -207,10 +207,12 @@ const Timeline = ({ report }) => {
   }, [report]);
 
   const periods = report.periods || [];
-  // Show every PLAYED period (periods minus the total) — including an empty
-  // overtime with no events — plus any period that has events.
+  // The LAST periods entry is the game total, so played periods = length - 1
+  // (fall back to events if the period list is missing). A shootout's winning
+  // goal is logged in a period BEYOND the total → it's excluded here (it belongs
+  // to the Voittomaalikilpailu section, not the timeline).
   const maxEvPeriod = byPeriod.size ? Math.max(...byPeriod.keys()) : 0;
-  const played = Math.max(periods.length - 1, maxEvPeriod);
+  const played = periods.length > 1 ? periods.length - 1 : maxEvPeriod;
   if (played <= 0) return null;
 
   const periodLabel = (n) => (n <= 3 ? `${n}. erä` : `${n - 3}. jatkoerä`);
