@@ -202,21 +202,27 @@ const EventRow = ({ e, game }) => {
   const sub = isGoal
     ? (e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "")
     : e.reason || "";
-  const prefix = isGoal && e.strength === "YV" ? "(Ylivoima) " : isGoal && e.strength === "AV" ? "(Alivoima) " : "";
+  // Strength sits on the OPPOSITE end from the score token (name in between),
+  // mirrored per side by the row's flex direction.
+  const strength = isGoal && e.strength === "YV" ? "Ylivoima" : isGoal && e.strength === "AV" ? "Alivoima" : null;
 
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
       <div className="bx-ev-min">{e.time}</div>
       <img className="bx-ev-logo" src={logo} alt="" />
       {isGoal ? (
-        <div className="bx-ev-tok bx-ev-tok--goal">{e.running.replace("-", "–")}</div>
+        <div className="bx-ev-tok bx-ev-tok--goal">
+          <span className="bx-puck" aria-hidden="true" />
+          {e.running.replace("-", "–")}
+        </div>
       ) : (
         <div className="bx-ev-tok bx-ev-tok--pen">{e.minutes}′</div>
       )}
       <div className="bx-ev-body">
-        <div className="bx-ev-name">{prefix}{name}</div>
+        <div className="bx-ev-name">{name}</div>
         {sub && <div className="bx-ev-sub">{sub}</div>}
       </div>
+      {strength && <div className="bx-ev-str">({strength})</div>}
     </div>
   );
 };
@@ -361,7 +367,7 @@ body { margin: 0; }
   display: flex; align-items: center; gap: 9px;
   padding: 9px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  width: 82%; /* leave the opposite half empty → clearly one side */
+  max-width: 92%; /* content-sized, capped so a side stays on its half */
 }
 .bx-ev--home { margin-right: auto; }
 .bx-ev--away { margin-left: auto; flex-direction: row-reverse; text-align: right; }
@@ -376,13 +382,22 @@ body { margin: 0; }
   background: #fff; object-fit: contain; padding: 2px;
 }
 .bx-ev-tok {
-  flex: 0 0 auto; min-width: 40px; text-align: center;
+  flex: 0 0 auto; min-width: 46px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
   padding: 3px 7px; border-radius: 6px;
 }
 .bx-ev-tok--goal { color: #fff; background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.40); }
 .bx-ev-tok--pen { color: #fbbf24; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); min-width: 30px; }
-.bx-ev-body { flex: 1 1 auto; min-width: 0; }
+.bx-puck {
+  display: inline-block; width: 13px; height: 7px; border-radius: 4px;
+  background: #0b0b0b; border: 1px solid rgba(255,255,255,0.35);
+}
+.bx-ev-body { flex: 0 1 auto; min-width: 0; }
+.bx-ev-str {
+  flex: 0 0 auto; white-space: nowrap;
+  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
+}
 .bx-ev-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
 .bx-jersey { color: var(--gz-text-tertiary); font-weight: 800; }
 .bx-ev-sub { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
