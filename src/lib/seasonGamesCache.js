@@ -11,7 +11,7 @@ import { processIncomingDataEvents } from "../Util";
 
 const VERSION = 1;
 const LS_KEY = `ahma.seasonGames.v${VERSION}`;
-const TTL = 6 * 60 * 60_000; // 6 h — match the server
+const TTL = 24 * 60 * 60_000; // 24 h — match the server (fixtures set days ahead)
 
 let games = null; // processed games array (null = not loaded)
 let ts = 0;

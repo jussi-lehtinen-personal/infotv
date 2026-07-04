@@ -222,87 +222,63 @@ async function handleGetGames(url) {
 
 /* ------------------------------ getSeasonGames ---------------------------- */
 
-// The WHOLE season's Kiekko-Ahma games in ~1 call: enumerate every series Ahma
-// plays in (search — incl. the "Harjoitusottelut …" friendly series), then pull
-// each series' full game list in subserie mode (gamedays=-1) and filter Ahma.
-// Each game is tagged with the series' teamKey (from `searched`) so the client
-// can map it to a Jopox age-group without guessing from the level name (which is
-// ambiguous — U18/U20 also play divisioona). Replaces the per-week district scan.
-// ~36 subrequests total (1 search + ~35 series) — under the CF 50-subrequest cap;
-// split into batches if the club ever exceeds it. See memory: project_home_agenda.
-function buildSeasonGame(level, game, teamKey) {
-  const isHomeGame = !!(game.RinkName && /valkeakos/i.test(game.RinkName));
-  return {
-    id: game.GameID,
-    date: game.GameDateDB + " " + game.GameTime,
-    league: game.SubSerieName,
-    periods: game.PeriodSummary,
-    home: game.HomeTeamAbbrv,
-    homeTeamId: game.HomeTeam,
-    home_logo: IMAGE_URI + game.HomeImg,
-    home_goals: game.HomeGoals,
-    away: game.AwayTeamAbbrv,
-    awayTeamId: game.AwayTeam,
-    away_logo: IMAGE_URI + game.AwayImg,
-    away_goals: game.AwayGoals,
-    period: game.GameStatus,
-    finished: game.FinishedType,
-    rink: game.RinkName,
-    level: level.LevelName,
-    levelId: String(level.LevelID),
-    statGroupId: String(game.SubSerieID),
-    isHomeGame,
-    teamKey: teamKey || null,
-  };
+// The WHOLE season's Kiekko-Ahma games in ONE call via the extended game search
+// filtered by the club's Association ID (10114407) — returns every Ahma game
+// (league + "Harjoitusottelut …" friendlies) with GameID, teams (+ which side is
+// Ahma via HomeAssociation), logos, LevelName (→ age), scores/status. Replaces
+// both the per-week district scan AND the search+subserie approach (search's
+// subSerieBaseId is NOT the queryable subSerieId — different id space). 1 subrequest.
+const ASSOCIATION_ID = 10114407; // Valkeakosken Kiekko-Ahma
+
+// "15.08.2026" + "15:15" -> "2026-08-15 15:15" (our shared game date format).
+function extDate(gameDate, gameTime) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(gameDate || "");
+  const d = m ? `${m[3]}-${m[2]}-${m[1]}` : (gameDate || "");
+  return `${d} ${gameTime || ""}`.trim();
 }
 
-async function fetchSeries(season, subSerieId, teamKey, dog) {
-  const json = await tpGet("helpers/getgames", {
-    dwl: 0,
-    season,
-    subSerieId,
-    teamid: 0,
-    districtid: 0,
-    gamedays: -1, // -1 = the whole series (independent of dog)
-    dog,
-    levelid: -1,
-  });
-  const out = [];
-  for (const level of Array.isArray(json) ? json : []) {
-    for (const game of level.Games || []) {
-      const ahma =
-        /kiekko-ahma/i.test(game.HomeTeamAbbrv || "") ||
-        /kiekko-ahma/i.test(game.AwayTeamAbbrv || "");
-      if (ahma) out.push(buildSeasonGame(level, game, teamKey));
-    }
-  }
-  return out;
+function buildExtGame(g) {
+  const rink = g.RinkName || g.RinkAbbrv || null;
+  return {
+    id: g.GameID,
+    date: extDate(g.GameDate, g.GameTime),
+    league: g.LevelName,
+    periods: g.PeriodSummary,
+    home: g.HomeAbbrv,
+    homeTeamId: g.HomeTeam,
+    home_logo: IMAGE_URI + g.HomeImg,
+    home_goals: g.HomeGoals,
+    away: g.AwayAbbrv,
+    awayTeamId: g.AwayTeam,
+    away_logo: IMAGE_URI + g.AwayImg,
+    away_goals: g.AwayGoals,
+    period: g.GameStatus,
+    finished: g.FinishedType,
+    rink,
+    level: g.LevelName,
+    levelId: String(g.LevelID),
+    // Which side is Ahma (for the "my team" cards); home venue = Valkeakoski.
+    ahmaHome: g.HomeAssociation === ASSOCIATION_ID,
+    isHomeGame: !!(rink && /valkeakos/i.test(rink)),
+  };
 }
 
 async function handleGetSeasonGames(url) {
   const season = url.searchParams.get("season") || String(await getCurrentSeason());
-  const groups = await tpGet("serie/helpers/search-players-and-teams", {
+  const games = await tpGet("helpers/getextsearchgames", {
     season,
-    playerName: "",
-    teamName: "Valkeakosken Kiekko-Ahma Ry",
+    "Filters[StartDate]": "",
+    "Filters[EndDate]": "",
+    "Filters[GameID]": "",
+    "Filters[AssID]": String(ASSOCIATION_ID),
+    "Filters[TeamID]": "",
+    "Filters[RinkID]": "",
+    "Filters[Games]": "",
+    "Filters[GamesTime]": "",
   });
-  const list = Array.isArray(groups) ? groups : [];
-  const dog = new Date().toISOString().slice(0, 10);
-
-  const perSeries = await Promise.all(
-    list.map((g) => {
-      // A group is one series (one age tier) → all its Ahma teams share the age;
-      // the first searched teamKey is enough to map to a Jopox age-group.
-      const p = (g.searched || []).map(parseSearched).find(Boolean);
-      return fetchSeries(season, g.subSerieBaseId, p ? p.teamKey : null, dog).catch(() => []);
-    })
-  );
-
-  const byId = new Map();
-  for (const games of perSeries) {
-    for (const g of games) if (!byId.has(g.id)) byId.set(g.id, g);
-  }
-  return [...byId.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const list = Array.isArray(games) ? games : [];
+  // date is "YYYY-MM-DD HH:mm" → lexical sort is chronological.
+  return list.map(buildExtGame).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 /* --------------------------------- router --------------------------------- */
@@ -329,7 +305,7 @@ const TTL_GAMES_CURRENT_S = 15;
 const TTL_GAMES_FUTURE_S = 15 * 60;
 const TTL_GAMES_PAST_S = 6 * 60 * 60;
 const TTL_TEAMS_S = 60 * 60;
-const TTL_SEASON_S = 6 * 60 * 60; // 6 h — the season schedule changes rarely (live scores come from getLive)
+const TTL_SEASON_S = 24 * 60 * 60; // 24 h — fixtures are set days ahead (referees); live scores come from getLive
 
 function weekTtlSeconds(url) {
   const now = url.searchParams.has("date") ? new Date(url.searchParams.get("date")) : new Date();

@@ -6,7 +6,7 @@ const fetch = require("node-fetch");
 // district scan). Schedule changes rarely, so we cache per season for 6 h and
 // let live scores come from getLive; single-flight coalesces concurrent misses.
 
-const TTL = 6 * 60 * 60_000; // 6 h
+const TTL = 24 * 60 * 60_000; // 24 h — fixtures set days ahead (referees); live via getLive
 const seasonCache = new Map();
 const inFlight = new Map();
 
@@ -14,7 +14,7 @@ const PROXY_URL = process.env.TP_PROXY_URL || 'https://gamezone.zapmies.workers.
 const PROXY_KEY = process.env.TP_PROXY_KEY;
 
 function cacheControl() {
-    const s = 6 * 60 * 60;
+    const s = 24 * 60 * 60;
     return { 'Cache-Control': `public, max-age=${s}, s-maxage=${s}, stale-while-revalidate=${Math.round(s / 2)}` };
 }
 
