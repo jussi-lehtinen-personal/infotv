@@ -341,9 +341,15 @@ function weekTtlSeconds(url) {
 // Serve `url` from the edge cache if present; otherwise run `compute`, cache the
 // JSON with `ttlSeconds`, and return it. Errors from compute propagate (not
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
+// Bump to bust the Cache-API entries after a response-shape change (Cache-API
+// entries survive worker deploys, so a code change alone won't refresh them).
+const CACHE_VERSION = "2";
+
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
-  const key = new Request(url.toString(), { method: "GET" });
+  const keyUrl = new URL(url.toString());
+  keyUrl.searchParams.set("__cv", CACHE_VERSION); // cache-key only, not sent upstream
+  const key = new Request(keyUrl.toString(), { method: "GET" });
   const hit = await cache.match(key);
   if (hit) return hit;
 
