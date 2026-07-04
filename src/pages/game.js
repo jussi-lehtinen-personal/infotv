@@ -318,27 +318,35 @@ const RosterTeam = ({ side, logo, name }) => {
     <div className="bx-rteam">
       <div className="bx-rteam-head">
         <img className="bx-rteam-logo" src={logo} alt="" />
-        <span>{splitTeamName(name || "").main}</span>
+        <span className="bx-rteam-name">{splitTeamName(name || "").main}</span>
       </div>
-      <div className="bx-rlist">
-        {players.map((p, i) => (
-          <div className="bx-rplayer" key={i}>
-            <span className="bx-rnum">{p.number}</span>
-            <span className="bx-rname">{personName(p.last, p.first)}</span>
-            {p.role === "MV" && <span className="bx-rtag">MV</span>}
-            {p.captain && <span className="bx-rtag bx-rtag--c">{p.captain}</span>}
+      {players.length > 0 && (
+        <>
+          <div className="bx-rsub">Pelaajat</div>
+          <div className="bx-rlist">
+            {players.map((p, i) => (
+              <div className="bx-rplayer" key={i}>
+                <span className="bx-rnum">{p.number}</span>
+                <span className="bx-rname">{personName(p.last, p.first)}</span>
+                {p.role === "MV" && <span className="bx-rtag">MV</span>}
+                {p.captain && <span className="bx-rtag bx-rtag--c">{p.captain}</span>}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
       {staff.length > 0 && (
-        <div className="bx-rstaff">
-          {staff.map((s, i) => (
-            <div className="bx-rstaff-row" key={i}>
-              <span>{personName(s.last, s.first)}</span>
-              <span className="bx-rstaff-role">{s.role}</span>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="bx-rsub">Toimihenkilöt</div>
+          <div className="bx-rstaff">
+            {staff.map((s, i) => (
+              <div className="bx-rstaff-row" key={i}>
+                <span>{personName(s.last, s.first)}</span>
+                <span className="bx-rstaff-role">{s.role}</span>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -551,15 +559,17 @@ body { margin: 0; }
 .bx-tab.is-active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 
 /* ROSTERS (Kokoonpanot) */
-.bx-rosters { display: flex; flex-direction: column; gap: 18px; }
-.bx-rteam-head {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
-  font-size: var(--gz-fs-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--gz-text-primary);
-}
+.bx-rosters { display: flex; flex-direction: column; }
+.bx-rteam + .bx-rteam { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.12); }
+.bx-rteam-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
 .bx-rteam-logo {
-  width: 26px; height: 26px; box-sizing: border-box; border-radius: 6px;
-  background: #fff; object-fit: contain; padding: 2px;
+  width: 36px; height: 36px; box-sizing: border-box; border-radius: 8px;
+  background: #fff; object-fit: contain; padding: 3px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+}
+.bx-rteam-name { font-size: var(--gz-fs-lg, 18px); font-weight: 800; color: var(--gz-text-primary); }
+.bx-rsub {
+  font-size: var(--gz-fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-primary); margin: 12px 0 4px; padding-left: 2px;
 }
 .bx-rlist { display: flex; flex-direction: column; }
 .bx-rplayer {
@@ -578,11 +588,13 @@ body { margin: 0; }
   color: var(--gz-text-tertiary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
 }
 .bx-rtag--c { color: var(--color-primary); background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.30); }
-.bx-rstaff {
-  margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);
-  display: flex; flex-direction: column; gap: 3px;
+.bx-rstaff { display: flex; flex-direction: column; }
+.bx-rstaff-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: var(--gz-fs-sm); color: var(--gz-text-secondary);
 }
-.bx-rstaff-row { display: flex; justify-content: space-between; gap: 10px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
+.bx-rstaff-role { flex: 0 0 auto; color: var(--gz-text-tertiary); font-size: var(--gz-fs-xs); align-self: center; }
 .bx-rstaff-role { flex: 0 0 auto; }
 
 /* GOALIES */
