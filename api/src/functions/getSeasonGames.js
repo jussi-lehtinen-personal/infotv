@@ -6,7 +6,11 @@ const fetch = require("node-fetch");
 // district scan). Schedule changes rarely, so we cache per season for 6 h and
 // let live scores come from getLive; single-flight coalesces concurrent misses.
 
-const TTL = 24 * 60 * 60_000; // 24 h — fixtures set days ahead (referees); live via getLive
+// SHORT here on purpose: the long 24 h cache lives ONLY in the worker (the layer
+// that protects tulospalvelu). Stacking 24 h at every layer would COMPOUND into
+// days of staleness; a short TTL here refetches cheaply from the already-cached
+// worker, so worst-case staleness ≈ 24 h (worker) + minutes, not 24 h × layers.
+const TTL = 5 * 60_000; // 5 min
 const seasonCache = new Map();
 const inFlight = new Map();
 
@@ -14,8 +18,9 @@ const PROXY_URL = process.env.TP_PROXY_URL || 'https://gamezone.zapmies.workers.
 const PROXY_KEY = process.env.TP_PROXY_KEY;
 
 function cacheControl() {
-    const s = 24 * 60 * 60;
-    return { 'Cache-Control': `public, max-age=${s}, s-maxage=${s}, stale-while-revalidate=${Math.round(s / 2)}` };
+    // Short browser/CDN freshness + a long stale-while-revalidate window: serve
+    // fast, revalidate in the background through to the 24 h-cached worker.
+    return { 'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600' };
 }
 
 app.http('getSeasonGames', {
