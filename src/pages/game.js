@@ -192,13 +192,14 @@ const Timeline = ({ report }) => {
   );
 };
 
-// A hockey puck seen at a slight angle — a short cylinder. Fills are light enough
-// to read on the dark (now transparent) token, with a bright top rim.
+// A hockey puck (à la the Wikipedia Ice_hockey_puck.svg): a solid short cylinder
+// seen at a slight angle — top face + side wall + bottom curve. Fills read on the
+// dark transparent token.
 const Puck = () => (
-  <svg className="bx-puck" viewBox="0 0 18 13" aria-hidden="true">
-    <rect x="2" y="5" width="14" height="3.5" fill="#242424" />
-    <ellipse cx="9" cy="8.5" rx="7" ry="3" fill="#242424" />
-    <ellipse cx="9" cy="5" rx="7" ry="3" fill="#3a3a3a" stroke="rgba(255,255,255,0.5)" strokeWidth="0.7" />
+  <svg className="bx-puck" viewBox="0 0 40 26" aria-hidden="true">
+    <path d="M3 11 a17 6 0 0 0 34 0 v5 a17 6 0 0 1 -34 0 z" fill="#333" />
+    <ellipse cx="20" cy="11" rx="17" ry="6" fill="#4d4d4d" />
+    <ellipse cx="20" cy="11" rx="17" ry="6" fill="none" stroke="#1c1c1c" strokeWidth="1.2" />
   </svg>
 );
 
@@ -287,8 +288,9 @@ const Footer = ({ report, game }) => {
   return (
     <div className="bx-footer">
       {hasInfo && (
-        <div className="bx-info">
-          <div className="bx-info-title">Ottelun lisätiedot</div>
+        <div className="bx-section">
+          <div className="bx-section-title">Ottelun lisätiedot</div>
+          <div className="bx-info">
           {refs.length > 0 && (
             <div className="bx-info-row">
               <span className="bx-info-label"><LuFlag aria-hidden="true" /> Tuomari</span>
@@ -307,6 +309,7 @@ const Footer = ({ report, game }) => {
               <span className="bx-info-val">{Number(report.spectators).toLocaleString("fi-FI")}</span>
             </div>
           )}
+          </div>
         </div>
       )}
       {url && (
@@ -409,10 +412,10 @@ body { margin: 0; }
 .bx-per-evs { display: flex; flex-direction: column; }
 
 .bx-ev {
-  display: flex; align-items: center; gap: 9px;
+  display: flex; align-items: flex-start; gap: 9px;
   padding: 9px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  max-width: 92%; /* content-sized, capped so a side stays on its half */
+  width: 66%; /* fixed → the score tokens line up in a column per side */
 }
 .bx-ev--home { margin-right: auto; }
 .bx-ev--away { margin-left: auto; flex-direction: row-reverse; text-align: right; }
@@ -432,8 +435,8 @@ body { margin: 0; }
 .bx-ev-tok--pen { color: #1a1206; background: var(--color-primary); border: 1px solid var(--color-primary); min-width: 26px; }
 /* puck sits on the clock side (home → left of score, away → right) */
 .bx-ev--away .bx-ev-tok { flex-direction: row-reverse; }
-.bx-puck { flex: 0 0 auto; display: block; width: 16px; height: 12px; }
-.bx-ev-body { flex: 0 1 auto; min-width: 0; }
+.bx-puck { flex: 0 0 auto; display: block; width: 18px; height: 12px; }
+.bx-ev-body { flex: 1 1 auto; min-width: 0; }
 .bx-ev-str {
   flex: 0 0 auto; white-space: nowrap;
   font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
@@ -464,7 +467,7 @@ body { margin: 0; }
 .bx-goalie-main { flex: 1 1 auto; min-width: 0; }
 .bx-goalie-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
 .bx-gk-num { color: var(--gz-text-tertiary); font-weight: 800; margin-right: 3px; }
-.bx-goalie-saves { font-size: var(--gz-fs-xs); font-weight: 700; color: #60a5fa; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.bx-goalie-saves { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-secondary); font-variant-numeric: tabular-nums; margin-top: 1px; }
 .bx-goalie-out { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
 
 /* MATCH INFO (Ottelun lisätiedot) */
@@ -480,6 +483,7 @@ body { margin: 0; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.05);
 }
+.bx-info-row:first-child { border-top: none; }
 .bx-info-label {
   display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
   font-size: var(--gz-fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;

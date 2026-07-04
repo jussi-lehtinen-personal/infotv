@@ -325,12 +325,16 @@ function seasonFromDate(dateStr) {
 }
 
 async function resolveRealId(env, extId, dateStr, homeTeamId, awayTeamId) {
-  const kvKey = `gid:${extId}`;
+  // v2 key: earlier code matched by teams+day only and could store the WRONG game
+  // when a team plays the same opponent twice in one day (e.g. a tournament) —
+  // discard those by changing the prefix.
+  const kvKey = `gid2:${extId}`;
   if (env && env.GAME_IDS) {
     const cached = await env.GAME_IDS.get(kvKey);
     if (cached) return Number(cached);
   }
   const dog = String(dateStr).slice(0, 10);
+  const time = String(dateStr).slice(11, 16); // "14:00" — disambiguates two same-day games
   for (const d of DISTRICT_TRY_ORDER) {
     let games;
     try {
@@ -339,7 +343,10 @@ async function resolveRealId(env, extId, dateStr, homeTeamId, awayTeamId) {
       continue;
     }
     const hit = games.find(
-      (g) => String(g.homeTeamId) === String(homeTeamId) && String(g.awayTeamId) === String(awayTeamId)
+      (g) =>
+        String(g.homeTeamId) === String(homeTeamId) &&
+        String(g.awayTeamId) === String(awayTeamId) &&
+        String(g.date).slice(11, 16) === time
     );
     if (hit) {
       if (env && env.GAME_IDS) await env.GAME_IDS.put(kvKey, String(hit.id)); // permanent
