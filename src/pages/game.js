@@ -25,6 +25,24 @@ const toSecs = (t) => {
   return (m || 0) * 60 + (s || 0);
 };
 
+// tulospalvelu names are "SURNAME Firstname" (surname ALL-CAPS). Flashscore-style
+// display = "Surname F." — Title-case the surname, first name to an initial, no
+// jersey number.
+const formatName = (raw) => {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const tokens = s.split(/\s+/);
+  const isUpper = (t) => t === t.toLocaleUpperCase("fi") && /[A-ZÅÄÖ]/i.test(t);
+  const title = (w) => w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi");
+  const surname = [];
+  let i = 0;
+  while (i < tokens.length && isUpper(tokens[i])) surname.push(tokens[i++]);
+  const given = tokens.slice(i);
+  const sn = (surname.length ? surname : [tokens[0]]).map(title).join(" ");
+  const init = given.length ? `${given[0].charAt(0).toLocaleUpperCase("fi")}.` : "";
+  return init ? `${sn} ${init}` : sn;
+};
+
 // The box-score page (Flashscore-style layout, AHMA dark/amber theme). The clicked
 // game object is passed via nav state for an instant paint; on a direct URL /
 // refresh we look it up in the season cache by its ext id. Then /api/getGameReport
@@ -180,10 +198,11 @@ const Timeline = ({ report, game }) => {
 const EventRow = ({ e, game }) => {
   const logo = e.side === "home" ? game.home_logo : game.away_logo;
   const isGoal = e.kind === "goal";
-  const name = isGoal ? e.scorer.name : e.player.name;
-  const jersey = isGoal ? e.scorer.jersey : e.player.jersey;
-  const sub = isGoal ? (e.assists && e.assists.length ? e.assists.join(", ") : "") : e.reason || "";
-  const strength = isGoal && (e.strength === "YV" || e.strength === "AV") ? e.strength : null;
+  const name = formatName(isGoal ? e.scorer.name : e.player.name);
+  const sub = isGoal
+    ? (e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "")
+    : e.reason || "";
+  const prefix = isGoal && e.strength === "YV" ? "(Ylivoima) " : isGoal && e.strength === "AV" ? "(Alivoima) " : "";
 
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
@@ -195,10 +214,7 @@ const EventRow = ({ e, game }) => {
         <div className="bx-ev-tok bx-ev-tok--pen">{e.minutes}′</div>
       )}
       <div className="bx-ev-body">
-        <div className="bx-ev-name">
-          {jersey ? <span className="bx-jersey">#{jersey}</span> : null} {name}
-          {strength && <span className={`bx-strength bx-strength--${e.strength.toLowerCase()}`}>{strength}</span>}
-        </div>
+        <div className="bx-ev-name">{prefix}{name}</div>
         {sub && <div className="bx-ev-sub">{sub}</div>}
       </div>
     </div>
@@ -218,9 +234,7 @@ const Goalies = ({ goalies }) => {
         {goalies.map((t, i) =>
           (t.keepers || []).map((k, j) => (
             <div className="bx-goalie" key={`${i}-${j}`}>
-              <div className="bx-goalie-name">
-                {k.jersey ? <span className="bx-jersey">#{k.jersey}</span> : null} {k.name}
-              </div>
+              <div className="bx-goalie-name">{formatName(k.name)}</div>
               <div className="bx-goalie-team">{splitTeamName(t.team || "").main}</div>
               <div className="bx-goalie-saves">{total(k)} torjuntaa</div>
             </div>
