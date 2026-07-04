@@ -107,7 +107,7 @@ const BoxScore = () => {
             )}
             {report && (
               <>
-                <Timeline report={report} game={game} />
+                <Timeline report={report} />
                 <Goalies goalies={report.goalies} />
                 <Footer report={report} game={game} />
               </>
@@ -157,7 +157,7 @@ const GameHeader = ({ game, report }) => {
 
 // Goals + penalties merged into one chronological timeline, grouped by period,
 // each event mirrored to its team's side (home left, away right) Flashscore-style.
-const Timeline = ({ report, game }) => {
+const Timeline = ({ report }) => {
   const byPeriod = useMemo(() => {
     const evs = [
       ...(report.goals || []).map((g) => ({ ...g, kind: "goal" })),
@@ -186,7 +186,7 @@ const Timeline = ({ report, game }) => {
           </div>
           <div className="bx-per-evs">
             {byPeriod.get(n).map((e, i) => (
-              <EventRow key={i} e={e} game={game} />
+              <EventRow key={i} e={e} />
             ))}
           </div>
         </div>
@@ -195,8 +195,16 @@ const Timeline = ({ report, game }) => {
   );
 };
 
-const EventRow = ({ e, game }) => {
-  const logo = e.side === "home" ? game.home_logo : game.away_logo;
+// A hockey puck seen at a slight angle (dark cylinder) for the goal token.
+const Puck = () => (
+  <svg className="bx-puck" viewBox="0 0 16 12" aria-hidden="true">
+    <rect x="1.5" y="5" width="13" height="3" fill="#0a0a0a" />
+    <ellipse cx="8" cy="8" rx="6.5" ry="3" fill="#0a0a0a" />
+    <ellipse cx="8" cy="5" rx="6.5" ry="3" fill="#202020" stroke="rgba(255,255,255,0.45)" strokeWidth="0.7" />
+  </svg>
+);
+
+const EventRow = ({ e }) => {
   const isGoal = e.kind === "goal";
   const name = formatName(isGoal ? e.scorer.name : e.player.name);
   const sub = isGoal
@@ -209,10 +217,9 @@ const EventRow = ({ e, game }) => {
   return (
     <div className={`bx-ev bx-ev--${e.side}`}>
       <div className="bx-ev-min">{e.time}</div>
-      <img className="bx-ev-logo" src={logo} alt="" />
       {isGoal ? (
         <div className="bx-ev-tok bx-ev-tok--goal">
-          <span className="bx-puck" aria-hidden="true" />
+          <Puck />
           {e.running.replace("-", "–")}
         </div>
       ) : (
@@ -377,10 +384,6 @@ body { margin: 0; }
 }
 .bx-ev--home .bx-ev-min { text-align: left; }
 .bx-ev--away .bx-ev-min { text-align: right; }
-.bx-ev-logo {
-  flex: 0 0 auto; width: 24px; height: 24px; box-sizing: border-box; border-radius: 6px;
-  background: #fff; object-fit: contain; padding: 2px;
-}
 .bx-ev-tok {
   flex: 0 0 auto; min-width: 46px;
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
@@ -389,10 +392,7 @@ body { margin: 0; }
 }
 .bx-ev-tok--goal { color: #fff; background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.40); }
 .bx-ev-tok--pen { color: #fbbf24; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); min-width: 30px; }
-.bx-puck {
-  display: inline-block; width: 13px; height: 7px; border-radius: 4px;
-  background: #0b0b0b; border: 1px solid rgba(255,255,255,0.35);
-}
+.bx-puck { flex: 0 0 auto; display: block; width: 15px; height: 11px; }
 .bx-ev-body { flex: 0 1 auto; min-width: 0; }
 .bx-ev-str {
   flex: 0 0 auto; white-space: nowrap;
