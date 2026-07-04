@@ -74,7 +74,7 @@ function annotateSources(items) {
   return items;
 }
 const SOURCE_LABEL = {
-  both: "Molemmat",
+  both: "OK",
   tp: "Vain tulospalvelu",
   jopox: "Vain Jopox",
 };
