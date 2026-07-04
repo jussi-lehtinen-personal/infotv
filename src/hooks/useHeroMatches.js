@@ -7,74 +7,118 @@ import {
 } from "../lib/seasonGamesCache";
 import { isGameForFavourite } from "../lib/teamMatch";
 
+// Jopox events (practices) cache for the hero.
+const evCache = new Map(); // subsiteId -> { events, ts }
+const EV_TTL = 15 * 60_000;
+
 // API dates are "YYYY-MM-DD HH:mm" (space, not T) — ISO-ify so Safari parses.
 export const parseMatchDate = (s) => new Date(String(s).replace(" ", "T"));
 
-// LIVE = the game has started but isn't finished. finished===0 alone isn't
-// enough (future games also report 0); a ~6 h window stops a stuck 0 from
-// showing as live forever.
 const LIVE_WINDOW_MS = 6 * 60 * 60_000;
-export const isLiveMatch = (match) => {
-  if (!match) return false;
-  if (Number(match.finished) !== 0) return false;
-  const elapsed = Date.now() - parseMatchDate(match.date).getTime();
+export const isLiveMatch = (m) => {
+  if (!m || m.type === "event") return false;
+  if (Number(m.finished) !== 0) return false;
+  const elapsed = Date.now() - parseMatchDate(m.date).getTime();
   return elapsed >= 0 && elapsed < LIVE_WINDOW_MS;
 };
 
-// Up to 3 hero cards from the season schedule: 1 per favourite (LIVE, else next
-// upcoming), or — no favourites / none found — the 3 nearest Ahma games. LIVE
-// first, then chronological. Derived from the shared seasonGamesCache.
-function computeCards(allGames, favourites) {
-  const now = Date.now();
-  const futureOrLive = (m) => isLiveMatch(m) || parseMatchDate(m.date).getTime() > now;
-  const sortLiveFirst = (a, b) => {
+const futureOrLive = (m) =>
+  isLiveMatch(m) || parseMatchDate(m.date).getTime() > Date.now();
+
+const gameItem = (g, teamName) => ({ ...g, type: "game", teamName });
+const eventItem = (e, teamName) => ({
+  type: "event",
+  date: e.date,
+  uiTime: e.uiTime,
+  title: e.title,
+  place: e.place || null,
+  teamName,
+});
+
+// Up to 3 hero cards: per favourite the NEXT item (practice or game, whichever
+// is sooner) + the NEXT game. No favourites → the 3 nearest Ahma games. LIVE
+// first, then chronological. Practices come from Jopox (getTeamEvents), games
+// from the shared season cache.
+function computeCards(favourites, evByTeam) {
+  if (favourites.length === 0) {
+    return peekSeasonGames().filter(futureOrLive).slice(0, 3).map((g) => gameItem(g));
+  }
+
+  const cards = [];
+  for (const fav of favourites) {
+    const games = peekSeasonGames()
+      .filter((g) => isGameForFavourite(g, fav) && futureOrLive(g))
+      .map((g) => gameItem(g, fav.name));
+    const events = (evByTeam.get(String(fav.subsiteId)) || [])
+      .filter((e) => e.type !== "game")
+      .map((e) => eventItem(e, fav.name))
+      .filter(futureOrLive);
+
+    const upcoming = [...games, ...events].sort(
+      (a, b) => parseMatchDate(a.date) - parseMatchDate(b.date)
+    );
+    const nextItem = upcoming[0];
+    const nextGame = upcoming.find((x) => x.type === "game");
+    if (nextItem) cards.push(nextItem);
+    if (nextGame && nextGame !== nextItem) cards.push(nextGame);
+  }
+
+  cards.sort((a, b) => {
     const al = isLiveMatch(a);
     const bl = isLiveMatch(b);
     if (al !== bl) return al ? -1 : 1;
     return parseMatchDate(a.date) - parseMatchDate(b.date);
-  };
-
-  const candidates = allGames.filter(futureOrLive);
-  let cards = [];
-
-  if (favourites.length > 0) {
-    const used = new Set();
-    for (const fav of favourites) {
-      const pick = candidates
-        .filter((m) => !used.has(m.id) && isGameForFavourite(m, fav))
-        .sort(sortLiveFirst)[0];
-      if (pick) {
-        cards.push(pick);
-        used.add(pick.id);
-      }
-    }
-    cards.sort(sortLiveFirst);
-    cards = cards.slice(0, 3);
-  }
-
-  if (cards.length === 0) {
-    cards = candidates.slice().sort(sortLiveFirst).slice(0, 3);
-  }
-  return cards;
+  });
+  return cards.slice(0, 3);
 }
 
 export function useHeroMatches() {
-  const [matches, setMatches] = useState(() =>
-    computeCards(peekSeasonGames(), loadFavouriteTeams())
-  );
+  const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(() => peekSeasonGames().length === 0);
 
   useEffect(() => {
+    let cancelled = false;
+    const favourites = loadFavouriteTeams().filter((t) => t.subsiteId != null);
+    const evByTeam = new Map();
+    for (const fav of favourites) {
+      const c = evCache.get(String(fav.subsiteId));
+      if (c) evByTeam.set(String(fav.subsiteId), c.events);
+    }
+
     const recompute = () => {
-      setMatches(computeCards(peekSeasonGames(), loadFavouriteTeams()));
-      setLoading(false);
+      if (!cancelled) {
+        setMatches(computeCards(favourites, evByTeam));
+        setLoading(false);
+      }
     };
-    const unsub = subscribe(recompute);
+
+    // Jopox practices per favourite (SWR from evCache).
+    Promise.all(
+      favourites.map((fav) => {
+        const key = String(fav.subsiteId);
+        const cached = evCache.get(key);
+        if (cached && Date.now() - cached.ts < EV_TTL) return Promise.resolve();
+        return fetch(`/api/getTeamEvents?subsiteId=${encodeURIComponent(fav.subsiteId)}`)
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((d) => {
+            const evs = d.events || [];
+            evCache.set(key, { events: evs, ts: Date.now() });
+            evByTeam.set(key, evs);
+          })
+          .catch(() => {});
+      })
+    ).then(recompute);
+
+    // Season games + updates.
     fetchSeasonGames().catch(() => {}).finally(recompute);
-    // Re-evaluate periodically so LIVE state and "past" games roll over even if
-    // the underlying schedule data hasn't changed.
+    const unsub = subscribe(recompute);
+    // Roll over LIVE / "past" as time passes even if data is unchanged.
     const iv = setInterval(recompute, 60_000);
+
+    recompute();
+
     return () => {
+      cancelled = true;
       unsub();
       clearInterval(iv);
     };

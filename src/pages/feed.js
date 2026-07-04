@@ -240,6 +240,10 @@ const Feed = () => {
     }
     let cancelled = false;
     const now = Date.now();
+    // Upcoming only: the season cache also holds LAST season's games (for the
+    // Ottelut history view), but the feed is a "tulevat tapahtumat" stream —
+    // drop anything before today so old results don't flood the top.
+    const todayStr = moment().format("YYYY-MM-DD");
 
     const computeMerged = () => {
       const all = [];
@@ -248,8 +252,9 @@ const Feed = () => {
         const tp = peekSeasonGames().filter((g) => isGameForFavourite(g, t));
         all.push(...buildTeamAgenda(jopox, tp, t.name));
       });
-      all.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
-      return all;
+      return all
+        .filter((e) => String(e.date || "").slice(0, 10) >= todayStr)
+        .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
     };
     const rebuild = () => { if (!cancelled) setEvents(computeMerged()); };
 
@@ -327,18 +332,25 @@ const Feed = () => {
   const [visibleDays, setVisibleDays] = useState(DAY_CHUNK);
   useEffect(() => { setVisibleDays(DAY_CHUNK); }, [events]);
   const sentinelRef = useRef(null);
+  // NOTE: depend on visibleDays too. IntersectionObserver only fires on a CHANGE
+  // of intersection state — after one bump the sentinel is often STILL within the
+  // 400px margin (state stays "intersecting" → no new callback), so the list
+  // would grow only once and stop. Re-observing on each visibleDays change
+  // re-fires the initial callback, filling until the sentinel leaves the margin
+  // or every day is shown (then the sentinel isn't rendered → el null → stop).
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) setVisibleDays((n) => n + DAY_CHUNK);
+        if (entries[0].isIntersecting)
+          setVisibleDays((n) => Math.min(n + DAY_CHUNK, days.length));
       },
       { rootMargin: "400px" }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [days.length]);
+  }, [days.length, visibleDays]);
 
   const header = (
     <div className="fd-head">
@@ -595,9 +607,18 @@ body { margin: 0; }
 }
 .fd-event--game .fd-event-icon { background: rgba(245,158,11,0.15); color: var(--color-primary); }
 .fd-event-icon svg { width: 20px; height: 20px; }
-/* Opponent logo replaces the trophy once the tulospalvelu game is matched. */
-.fd-event-icon--logo { background: rgba(255,255,255,0.06); }
-.fd-event-opplogo { width: 30px; height: 30px; object-fit: contain; }
+/* Opponent logo replaces the trophy once the tulospalvelu game is matched.
+   Same theme as the match cards: white rounded-rect with a little padding. */
+.fd-event-icon--logo { background: transparent; }
+.fd-event-opplogo {
+  width: 38px; height: 38px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #fff;
+  object-fit: contain;
+  padding: 3px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+}
 .fd-event-main { flex: 1; min-width: 0; }
 .fd-event-team {
   font-size: var(--gz-fs-xs); font-weight: 800;

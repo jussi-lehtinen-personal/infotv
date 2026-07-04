@@ -186,7 +186,9 @@ const formatMatchDate = (m) => {
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `${weekday} ${dayMonth} · ${time}`;
+  // Tapahtumilla uiTime voi olla aikaväli ("18:00–19:15") — käytä sitä jos on.
+  const clock = m.type === "event" && m.uiTime ? m.uiTime : time;
+  return `${weekday} ${dayMonth} · ${clock}`;
 };
 
 // Eri taustakuva per kortti-slot, kierrätetään kolmella saatavilla olevalla
@@ -278,67 +280,67 @@ const HeroCarousel = ({ matches, loading }) => {
 
 const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp" }) => {
   const empty = !match;
+  const isEvent = !empty && match.type === "event";
   const live = !empty && isLiveMatch(match);
   const bgImage = backgroundImage;
 
   // Tagin teksti: tyhjänä joko "Haetaan" (haku kesken) tai neutraali
-  // "Ottelut" (haku valmis, ei pelejä); muuten LIVE / Seuraava ottelu.
+  // "Ottelut" (haku valmis, ei pelejä); tapahtumalle harjoitus/tapahtuma;
+  // muuten LIVE / Seuraava ottelu.
   const tagLabel = empty
     ? loading
       ? "Haetaan"
       : "Ottelut"
+    : isEvent
+    ? /harj|treeni|jää/i.test(match.title || "")
+      ? "HARJOITUS"
+      : "SEURAAVA TAPAHTUMA"
     : live
     ? "LIVE"
     : "SEURAAVA OTTELU";
 
-  // Empty-tilassa kortti ei vie minnekään (placeholder); muuten linkki
-  // ulkoiseen tulospalvelu-sivuun.
-  let Wrapper, wrapperProps;
-  if (empty) {
-    Wrapper = "div";
-    wrapperProps = {};
-  } else {
-    const url = `https://tulospalvelu.leijonat.fi/game/?season=0&gameid=${match.id}&lang=fi`;
-    Wrapper = "a";
-    wrapperProps = { href: url, target: "_blank", rel: "noopener noreferrer" };
-  }
-
-  const homeTeam = !empty ? splitTeamName(match.home || "").main : "";
-  const awayTeam = !empty ? splitTeamName(match.away || "").main : "";
-  const league = !empty ? match.level || "" : "";
+  // Ottelun/tapahtuman klikkaus on toistaiseksi pois — kortti on aina staattinen
+  // (ei ulkoista tulospalvelu-linkkiä, joka avautui väärällä id:llä).
+  const homeTeam = !empty && !isEvent ? splitTeamName(match.home || "").main : "";
+  const awayTeam = !empty && !isEvent ? splitTeamName(match.away || "").main : "";
+  // Tag-suffiksi: ottelulle sarjataso, tapahtumalle suosikkijoukkueen nimi.
+  const tagSuffix = empty ? "" : isEvent ? match.teamName || "" : match.level || "";
+  const place = !empty ? (isEvent ? match.place : match.rink) : null;
 
   return (
-    <Wrapper
-      className="ahma-hero"
-      style={{ backgroundImage: `url(${bgImage})` }}
-      {...wrapperProps}
-    >
+    <div className="ahma-hero" style={{ backgroundImage: `url(${bgImage})` }}>
       <div className="ahma-hero-overlay" />
       <div className="ahma-hero-content">
         <div className="ahma-hero-tag">
           {live && <span className="ahma-hero-live-dot" aria-hidden="true" />}
           <span>{tagLabel}</span>
-          {league && <span className="ahma-hero-tag-league"> · {league}</span>}
+          {tagSuffix && <span className="ahma-hero-tag-league"> · {tagSuffix}</span>}
         </div>
         {empty ? (
           <div className="ahma-hero-title ahma-hero-title--empty">
-            {loading ? "Haetaan tulevia otteluita…" : "Ei tulevia otteluita"}
+            {loading ? "Haetaan tulevia tapahtumia…" : "Ei tulevia tapahtumia"}
           </div>
         ) : (
           <>
             <div className="ahma-hero-title">
-              {homeTeam}{" "}
-              {live ? (
-                <span className="ahma-hero-score">
-                  {match.home_goals}–{match.away_goals}
-                </span>
+              {isEvent ? (
+                match.title
               ) : (
-                "vs."
-              )}{" "}
-              {awayTeam}
+                <>
+                  {homeTeam}{" "}
+                  {live ? (
+                    <span className="ahma-hero-score">
+                      {match.home_goals}–{match.away_goals}
+                    </span>
+                  ) : (
+                    "vs."
+                  )}{" "}
+                  {awayTeam}
+                </>
+              )}
             </div>
             <div className="ahma-hero-meta">{formatMatchDate(match)}</div>
-            {match.rink && (
+            {place && (
               <div className="ahma-hero-meta">
                 <span
                   className="material-symbols-rounded ahma-hero-loc-icon"
@@ -346,17 +348,13 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
                 >
                   &#xE0C8;
                 </span>
-                {match.rink}
+                {place}
               </div>
             )}
-            <span className="ahma-hero-cta">
-              {live ? "Katso ottelu" : "Näytä ottelu"}{" "}
-              <LuChevronRight aria-hidden="true" />
-            </span>
           </>
         )}
       </div>
-    </Wrapper>
+    </div>
   );
 };
 
