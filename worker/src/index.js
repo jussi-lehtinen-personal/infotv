@@ -263,8 +263,7 @@ function buildExtGame(g) {
   };
 }
 
-async function handleGetSeasonGames(url) {
-  const season = url.searchParams.get("season") || String(await getCurrentSeason());
+async function fetchExtGames(season) {
   const games = await tpGet("helpers/getextsearchgames", {
     season,
     "Filters[StartDate]": "",
@@ -276,9 +275,28 @@ async function handleGetSeasonGames(url) {
     "Filters[Games]": "",
     "Filters[GamesTime]": "",
   });
-  const list = Array.isArray(games) ? games : [];
+  return (Array.isArray(games) ? games : []).map(buildExtGame);
+}
+
+async function handleGetSeasonGames(url) {
+  const seasonParam = url.searchParams.get("season");
+  let seasons;
+  if (seasonParam) {
+    seasons = [seasonParam];
+  } else {
+    // Default = current + previous season, so the Ottelut week-strip can scroll
+    // back ~a year (each is one getextsearchgames call). Cheap + cached 24 h.
+    const cur = Number(await getCurrentSeason());
+    seasons = [cur, cur - 1];
+  }
+
+  const perSeason = await Promise.all(seasons.map((s) => fetchExtGames(s).catch(() => [])));
+  const byId = new Map();
+  for (const games of perSeason) {
+    for (const g of games) if (!byId.has(g.id)) byId.set(g.id, g);
+  }
   // date is "YYYY-MM-DD HH:mm" → lexical sort is chronological.
-  const built = list.map(buildExtGame).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const built = [...byId.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   // Stamp WHEN this snapshot was fetched from tulospalvelu. Frozen into the 24 h
   // Cache-API entry, so every client that gets the cached response sees the same
   // `fetchedAt` → the client can skip reprocessing/merging when it's unchanged.
