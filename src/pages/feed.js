@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuClock, LuPlane } from "react-icons/lu";
+import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuChevronRight, LuClock, LuPlane } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { themeCSS } from "../theme";
@@ -215,6 +215,15 @@ const EventRow = ({ e, expanded, onToggle }) => {
             </div>
           )}
           {desc && <div className="fd-event-desc">{desc}</div>}
+          {isGame && tp && (
+            <Link
+              className="fd-event-link"
+              to={`/gamezone/game/${tp.id}`}
+              state={{ game: tp }}
+            >
+              Näytä ottelu <LuChevronRight aria-hidden="true" />
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -725,4 +734,10 @@ body { margin: 0; }
   font-size: var(--gz-fs-sm); line-height: 1.5;
   color: var(--gz-text-secondary);
 }
+.fd-event-link {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;
+  font-size: var(--gz-fs-sm); font-weight: 700; color: var(--color-primary);
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+}
+.fd-event-link svg { width: 16px; height: 16px; }
 `;

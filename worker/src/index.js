@@ -399,6 +399,7 @@ function buildBoxScore(report, meta) {
       name: k.GkName,
       jersey: k.GkJersey,
       saves: (k.GkSaves || []).map((s) => ({ period: s.Period, saves: s.Saves })),
+      out: (k.GkOut || []).map((o) => o.Time).filter(Boolean),
     })),
   }));
 
@@ -509,7 +510,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "2";
+const CACHE_VERSION = "3";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;

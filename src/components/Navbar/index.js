@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDrag } from "@use-gesture/react";
 import {
   LuShoppingBag,
@@ -279,10 +279,14 @@ const HeroCarousel = ({ matches, loading }) => {
 };
 
 const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp" }) => {
+  const navigate = useNavigate();
   const empty = !match;
   const isEvent = !empty && match.type === "event";
   const live = !empty && isLiveMatch(match);
   const bgImage = backgroundImage;
+  // A game card opens its box score; event/practice cards are static.
+  const openGame =
+    !empty && !isEvent ? () => navigate(`/gamezone/game/${match.id}`, { state: { game: match } }) : null;
 
   // Tagin teksti: tyhjänä joko "Haetaan" (haku kesken) tai neutraali
   // "Ottelut" (haku valmis, ei pelejä); tapahtumalle harjoitus/tapahtuma;
@@ -308,7 +312,18 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
   const place = !empty ? (isEvent ? match.place : match.rink) : null;
 
   return (
-    <div className="ahma-hero" style={{ backgroundImage: `url(${bgImage})` }}>
+    <div
+      className="ahma-hero"
+      style={{ backgroundImage: `url(${bgImage})`, ...(openGame ? { cursor: "pointer" } : {}) }}
+      {...(openGame
+        ? {
+            role: "button",
+            tabIndex: 0,
+            onClick: openGame,
+            onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGame(); } },
+          }
+        : {})}
+    >
       <div className="ahma-hero-overlay" />
       <div className="ahma-hero-content">
         <div className="ahma-hero-tag">

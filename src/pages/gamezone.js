@@ -568,9 +568,14 @@ function WeekList({
 /* ============================= */
 
 function MatchRow({ match }) {
+  const navigate = useNavigate();
   const md = mdate(match.date);
   const timeStr = md.isValid() ? md.format("HH:mm") : "";
   const level = simplifyLevel(match.level ?? "");
+
+  // Tap a game → its box score. Pass the game object via state for an instant
+  // paint; the page falls back to the season cache on a direct URL.
+  const openGame = () => navigate(`/gamezone/game/${match.id}`, { state: { game: match } });
 
   const finishedType = Number(match.finished);
   const isLive = isLiveMatch(match);
@@ -625,10 +630,17 @@ function MatchRow({ match }) {
   // Left indicator line only when there's something to show: live (orange) or
   // a finished result (green win / red loss / grey draw). Plain upcoming = none.
   const lineColor = resultColor || (isLive ? "#f97316" : null);
-  const rowStyle = lineColor ? { "--gz-result-color": lineColor } : undefined;
+  const rowStyle = { cursor: "pointer", ...(lineColor ? { "--gz-result-color": lineColor } : {}) };
 
   return (
-    <div className="gz-row" style={rowStyle}>
+    <div
+      className="gz-row"
+      style={rowStyle}
+      role="button"
+      tabIndex={0}
+      onClick={openGame}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGame(); } }}
+    >
       <div className="gz-row-top">
         {isLive && (
           <div className="gz-live">

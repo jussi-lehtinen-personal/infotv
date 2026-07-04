@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink } from "react-icons/lu";
+import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink, LuFlag } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -108,7 +108,7 @@ const BoxScore = () => {
             {report && (
               <>
                 <Timeline report={report} />
-                <Goalies goalies={report.goalies} />
+                <Goalies goalies={report.goalies} game={game} />
                 <Footer report={report} game={game} />
               </>
             )}
@@ -148,9 +148,6 @@ const GameHeader = ({ game, report }) => {
           <div className="bx-hd-name">{splitTeamName(game.away || "").main}</div>
         </div>
       </div>
-      {game.rink && (
-        <div className="bx-hd-rink"><LuMapPin aria-hidden="true" /> {game.rink}</div>
-      )}
     </div>
   );
 };
@@ -195,12 +192,13 @@ const Timeline = ({ report }) => {
   );
 };
 
-// A hockey puck seen at a slight angle (dark cylinder) for the goal token.
+// A hockey puck seen at a slight angle — a short cylinder. Fills are light enough
+// to read on the dark (now transparent) token, with a bright top rim.
 const Puck = () => (
-  <svg className="bx-puck" viewBox="0 0 16 12" aria-hidden="true">
-    <rect x="1.5" y="5" width="13" height="3" fill="#0a0a0a" />
-    <ellipse cx="8" cy="8" rx="6.5" ry="3" fill="#0a0a0a" />
-    <ellipse cx="8" cy="5" rx="6.5" ry="3" fill="#202020" stroke="rgba(255,255,255,0.45)" strokeWidth="0.7" />
+  <svg className="bx-puck" viewBox="0 0 18 13" aria-hidden="true">
+    <rect x="2" y="5" width="14" height="3.5" fill="#242424" />
+    <ellipse cx="9" cy="8.5" rx="7" ry="3" fill="#242424" />
+    <ellipse cx="9" cy="5" rx="7" ry="3" fill="#3a3a3a" stroke="rgba(255,255,255,0.5)" strokeWidth="0.7" />
   </svg>
 );
 
@@ -220,38 +218,59 @@ const EventRow = ({ e }) => {
       {isGoal ? (
         <div className="bx-ev-tok bx-ev-tok--goal">
           <Puck />
-          {e.running.replace("-", "–")}
+          {e.running.replace("-", " – ")}
         </div>
       ) : (
-        <div className="bx-ev-tok bx-ev-tok--pen">{e.minutes}′</div>
+        <div className="bx-ev-tok bx-ev-tok--pen">{e.minutes}</div>
       )}
       <div className="bx-ev-body">
-        <div className="bx-ev-name">{name}</div>
+        <div className="bx-ev-name">
+          {name}
+          {strength && <span className="bx-ev-str"> ({strength})</span>}
+        </div>
         {sub && <div className="bx-ev-sub">{sub}</div>}
       </div>
-      {strength && <div className="bx-ev-str">({strength})</div>}
     </div>
   );
 };
 
-const Goalies = ({ goalies }) => {
+// Goalie: full name, title-cased ("SIREN Elmeri" → "Siren Elmeri").
+const goalieName = (raw) =>
+  String(raw || "")
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w))
+    .join(" ")
+    .trim();
+
+const Goalies = ({ goalies, game }) => {
   if (!goalies || goalies.length === 0) return null;
-  const total = (k) => {
-    const t = (k.saves || []).find((s) => Number(s.period) === 0);
-    return t ? t.saves : (k.saves || []).reduce((a, s) => a + (Number(s.saves) || 0), 0);
-  };
   return (
     <div className="bx-section">
       <div className="bx-section-title">Maalivahdit</div>
       <div className="bx-goalies">
         {goalies.map((t, i) =>
-          (t.keepers || []).map((k, j) => (
-            <div className="bx-goalie" key={`${i}-${j}`}>
-              <div className="bx-goalie-name">{formatName(k.name)}</div>
-              <div className="bx-goalie-team">{splitTeamName(t.team || "").main}</div>
-              <div className="bx-goalie-saves">{total(k)} torjuntaa</div>
-            </div>
-          ))
+          (t.keepers || []).map((k, j) => {
+            const logo = t.side === "home" ? game.home_logo : t.side === "away" ? game.away_logo : null;
+            const per = (k.saves || []).filter((s) => Number(s.period) !== 0);
+            const totEntry = (k.saves || []).find((s) => Number(s.period) === 0);
+            const total = totEntry ? totEntry.saves : per.reduce((a, s) => a + (Number(s.saves) || 0), 0);
+            const breakdown = per.map((s) => s.saves).join(" + ");
+            const out = (k.out || []).filter(Boolean);
+            return (
+              <div className="bx-goalie" key={`${i}-${j}`}>
+                <img className="bx-goalie-logo" src={logo || ""} alt="" />
+                <div className="bx-goalie-main">
+                  <div className="bx-goalie-name">
+                    {k.jersey ? <span className="bx-gk-num">{k.jersey}</span> : null} {goalieName(k.name)}
+                  </div>
+                  <div className="bx-goalie-saves">{breakdown ? `${breakdown} = ${total}` : `${total} torjuntaa`}</div>
+                  {out.length > 0 && (
+                    <div className="bx-goalie-out">(Poissa maalilta: {out.join(", ")})</div>
+                  )}
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
@@ -259,17 +278,36 @@ const Goalies = ({ goalies }) => {
 };
 
 const Footer = ({ report, game }) => {
-  const refs = report.referees || [];
+  const refs = (report.referees || []).map((r) => formatName(r.name)).filter(Boolean);
+  const venue = report.arena || game.rink;
   const url = report.realId
     ? `https://tulospalvelu.leijonat.fi/game?season=${seasonOf(game.date)}&gameid=${report.realId}&lang=fi`
     : null;
+  const hasInfo = refs.length > 0 || venue || report.spectators != null;
   return (
     <div className="bx-footer">
-      {refs.length > 0 && (
-        <div className="bx-footer-row">Tuomarit: {refs.map((r) => r.name).join(", ")}</div>
-      )}
-      {report.spectators != null && (
-        <div className="bx-footer-row"><LuUsers aria-hidden="true" /> {report.spectators} katsojaa</div>
+      {hasInfo && (
+        <div className="bx-info">
+          <div className="bx-info-title">Ottelun lisätiedot</div>
+          {refs.length > 0 && (
+            <div className="bx-info-row">
+              <span className="bx-info-label"><LuFlag aria-hidden="true" /> Tuomari</span>
+              <span className="bx-info-val">{refs.join(" · ")}</span>
+            </div>
+          )}
+          {venue && (
+            <div className="bx-info-row">
+              <span className="bx-info-label"><LuMapPin aria-hidden="true" /> Pelipaikka</span>
+              <span className="bx-info-val">{venue}</span>
+            </div>
+          )}
+          {report.spectators != null && (
+            <div className="bx-info-row">
+              <span className="bx-info-label"><LuUsers aria-hidden="true" /> Katsojia</span>
+              <span className="bx-info-val">{Number(report.spectators).toLocaleString("fi-FI")}</span>
+            </div>
+          )}
+        </div>
       )}
       {url && (
         <a className="bx-footer-link" href={url} target="_blank" rel="noopener noreferrer">
@@ -390,9 +428,11 @@ body { margin: 0; }
   font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
   padding: 3px 7px; border-radius: 6px;
 }
-.bx-ev-tok--goal { color: #fff; background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.40); }
-.bx-ev-tok--pen { color: #fbbf24; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); min-width: 30px; }
-.bx-puck { flex: 0 0 auto; display: block; width: 15px; height: 11px; }
+.bx-ev-tok--goal { color: #fff; background: transparent; border: 1px solid rgba(255,255,255,0.20); }
+.bx-ev-tok--pen { color: #1a1206; background: var(--color-primary); border: 1px solid var(--color-primary); min-width: 26px; }
+/* puck sits on the clock side (home → left of score, away → right) */
+.bx-ev--away .bx-ev-tok { flex-direction: row-reverse; }
+.bx-puck { flex: 0 0 auto; display: block; width: 16px; height: 12px; }
 .bx-ev-body { flex: 0 1 auto; min-width: 0; }
 .bx-ev-str {
   flex: 0 0 auto; white-space: nowrap;
@@ -414,20 +454,42 @@ body { margin: 0; }
   font-size: var(--gz-fs-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--color-primary); margin-bottom: 8px; padding-left: 2px;
 }
-.bx-goalies { display: flex; flex-direction: column; gap: 6px; }
-.bx-goalie {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: var(--radius-item);
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+.bx-goalies { display: flex; flex-direction: column; gap: 8px; }
+.bx-goalie { display: flex; align-items: center; gap: 12px; padding: 4px 2px; }
+/* fixed logo column → both goalie logos line up */
+.bx-goalie-logo {
+  flex: 0 0 auto; width: 34px; height: 34px; box-sizing: border-box; border-radius: 8px;
+  background: #fff; object-fit: contain; padding: 3px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);
 }
+.bx-goalie-main { flex: 1 1 auto; min-width: 0; }
 .bx-goalie-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
-.bx-goalie-team { flex: 1; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
-.bx-goalie-saves { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-secondary); }
+.bx-gk-num { color: var(--gz-text-tertiary); font-weight: 800; margin-right: 3px; }
+.bx-goalie-saves { font-size: var(--gz-fs-xs); font-weight: 700; color: #60a5fa; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.bx-goalie-out { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
+
+/* MATCH INFO (Ottelun lisätiedot) */
+.bx-info {
+  border-radius: var(--radius-card); background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; margin-bottom: 10px;
+}
+.bx-info-title {
+  font-size: var(--gz-fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--gz-text-tertiary); margin-bottom: 6px;
+}
+.bx-info-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.05);
+}
+.bx-info-label {
+  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  font-size: var(--gz-fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--gz-text-tertiary);
+}
+.bx-info-label svg { width: 15px; height: 15px; }
+.bx-info-val { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); text-align: right; min-width: 0; }
 
 /* FOOTER */
 .bx-footer { padding: 6px 2px 24px; display: flex; flex-direction: column; gap: 8px; }
-.bx-footer-row { display: flex; align-items: center; gap: 6px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
-.bx-footer-row svg { width: 14px; height: 14px; }
 .bx-footer-link {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
   font-size: var(--gz-fs-sm); font-weight: 700; color: var(--color-primary); text-decoration: none;
