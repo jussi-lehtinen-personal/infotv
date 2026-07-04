@@ -431,13 +431,26 @@ function buildBoxScore(report, meta) {
       return { ...base, kind: "gk", badge: "MV", name: gk, sub };
     });
 
-  const finished = Number(g.FinishedType) > 0;
+  // Shootout (voittomaalikilpailu) shots: shooter + goal/miss (GoalScored 1=goal,
+  // 2=miss) + the winning shot.
+  const winningShots = (report.WinningShots || []).map((w) => ({
+    side: w.IsHomeTeam ? "home" : "away",
+    scored: Number(w.GoalScored) === 1,
+    winner: Number(w.WinningGoal) === 1,
+    last: w.ShooterLastName || "",
+    first: w.ShooterFirstName || "",
+    jersey: w.ShooterJersey,
+  }));
+
+  const finishedType = Number(g.FinishedType) || 0; // 1=normal, 2=OT (JA), 3=shootout (VL)
+  const finished = finishedType > 0;
   const started = finished || logs.length > 0;
 
   return {
     realId: meta.realId,
     season: meta.season,
     finished,
+    finishedType,
     started,
     status: g.GameStatus ?? null,
     score: { home: home.Goals ?? null, away: away.Goals ?? null },
@@ -445,6 +458,7 @@ function buildBoxScore(report, meta) {
     goals,
     penalties,
     extras,
+    winningShots,
     goalies,
     referees: (report.Referees || []).map((r) => ({ role: r.RefereeRole, name: r.RefereeName })),
     spectators: g.Spectators ?? null,
@@ -567,7 +581,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "6";
+const CACHE_VERSION = "7";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;

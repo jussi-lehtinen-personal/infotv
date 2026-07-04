@@ -131,6 +131,7 @@ const BoxScore = () => {
                 {tab === "events" ? (
                   <>
                     <Timeline report={report} />
+                    <WinningShots shots={report.winningShots} game={game} />
                     <Goalies goalies={report.goalies} game={game} />
                     <Footer report={report} game={game} />
                   </>
@@ -151,7 +152,16 @@ const GameHeader = ({ game, report }) => {
   const finished = report ? report.finished : Number(game.finished) > 0;
   const score = report && report.score ? report.score : { home: game.home_goals, away: game.away_goals };
   const d = mdate(game.date);
-  const status = finished ? "Päättynyt" : started ? "Käynnissä" : d.format("dd D.M.");
+  const finType = report ? report.finishedType : Number(game.finished) || 0;
+  const status = finished
+    ? finType === 3
+      ? "Voittomaalikilpailun jälkeen"
+      : finType === 2
+      ? "Jatkoajan jälkeen"
+      : "Päättynyt"
+    : started
+    ? "Käynnissä"
+    : d.format("dd D.M.");
 
   return (
     <div className="bx-header">
@@ -323,6 +333,27 @@ const personName = (last, first) =>
     .split(/\s+/)
     .map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w))
     .join(" ")} ${first || ""}`.trim();
+
+const WinningShots = ({ shots, game }) => {
+  if (!shots || shots.length === 0) return null;
+  return (
+    <div className="bx-section">
+      <div className="bx-section-title">Voittomaalikilpailu</div>
+      <div className="bx-ws">
+        {shots.map((w, i) => (
+          <div className={`bx-ws-row${w.winner ? " is-win" : ""}`} key={i}>
+            <img className="bx-ws-logo" src={w.side === "home" ? game.home_logo : game.away_logo} alt="" />
+            {w.jersey ? <span className="bx-ws-num">{w.jersey}</span> : null}
+            <span className="bx-ws-name">{personName(w.last, w.first)}</span>
+            <span className={`bx-ws-mark${w.scored ? " is-goal" : ""}`} aria-hidden="true">
+              {w.scored ? "✓" : "✗"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const RosterTeam = ({ side, logo, name }) => {
   const players = [...((side && side.players) || [])].sort((a, b) => {
@@ -641,6 +672,26 @@ body { margin: 0; }
 .bx-gk-num { color: var(--gz-text-tertiary); font-weight: 800; margin-right: 3px; }
 .bx-goalie-saves { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-secondary); font-variant-numeric: tabular-nums; margin-top: 1px; }
 .bx-goalie-out { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
+
+/* SHOOTOUT (Voittomaalikilpailu) */
+.bx-ws { display: flex; flex-direction: column; }
+.bx-ws-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: var(--gz-fs-sm);
+}
+.bx-ws-row.is-win { background: rgba(245,158,11,0.10); border-radius: var(--radius-small); border-bottom-color: transparent; }
+.bx-ws-logo {
+  flex: 0 0 auto; width: 24px; height: 24px; box-sizing: border-box; border-radius: 6px;
+  background: #fff; object-fit: contain; padding: 2px;
+}
+.bx-ws-num { flex: 0 0 auto; font-weight: 800; color: var(--gz-text-tertiary); font-variant-numeric: tabular-nums; }
+.bx-ws-name {
+  flex: 1 1 auto; min-width: 0; color: var(--gz-text-primary); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bx-ws-mark { flex: 0 0 auto; width: 20px; text-align: center; font-size: 15px; font-weight: 800; color: var(--gz-text-tertiary); }
+.bx-ws-mark.is-goal { color: var(--color-primary); }
 
 /* MATCH INFO (Ottelun lisätiedot) */
 .bx-info {
