@@ -244,8 +244,18 @@ const EventRow = ({ e }) => {
       <div className="bx-ev-time">{e.time}</div>
       <div className="bx-ev-content">
         <div className="bx-ev-line">
-          <div className={`bx-ev-pill bx-ev-pill--${isGoal ? "goal" : "pen"}`}>
-            {isGoal ? e.running.replace("-", " – ") : `${e.minutes} min`}
+          <div className="bx-ev-pill">
+            {isGoal ? (
+              <>
+                <span className="bx-ev-badge bx-ev-badge--goal">MAALI</span>
+                <span className="bx-ev-val">{e.running.replace("-", " – ")}</span>
+              </>
+            ) : (
+              <>
+                <span className="bx-ev-badge bx-ev-badge--pen">JÄÄHY</span>
+                <span className="bx-ev-val bx-ev-val--pen">{e.minutes} min</span>
+              </>
+            )}
           </div>
           <div className="bx-ev-name">
             {name}
@@ -268,11 +278,12 @@ const goalieName = (raw) =>
 
 const Goalies = ({ goalies, game }) => {
   if (!goalies || goalies.length === 0) return null;
+  const ordered = [...goalies].sort((a, b) => (a.side === "home" ? 0 : 1) - (b.side === "home" ? 0 : 1));
   return (
     <div className="bx-section">
       <div className="bx-section-title">Maalivahdit</div>
       <div className="bx-goalies">
-        {goalies.map((t, i) =>
+        {ordered.map((t, i) =>
           (t.keepers || []).map((k, j) => {
             const logo = t.side === "home" ? game.home_logo : t.side === "away" ? game.away_logo : null;
             const per = (k.saves || []).filter((s) => Number(s.period) !== 0);
@@ -379,14 +390,12 @@ const Footer = ({ report, game }) => {
         <div className="bx-section">
           <div className="bx-section-title">Ottelun lisätiedot</div>
           <div className="bx-info">
-          {refs.length > 0 && (
-            <div className="bx-info-row">
-              <span className="bx-info-label"><LuFlag aria-hidden="true" /> {refs.length > 1 ? "Tuomarit" : "Tuomari"}</span>
-              <span className="bx-info-val">
-                {refs.map((r, i) => <div key={i}>{r}</div>)}
-              </span>
+          {refs.map((r, i) => (
+            <div className="bx-info-row" key={`ref-${i}`}>
+              <span className="bx-info-label"><LuFlag aria-hidden="true" /> Tuomari</span>
+              <span className="bx-info-val">{r}</span>
             </div>
-          )}
+          ))}
           {venue && (
             <div className="bx-info-row">
               <span className="bx-info-label"><LuMapPin aria-hidden="true" /> Pelipaikka</span>
@@ -526,15 +535,24 @@ body { margin: 0; }
 .bx-ev-line { display: flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
 .bx-ev--away .bx-ev-line { flex-direction: row-reverse; }
 
-/* pill: goal = filled amber; penalty = amber outline (transparent) so the two
-   read apart; both fonts show on the dark background */
+/* pill = a letter badge (M = maali / J = jäähy) + the value beside it; the badge
+   sits on the clock side. Goal: amber badge (black M) + light score. Penalty:
+   amber-outline badge (amber J) + amber minutes. Keeps text readable on dark. */
 .bx-ev-pill {
   flex: 0 0 auto;
-  font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
-  padding: 3px 8px; border-radius: 6px; box-sizing: border-box; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.bx-ev-pill--goal { color: #1a1206; background: var(--color-primary); border: 1px solid var(--color-primary); }
-.bx-ev-pill--pen  { color: var(--color-primary); background: transparent; border: 1px solid var(--color-primary); }
+.bx-ev--away .bx-ev-pill { flex-direction: row-reverse; }
+.bx-ev-badge {
+  flex: 0 0 auto; border-radius: 5px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px 6px; font-size: 10px; font-weight: 800;
+  letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.3;
+}
+.bx-ev-badge--goal { background: var(--color-primary); color: #1a1206; }
+.bx-ev-badge--pen  { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
+.bx-ev-val, .bx-ev-val--pen { color: var(--color-primary); }
 
 .bx-ev-name {
   flex: 0 1 auto; min-width: 0;
