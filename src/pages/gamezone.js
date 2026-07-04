@@ -8,7 +8,6 @@ import "moment/locale/fi";
 
 import {
   getMonday,
-  getMatchLink,
   loadFavouriteTeams,
 } from "../Util";
 import { isGameForAnyFavourite } from "../lib/teamMatch";
@@ -30,10 +29,6 @@ const HERO = "/games_hero.webp";
 // iOS rejects that via native Date, yielding "Invalid Date". ISO-ify the space
 // and parse strictly so it works on every platform.
 const mdate = (s) => moment(String(s || "").replace(" ", "T"), moment.ISO_8601);
-
-const goToSite = (uri) => {
-  window.location.href = uri;
-};
 
 function capitalize(str) {
   if (!str) return str;
@@ -525,11 +520,7 @@ function WeekList({
       </div>
 
       {g.items.map((m, idx) => (
-        <MatchRow
-          key={m.id ?? `${g.day}-${idx}`}
-          match={m}
-          onClick={() => goToSite(getMatchLink(idx, m))}
-        />
+        <MatchRow key={m.id ?? `${g.day}-${idx}`} match={m} />
       ))}
     </div>
   );
@@ -576,7 +567,7 @@ function WeekList({
 /*           ROW UI              */
 /* ============================= */
 
-function MatchRow({ match, onClick }) {
+function MatchRow({ match }) {
   const md = mdate(match.date);
   const timeStr = md.isValid() ? md.format("HH:mm") : "";
   const level = simplifyLevel(match.level ?? "");
@@ -637,13 +628,7 @@ function MatchRow({ match, onClick }) {
   const rowStyle = lineColor ? { "--gz-result-color": lineColor } : undefined;
 
   return (
-    <div
-      className="gz-row"
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      style={rowStyle}
-    >
+    <div className="gz-row" style={rowStyle}>
       <div className="gz-row-top">
         {isLive && (
           <div className="gz-live">
@@ -942,8 +927,6 @@ html, body, #root{
   gap: 14px;
   padding: 16px 8px 16px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  user-select: none;
 }
 .gz-row:last-child{ border-bottom: none; }
 
@@ -959,10 +942,6 @@ html, body, #root{
     color-mix(in srgb, var(--gz-result-color, transparent) 55%, transparent) 100%
   );
   pointer-events: none;
-}
-
-.gz-row:hover{
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .gz-row-top{
