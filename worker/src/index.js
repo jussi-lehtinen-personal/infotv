@@ -237,6 +237,14 @@ function extDate(gameDate, gameTime) {
   return `${d} ${gameTime || ""}`.trim();
 }
 
+// Some tulospalvelu abbrevs repeat the club word ("JIlves JIlves") — collapse a
+// doubled leading word so it reads cleanly everywhere.
+function cleanTeam(n) {
+  const s = String(n || "").trim();
+  const m = s.match(/^(\S+)\s+(\S+)(.*)$/);
+  return m && m[1] === m[2] ? (m[1] + m[3]).trim() : s;
+}
+
 function buildExtGame(g) {
   const rink = g.RinkName || g.RinkAbbrv || null;
   return {
@@ -244,11 +252,11 @@ function buildExtGame(g) {
     date: extDate(g.GameDate, g.GameTime),
     league: g.LevelName,
     periods: g.PeriodSummary,
-    home: g.HomeAbbrv,
+    home: cleanTeam(g.HomeAbbrv),
     homeTeamId: g.HomeTeam,
     home_logo: IMAGE_URI + g.HomeImg,
     home_goals: g.HomeGoals,
-    away: g.AwayAbbrv,
+    away: cleanTeam(g.AwayAbbrv),
     awayTeamId: g.AwayTeam,
     away_logo: IMAGE_URI + g.AwayImg,
     away_goals: g.AwayGoals,
