@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink } from "react-icons/lu";
 import moment from "moment";
@@ -19,11 +19,16 @@ const seasonOf = (s) => {
   const d = mdate(s);
   return d.month() >= 6 ? d.year() + 1 : d.year();
 };
+// "7:02" → seconds, for merging goals + penalties into one timeline.
+const toSecs = (t) => {
+  const [m, s] = String(t || "0:0").split(":").map(Number);
+  return (m || 0) * 60 + (s || 0);
+};
 
-// The box-score page. The clicked game object is passed via nav state for an
-// instant paint; on a direct URL / refresh we look it up in the season cache by
-// its ext id. Then /api/getGameReport (worker resolves the real getgames id +
-// fetches the report) fills the periods/goals/penalties/goalies.
+// The box-score page (Flashscore-style layout, AHMA dark/amber theme). The clicked
+// game object is passed via nav state for an instant paint; on a direct URL /
+// refresh we look it up in the season cache by its ext id. Then /api/getGameReport
+// (worker resolves the real getgames id + fetches the report) fills the events.
 const BoxScore = () => {
   const { id } = useParams();
   const { state } = useLocation();
@@ -32,10 +37,8 @@ const BoxScore = () => {
   const [game, setGame] = useState(
     () => (state && state.game) || peekSeasonGames().find((g) => String(g.id) === String(id)) || null
   );
-  // undefined = loading, null = no report, object = box score
-  const [report, setReport] = useState(undefined);
+  const [report, setReport] = useState(undefined); // undefined=loading, null=none, obj
 
-  // Resolve the game object from the season cache if we arrived without state.
   useEffect(() => {
     if (game) return;
     let cancelled = false;
@@ -45,7 +48,6 @@ const BoxScore = () => {
     return () => { cancelled = true; };
   }, [id, game]);
 
-  // Fetch the report once we know the game.
   useEffect(() => {
     if (!game) return;
     let cancelled = false;
@@ -79,7 +81,6 @@ const BoxScore = () => {
         ) : (
           <div className="bx-body">
             <GameHeader game={game} report={report} />
-
             {report === undefined && (
               <div className="bx-center"><Spinner text="Ladataan pöytäkirjaa…" /></div>
             )}
@@ -88,9 +89,7 @@ const BoxScore = () => {
             )}
             {report && (
               <>
-                <Periods periods={report.periods} />
-                <Goals goals={report.goals} game={game} />
-                <Penalties penalties={report.penalties} game={game} />
+                <Timeline report={report} game={game} />
                 <Goalies goalies={report.goalies} />
                 <Footer report={report} game={game} />
               </>
@@ -102,114 +101,105 @@ const BoxScore = () => {
   );
 };
 
-const TeamLine = ({ logo, name, goals, showScore }) => (
-  <div className="bx-team">
-    <img className="bx-team-logo" src={logo} alt="" />
-    <div className="bx-team-name">{splitTeamName(name || "").main}</div>
-    {showScore && <div className="bx-team-score">{goals ?? "–"}</div>}
-  </div>
-);
-
 const GameHeader = ({ game, report }) => {
   const started = report ? report.started : Number(game.finished) > 0;
   const finished = report ? report.finished : Number(game.finished) > 0;
   const score = report && report.score ? report.score : { home: game.home_goals, away: game.away_goals };
-  const status = finished ? "Päättynyt" : started ? "Käynnissä" : mdate(game.date).format("dd D.M. [klo] HH.mm");
+  const d = mdate(game.date);
+  const status = finished ? "Päättynyt" : started ? "Käynnissä" : d.format("dd D.M.");
 
   return (
     <div className="bx-header">
-      <div className="bx-header-meta">
-        {game.level && <span className="bx-badge">{game.level.trim()}</span>}
-        <span className={`bx-status${started && !finished ? " bx-status--live" : ""}`}>{status}</span>
-      </div>
-      <div className="bx-teams">
-        <TeamLine logo={game.home_logo} name={game.home} goals={score.home} showScore={started} />
-        <div className="bx-vs">{started ? "" : "vs"}</div>
-        <TeamLine logo={game.away_logo} name={game.away} goals={score.away} showScore={started} />
+      <div className="bx-hd-date">{d.format("D.M.YYYY [·] HH.mm")}</div>
+      {game.level && <div className="bx-hd-level">{game.level.trim()}</div>}
+      <div className="bx-hd-row">
+        <div className="bx-hd-team">
+          <img className="bx-hd-logo" src={game.home_logo} alt="" />
+          <div className="bx-hd-name">{splitTeamName(game.home || "").main}</div>
+        </div>
+        <div className="bx-hd-mid">
+          {started ? (
+            <div className="bx-hd-score">{score.home ?? 0}<span className="bx-hd-dash">–</span>{score.away ?? 0}</div>
+          ) : (
+            <div className="bx-hd-time">{d.format("HH.mm")}</div>
+          )}
+          <div className={`bx-hd-status${started && !finished ? " bx-hd-status--live" : ""}`}>{status}</div>
+        </div>
+        <div className="bx-hd-team">
+          <img className="bx-hd-logo" src={game.away_logo} alt="" />
+          <div className="bx-hd-name">{splitTeamName(game.away || "").main}</div>
+        </div>
       </div>
       {game.rink && (
-        <div className="bx-header-rink">
-          <LuMapPin aria-hidden="true" /> {game.rink}
-        </div>
+        <div className="bx-hd-rink"><LuMapPin aria-hidden="true" /> {game.rink}</div>
       )}
     </div>
   );
 };
 
-// Period scores. `periods` = ["3-0","1-0","3-1","7-1"] where the LAST is the total.
-const Periods = ({ periods }) => {
-  if (!periods || periods.length < 2) return null;
-  const per = periods.slice(0, -1);
+// Goals + penalties merged into one chronological timeline, grouped by period,
+// each event mirrored to its team's side (home left, away right) Flashscore-style.
+const Timeline = ({ report, game }) => {
+  const byPeriod = useMemo(() => {
+    const evs = [
+      ...(report.goals || []).map((g) => ({ ...g, kind: "goal" })),
+      ...(report.penalties || []).map((p) => ({ ...p, kind: "penalty" })),
+    ].sort((a, b) => a.period - b.period || toSecs(a.time) - toSecs(b.time));
+    const map = new Map();
+    for (const e of evs) {
+      if (!map.has(e.period)) map.set(e.period, []);
+      map.get(e.period).push(e);
+    }
+    return map;
+  }, [report]);
+
+  const periods = report.periods || [];
+  const periodScore = (n) => periods[n - 1] && periods[n - 1].replace("-", " – ");
+
+  if (byPeriod.size === 0) return null;
+
   return (
-    <div className="bx-section">
-      <div className="bx-section-title">Erät</div>
-      <div className="bx-periods">
-        {per.map((p, i) => (
-          <div className="bx-period" key={i}>
-            <div className="bx-period-n">{i + 1}.</div>
-            <div className="bx-period-s">{p}</div>
+    <div className="bx-timeline">
+      {[...byPeriod.keys()].sort((a, b) => a - b).map((n) => (
+        <div className="bx-per" key={n}>
+          <div className="bx-per-head">
+            <span>{n}. erä</span>
+            {periodScore(n) && <span className="bx-per-score">{periodScore(n)}</span>}
           </div>
-        ))}
-      </div>
+          <div className="bx-per-evs">
+            {byPeriod.get(n).map((e, i) => (
+              <EventRow key={i} e={e} game={game} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
 
-const STRENGTH = { YV: "YV", AV: "AV" };
+const EventRow = ({ e, game }) => {
+  const logo = e.side === "home" ? game.home_logo : game.away_logo;
+  const isGoal = e.kind === "goal";
+  const name = isGoal ? e.scorer.name : e.player.name;
+  const jersey = isGoal ? e.scorer.jersey : e.player.jersey;
+  const sub = isGoal ? (e.assists && e.assists.length ? e.assists.join(", ") : "") : e.reason || "";
+  const strength = isGoal && (e.strength === "YV" || e.strength === "AV") ? e.strength : null;
 
-const Goals = ({ goals, game }) => {
-  if (!goals || goals.length === 0) return null;
   return (
-    <div className="bx-section">
-      <div className="bx-section-title">Maalit</div>
-      <div className="bx-events">
-        {goals.map((g, i) => {
-          const logo = g.side === "home" ? game.home_logo : game.away_logo;
-          const strength = STRENGTH[g.strength];
-          return (
-            <div className="bx-event" key={i}>
-              <div className="bx-event-time">{g.period}. · {g.time}</div>
-              <img className="bx-event-logo" src={logo} alt="" />
-              <div className="bx-event-main">
-                <div className="bx-event-scorer">
-                  {g.scorer.jersey ? <span className="bx-jersey">#{g.scorer.jersey}</span> : null} {g.scorer.name}
-                  {strength && <span className={`bx-strength bx-strength--${g.strength.toLowerCase()}`}>{strength}</span>}
-                </div>
-                {g.assists && g.assists.length > 0 && (
-                  <div className="bx-event-assists">{g.assists.join(", ")}</div>
-                )}
-              </div>
-              <div className="bx-event-run">{g.running}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const Penalties = ({ penalties, game }) => {
-  if (!penalties || penalties.length === 0) return null;
-  return (
-    <div className="bx-section">
-      <div className="bx-section-title">Jäähyt</div>
-      <div className="bx-events">
-        {penalties.map((p, i) => {
-          const logo = p.side === "home" ? game.home_logo : game.away_logo;
-          return (
-            <div className="bx-event" key={i}>
-              <div className="bx-event-time">{p.period}. · {p.time}</div>
-              <img className="bx-event-logo" src={logo} alt="" />
-              <div className="bx-event-main">
-                <div className="bx-event-scorer">
-                  {p.player.jersey ? <span className="bx-jersey">#{p.player.jersey}</span> : null} {p.player.name}
-                </div>
-                {p.reason && <div className="bx-event-assists">{p.reason}</div>}
-              </div>
-              <div className="bx-event-run">{p.minutes} min</div>
-            </div>
-          );
-        })}
+    <div className={`bx-ev bx-ev--${e.side}`}>
+      <div className="bx-ev-min">{e.time}</div>
+      <img className="bx-ev-logo" src={logo} alt="" />
+      {isGoal ? (
+        <div className="bx-ev-tok bx-ev-tok--goal">{e.running.replace("-", "–")}</div>
+      ) : (
+        <div className="bx-ev-tok bx-ev-tok--pen">{e.minutes}′</div>
+      )}
+      <div className="bx-ev-body">
+        <div className="bx-ev-name">
+          {jersey ? <span className="bx-jersey">#{jersey}</span> : null} {name}
+          {strength && <span className={`bx-strength bx-strength--${e.strength.toLowerCase()}`}>{strength}</span>}
+        </div>
+        {sub && <div className="bx-ev-sub">{sub}</div>}
       </div>
     </div>
   );
@@ -298,82 +288,103 @@ body { margin: 0; }
   color: var(--color-primary);
 }
 
-.bx-body { width: 100%; max-width: 640px; margin: 0 auto; padding: 14px 12px 0; }
+.bx-body { width: 100%; max-width: 640px; margin: 0 auto; padding: 12px 12px 0; }
 .bx-center { display: flex; justify-content: center; padding: 40px 0; }
 .bx-note { text-align: center; padding: 28px 16px; color: var(--gz-text-tertiary); font-size: var(--gz-fs-sm); }
 
-/* HEADER */
+/* HEADER — Flashscore-style 3-col: teams flank a big centred score */
 .bx-header {
   border-radius: var(--radius-card);
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.10);
-  padding: 14px; margin-bottom: 14px;
+  padding: 14px 12px 12px; margin-bottom: 14px;
+  text-align: center;
 }
-.bx-header-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.bx-badge {
-  font-size: var(--gz-fs-xs); font-weight: 800; letter-spacing: 0.04em;
-  color: var(--color-primary); background: rgba(245,158,11,0.12);
-  border: 1px solid rgba(245,158,11,0.30); border-radius: 999px; padding: 2px 9px;
+.bx-hd-date { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
+.bx-hd-level {
+  font-size: var(--gz-fs-xs); font-weight: 800; color: var(--color-primary);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px;
 }
-.bx-status { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
-.bx-status--live { color: #4ade80; }
-
-.bx-teams { display: flex; align-items: center; gap: 8px; }
-.bx-team { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0; }
-.bx-team-logo {
-  width: 56px; height: 56px; box-sizing: border-box; border-radius: 12px;
-  background: #fff; object-fit: contain; padding: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+.bx-hd-row { display: flex; align-items: flex-start; gap: 6px; margin-top: 10px; }
+.bx-hd-team { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.bx-hd-logo {
+  width: 60px; height: 60px; box-sizing: border-box; border-radius: 14px;
+  background: #fff; object-fit: contain; padding: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.35);
 }
-.bx-team-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); line-height: 1.2; }
-.bx-team-score { font-size: 30px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
-.bx-vs { flex: 0 0 auto; font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-tertiary); }
-.bx-header-rink {
+.bx-hd-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); line-height: 1.2; }
+.bx-hd-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 6px 0; }
+.bx-hd-score {
+  font-size: 40px; font-weight: 800; color: #fff; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: 1px; white-space: nowrap;
+}
+.bx-hd-dash { color: var(--gz-text-tertiary); margin: 0 6px; font-weight: 700; }
+.bx-hd-time { font-size: 26px; font-weight: 800; color: var(--gz-text-secondary); line-height: 1; }
+.bx-hd-status {
+  font-size: var(--gz-fs-xs); font-weight: 800; color: var(--gz-text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.04em; text-align: center; line-height: 1.2;
+}
+.bx-hd-status--live { color: #4ade80; }
+.bx-hd-rink {
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  margin-top: 12px; font-size: var(--gz-fs-sm); color: var(--gz-text-tertiary);
+  margin-top: 12px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
 }
-.bx-header-rink svg { width: 15px; height: 15px; }
+.bx-hd-rink svg { width: 14px; height: 14px; }
 
-/* SECTIONS */
-.bx-section { margin-bottom: 16px; }
-.bx-section-title {
-  font-size: var(--gz-fs-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--color-primary); margin-bottom: 8px; padding-left: 2px;
+/* TIMELINE — periods with a header bar, events mirrored by side */
+.bx-timeline { margin-bottom: 16px; }
+.bx-per { margin-bottom: 6px; }
+.bx-per-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; border-radius: var(--radius-small);
+  background: rgba(255,255,255,0.05);
+  font-size: var(--gz-fs-xs); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--gz-text-secondary);
 }
+.bx-per-score { color: var(--gz-text-primary); font-variant-numeric: tabular-nums; }
+.bx-per-evs { display: flex; flex-direction: column; }
 
-.bx-periods { display: flex; gap: 8px; }
-.bx-period {
-  flex: 1; text-align: center; padding: 8px 4px;
-  border-radius: var(--radius-item); background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+.bx-ev {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  width: 82%; /* leave the opposite half empty → clearly one side */
 }
-.bx-period-n { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
-.bx-period-s { font-size: var(--gz-fs-md); font-weight: 800; color: var(--gz-text-primary); font-variant-numeric: tabular-nums; }
-
-/* EVENTS (goals / penalties) */
-.bx-events { display: flex; flex-direction: column; gap: 6px; }
-.bx-event {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: var(--radius-item);
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+.bx-ev--home { margin-right: auto; }
+.bx-ev--away { margin-left: auto; flex-direction: row-reverse; text-align: right; }
+.bx-ev-min {
+  flex: 0 0 auto; width: 42px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
-.bx-event-time { flex: 0 0 auto; width: 52px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); font-variant-numeric: tabular-nums; }
-.bx-event-logo {
-  flex: 0 0 auto; width: 26px; height: 26px; box-sizing: border-box; border-radius: 6px;
+.bx-ev--home .bx-ev-min { text-align: left; }
+.bx-ev--away .bx-ev-min { text-align: right; }
+.bx-ev-logo {
+  flex: 0 0 auto; width: 24px; height: 24px; box-sizing: border-box; border-radius: 6px;
   background: #fff; object-fit: contain; padding: 2px;
 }
-.bx-event-main { flex: 1; min-width: 0; }
-.bx-event-scorer { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
+.bx-ev-tok {
+  flex: 0 0 auto; min-width: 40px; text-align: center;
+  font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums;
+  padding: 3px 7px; border-radius: 6px;
+}
+.bx-ev-tok--goal { color: #fff; background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.40); }
+.bx-ev-tok--pen { color: #fbbf24; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); min-width: 30px; }
+.bx-ev-body { flex: 1 1 auto; min-width: 0; }
+.bx-ev-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
 .bx-jersey { color: var(--gz-text-tertiary); font-weight: 800; }
-.bx-event-assists { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
-.bx-event-run { flex: 0 0 auto; font-size: var(--gz-fs-sm); font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.bx-ev-sub { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
 .bx-strength {
-  margin-left: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
+  margin: 0 5px; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
   padding: 1px 5px; border-radius: 4px; vertical-align: middle;
 }
 .bx-strength--yv { color: #fbbf24; background: rgba(245,158,11,0.15); }
 .bx-strength--av { color: #60a5fa; background: rgba(96,165,250,0.15); }
 
 /* GOALIES */
+.bx-section { margin-bottom: 16px; }
+.bx-section-title {
+  font-size: var(--gz-fs-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-primary); margin-bottom: 8px; padding-left: 2px;
+}
 .bx-goalies { display: flex; flex-direction: column; gap: 6px; }
 .bx-goalie {
   display: flex; align-items: center; gap: 10px;
