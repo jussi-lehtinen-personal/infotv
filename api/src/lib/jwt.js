@@ -1,3 +1,10 @@
+// `jose` uses the Web Crypto API via the global `crypto`. Node exposes it as a
+// global by default, but the 32-bit Azure Functions Core Tools (local SWA
+// emulator) does NOT — which threw "crypto is not defined" at load and killed
+// the whole function app (every /api → 404). Polyfill it from node:crypto;
+// guarded so it never overrides the real global in production.
+if (!globalThis.crypto) globalThis.crypto = require('crypto').webcrypto;
+
 const { SignJWT, jwtVerify } = require('jose');
 
 // App session token (HS256). Low-stakes club app → long-lived (90d) + silent
