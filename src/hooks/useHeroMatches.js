@@ -3,6 +3,7 @@ import {
   loadFavouriteTeams,
   isGameForFavouriteTeam,
 } from "../Util";
+import { fetchWeek, mondayOf } from "../lib/gamesWeekCache";
 
 // API palauttaa muodossa "YYYY-MM-DD HH:mm" — muunnetaan ISO-yhteensopivaksi
 // jotta Date-konstruktori toimii Safarissa.
@@ -21,8 +22,6 @@ export const isLiveMatch = (match) => {
   const elapsed = Date.now() - parseMatchDate(match.date).getTime();
   return elapsed >= 0 && elapsed < LIVE_WINDOW_MS;
 };
-
-const isoDate = (d) => d.toISOString().slice(0, 10);
 
 // Hakee max 3 hero-korttia ottelulistalla rikastettavaksi:
 //   1. Lue suosikkijoukkueet localStoragesta
@@ -62,17 +61,6 @@ export function useHeroMatches() {
     let cancelled = false;
     let timeoutId;
 
-    const fetchWeek = async (date) => {
-      try {
-        const r = await fetch(
-          `/api/getGames?date=${isoDate(date)}&includeAway=1`
-        );
-        return r.ok ? await r.json() : [];
-      } catch {
-        return [];
-      }
-    };
-
     const fetchAndUpdate = async () => {
       const now = new Date();
 
@@ -83,7 +71,11 @@ export function useHeroMatches() {
       // 1) kuluva + seuraava viikko (riittää kaudella), 2) jos ei vielä tarpeeksi,
       // loput ~10 viikkoa kerralla rinnakkain (hoitaa pitkän kesätauon).
       const fetchWeeks = (offsets) =>
-        Promise.all(offsets.map((w) => fetchWeek(new Date(now.getTime() + w * 7 * 86400000))));
+        Promise.all(
+          offsets.map((w) =>
+            fetchWeek(mondayOf(new Date(now.getTime() + w * 7 * 86400000)), true).catch(() => [])
+          )
+        );
       const seen = new Set();
       const allMatches = [];
       const collect = (arrs) => {

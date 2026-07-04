@@ -1,30 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import moment from "moment";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  getMockGameData,
-  getMonday,
-  processIncomingDataEvents,
-  buildGamesQueryUri,
-} from "../Util";
+  fetchWeek,
+  peekMatches,
+  peekWeek,
+  subscribe,
+  mondayOf,
+} from "../lib/gamesWeekCache";
 
-// Module-scope cache, shared across every consumer of this hook.
-// Survives component remounts and route changes (route remount in App.js
-// would otherwise wipe a useRef-based cache).
-// Map<cacheKey, { matches, timestamp }>
-const weekCache = new Map();
-
-function buildCacheKey(date, includeAway) {
-  const monday = getMonday(new Date(date));
-  return moment(monday).format("YYYY-MM-DD") + "|" + (includeAway ? "all" : "home");
-}
+// Poll cadence + how fresh the current week must be when polling (so two
+// consumers polling within this window share one fetch).
+const POLL_MS = 60_000;
+const POLL_MAX_AGE = 30_000;
 
 /**
  * Hook for week-based game data with stale-while-revalidate, ±1-week prefetch,
- * and 60s polling on the current week.
- *
- * Single source of truth is the module-level `weekCache`; rendered values are
- * derived via `cacheVersion` so background prefetch results re-render consumers.
+ * and 60s polling on the current week. Backed by the shared `gamesWeekCache`, so
+ * weeks are shared with the strip counts, the home hero and the team agenda (and
+ * later live-score patches propagate here automatically).
  *
  * @param {string|undefined} timestamp  - URL date param (YYYY-MM-DD) or undefined for "this week"
  * @param {boolean} includeAway          - whether to include away games (URL flag)
@@ -35,7 +28,6 @@ export function useWeekData(timestamp, includeAway) {
   const [bgFetching, setBgFetching] = useState(false);
   const [cacheVersion, setCacheVersion] = useState(0);
   const fetchSeq = useRef(0);
-  const abortRef = useRef(null);
 
   const curDate = useMemo(
     () => (timestamp ? new Date(timestamp) : new Date()),
@@ -52,109 +44,70 @@ export function useWeekData(timestamp, includeAway) {
     return d;
   }, [curDate]);
 
-  const curKey  = useMemo(() => buildCacheKey(curDate,  includeAway), [curDate,  includeAway]);
-  const prevKey = useMemo(() => buildCacheKey(prevDate, includeAway), [prevDate, includeAway]);
-  const nextKey = useMemo(() => buildCacheKey(nextDate, includeAway), [nextDate, includeAway]);
+  const curMon = useMemo(() => mondayOf(curDate), [curDate]);
+  const prevMon = useMemo(() => mondayOf(prevDate), [prevDate]);
+  const nextMon = useMemo(() => mondayOf(nextDate), [nextDate]);
 
-  const bumpCache = useCallback(() => setCacheVersion(v => v + 1), []);
+  // Re-derive rendered matches when the shared cache updates (own fetch, another
+  // consumer's fetch, or a live patch).
+  useEffect(() => subscribe(() => setCacheVersion((v) => v + 1)), []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const curMatches  = useMemo(() => weekCache.get(curKey)?.matches  ?? [], [curKey,  cacheVersion]);
+  const curMatches = useMemo(() => peekMatches(curMon, includeAway), [curMon, includeAway, cacheVersion]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const prevMatches = useMemo(() => weekCache.get(prevKey)?.matches ?? [], [prevKey, cacheVersion]);
+  const prevMatches = useMemo(() => peekMatches(prevMon, includeAway), [prevMon, includeAway, cacheVersion]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const nextMatches = useMemo(() => weekCache.get(nextKey)?.matches ?? [], [nextKey, cacheVersion]);
+  const nextMatches = useMemo(() => peekMatches(nextMon, includeAway), [nextMon, includeAway, cacheVersion]);
 
-  // Main fetch (current week) with stale-while-revalidate.
+  // Main fetch (current week) with stale-while-revalidate + polling.
   useEffect(() => {
     const mySeq = ++fetchSeq.current;
+    setLoading(!peekWeek(curMon, includeAway));
 
-    if (weekCache.has(curKey)) {
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
-
-    abortRef.current?.abort?.();
-    const ac = new AbortController();
-    abortRef.current = ac;
-
-    const doFetch = () => {
+    const doFetch = (poll) => {
       setBgFetching(true);
-      // Fetch by the week's MONDAY so every consumer (strip, match list, prefetch)
-      // hits one identical URL per week → shared browser/edge cache entry (and the
-      // server already keys its week cache by Monday anyway).
-      const mondayStr = moment(getMonday(new Date(curDate))).format("YYYY-MM-DD");
-      const uri = buildGamesQueryUri(mondayStr, { includeAway });
-      fetch(uri, { signal: ac.signal })
-        .then((r) => r.json())
-        .then((d) => {
-          const processed = processIncomingDataEvents(d);
-          weekCache.set(curKey, { matches: processed, timestamp: Date.now() });
+      fetchWeek(curMon, includeAway, poll ? { maxAge: POLL_MAX_AGE } : {})
+        .then(() => {
           if (mySeq !== fetchSeq.current) return;
-          bumpCache();
           setLoading(false);
         })
-        .catch((err) => {
-          if (err?.name === "AbortError") return;
+        .catch(() => {
           if (mySeq !== fetchSeq.current) return;
-          // Only fall back to mock data if we have nothing to show for this week.
-          if (!weekCache.has(curKey)) {
-            const mockProcessed = processIncomingDataEvents(getMockGameData());
-            weekCache.set(curKey, { matches: mockProcessed, timestamp: Date.now() });
-            bumpCache();
-            setLoading(false);
-          }
+          setLoading(false);
         })
         .finally(() => {
-          // Only the latest in-flight fetch clears the indicator.
-          if (mySeq !== fetchSeq.current) return;
-          setBgFetching(false);
+          if (mySeq === fetchSeq.current) setBgFetching(false);
         });
     };
 
-    doFetch();
+    doFetch(false);
 
-    // Poll only when viewing the current week — past/future weeks won't change
-    const selectedMon = getMonday(new Date(curDate));
-    const currentMon  = getMonday(new Date());
-    const isCurrentWeek = moment(selectedMon).isSame(moment(currentMon), "day");
-    const interval = isCurrentWeek ? setInterval(doFetch, 60_000) : null;
+    // Poll only when viewing the current week — past/future weeks won't change.
+    const isCurrentWeek = curMon === mondayOf(new Date());
+    const interval = isCurrentWeek ? setInterval(() => doFetch(true), POLL_MS) : null;
 
     return () => {
-      ac.abort();
       if (interval) clearInterval(interval);
     };
-  }, [curKey, timestamp, includeAway, curDate, bumpCache]);
+  }, [curMon, includeAway]);
 
-  // Prefetch ±1 week in parallel with the main fetch so neighbouring weeks are
-  // ready by the time the user swipes. 200ms debounce avoids a fetch storm
-  // during rapid swipes (only the destination week's prefetch survives).
+  // Prefetch ±1 week so neighbouring weeks are ready by the time the user
+  // swipes. 200ms debounce avoids a fetch storm during rapid swipes.
   useEffect(() => {
     const timer = setTimeout(() => {
-      [[prevDate, prevKey], [nextDate, nextKey]].forEach(([date, key]) => {
-        if (weekCache.has(key)) return;
-        const mondayStr = moment(getMonday(new Date(date))).format("YYYY-MM-DD");
-        const uri = buildGamesQueryUri(mondayStr, { includeAway });
-        fetch(uri)
-          .then((r) => r.json())
-          .then((d) => {
-            const processed = processIncomingDataEvents(d);
-            weekCache.set(key, { matches: processed, timestamp: Date.now() });
-            bumpCache();
-          })
-          .catch(() => {
-            // Silent — prefetch failure surfaces as a normal cache miss next time.
-          });
-      });
+      fetchWeek(prevMon, includeAway).catch(() => {});
+      fetchWeek(nextMon, includeAway).catch(() => {});
     }, 200);
-
     return () => clearTimeout(timer);
-  }, [prevKey, nextKey, prevDate, nextDate, includeAway, bumpCache]);
+  }, [prevMon, nextMon, includeAway]);
 
   return {
-    curDate, prevDate, nextDate,
-    curMatches, prevMatches, nextMatches,
+    curDate,
+    prevDate,
+    nextDate,
+    curMatches,
+    prevMatches,
+    nextMatches,
     loading,
     bgFetching,
   };
