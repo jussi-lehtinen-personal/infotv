@@ -256,9 +256,7 @@ const Goalies = ({ goalies, game }) => {
               <div className="bx-goalie" key={`${i}-${j}`}>
                 <img className="bx-goalie-logo" src={logo || ""} alt="" />
                 <div className="bx-goalie-main">
-                  <div className="bx-goalie-name">
-                    {k.jersey ? <span className="bx-gk-num">{k.jersey}</span> : null} {goalieName(k.name)}
-                  </div>
+                  <div className="bx-goalie-name">{goalieName(k.name)}</div>
                   <div className="bx-goalie-saves">{breakdown ? `${breakdown} = ${total}` : `${total} torjuntaa`}</div>
                   {out.length > 0 && (
                     <div className="bx-goalie-out">(Poissa maalilta: {out.join(", ")})</div>
