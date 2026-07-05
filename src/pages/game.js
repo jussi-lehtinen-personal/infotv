@@ -391,54 +391,63 @@ const WinningShots = ({ shots, game }) => {
   );
 };
 
-const StatBar = ({ home, away }) => {
+// Two half-bars meeting at a centre gap; each fill ∝ value/max; the BETTER side
+// (higher, or lower for penalty minutes) is amber, the other grey.
+const StatBar = ({ home, away, lowerBetter }) => {
   const h = Number(home) || 0;
   const a = Number(away) || 0;
-  const tot = h + a;
-  const hp = tot ? Math.round((h / tot) * 100) : 50;
+  const max = Math.max(h, a) || 1;
+  const homeHi = lowerBetter ? h < a : h > a;
+  const awayHi = lowerBetter ? a < h : a > h;
   return (
     <div className="bx-stat-bar">
-      <div className="bx-stat-bar-h" style={{ width: `${hp}%` }} />
-      <div className="bx-stat-bar-a" style={{ width: `${100 - hp}%` }} />
+      <div className="bx-stat-half bx-stat-half--home">
+        <div className={`bx-stat-fill${homeHi ? " is-hi" : ""}`} style={{ width: `${(h / max) * 100}%` }} />
+      </div>
+      <div className="bx-stat-gap" />
+      <div className="bx-stat-half bx-stat-half--away">
+        <div className={`bx-stat-fill${awayHi ? " is-hi" : ""}`} style={{ width: `${(a / max) * 100}%` }} />
+      </div>
     </div>
   );
 };
 
 // Flashscore-style team comparison from the period-summary totals (AHMA theme).
-// Shots on goal = the OTHER goalie's saves + this team's goals.
+// Shots on goal = the OTHER goalie's saves + this team's goals. PP%/PK% ≈ from
+// penalty counts (a team's PP chances ≈ the opponent's penalties; it kills its
+// own) — approximate (ignores coincidental/major nuances).
 const Stats = ({ report }) => {
   const s = report.stats;
   if (!s) return <div className="bx-note">Tilastoja ei ole saatavilla tälle ottelulle.</div>;
   const score = report.score || {};
   const num = (v) => (v == null || v === "" ? 0 : Number(v) || 0);
-  // PP% / PK% ≈ from penalty counts (a team's PP chances ≈ the opponent's
-  // penalties; it kills its own). Approximate (ignores coincidental/major nuances).
   const pen = { home: 0, away: 0 };
   for (const p of report.penalties || []) pen[p.side === "away" ? "away" : "home"] += 1;
   const ppGH = num(s.ppGoals.home);
   const ppGA = num(s.ppGoals.away);
-  const pct = (made, opp) => (opp > 0 ? `${Math.max(0, Math.min(100, Math.round((made / opp) * 100)))} %` : "–");
+  const pctNum = (made, opp) => (opp > 0 ? Math.max(0, Math.min(100, Math.round((made / opp) * 100))) : null);
   const rows = [
-    { label: "Maalit", home: num(score.home), away: num(score.away), bar: true },
-    { label: "Laukaukset", home: num(s.saves.away) + num(score.home), away: num(s.saves.home) + num(score.away), bar: true },
-    { label: "Torjunnat", home: num(s.saves.home), away: num(s.saves.away), bar: true },
-    { label: "Jäähyminuutit", home: num(s.penMins.home), away: num(s.penMins.away), bar: true },
-    { label: "Ylivoimamaalit", home: ppGH, away: ppGA, bar: true },
-    { label: "Ylivoima-%", home: pct(ppGH, pen.away), away: pct(ppGA, pen.home), bar: false },
-    { label: "Alivoimamaalit", home: num(s.shGoals.home), away: num(s.shGoals.away), bar: true },
-    { label: "Alivoima-%", home: pct(pen.home - ppGA, pen.home), away: pct(pen.away - ppGH, pen.away), bar: false },
-    { label: "Ylivoima-aika", home: s.ppMins.home || "0:00", away: s.ppMins.away || "0:00", bar: false },
+    { label: "Maalit", home: num(score.home), away: num(score.away) },
+    { label: "Laukaukset", home: num(s.saves.away) + num(score.home), away: num(s.saves.home) + num(score.away) },
+    { label: "Torjunnat", home: num(s.saves.home), away: num(s.saves.away) },
+    { label: "Jäähyminuutit", home: num(s.penMins.home), away: num(s.penMins.away), lowerBetter: true },
+    { label: "Ylivoimamaalit", home: ppGH, away: ppGA },
+    { label: "Alivoimamaalit", home: num(s.shGoals.home), away: num(s.shGoals.away) },
+    { label: "Ylivoima-%", home: pctNum(ppGH, pen.away), away: pctNum(ppGA, pen.home), pct: true },
+    { label: "Alivoima-%", home: pctNum(pen.home - ppGA, pen.home), away: pctNum(pen.away - ppGH, pen.away), pct: true },
+    { label: "Ylivoima-aika", home: s.ppMins.home || "0:00", away: s.ppMins.away || "0:00", text: true },
   ];
+  const disp = (r, v) => (r.text ? v : r.pct ? (v == null ? "–" : `${v} %`) : v);
   return (
     <div className="bx-stats">
       {rows.map((r, i) => (
         <div className="bx-stat" key={i}>
           <div className="bx-stat-top">
-            <span className="bx-stat-val">{r.home}</span>
+            <span className="bx-stat-val">{disp(r, r.home)}</span>
             <span className="bx-stat-label">{r.label}</span>
-            <span className="bx-stat-val">{r.away}</span>
+            <span className="bx-stat-val">{disp(r, r.away)}</span>
           </div>
-          {r.bar && <StatBar home={r.home} away={r.away} />}
+          {!r.text && <StatBar home={r.home ?? 0} away={r.away ?? 0} lowerBetter={r.lowerBetter} />}
         </div>
       ))}
     </div>
@@ -801,9 +810,13 @@ body { margin: 0; }
   font-size: var(--gz-fs-xs); text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--gz-text-tertiary); font-weight: 700;
 }
-.bx-stat-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.06); gap: 2px; }
-.bx-stat-bar-h { background: var(--color-primary); border-radius: 3px 0 0 3px; }
-.bx-stat-bar-a { background: rgba(255,255,255,0.24); border-radius: 0 3px 3px 0; }
+.bx-stat-bar { display: flex; align-items: center; height: 6px; }
+.bx-stat-half { flex: 1 1 0; height: 100%; display: flex; }
+.bx-stat-half--home { justify-content: flex-end; }
+.bx-stat-half--away { justify-content: flex-start; }
+.bx-stat-gap { flex: 0 0 10px; }
+.bx-stat-fill { height: 100%; border-radius: 3px; background: rgba(255,255,255,0.16); }
+.bx-stat-fill.is-hi { background: var(--color-primary); }
 
 /* MATCH INFO (Ottelun lisätiedot) */
 .bx-info {
