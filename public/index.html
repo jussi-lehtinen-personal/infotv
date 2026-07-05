@@ -40,10 +40,59 @@
     -->
 
     <title>Ahma Gamezone</title>
+
+    <!-- Branded loading screen shown until React mounts (createRoot replaces
+         #root's content on first render). Inline so it paints instantly. -->
+    <style>
+      #app-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        background:
+          radial-gradient(130% 90% at 50% -10%, #221d13 0%, rgba(17,17,17,0) 55%),
+          #111111;
+        font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+      }
+      #app-splash .sp-in {
+        display: flex; flex-direction: column; align-items: center; gap: 20px;
+        animation: sp-in 0.5s ease both;
+      }
+      #app-splash .sp-logo {
+        width: 118px; height: 118px; border-radius: 27px; display: block;
+        box-shadow: 0 0 40px rgba(245, 158, 11, 0.30);
+        animation: sp-pulse 2.4s ease-in-out infinite;
+      }
+      #app-splash .sp-title {
+        font-size: 22px; font-weight: 800; letter-spacing: 0.16em;
+        color: #ffffff; text-transform: uppercase;
+      }
+      #app-splash .sp-title b { color: #f59e0b; font-weight: 800; }
+      #app-splash .sp-bar {
+        width: 150px; height: 4px; border-radius: 2px;
+        background: rgba(255, 255, 255, 0.08); overflow: hidden;
+      }
+      #app-splash .sp-bar i {
+        display: block; width: 40%; height: 100%; border-radius: 2px;
+        background: #f59e0b; animation: sp-slide 1.15s ease-in-out infinite;
+      }
+      @keyframes sp-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+      @keyframes sp-slide { 0% { margin-left: -45%; } 100% { margin-left: 105%; } }
+      @keyframes sp-in { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        #app-splash .sp-logo, #app-splash .sp-bar i, #app-splash .sp-in { animation: none; }
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-splash">
+        <div class="sp-in">
+          <img class="sp-logo" src="%PUBLIC_URL%/logo192.png" alt="" />
+          <div class="sp-title">Ahma <b>Gamezone</b></div>
+          <div class="sp-bar"><i></i></div>
+        </div>
+      </div>
+    </div>
     <!-- Cloudflare Web Analytics (cookieless, no consent banner needed). Beacon
          auto-tracks SPA route changes via the History API. -->
     <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
