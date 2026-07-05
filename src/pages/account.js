@@ -64,6 +64,20 @@ const initials = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+// Role tags (see project_admin_roles). Team-scoped roles append the team.
+const ROLE_LABELS = {
+  pelaaja: "Pelaaja",
+  valmentaja: "Valmentaja",
+  toimihenkilo: "Toimihenkilö",
+  media: "Media",
+  admin: "Admin",
+};
+const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
+const roleTag = (r) => {
+  const label = ROLE_LABELS[r.role] || r.role;
+  return TEAM_ROLES.has(r.role) ? `${label} · ${r.team}` : label;
+};
+
 const MENU = [
   { key: "ilmoitukset", Icon: LuBell, title: "Ilmoitukset", sub: "Hallinnoi ilmoituksia" },
   { key: "asetukset", Icon: LuSettings, title: "Asetukset", sub: "Sovelluksen asetukset", to: "/settings" },
@@ -263,6 +277,15 @@ const Account = () => {
               </div>
               <div className="acc-me-sub">Kirjautunut</div>
               {user.email && <div className="acc-me-email">{user.email}</div>}
+              {user.roles && user.roles.length > 0 && (
+                <div className="acc-me-roles">
+                  {user.roles.map((r) => (
+                    <span key={`${r.role}:${r.team || ""}`} className={`acc-role acc-role--${r.role}`}>
+                      {roleTag(r)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -611,6 +634,16 @@ body { margin: 0; }
   font-size: var(--gz-fs-xs);
   color: rgba(255,255,255,0.55);
 }
+.acc-me-roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 8px; }
+.acc-role {
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.85);
+}
+.acc-role--pelaaja { background: rgba(167,139,250,0.22); color: #c4b5fd; }
+.acc-role--valmentaja { background: rgba(var(--color-primary-rgb),0.20); color: var(--color-primary); }
+.acc-role--toimihenkilo { background: rgba(45,212,191,0.20); color: #5eead4; }
+.acc-role--media { background: rgba(96,165,250,0.20); color: #93c5fd; }
+.acc-role--admin { background: rgba(74,222,128,0.20); color: var(--color-live); }
 
 /* ===== MINÄ BODY ===== */
 .acc-body {

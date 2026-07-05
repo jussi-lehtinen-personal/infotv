@@ -7,8 +7,10 @@ const { getEntity } = require('./tables');
 // others are global. Master-admin bootstrap stays the ADMIN_USER_IDS env
 // allowlist; a data `admin` role is an additional grant existing admins can hand
 // out from the UI (so new admins don't need an app-setting change).
-const ROLES = ['valmentaja', 'toimittaja', 'admin'];
-const TEAM_SCOPED = new Set(['valmentaja']);
+// Team-scoped roles carry a `team`; global roles don't. Keys are ASCII (no ä)
+// since they double as CSS-class suffixes / JSON.
+const ROLES = ['pelaaja', 'valmentaja', 'toimihenkilo', 'media', 'admin'];
+const TEAM_SCOPED = new Set(['pelaaja', 'valmentaja', 'toimihenkilo']);
 
 function envAdminIds() {
   return (process.env.ADMIN_USER_IDS || '')

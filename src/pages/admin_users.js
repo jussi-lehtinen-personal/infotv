@@ -11,18 +11,27 @@ import { JOPOX_TEAMS } from "../data/jopoxTeams";
 // the team-scoped valmentaja, from the year-round Jopox team list). See memory:
 // project_admin_roles + reference_data_map (teams = Jopox, NOT tulospalvelu).
 
-const ROLE_LABELS = { valmentaja: "Valmentaja", toimittaja: "Toimittaja", admin: "Admin" };
-const roleLabel = (r) => (r.role === "valmentaja" ? `Valmentaja · ${r.team}` : ROLE_LABELS[r.role] || r.role);
+const ROLE_LABELS = {
+  pelaaja: "Pelaaja",
+  valmentaja: "Valmentaja",
+  toimihenkilo: "Toimihenkilö",
+  media: "Media",
+  admin: "Admin",
+};
+const ROLE_ORDER = ["pelaaja", "valmentaja", "toimihenkilo", "media", "admin"];
+const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
+const roleLabel = (r) =>
+  TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role]} · ${r.team}` : ROLE_LABELS[r.role] || r.role;
 const roleKey = (r) => `${r.role}:${r.team || ""}`;
 
 // Popup: pick a role, and a team when the role is valmentaja.
 const AddRoleModal = ({ user, onClose, onChange }) => {
-  const [role, setRole] = useState("valmentaja");
+  const [role, setRole] = useState("pelaaja");
   const [team, setTeam] = useState(JOPOX_TEAMS[0] ? JOPOX_TEAMS[0].name : "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const needsTeam = role === "valmentaja";
+  const needsTeam = TEAM_ROLES.has(role);
   const canAdd = !busy && (!needsTeam || !!team);
 
   const submit = async () => {
@@ -48,7 +57,7 @@ const AddRoleModal = ({ user, onClose, onChange }) => {
 
         <div className="au-modal-label">Rooli</div>
         <div className="au-seg">
-          {["valmentaja", "toimittaja", "admin"].map((r) => (
+          {ROLE_ORDER.map((r) => (
             <button
               key={r}
               type="button"
@@ -63,13 +72,19 @@ const AddRoleModal = ({ user, onClose, onChange }) => {
         {needsTeam && (
           <>
             <div className="au-modal-label">Joukkue</div>
-            <select className="au-select" value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Joukkue">
+            <div className="au-teams">
               {JOPOX_TEAMS.map((t) => (
-                <option key={t.subsiteId} value={t.name}>
-                  {t.name}{t.sub ? ` (${t.sub})` : ""}
-                </option>
+                <button
+                  key={t.subsiteId}
+                  type="button"
+                  className={`au-team-btn${team === t.name ? " is-active" : ""}`}
+                  onClick={() => setTeam(t.name)}
+                >
+                  <span className="au-team-name">{t.name}</span>
+                  {t.sub && <span className="au-team-sub">{t.sub}</span>}
+                </button>
               ))}
-            </select>
+            </div>
           </>
         )}
 
@@ -301,8 +316,10 @@ body { margin: 0; }
   font-size: 12px; font-weight: 700; padding: 3px 4px 3px 9px; border-radius: 999px;
   background: rgba(255,255,255,0.08); color: var(--color-secondary);
 }
+.au-chip--pelaaja { background: rgba(167,139,250,0.20); color: #c4b5fd; }
 .au-chip--valmentaja { background: rgba(var(--color-primary-rgb),0.18); color: var(--color-primary); }
-.au-chip--toimittaja { background: rgba(96,165,250,0.18); color: #93c5fd; }
+.au-chip--toimihenkilo { background: rgba(45,212,191,0.18); color: #5eead4; }
+.au-chip--media { background: rgba(96,165,250,0.18); color: #93c5fd; }
 .au-chip--admin { background: rgba(74,222,128,0.18); color: var(--color-live); }
 .au-chip-x {
   display: inline-flex; align-items: center; justify-content: center;
@@ -346,9 +363,9 @@ body { margin: 0; }
   background: rgba(255,255,255,0.06); color: var(--color-secondary); flex: 0 0 auto;
 }
 .au-modal-label { font-size: 12px; color: var(--color-accent); margin: 10px 0 6px; }
-.au-seg { display: flex; gap: 6px; }
+.au-seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .au-seg-btn {
-  flex: 1 1 0; padding: 10px 8px; border-radius: var(--radius-item); cursor: pointer;
+  flex: 0 0 auto; padding: 9px 13px; border-radius: var(--radius-item); cursor: pointer;
   border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
   color: var(--color-secondary); font-family: inherit; font-size: 13px; font-weight: 700;
 }
@@ -356,11 +373,19 @@ body { margin: 0; }
   border-color: rgba(var(--color-primary-rgb),0.6);
   background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary);
 }
-.au-select {
-  width: 100%; box-sizing: border-box; padding: 11px 10px; font-family: inherit; font-size: 14px;
-  border-radius: var(--radius-item); border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.05); color: var(--color-secondary);
+.au-teams { display: flex; flex-wrap: wrap; gap: 6px; }
+.au-team-btn {
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 8px 12px; border-radius: var(--radius-item); cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
+  color: var(--color-secondary); font-family: inherit;
 }
+.au-team-btn.is-active {
+  border-color: rgba(var(--color-primary-rgb),0.6);
+  background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary);
+}
+.au-team-name { font-size: 13px; font-weight: 700; }
+.au-team-sub { font-size: 10px; opacity: 0.65; }
 .au-modal-actions { display: flex; gap: 8px; margin-top: 18px; }
 .au-btn {
   flex: 1 1 0; padding: 12px; border-radius: var(--radius-item); cursor: pointer;
