@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowLeft, LuStar } from "react-icons/lu";
+import { LuArrowLeft, LuStar, LuChevronDown } from "react-icons/lu";
 import { useGoBack } from "../hooks/useGoBack";
 import { themeCSS } from "../theme";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
@@ -11,7 +11,7 @@ import {
 } from "../Util";
 import { getCachedUser, getMe, saveFavourites } from "../auth/authClient";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
-import { subGroupsForFavourite, displaySub, subColorClass } from "../lib/subGroups";
+import { subGroupsForFavourite, displaySub } from "../lib/subGroups";
 
 // Hero image. Swap to the real teams hero shot when provided.
 const HERO = "/teams_hero.webp";
@@ -27,6 +27,16 @@ const Teams = () => {
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
   // Season games drive the dynamic sub-group (peliryhmä) list per age group.
   const [games, setGames] = useState(peekSeasonGames);
+  // Which teams' sub-group panel is expanded (by subsiteId).
+  const [expanded, setExpanded] = useState(() => new Set());
+  const toggleExpand = useCallback((id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Hydrate auth + account favourites (getMe mirrors them to localStorage).
   useEffect(() => {
@@ -106,10 +116,11 @@ const Teams = () => {
             const favEntry = favourites.find((f) => String(f.subsiteId) === String(team.subsiteId));
             const selected = favEntry && Array.isArray(favEntry.subGroups) ? favEntry.subGroups : [];
             const subs = isFav ? subGroupsForFavourite(team, games) : [];
-            const showSubs = user && isFav && subs.length > 1;
+            const hasSubs = user && isFav && subs.length > 1;
+            const open = expanded.has(team.subsiteId);
             return (
               <React.Fragment key={team.subsiteId}>
-                <div className="teams-row">
+                <div className={`teams-row${hasSubs && open ? " teams-row--open" : ""}`}>
                   <Link to={`/teams/${team.subsiteId}`} className="teams-row-link">
                     <img
                       className="teams-logo"
@@ -122,6 +133,17 @@ const Teams = () => {
                       {team.sub && <div className="teams-short">{team.sub}</div>}
                     </div>
                   </Link>
+                  {hasSubs && (
+                    <button
+                      type="button"
+                      className={`teams-chev${open ? " teams-chev--open" : ""}`}
+                      onClick={() => toggleExpand(team.subsiteId)}
+                      aria-expanded={open}
+                      aria-label={open ? "Piilota peliryhmät" : "Näytä peliryhmät"}
+                    >
+                      <LuChevronDown className="teams-chev-ico" aria-hidden="true" />
+                    </button>
+                  )}
                   {user && (
                     <button
                       type="button"
@@ -138,26 +160,29 @@ const Teams = () => {
                     </button>
                   )}
                 </div>
-                {showSubs && (
+                {hasSubs && open && (
                   <div className="teams-subs">
-                    <span className="teams-subs-label">Peliryhmät</span>
+                    <div className="teams-subs-head">
+                      Peliryhmät
+                      <span className="teams-subs-hint">
+                        {selected.length === 0 ? "seuraat kaikkia" : `seuraat: ${selected.map(displaySub).join(", ")}`}
+                      </span>
+                    </div>
                     {subs.map((s) => {
                       const on = selected.includes(s);
-                      const cc = subColorClass(s);
                       return (
                         <button
                           key={s}
                           type="button"
-                          className={`teams-sub${on ? " teams-sub--on" : ""}${cc ? ` teams-sub--${cc}` : ""}`}
+                          className={`teams-sub${on ? " teams-sub--on" : ""}`}
                           onClick={() => toggleSubGroup(team, s)}
                           aria-pressed={on}
                         >
                           <LuStar className="teams-sub-ico" aria-hidden="true" />
-                          {displaySub(s)}
+                          <span className="teams-sub-name">{displaySub(s)}</span>
                         </button>
                       );
                     })}
-                    {selected.length === 0 && <span className="teams-subs-all">seuraat kaikkia</span>}
                   </div>
                 )}
               </React.Fragment>
@@ -330,21 +355,43 @@ body { margin: 0; }
 .teams-fav--on:hover { color: var(--color-primary); }
 .teams-fav--on .teams-fav-ico { fill: var(--color-primary); }
 
-/* Sub-group (peliryhmä) sub-stars under a favourited age group. */
+/* Chevron that expands the sub-group panel. */
+.teams-chev {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 44px; background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.42); -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.teams-chev:hover { color: rgba(255,255,255,0.8); }
+.teams-chev-ico { width: 20px; height: 20px; transition: transform 0.18s ease; }
+.teams-chev--open .teams-chev-ico { transform: rotate(180deg); }
+.teams-row--open { border-color: rgba(var(--color-primary-rgb),0.35); }
+
+/* Sub-group (peliryhmä) panel — vertical rows under the age-group card. */
 .teams-subs {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  padding: 2px 14px 12px 68px; margin-top: -4px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px 12px; border-radius: var(--radius-item);
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
 }
-.teams-subs-label { font-size: 12px; color: rgba(255,255,255,0.5); }
-.teams-subs-all { font-size: 12px; color: rgba(255,255,255,0.4); font-style: italic; }
+.teams-subs-head {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px;
+  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.6);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.teams-subs-hint {
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  color: rgba(255,255,255,0.4); font-style: italic;
+}
 .teams-sub {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 11px 5px 9px; border-radius: 999px; cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.75); font-family: inherit; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box;
+  padding: 11px 12px; border-radius: var(--radius-item); cursor: pointer; text-align: left;
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.75); font-family: inherit; font-size: 14px; font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
 }
-.teams-sub-ico { width: 15px; height: 15px; }
-.teams-sub--on { border-color: rgba(var(--color-primary-rgb),0.55); color: var(--color-primary); }
+.teams-sub-ico { width: 18px; height: 18px; flex: 0 0 auto; }
+.teams-sub-name { flex: 1 1 auto; }
+.teams-sub--on { border-color: rgba(var(--color-primary-rgb),0.55); background: rgba(var(--color-primary-rgb),0.10); color: var(--color-primary); }
 .teams-sub--on .teams-sub-ico { fill: var(--color-primary); }
 
 @media (min-width: 768px) {
