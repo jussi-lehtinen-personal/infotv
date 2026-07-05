@@ -411,13 +411,22 @@ const Stats = ({ report }) => {
   if (!s) return <div className="bx-note">Tilastoja ei ole saatavilla tälle ottelulle.</div>;
   const score = report.score || {};
   const num = (v) => (v == null || v === "" ? 0 : Number(v) || 0);
+  // PP% / PK% ≈ from penalty counts (a team's PP chances ≈ the opponent's
+  // penalties; it kills its own). Approximate (ignores coincidental/major nuances).
+  const pen = { home: 0, away: 0 };
+  for (const p of report.penalties || []) pen[p.side === "away" ? "away" : "home"] += 1;
+  const ppGH = num(s.ppGoals.home);
+  const ppGA = num(s.ppGoals.away);
+  const pct = (made, opp) => (opp > 0 ? `${Math.max(0, Math.min(100, Math.round((made / opp) * 100)))} %` : "–");
   const rows = [
     { label: "Maalit", home: num(score.home), away: num(score.away), bar: true },
     { label: "Laukaukset", home: num(s.saves.away) + num(score.home), away: num(s.saves.home) + num(score.away), bar: true },
     { label: "Torjunnat", home: num(s.saves.home), away: num(s.saves.away), bar: true },
     { label: "Jäähyminuutit", home: num(s.penMins.home), away: num(s.penMins.away), bar: true },
-    { label: "Ylivoimamaalit", home: num(s.ppGoals.home), away: num(s.ppGoals.away), bar: true },
+    { label: "Ylivoimamaalit", home: ppGH, away: ppGA, bar: true },
+    { label: "Ylivoima-%", home: pct(ppGH, pen.away), away: pct(ppGA, pen.home), bar: false },
     { label: "Alivoimamaalit", home: num(s.shGoals.home), away: num(s.shGoals.away), bar: true },
+    { label: "Alivoima-%", home: pct(pen.home - ppGA, pen.home), away: pct(pen.away - ppGH, pen.away), bar: false },
     { label: "Ylivoima-aika", home: s.ppMins.home || "0:00", away: s.ppMins.away || "0:00", bar: false },
   ];
   return (
@@ -783,8 +792,8 @@ body { margin: 0; }
 .bx-stat { display: flex; flex-direction: column; gap: 5px; }
 .bx-stat-top { display: flex; align-items: center; gap: 12px; }
 .bx-stat-val {
-  flex: 0 0 42px; font-size: var(--gz-fs-md); font-weight: 800;
-  color: var(--gz-text-primary); font-variant-numeric: tabular-nums;
+  flex: 0 0 52px; font-size: var(--gz-fs-md); font-weight: 800;
+  color: var(--gz-text-primary); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .bx-stat-top .bx-stat-val:last-child { text-align: right; }
 .bx-stat-label {
