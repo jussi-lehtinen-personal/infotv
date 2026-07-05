@@ -2,9 +2,13 @@
   /* === VÄRIT === */
   /* AHMA-brändin pääväri on seuran oranssi. Valkoinen ja musta täydentävät
      paletin (musta = --color-bg, valkoinen = --color-secondary). */
-  --color-primary:         #f97316;                    /* Oranssi — AHMA-brändi, korostukset */
-  --color-primary-dim:     rgba(249, 115, 22, 0.45);   /* Oranssi haalistuneena */
-  --color-primary-glow:    rgba(249, 115, 22, 0.20);   /* Oranssi hover/glow */
+  /* Pääväri johdetaan RGB-tokenista → brändimuutos = 1 rivi (--color-primary-rgb).
+     Alfatasot: rgba(var(--color-primary-rgb), a). */
+  --color-primary-rgb:     249, 115, 22;               /* Oranssi — AHMA-brändi */
+  --color-primary:         rgb(var(--color-primary-rgb));
+  --color-primary-dim:     rgba(var(--color-primary-rgb), 0.45);   /* Oranssi haalistuneena */
+  --color-primary-glow:    rgba(var(--color-primary-rgb), 0.20);   /* Oranssi hover/glow */
+  --color-on-primary:      #1a1206;                    /* Tumma teksti oranssin päälle (badget/pillit) */
 
   --color-secondary:       rgba(255, 255, 255, 0.95);  /* Valkoinen — pääteksti */
   --color-accent:          rgba(255, 255, 255, 0.65);  /* Harmaa — toissijainen teksti */
@@ -19,6 +23,9 @@
   --color-win:  #22c55e;
   --color-loss: #ef4444;
   --color-draw: #e8e8e8;
+  --color-live: #4ade80;   /* Käynnissä / OK-tila (vaalea vihreä) */
+  --color-info: #60a5fa;   /* Info / Jopox (sininen) */
+  --color-accent-yellow: #fbbf24;   /* Keltainen korostus (brändin Eye Yellow myöhemmin) */
 
   /* === TYPOGRAFIA — KIOSKI (InfoTV) ===
      Näitä käytetään ainoastaan InfoTV-sivuilla (this_week, schedule,
@@ -269,7 +276,7 @@ code {
   height: 32px;
   border-radius: 50%;
   background: var(--color-primary);
-  color: #1a1206;
+  color: var(--color-on-primary);
   font-weight: 800;
   font-size: 15px;
   line-height: 1;
@@ -294,7 +301,7 @@ code {
   gap: 12px;
   padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
   background: var(--color-primary);
-  color: #1a1206;
+  color: var(--color-on-primary);
   font-family: var(--font-family-base);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
@@ -307,7 +314,7 @@ code {
   padding: 7px 14px;
   border-radius: 999px;
   border: none;
-  background: #1a1206;
+  background: var(--color-on-primary);
   color: var(--color-primary);
   font-weight: 800;
   font-size: 13px;
@@ -524,7 +531,7 @@ code {
   color: var(--gz-text-primary);
 }
 .ui-drawer-row:hover { background: rgba(255, 255, 255, 0.05); }
-.ui-drawer-row:active { background: rgba(245, 158, 11, 0.12); }
+.ui-drawer-row:active { background: rgba(var(--color-primary-rgb), 0.12); }
 .ui-drawer-row-icon {
   flex: 0 0 auto;
   width: 21px;

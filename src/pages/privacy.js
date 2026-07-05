@@ -192,7 +192,7 @@ body { margin: 0; }
 .pr-link-icon {
   flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(245,158,11,0.13); border: 1px solid rgba(245,158,11,0.35);
+  background: rgba(var(--color-primary-rgb),0.13); border: 1px solid rgba(var(--color-primary-rgb),0.35);
   color: var(--color-primary);
 }
 .pr-link-icon svg { width: 20px; height: 20px; }

@@ -223,7 +223,7 @@ body { margin: 0; }
   height: 300px;
   overflow: hidden;
   background:
-    radial-gradient(120% 90% at 50% 30%, rgba(245,158,11,0.10), rgba(12,14,19,0) 60%),
+    radial-gradient(120% 90% at 50% 30%, rgba(var(--color-primary-rgb),0.10), rgba(12,14,19,0) 60%),
     #0c0e13;
 }
 /* Hero image — fills the whole hero area. */
@@ -358,7 +358,7 @@ body { margin: 0; }
   background: #1a1a1a;
   border: 1px solid rgba(255,255,255,0.07);
 }
-.tm-orow--contact { background: rgba(245,158,11,0.09); border-color: rgba(245,158,11,0.28); }
+.tm-orow--contact { background: rgba(var(--color-primary-rgb),0.09); border-color: rgba(var(--color-primary-rgb),0.28); }
 .tm-ophoto {
   flex: 0 0 auto; width: 62px; height: 80px;
   border-radius: 10px;

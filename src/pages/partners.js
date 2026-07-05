@@ -148,7 +148,7 @@ body { margin: 0; }
   transition: border-color 0.15s, background 0.15s;
 }
 .pt-card:hover, .pt-card:active {
-  border-color: rgba(245,158,11,0.35);
+  border-color: rgba(var(--color-primary-rgb),0.35);
   background: #202020;
 }
 .pt-card:visited, .pt-card:focus { color: var(--gz-text-secondary); text-decoration: none; }

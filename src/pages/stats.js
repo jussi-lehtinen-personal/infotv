@@ -196,7 +196,7 @@ body { margin: 0; }
   font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
   background: rgba(255,255,255,0.08); color: var(--color-accent);
 }
-.st-method--passkey { background: rgba(245,158,11,0.16); color: var(--color-primary); }
+.st-method--passkey { background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary); }
 .st-method--google { background: rgba(96,165,250,0.16); color: #93c5fd; }
 .st-date { font-size: 12px; color: var(--color-accent); white-space: nowrap; }
 .st-empty { padding: 16px; text-align: center; color: var(--color-accent); }

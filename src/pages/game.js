@@ -667,7 +667,7 @@ body { margin: 0; }
   font-size: var(--gz-fs-xs); font-weight: 800; color: var(--gz-text-tertiary);
   text-transform: uppercase; letter-spacing: 0.04em; text-align: center; line-height: 1.2;
 }
-.bx-hd-status--live { color: #4ade80; }
+.bx-hd-status--live { color: var(--color-live); }
 .bx-hd-rink {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   margin-top: 12px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
@@ -727,7 +727,7 @@ body { margin: 0; }
   padding: 2px 6px; font-size: 10px; font-weight: 800;
   letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.3;
 }
-.bx-ev-badge--goal { background: var(--color-primary); color: #1a1206; }
+.bx-ev-badge--goal { background: var(--color-primary); color: var(--color-on-primary); }
 .bx-ev-badge--pen  { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
 .bx-ev-badge--extra { background: transparent; color: var(--gz-text-tertiary); border: 1px solid rgba(255,255,255,0.20); }
 .bx-ev-val, .bx-ev-val--pen { color: var(--color-primary); }
@@ -783,7 +783,7 @@ body { margin: 0; }
   padding: 1px 5px; border-radius: 4px;
   color: var(--gz-text-tertiary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
 }
-.bx-rtag--c { color: var(--color-primary); background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.30); }
+.bx-rtag--c { color: var(--color-primary); background: rgba(var(--color-primary-rgb),0.12); border-color: rgba(var(--color-primary-rgb),0.30); }
 .bx-rstaff { display: flex; flex-direction: column; }
 .bx-rstaff-row {
   display: flex; justify-content: space-between; gap: 10px;
@@ -819,7 +819,7 @@ body { margin: 0; }
   padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);
   font-size: var(--gz-fs-sm);
 }
-.bx-ws-row.is-win { background: rgba(245,158,11,0.10); border-radius: var(--radius-small); border-bottom-color: transparent; }
+.bx-ws-row.is-win { background: rgba(var(--color-primary-rgb),0.10); border-radius: var(--radius-small); border-bottom-color: transparent; }
 .bx-ws-logo {
   flex: 0 0 auto; width: 24px; height: 24px; box-sizing: border-box; border-radius: 6px;
   background: #fff; object-fit: contain; padding: 2px;

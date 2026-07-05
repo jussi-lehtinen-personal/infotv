@@ -139,7 +139,7 @@ body { margin: 0; }
   height: 300px;
   overflow: hidden;
   background:
-    radial-gradient(120% 90% at 50% 30%, rgba(245,158,11,0.10), rgba(12,14,19,0) 60%),
+    radial-gradient(120% 90% at 50% 30%, rgba(var(--color-primary-rgb),0.10), rgba(12,14,19,0) 60%),
     #0c0e13;
 }
 .teams-hero-img {
@@ -216,7 +216,7 @@ body { margin: 0; }
 .teams-row:hover,
 .teams-row:active {
   background: #202020;
-  border-color: rgba(245,158,11,0.35);
+  border-color: rgba(var(--color-primary-rgb),0.35);
 }
 /* The navigating part of the row (logo + info). */
 .teams-row-link {

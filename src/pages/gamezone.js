@@ -826,7 +826,7 @@ html, body, #root{
 }
 .gz-week-chip--sel{
   border-color: var(--color-primary);
-  background: rgba(245,158,11,0.10);
+  background: rgba(var(--color-primary-rgb),0.10);
 }
 .gz-week-num{
   font-size: 15px; font-weight: 800;

@@ -587,8 +587,8 @@ body { margin: 0; }
 .fd-gate-icon {
   width: 64px; height: 64px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(245,158,11,0.13);
-  border: 1px solid rgba(245,158,11,0.35);
+  background: rgba(var(--color-primary-rgb),0.13);
+  border: 1px solid rgba(var(--color-primary-rgb),0.35);
   color: var(--color-primary);
 }
 .fd-gate-icon svg { width: 30px; height: 30px; }
@@ -615,7 +615,7 @@ body { margin: 0; }
   -webkit-tap-highlight-color: transparent;
 }
 .fd-btn svg { width: 18px; height: 18px; }
-.fd-btn--primary { background: var(--color-primary); color: #1a1206; }
+.fd-btn--primary { background: var(--color-primary); color: var(--color-on-primary); }
 .fd-btn--primary:hover { filter: brightness(1.08); }
 
 /* DAY BLOCKS */
@@ -637,7 +637,7 @@ body { margin: 0; }
   border: 1px solid rgba(255,255,255,0.06);
   overflow: hidden;
 }
-.fd-event--game { border-color: rgba(245,158,11,0.30); background: rgba(245,158,11,0.06); }
+.fd-event--game { border-color: rgba(var(--color-primary-rgb),0.30); background: rgba(var(--color-primary-rgb),0.06); }
 
 /* Clickable header row (toggles expand/collapse). */
 .fd-event-head {
@@ -655,7 +655,7 @@ body { margin: 0; }
   background: rgba(255,255,255,0.05);
   color: var(--gz-text-tertiary);
 }
-.fd-event--game .fd-event-icon { background: rgba(245,158,11,0.15); color: var(--color-primary); }
+.fd-event--game .fd-event-icon { background: rgba(var(--color-primary-rgb),0.15); color: var(--color-primary); }
 .fd-event-icon svg { width: 20px; height: 20px; }
 /* Opponent logo replaces the trophy once the tulospalvelu game is matched.
    Same theme as the match cards: white rounded-rect with a little padding. */
@@ -691,9 +691,9 @@ body { margin: 0; }
   padding: 1px 6px; border-radius: 999px;
   border: 1px solid transparent; white-space: nowrap;
 }
-.fd-src--both   { color: #4ade80; background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.35); }
-.fd-src--tp     { color: #fbbf24; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
-.fd-src--jopox  { color: #60a5fa; background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.38); }
+.fd-src--both   { color: var(--color-live); background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.35); }
+.fd-src--tp     { color: var(--color-accent-yellow); background: rgba(var(--color-primary-rgb),0.12); border-color: rgba(var(--color-primary-rgb),0.35); }
+.fd-src--jopox  { color: var(--color-info); background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.38); }
 .fd-event-title {
   font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
   color: var(--gz-text-primary);
