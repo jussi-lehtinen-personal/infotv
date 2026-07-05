@@ -276,7 +276,7 @@ export async function getStats() {
 export async function getAdminUsers() {
   const token = getToken();
   if (!token) return { status: "unauthorized" };
-  const res = await fetch("/api/adminUsers", { headers: { "X-Ahma-Auth": token } });
+  const res = await fetch("/api/manageUsers", { headers: { "X-Ahma-Auth": token } });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) return { status: "unauthorized" };
   if (res.status === 403) return { status: "forbidden", youAre: data.youAre };
@@ -289,7 +289,7 @@ export async function getAdminUsers() {
 export async function setUserRole({ userId, role, team, action }) {
   const token = getToken();
   if (!token) throw new Error("Kirjautuminen vaaditaan.");
-  const res = await fetch("/api/adminUserRoles", {
+  const res = await fetch("/api/manageUserRoles", {
     method: "POST",
     headers: { "X-Ahma-Auth": token, "Content-Type": "application/json" },
     body: JSON.stringify({ userId, role, team, action }),

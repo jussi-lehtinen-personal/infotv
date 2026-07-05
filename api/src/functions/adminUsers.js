@@ -7,12 +7,13 @@ const { isAdmin, parseRoles, ROLES } = require('../lib/admin');
 // for the admin "Käyttäjät & roolit" page. Gated like /api/stats: login + admin
 // (ADMIN_USER_IDS env OR a data `admin` role). Non-admin → 403 with youAre so
 // the caller's userId can be bootstrapped into ADMIN_USER_IDS.
-// NB: route is a single segment (NOT `admin/users`) — Azure Static Web Apps does
-// not route `/api/admin/*` to managed functions (reserved-ish), so those 404.
+// NB: route must NOT start with "admin" — Azure Static Web Apps reserves the
+// `/api/admin*` PREFIX and 404s any such managed-function route (even
+// `adminUsers`). Hence `manageUsers`.
 app.http('adminUsers', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'adminUsers',
+  route: 'manageUsers',
   handler: async (request, context) => {
     try {
       const userId = await requireAuth(request);

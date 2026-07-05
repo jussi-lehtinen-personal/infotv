@@ -47,7 +47,7 @@ app.http('getOrganisation', {
                 photo: o.imageId ? `${IMAGEBANK}/${o.imageId}_big${o.imageExtension || '.jpg'}` : null,
             }));
 
-            const data = { officials, _build: 'probe-0d17401' };
+            const data = { officials };
             cache = { data, timestamp: Date.now() };
             return { jsonBody: data };
         } catch (err) {

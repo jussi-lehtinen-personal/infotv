@@ -8,12 +8,12 @@ const { isAdmin, parseRoles, ROLES, TEAM_SCOPED } = require('../lib/admin');
 //   role ∈ ROLES; `team` (tulospalvelu teamKey, e.g. "U13 Musta") is REQUIRED
 //   for team-scoped roles (valmentaja) and identifies the exact entry to
 //   add/remove. Returns the target's updated roles array.
-// NB: single-segment route (NOT `admin/userRoles`) — SWA does not route
-// `/api/admin/*` to managed functions, so those 404.
+// NB: route must NOT start with "admin" — SWA reserves the `/api/admin*` prefix
+// and 404s such managed-function routes. Hence `manageUserRoles`.
 app.http('adminUserRoles', {
   methods: ['POST'],
   authLevel: 'anonymous',
-  route: 'adminUserRoles',
+  route: 'manageUserRoles',
   handler: async (request, context) => {
     try {
       const callerId = await requireAuth(request);
