@@ -7,6 +7,13 @@
 import { splitTeamName } from "../Util";
 import { gameAgeKey, favouriteAgeKey } from "./teamMatch";
 
+// Master switch for the whole peliryhmä (sub-group) UI: sub-stars on /teams, the
+// feed filtering, and the feed chip. HIDDEN for now — the underlying Jopox data
+// is inconsistent (practices are mostly unlabelled "Harjoitukset"), so the real
+// solution is the T2 Jopox-linked participant data. Flip back to true after the
+// club aligns on how they label events. See memory: project_feed_subgroups.
+export const SUBGROUPS_ENABLED = false;
+
 // Normalised sub-group label of ONE team name (only for Ahma sides), or "".
 const nameSub = (name) => {
   if (!/ahma/i.test(name || "")) return "";

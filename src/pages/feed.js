@@ -10,7 +10,7 @@ import { getMe, getCachedUser } from "../auth/authClient";
 import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
 import { isGameForFavourite } from "../lib/teamMatch";
-import { gamePassesSubGroups, displaySub, subColorClass } from "../lib/subGroups";
+import { gamePassesSubGroups, displaySub, subColorClass, SUBGROUPS_ENABLED } from "../lib/subGroups";
 
 moment.locale("fi");
 
@@ -175,7 +175,8 @@ const EventRow = ({ e, expanded, onToggle }) => {
                   {SOURCE_LABEL[e.source]}
                 </span>
               )}
-              {isGame &&
+              {SUBGROUPS_ENABLED &&
+                isGame &&
                 Array.isArray(e.subGroups) &&
                 e.subGroups.map((s) => (
                   <span key={s} className={`fd-sub${subColorClass(s) ? ` fd-sub--${subColorClass(s)}` : ""}`}>
@@ -309,7 +310,7 @@ const Feed = () => {
         // Match by age group, then narrow to the favourite's followed sub-groups
         // (empty selection = follow all). Practices (Jopox) aren't sub-grouped.
         const tp = peekSeasonGames().filter(
-          (g) => isGameForFavourite(g, t) && gamePassesSubGroups(g, t.subGroups)
+          (g) => isGameForFavourite(g, t) && (!SUBGROUPS_ENABLED || gamePassesSubGroups(g, t.subGroups))
         );
         all.push(...buildTeamAgenda(jopox, tp, t.name, t.subsiteId));
       });

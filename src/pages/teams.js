@@ -11,7 +11,7 @@ import {
 } from "../Util";
 import { getCachedUser, getMe, saveFavourites } from "../auth/authClient";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
-import { subGroupsForFavourite, displaySub } from "../lib/subGroups";
+import { subGroupsForFavourite, displaySub, SUBGROUPS_ENABLED } from "../lib/subGroups";
 
 // Hero image. Swap to the real teams hero shot when provided.
 const HERO = "/teams_hero.webp";
@@ -105,8 +105,8 @@ const Teams = () => {
             const isFav = isFavouriteSubsite(favourites, team.subsiteId);
             const favEntry = favourites.find((f) => String(f.subsiteId) === String(team.subsiteId));
             const selected = favEntry && Array.isArray(favEntry.subGroups) ? favEntry.subGroups : [];
-            const subs = isFav ? subGroupsForFavourite(team, games) : [];
-            const hasSubs = user && isFav && subs.length > 1;
+            const subs = SUBGROUPS_ENABLED && isFav ? subGroupsForFavourite(team, games) : [];
+            const hasSubs = SUBGROUPS_ENABLED && user && isFav && subs.length > 1;
             return (
               <div className={`teams-row${hasSubs ? " teams-row--has-subs" : ""}`} key={team.subsiteId}>
                 <div className="teams-head">
