@@ -109,35 +109,33 @@ const BoxScore = () => {
             {report && (
               <>
                 <div className="bx-tabs" role="tablist">
-                  <button
-                    type="button"
-                    className={`bx-tab${tab === "events" ? " is-active" : ""}`}
-                    role="tab"
-                    aria-selected={tab === "events"}
-                    onClick={() => setTab("events")}
-                  >
-                    Tapahtumat
-                  </button>
-                  <button
-                    type="button"
-                    className={`bx-tab${tab === "rosters" ? " is-active" : ""}`}
-                    role="tab"
-                    aria-selected={tab === "rosters"}
-                    onClick={() => setTab("rosters")}
-                  >
-                    Kokoonpanot
-                  </button>
+                  {[
+                    ["events", "Tapahtumat"],
+                    ["stats", "Tilastot"],
+                    ["rosters", "Kokoonpanot"],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`bx-tab${tab === key ? " is-active" : ""}`}
+                      role="tab"
+                      aria-selected={tab === key}
+                      onClick={() => setTab(key)}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-                {tab === "events" ? (
+                {tab === "events" && (
                   <>
                     <Timeline report={report} />
                     <WinningShots shots={report.winningShots} game={game} />
                     <Goalies goalies={report.goalies} game={game} />
                     <Footer report={report} game={game} />
                   </>
-                ) : (
-                  <Rosters rosters={report.rosters} game={game} />
                 )}
+                {tab === "stats" && <Stats report={report} game={game} />}
+                {tab === "rosters" && <Rosters rosters={report.rosters} game={game} />}
               </>
             )}
           </div>
@@ -389,6 +387,51 @@ const WinningShots = ({ shots, game }) => {
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+const StatBar = ({ home, away }) => {
+  const h = Number(home) || 0;
+  const a = Number(away) || 0;
+  const tot = h + a;
+  const hp = tot ? Math.round((h / tot) * 100) : 50;
+  return (
+    <div className="bx-stat-bar">
+      <div className="bx-stat-bar-h" style={{ width: `${hp}%` }} />
+      <div className="bx-stat-bar-a" style={{ width: `${100 - hp}%` }} />
+    </div>
+  );
+};
+
+// Flashscore-style team comparison from the period-summary totals (AHMA theme).
+// Shots on goal = the OTHER goalie's saves + this team's goals.
+const Stats = ({ report }) => {
+  const s = report.stats;
+  if (!s) return <div className="bx-note">Tilastoja ei ole saatavilla tälle ottelulle.</div>;
+  const score = report.score || {};
+  const num = (v) => (v == null || v === "" ? 0 : Number(v) || 0);
+  const rows = [
+    { label: "Maalit", home: num(score.home), away: num(score.away), bar: true },
+    { label: "Laukaukset", home: num(s.saves.away) + num(score.home), away: num(s.saves.home) + num(score.away), bar: true },
+    { label: "Torjunnat", home: num(s.saves.home), away: num(s.saves.away), bar: true },
+    { label: "Jäähyminuutit", home: num(s.penMins.home), away: num(s.penMins.away), bar: true },
+    { label: "Ylivoimamaalit", home: num(s.ppGoals.home), away: num(s.ppGoals.away), bar: true },
+    { label: "Alivoimamaalit", home: num(s.shGoals.home), away: num(s.shGoals.away), bar: true },
+    { label: "Ylivoima-aika", home: s.ppMins.home || "0:00", away: s.ppMins.away || "0:00", bar: false },
+  ];
+  return (
+    <div className="bx-stats">
+      {rows.map((r, i) => (
+        <div className="bx-stat" key={i}>
+          <div className="bx-stat-top">
+            <span className="bx-stat-val">{r.home}</span>
+            <span className="bx-stat-label">{r.label}</span>
+            <span className="bx-stat-val">{r.away}</span>
+          </div>
+          {r.bar && <StatBar home={r.home} away={r.away} />}
+        </div>
+      ))}
     </div>
   );
 };
@@ -734,6 +777,24 @@ body { margin: 0; }
   font-variant-numeric: tabular-nums;
 }
 .bx-ws-mark.is-goal { color: var(--color-primary); }
+
+/* STATS (Tilastot) — Flashscore-style comparison, amber = home, grey = away */
+.bx-stats { display: flex; flex-direction: column; gap: 15px; padding-top: 4px; }
+.bx-stat { display: flex; flex-direction: column; gap: 5px; }
+.bx-stat-top { display: flex; align-items: center; gap: 12px; }
+.bx-stat-val {
+  flex: 0 0 42px; font-size: var(--gz-fs-md); font-weight: 800;
+  color: var(--gz-text-primary); font-variant-numeric: tabular-nums;
+}
+.bx-stat-top .bx-stat-val:last-child { text-align: right; }
+.bx-stat-label {
+  flex: 1 1 auto; text-align: center;
+  font-size: var(--gz-fs-xs); text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--gz-text-tertiary); font-weight: 700;
+}
+.bx-stat-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.06); gap: 2px; }
+.bx-stat-bar-h { background: var(--color-primary); border-radius: 3px 0 0 3px; }
+.bx-stat-bar-a { background: rgba(255,255,255,0.24); border-radius: 0 3px 3px 0; }
 
 /* MATCH INFO (Ottelun lisätiedot) */
 .bx-info {

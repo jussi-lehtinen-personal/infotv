@@ -407,6 +407,21 @@ function buildBoxScore(report, meta) {
   const ps = report.PeriodSummary || {};
   const periods = (ps.PeriodGoals || []).map((p) => p.Goals); // last entry = total
 
+  // Team stats from the period summary totals (last entry) — "home-away" strings.
+  const lastPair = (arr, key) => {
+    const a = arr || [];
+    const v = a.length ? a[a.length - 1][key] : "";
+    const [h, aw] = String(v || "").split("-");
+    return { home: h ?? null, away: aw ?? null };
+  };
+  const stats = {
+    saves: lastPair(ps.PeriodSaves, "Saves"),
+    penMins: lastPair(ps.PeriodPenMins, "PenMins"),
+    ppMins: lastPair(ps.PeriodPPMins, "PPMins"), // time strings "10:53-10:36"
+    ppGoals: lastPair(ps.PeriodPPGoals, "PPGoals"),
+    shGoals: lastPair(ps.PeriodSHGoals, "SHGoals"),
+  };
+
   const goalies = (report.GoalkeeperSummary || []).map((t) => ({
     team: t.TeamName,
     side: t.TeamName === home.Name ? "home" : t.TeamName === away.Name ? "away" : null,
@@ -459,6 +474,7 @@ function buildBoxScore(report, meta) {
     penalties,
     extras,
     winningShots,
+    stats,
     goalies,
     referees: (report.Referees || []).map((r) => ({ role: r.RefereeRole, name: r.RefereeName })),
     spectators: g.Spectators ?? null,
@@ -581,7 +597,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "7";
+const CACHE_VERSION = "8";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
