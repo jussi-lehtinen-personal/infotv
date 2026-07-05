@@ -432,6 +432,12 @@ const Stats = ({ report }) => {
   const ppGH = num(s.ppGoals.home);
   const ppGA = num(s.ppGoals.away);
   const pctNum = (made, opp) => (opp > 0 ? Math.max(0, Math.min(100, Math.round((made / opp) * 100))) : null);
+  const toSec = (t) => {
+    const [m, x] = String(t || "0:0").split(":").map(Number);
+    return (m || 0) * 60 + (x || 0);
+  };
+  const ppmH = s.ppMins.home || "0:00";
+  const ppmA = s.ppMins.away || "0:00";
   const rows = [
     { label: "Maalit", home: num(score.home), away: num(score.away) },
     { label: "Laukaukset", home: num(s.saves.away) + num(score.home), away: num(s.saves.home) + num(score.away) },
@@ -442,19 +448,23 @@ const Stats = ({ report }) => {
     { label: "Alivoimamaalit", home: num(s.shGoals.home), away: num(s.shGoals.away) },
     { label: "Ylivoima-%", home: pctNum(ppGH, pen.away), away: pctNum(ppGA, pen.home), pct: true },
     { label: "Alivoima-%", home: pctNum(pen.home - ppGA, pen.home), away: pctNum(pen.away - ppGH, pen.away), pct: true },
-    { label: "Ylivoima-aika", home: s.ppMins.home || "0:00", away: s.ppMins.away || "0:00", text: true },
+    { label: "Ylivoima-aika", home: toSec(ppmH), away: toSec(ppmA), time: [ppmH, ppmA] },
   ];
-  const disp = (r, v) => (r.text ? v : r.pct ? (v == null ? "–" : `${v} %`) : v);
+  const disp = (r, side) => {
+    if (r.time) return side === "home" ? r.time[0] : r.time[1];
+    const v = side === "home" ? r.home : r.away;
+    return r.pct ? (v == null ? "–" : `${v} %`) : v;
+  };
   return (
     <div className="bx-stats">
       {rows.map((r, i) => (
         <div className="bx-stat" key={i}>
           <div className="bx-stat-top">
-            <span className="bx-stat-val">{disp(r, r.home)}</span>
+            <span className="bx-stat-val">{disp(r, "home")}</span>
             <span className="bx-stat-label">{r.label}</span>
-            <span className="bx-stat-val">{disp(r, r.away)}</span>
+            <span className="bx-stat-val">{disp(r, "away")}</span>
           </div>
-          {!r.text && <StatBar home={r.home ?? 0} away={r.away ?? 0} lowerBetter={r.lowerBetter} />}
+          <StatBar home={r.home ?? 0} away={r.away ?? 0} lowerBetter={r.lowerBetter} />
         </div>
       ))}
     </div>
