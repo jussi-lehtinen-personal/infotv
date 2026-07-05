@@ -10,6 +10,8 @@ import {
   isFavouriteSubsite,
 } from "../Util";
 import { getCachedUser, getMe, saveFavourites } from "../auth/authClient";
+import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
+import { subGroupsForFavourite, displaySub, subColorClass } from "../lib/subGroups";
 
 // Hero image. Swap to the real teams hero shot when provided.
 const HERO = "/teams_hero.webp";
@@ -23,6 +25,8 @@ const Teams = () => {
   const goBack = useGoBack("/");
   const [user, setUser] = useState(getCachedUser);
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
+  // Season games drive the dynamic sub-group (peliryhmä) list per age group.
+  const [games, setGames] = useState(peekSeasonGames);
 
   // Hydrate auth + account favourites (getMe mirrors them to localStorage).
   useEffect(() => {
@@ -37,12 +41,36 @@ const Teams = () => {
     return () => { cancelled = true; };
   }, []);
 
+  // Ensure the season games are loaded so we know which sub-groups each age
+  // group actually fields (Musta/Valkoinen/…) — Jopox can't tell us.
+  useEffect(() => {
+    let cancelled = false;
+    if (isSeasonLoaded()) setGames(peekSeasonGames());
+    else fetchSeasonGames().catch(() => {}).finally(() => { if (!cancelled) setGames(peekSeasonGames()); });
+    return () => { cancelled = true; };
+  }, []);
+
   const toggleFavourite = useCallback((team) => {
     setFavourites((prev) => {
       const next = isFavouriteSubsite(prev, team.subsiteId)
         ? prev.filter((t) => String(t.subsiteId) !== String(team.subsiteId))
         : [...prev, makeJopoxFavourite(team)];
       // Persist to the account (mirrors to localStorage). Revert on failure.
+      saveFavourites(next).catch(() => setFavourites(prev));
+      return next;
+    });
+  }, []);
+
+  // Toggle a followed sub-group (peliryhmä) on a favourited team. Empty set =
+  // follow all. Syncs to the account like the main star.
+  const toggleSubGroup = useCallback((team, label) => {
+    setFavourites((prev) => {
+      const next = prev.map((f) => {
+        if (String(f.subsiteId) !== String(team.subsiteId)) return f;
+        const cur = Array.isArray(f.subGroups) ? f.subGroups : [];
+        const subGroups = cur.includes(label) ? cur.filter((x) => x !== label) : [...cur, label];
+        return { ...f, subGroups };
+      });
       saveFavourites(next).catch(() => setFavourites(prev));
       return next;
     });
@@ -75,36 +103,64 @@ const Teams = () => {
         <div className="teams-list">
           {JOPOX_TEAMS.map((team) => {
             const isFav = isFavouriteSubsite(favourites, team.subsiteId);
+            const favEntry = favourites.find((f) => String(f.subsiteId) === String(team.subsiteId));
+            const selected = favEntry && Array.isArray(favEntry.subGroups) ? favEntry.subGroups : [];
+            const subs = isFav ? subGroupsForFavourite(team, games) : [];
+            const showSubs = user && isFav && subs.length > 1;
             return (
-              <div className="teams-row" key={team.subsiteId}>
-                <Link to={`/teams/${team.subsiteId}`} className="teams-row-link">
-                  <img
-                    className="teams-logo"
-                    src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"}
-                    alt=""
-                    aria-hidden="true"
-                  />
-                  <div className="teams-info">
-                    <div className="teams-name">{team.name}</div>
-                    {team.sub && <div className="teams-short">{team.sub}</div>}
+              <React.Fragment key={team.subsiteId}>
+                <div className="teams-row">
+                  <Link to={`/teams/${team.subsiteId}`} className="teams-row-link">
+                    <img
+                      className="teams-logo"
+                      src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                    <div className="teams-info">
+                      <div className="teams-name">{team.name}</div>
+                      {team.sub && <div className="teams-short">{team.sub}</div>}
+                    </div>
+                  </Link>
+                  {user && (
+                    <button
+                      type="button"
+                      className={`teams-fav${isFav ? " teams-fav--on" : ""}`}
+                      onClick={() => toggleFavourite(team)}
+                      aria-pressed={isFav}
+                      aria-label={
+                        isFav
+                          ? `Poista ${team.name} suosikeista`
+                          : `Lisää ${team.name} suosikkeihin`
+                      }
+                    >
+                      <LuStar className="teams-fav-ico" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+                {showSubs && (
+                  <div className="teams-subs">
+                    <span className="teams-subs-label">Peliryhmät</span>
+                    {subs.map((s) => {
+                      const on = selected.includes(s);
+                      const cc = subColorClass(s);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          className={`teams-sub${on ? " teams-sub--on" : ""}${cc ? ` teams-sub--${cc}` : ""}`}
+                          onClick={() => toggleSubGroup(team, s)}
+                          aria-pressed={on}
+                        >
+                          <LuStar className="teams-sub-ico" aria-hidden="true" />
+                          {displaySub(s)}
+                        </button>
+                      );
+                    })}
+                    {selected.length === 0 && <span className="teams-subs-all">seuraat kaikkia</span>}
                   </div>
-                </Link>
-                {user && (
-                  <button
-                    type="button"
-                    className={`teams-fav${isFav ? " teams-fav--on" : ""}`}
-                    onClick={() => toggleFavourite(team)}
-                    aria-pressed={isFav}
-                    aria-label={
-                      isFav
-                        ? `Poista ${team.name} suosikeista`
-                        : `Lisää ${team.name} suosikkeihin`
-                    }
-                  >
-                    <LuStar className="teams-fav-ico" aria-hidden="true" />
-                  </button>
                 )}
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -273,6 +329,23 @@ body { margin: 0; }
 .teams-fav--on { color: var(--color-primary); }
 .teams-fav--on:hover { color: var(--color-primary); }
 .teams-fav--on .teams-fav-ico { fill: var(--color-primary); }
+
+/* Sub-group (peliryhmä) sub-stars under a favourited age group. */
+.teams-subs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 2px 14px 12px 68px; margin-top: -4px;
+}
+.teams-subs-label { font-size: 12px; color: rgba(255,255,255,0.5); }
+.teams-subs-all { font-size: 12px; color: rgba(255,255,255,0.4); font-style: italic; }
+.teams-sub {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px 5px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.75); font-family: inherit; font-size: 13px; font-weight: 700;
+}
+.teams-sub-ico { width: 15px; height: 15px; }
+.teams-sub--on { border-color: rgba(var(--color-primary-rgb),0.55); color: var(--color-primary); }
+.teams-sub--on .teams-sub-ico { fill: var(--color-primary); }
 
 @media (min-width: 768px) {
   .teams-list { max-width: 760px; }

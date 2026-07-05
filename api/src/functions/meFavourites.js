@@ -22,12 +22,17 @@ function sanitize(list) {
     const teamKey = String(t.teamKey || '').slice(0, 80);
     const name = String(t.name || '').slice(0, 80);
     if (!teamKey) continue;
+    // Followed sub-groups (peliryhmät), e.g. ["musta"]; empty = follow all.
+    const subGroups = Array.isArray(t.subGroups)
+      ? [...new Set(t.subGroups.map((s) => String(s || '').toLowerCase().slice(0, 40)).filter(Boolean))].slice(0, 8)
+      : [];
     out.push({
       teamKey,
       subsiteId: Number(t.subsiteId),
       name,
       shortName: String(t.shortName || name).slice(0, 80),
       levelGroups: [],
+      subGroups,
     });
   }
   return out;

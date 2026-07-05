@@ -10,6 +10,7 @@ import { getMe, getCachedUser } from "../auth/authClient";
 import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
 import { isGameForFavourite } from "../lib/teamMatch";
+import { gamePassesSubGroups, displaySub, subColorClass } from "../lib/subGroups";
 
 moment.locale("fi");
 
@@ -174,6 +175,13 @@ const EventRow = ({ e, expanded, onToggle }) => {
                   {SOURCE_LABEL[e.source]}
                 </span>
               )}
+              {isGame &&
+                Array.isArray(e.subGroups) &&
+                e.subGroups.map((s) => (
+                  <span key={s} className={`fd-sub${subColorClass(s) ? ` fd-sub--${subColorClass(s)}` : ""}`}>
+                    {displaySub(s)}
+                  </span>
+                ))}
             </div>
           )}
           <div className="fd-event-title">{heading}</div>
@@ -298,7 +306,11 @@ const Feed = () => {
       const all = [];
       teams.forEach((t, i) => {
         const jopox = jopoxRef.current[i] || [];
-        const tp = peekSeasonGames().filter((g) => isGameForFavourite(g, t));
+        // Match by age group, then narrow to the favourite's followed sub-groups
+        // (empty selection = follow all). Practices (Jopox) aren't sub-grouped.
+        const tp = peekSeasonGames().filter(
+          (g) => isGameForFavourite(g, t) && gamePassesSubGroups(g, t.subGroups)
+        );
         all.push(...buildTeamAgenda(jopox, tp, t.name, t.subsiteId));
       });
       const upcoming = all
@@ -694,6 +706,20 @@ body { margin: 0; }
 .fd-src--both   { color: var(--color-live); background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.35); }
 .fd-src--tp     { color: var(--color-accent-yellow); background: rgba(var(--color-primary-rgb),0.12); border-color: rgba(var(--color-primary-rgb),0.35); }
 .fd-src--jopox  { color: var(--color-info); background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.38); }
+/* Peliryhmä (sub-group) chip, e.g. Musta / Valkoinen. */
+.fd-sub {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.28); color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.06);
+}
+.fd-sub--musta     { color: #d6d6d6; background: rgba(0,0,0,0.45); border-color: rgba(255,255,255,0.35); }
+.fd-sub--valkoinen { color: #0e0e0f; background: rgba(255,255,255,0.92); border-color: rgba(255,255,255,0.92); }
+.fd-sub--oranssi   { color: var(--color-primary); background: rgba(var(--color-primary-rgb),0.14); border-color: rgba(var(--color-primary-rgb),0.45); }
+.fd-sub--sininen   { color: var(--color-info); background: rgba(96,165,250,0.14); border-color: rgba(96,165,250,0.45); }
+.fd-sub--punainen  { color: #fca5a5; background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.45); }
+.fd-sub--keltainen { color: #fde047; background: rgba(234,179,8,0.14); border-color: rgba(234,179,8,0.45); }
+.fd-sub--harmaa    { color: #cbd5e1; background: rgba(148,163,184,0.16); border-color: rgba(148,163,184,0.45); }
 .fd-event-title {
   font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
   color: var(--gz-text-primary);

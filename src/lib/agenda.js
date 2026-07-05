@@ -5,6 +5,7 @@
 // games (e.g. U15 sarjapelit not entered in Jopox) are added. Feeds BOTH the Minä
 // feed (all favourites merged) and the home hero (next event + next game per team).
 // See memory: project_home_agenda.
+import { ahmaSubGroups } from "./subGroups";
 
 const normTime = (s) => String(s || "").replace(":", ".").trim();
 const dateOnly = (s) => String(s || "").slice(0, 10);
@@ -65,6 +66,7 @@ function fromTp(g, teamName, jx, subsiteId) {
     home: g.isHomeGame,
     eventId: jx ? jx.eventId : null,
     subsiteId: (jx && (jx.subsiteId ?? subsiteId)) ?? null,
+    subGroups: ahmaSubGroups(g), // peliryhmä(t) of the Ahma side, for the chip
   };
 }
 
