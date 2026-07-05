@@ -421,8 +421,14 @@ const Stats = ({ report }) => {
   if (!s) return <div className="bx-note">Tilastoja ei ole saatavilla tälle ottelulle.</div>;
   const score = report.score || {};
   const num = (v) => (v == null || v === "" ? 0 : Number(v) || 0);
+  // Penalty count + minutes summed straight from the events (given minutes).
   const pen = { home: 0, away: 0 };
-  for (const p of report.penalties || []) pen[p.side === "away" ? "away" : "home"] += 1;
+  const penMin = { home: 0, away: 0 };
+  for (const p of report.penalties || []) {
+    const side = p.side === "away" ? "away" : "home";
+    pen[side] += 1;
+    penMin[side] += num(p.minutes);
+  }
   const ppGH = num(s.ppGoals.home);
   const ppGA = num(s.ppGoals.away);
   const pctNum = (made, opp) => (opp > 0 ? Math.max(0, Math.min(100, Math.round((made / opp) * 100))) : null);
@@ -430,7 +436,8 @@ const Stats = ({ report }) => {
     { label: "Maalit", home: num(score.home), away: num(score.away) },
     { label: "Laukaukset", home: num(s.saves.away) + num(score.home), away: num(s.saves.home) + num(score.away) },
     { label: "Torjunnat", home: num(s.saves.home), away: num(s.saves.away) },
-    { label: "Jäähyminuutit", home: num(s.penMins.home), away: num(s.penMins.away), lowerBetter: true },
+    { label: "Jäähyt", home: pen.home, away: pen.away, lowerBetter: true },
+    { label: "Jäähyminuutit", home: penMin.home, away: penMin.away, lowerBetter: true },
     { label: "Ylivoimamaalit", home: ppGH, away: ppGA },
     { label: "Alivoimamaalit", home: num(s.shGoals.home), away: num(s.shGoals.away) },
     { label: "Ylivoima-%", home: pctNum(ppGH, pen.away), away: pctNum(ppGA, pen.home), pct: true },
@@ -811,11 +818,14 @@ body { margin: 0; }
   color: var(--gz-text-tertiary); font-weight: 700;
 }
 .bx-stat-bar { display: flex; align-items: center; height: 6px; }
-.bx-stat-half { flex: 1 1 0; height: 100%; display: flex; }
+.bx-stat-half {
+  flex: 1 1 0; height: 100%; display: flex; overflow: hidden;
+  border-radius: 3px; background: rgba(255,255,255,0.07);
+}
 .bx-stat-half--home { justify-content: flex-end; }
 .bx-stat-half--away { justify-content: flex-start; }
 .bx-stat-gap { flex: 0 0 10px; }
-.bx-stat-fill { height: 100%; border-radius: 3px; background: rgba(255,255,255,0.16); }
+.bx-stat-fill { height: 100%; background: rgba(255,255,255,0.30); }
 .bx-stat-fill.is-hi { background: var(--color-primary); }
 
 /* MATCH INFO (Ottelun lisätiedot) */
