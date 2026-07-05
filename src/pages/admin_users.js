@@ -4,72 +4,97 @@ import { LuArrowLeft, LuPlus, LuX, LuSearch } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { getAdminUsers, setUserRole } from "../auth/authClient";
+import { JOPOX_TEAMS } from "../data/jopoxTeams";
 
-// Admin › Käyttäjät & roolit (/admin/users). List registered users and tag them
-// with roles. `valmentaja` is team-scoped (pick a team = tulospalvelu teamKey);
-// `toimittaja` and `admin` are global. See memory: project_admin_roles.
+// Admin › Käyttäjät & roolit (/admin/users). Each user lists their roles as
+// removable chips; "＋ Lisää rooli" opens a popup to pick a role (+ a team for
+// the team-scoped valmentaja, from the year-round Jopox team list). See memory:
+// project_admin_roles + reference_data_map (teams = Jopox, NOT tulospalvelu).
 
-const roleLabel = (r) => {
-  if (r.role === "valmentaja") return `Valmentaja · ${r.team}`;
-  if (r.role === "toimittaja") return "Toimittaja";
-  if (r.role === "admin") return "Admin";
-  return r.role;
-};
+const ROLE_LABELS = { valmentaja: "Valmentaja", toimittaja: "Toimittaja", admin: "Admin" };
+const roleLabel = (r) => (r.role === "valmentaja" ? `Valmentaja · ${r.team}` : ROLE_LABELS[r.role] || r.role);
 const roleKey = (r) => `${r.role}:${r.team || ""}`;
 
-const AddRole = ({ teams, onAdd, busy }) => {
-  const [team, setTeam] = useState("");
-  useEffect(() => {
-    if (!team && teams.length) setTeam(teams[0].teamKey);
-  }, [teams, team]);
+// Popup: pick a role, and a team when the role is valmentaja.
+const AddRoleModal = ({ user, onClose, onChange }) => {
+  const [role, setRole] = useState("valmentaja");
+  const [team, setTeam] = useState(JOPOX_TEAMS[0] ? JOPOX_TEAMS[0].name : "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const needsTeam = role === "valmentaja";
+  const canAdd = !busy && (!needsTeam || !!team);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await setUserRole({ userId: user.userId, role, team: needsTeam ? team : undefined, action: "add" });
+      onChange(user.userId, res.roles);
+      onClose();
+    } catch (e) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  };
 
   return (
-    <div className="au-add">
-      <div className="au-add-row">
-        <select
-          className="au-select"
-          value={team}
-          onChange={(e) => setTeam(e.target.value)}
-          aria-label="Joukkue"
-        >
-          {teams.length === 0 && <option value="">(joukkueita ladataan…)</option>}
-          {teams.map((t) => (
-            <option key={t.teamKey} value={t.teamKey}>
-              {t.teamKey}
-            </option>
+    <div className="au-modal-backdrop" onClick={onClose}>
+      <div className="au-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="au-modal-head">
+          <span>Lisää rooli · {user.nickname || "(nimetön)"}</span>
+          <button type="button" className="au-modal-x" onClick={onClose} aria-label="Sulje"><LuX aria-hidden="true" /></button>
+        </div>
+
+        <div className="au-modal-label">Rooli</div>
+        <div className="au-seg">
+          {["valmentaja", "toimittaja", "admin"].map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`au-seg-btn${role === r ? " is-active" : ""}`}
+              onClick={() => setRole(r)}
+            >
+              {ROLE_LABELS[r]}
+            </button>
           ))}
-        </select>
-        <button
-          type="button"
-          className="au-add-btn"
-          disabled={busy || !team}
-          onClick={() => onAdd({ role: "valmentaja", team })}
-        >
-          <LuPlus aria-hidden="true" /> Valmentaja
-        </button>
-      </div>
-      <div className="au-add-row">
-        <button type="button" className="au-add-btn" disabled={busy} onClick={() => onAdd({ role: "toimittaja" })}>
-          <LuPlus aria-hidden="true" /> Toimittaja
-        </button>
-        <button type="button" className="au-add-btn au-add-btn--admin" disabled={busy} onClick={() => onAdd({ role: "admin" })}>
-          <LuPlus aria-hidden="true" /> Admin
-        </button>
+        </div>
+
+        {needsTeam && (
+          <>
+            <div className="au-modal-label">Joukkue</div>
+            <select className="au-select" value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Joukkue">
+              {JOPOX_TEAMS.map((t) => (
+                <option key={t.subsiteId} value={t.name}>
+                  {t.name}{t.sub ? ` (${t.sub})` : ""}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {err && <div className="au-err">{err}</div>}
+
+        <div className="au-modal-actions">
+          <button type="button" className="au-btn au-btn--ghost" onClick={onClose} disabled={busy}>Peruuta</button>
+          <button type="button" className="au-btn au-btn--primary" onClick={submit} disabled={!canAdd}>
+            {busy ? "Lisätään…" : "Lisää"}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-const UserRow = ({ user, teams, onChange }) => {
-  const [open, setOpen] = useState(false);
+const UserRow = ({ user, onOpenAdd, onChange }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const apply = async (role, team, action) => {
+  const remove = async (r) => {
     setBusy(true);
     setErr("");
     try {
-      const res = await setUserRole({ userId: user.userId, role, team, action });
+      const res = await setUserRole({ userId: user.userId, role: r.role, team: r.team, action: "remove" });
       onChange(user.userId, res.roles);
     } catch (e) {
       setErr(e.message);
@@ -99,13 +124,7 @@ const UserRow = ({ user, teams, onChange }) => {
         {user.roles.map((r) => (
           <span key={roleKey(r)} className={`au-chip au-chip--${r.role}`}>
             {roleLabel(r)}
-            <button
-              type="button"
-              className="au-chip-x"
-              disabled={busy}
-              aria-label="Poista rooli"
-              onClick={() => apply(r.role, r.team, "remove")}
-            >
+            <button type="button" className="au-chip-x" disabled={busy} aria-label="Poista rooli" onClick={() => remove(r)}>
               <LuX aria-hidden="true" />
             </button>
           </span>
@@ -114,30 +133,23 @@ const UserRow = ({ user, teams, onChange }) => {
 
       {err && <div className="au-err">{err}</div>}
 
-      <button type="button" className="au-toggle" onClick={() => setOpen((o) => !o)}>
-        {open ? "Sulje" : "＋ Lisää rooli"}
+      <button type="button" className="au-add-link" onClick={() => onOpenAdd(user)}>
+        <LuPlus aria-hidden="true" /> Lisää rooli
       </button>
-      {open && (
-        <AddRole teams={teams} busy={busy} onAdd={({ role, team }) => apply(role, team, "add")} />
-      )}
     </div>
   );
 };
 
 const AdminUsers = () => {
   const [state, setState] = useState({ status: "loading" });
-  const [teams, setTeams] = useState([]);
   const [q, setQ] = useState("");
+  const [modalUser, setModalUser] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     getAdminUsers()
       .then((r) => !cancelled && setState(r))
       .catch((e) => !cancelled && setState({ status: "error", error: e.message }));
-    fetch("/api/getTeams")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((t) => !cancelled && setTeams(Array.isArray(t) ? t : []))
-      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -149,6 +161,7 @@ const AdminUsers = () => {
       const users = s.data.users.map((u) => (u.userId === userId ? { ...u, roles } : u));
       return { ...s, data: { ...s.data, users } };
     });
+    setModalUser((m) => (m && m.userId === userId ? { ...m, roles } : m));
   };
 
   const users = useMemo(() => (state.status === "ok" ? state.data.users : []), [state]);
@@ -187,13 +200,9 @@ const AdminUsers = () => {
           </div>
         )}
 
-        {status === "forbidden" && (
-          <div className="au-status">Tällä tilillä ei ole admin-oikeuksia.</div>
-        )}
+        {status === "forbidden" && <div className="au-status">Tällä tilillä ei ole admin-oikeuksia.</div>}
 
-        {status === "error" && (
-          <div className="au-status au-error">Lataus epäonnistui. {state.error}</div>
-        )}
+        {status === "error" && <div className="au-status au-error">Lataus epäonnistui. {state.error}</div>}
 
         {status === "ok" && (
           <>
@@ -211,13 +220,15 @@ const AdminUsers = () => {
 
             <div className="au-list">
               {filtered.map((u) => (
-                <UserRow key={u.userId} user={u} teams={teams} onChange={onChange} />
+                <UserRow key={u.userId} user={u} onOpenAdd={setModalUser} onChange={onChange} />
               ))}
               {filtered.length === 0 && <div className="au-empty">Ei osumia.</div>}
             </div>
           </>
         )}
       </div>
+
+      {modalUser && <AddRoleModal user={modalUser} onClose={() => setModalUser(null)} onChange={onChange} />}
     </>
   );
 };
@@ -302,25 +313,60 @@ body { margin: 0; }
 
 .au-err { margin-top: 8px; font-size: 12px; color: var(--color-loss); }
 
-.au-toggle {
+.au-add-link {
   margin-top: 10px; padding: 0; background: none; border: none; cursor: pointer;
   color: var(--color-primary); font-family: inherit; font-size: 13px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 4px;
 }
-.au-add { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.au-add-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.au-empty { padding: 20px; text-align: center; color: var(--color-accent); }
+
+/* ---- Add-role popup ---- */
+.au-modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0;
+}
+.au-modal {
+  width: 100%; max-width: 480px; box-sizing: border-box;
+  background: var(--color-bg); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 18px 18px 0 0; padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
+}
+@media (min-width: 520px) {
+  .au-modal-backdrop { align-items: center; }
+  .au-modal { border-radius: 18px; }
+}
+.au-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 15px; font-weight: 700; margin-bottom: 14px;
+}
+.au-modal-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 999px; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.06); color: var(--color-secondary); flex: 0 0 auto;
+}
+.au-modal-label { font-size: 12px; color: var(--color-accent); margin: 10px 0 6px; }
+.au-seg { display: flex; gap: 6px; }
+.au-seg-btn {
+  flex: 1 1 0; padding: 10px 8px; border-radius: var(--radius-item); cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
+  color: var(--color-secondary); font-family: inherit; font-size: 13px; font-weight: 700;
+}
+.au-seg-btn.is-active {
+  border-color: rgba(var(--color-primary-rgb),0.6);
+  background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary);
+}
 .au-select {
-  flex: 1 1 auto; min-width: 0; padding: 9px 10px; font-family: inherit; font-size: 13px;
+  width: 100%; box-sizing: border-box; padding: 11px 10px; font-family: inherit; font-size: 14px;
   border-radius: var(--radius-item); border: 1px solid rgba(255,255,255,0.14);
   background: rgba(255,255,255,0.05); color: var(--color-secondary);
 }
-.au-add-btn {
-  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
-  padding: 9px 12px; border-radius: var(--radius-item); cursor: pointer;
-  border: 1px solid rgba(var(--color-primary-rgb),0.4);
-  background: rgba(var(--color-primary-rgb),0.12); color: var(--color-primary);
-  font-family: inherit; font-size: 13px; font-weight: 700;
+.au-modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.au-btn {
+  flex: 1 1 0; padding: 12px; border-radius: var(--radius-item); cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 700; border: 1px solid transparent;
 }
-.au-add-btn--admin { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.12); color: var(--color-live); }
-.au-add-btn:disabled { opacity: 0.5; cursor: default; }
-.au-empty { padding: 20px; text-align: center; color: var(--color-accent); }
+.au-btn--ghost { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.14); color: var(--color-secondary); }
+.au-btn--primary { background: var(--color-primary); color: var(--color-on-primary); }
+.au-btn:disabled { opacity: 0.5; cursor: default; }
 `;
