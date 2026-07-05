@@ -385,6 +385,12 @@ const personName = (last, first) =>
     .map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w))
     .join(" ")} ${first || ""}`.trim();
 
+// Roster (Kokoonpanot) players: surname in ALL CAPS, given name as-is — matches
+// the tulospalvelu lineup style (LastName arrives upper-cased already; force it
+// to be safe).
+const rosterName = (last, first) =>
+  `${String(last || "").toLocaleUpperCase("fi")} ${first || ""}`.trim();
+
 const WinningShots = ({ shots, game }) => {
   if (!shots || shots.length === 0) return null;
   // Running shootout score: a goal shows the tally after it, a miss a grey dash.
@@ -515,7 +521,7 @@ const RosterTeam = ({ side, logo, name }) => {
             {players.map((p, i) => (
               <div className="bx-rplayer" key={i}>
                 <span className="bx-rnum">{p.number}</span>
-                <span className="bx-rname">{personName(p.last, p.first)}</span>
+                <span className="bx-rname">{rosterName(p.last, p.first)}</span>
                 {p.role === "MV" && <span className="bx-rtag">MV</span>}
                 {p.captain && <span className="bx-rtag bx-rtag--c">{p.captain}</span>}
               </div>
