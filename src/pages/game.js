@@ -25,23 +25,6 @@ const toSecs = (t) => {
   return (m || 0) * 60 + (s || 0);
 };
 
-// tulospalvelu names are "SURNAME Firstname" (surname ALL-CAPS). Flashscore-style
-// display = "Surname F." — Title-case the surname, first name to an initial, no
-// jersey number.
-const formatName = (raw) => {
-  const s = String(raw || "").trim();
-  if (!s) return "";
-  const tokens = s.split(/\s+/);
-  const isUpper = (t) => t === t.toLocaleUpperCase("fi") && /[A-ZÅÄÖ]/i.test(t);
-  const title = (w) => w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi");
-  const surname = [];
-  let i = 0;
-  while (i < tokens.length && isUpper(tokens[i])) surname.push(tokens[i++]);
-  const given = tokens.slice(i);
-  const sn = (surname.length ? surname : [tokens[0]]).map(title).join(" ");
-  const init = given.length ? `${given[0].charAt(0).toLocaleUpperCase("fi")}.` : "";
-  return init ? `${sn} ${init}` : sn;
-};
 
 // The box-score page (Flashscore-style layout, AHMA dark/amber theme). The clicked
 // game object is passed via nav state for an instant paint; on a direct URL /
@@ -107,6 +90,13 @@ const BoxScore = () => {
     return () => { cancelled = true; clearInterval(iv); };
   }, [game, live]);
 
+  // Link to the game on tulospalvelu (needs the resolved real id) — shown in the
+  // top bar next to the "Ottelu" title.
+  const tpUrl =
+    game && report && report.realId
+      ? `https://tulospalvelu.leijonat.fi/game?season=${seasonOf(game.date)}&gameid=${report.realId}&lang=fi`
+      : null;
+
   return (
     <>
       <style>{css}</style>
@@ -116,6 +106,17 @@ const BoxScore = () => {
             <LuArrowLeft aria-hidden="true" />
           </button>
           <div className="bx-topbar-title">Ottelu</div>
+          {tpUrl && (
+            <a
+              className="bx-topbar-link"
+              href={tpUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Avaa tulospalvelussa"
+            >
+              <LuExternalLink aria-hidden="true" />
+            </a>
+          )}
         </div>
 
         {!game ? (
@@ -295,13 +296,13 @@ const EventRow = ({ e }) => {
   let name;
   let sub;
   if (isGoal) {
-    name = formatName(rawName);
-    sub = e.assists && e.assists.length ? e.assists.map(formatName).join(" + ") : "";
+    name = fullName(rawName);
+    sub = e.assists && e.assists.length ? e.assists.map(fullName).join(" + ") : "";
   } else if (isPen) {
-    name = !rawName.trim() || /^\s*null\b/i.test(rawName) ? "Joukkuerangaistus" : formatName(rawName);
+    name = !rawName.trim() || /^\s*null\b/i.test(rawName) ? "Joukkuerangaistus" : fullName(rawName);
     sub = e.reason || "";
   } else if (e.kind === "gk") {
-    const gk = formatName(e.name);
+    const gk = fullName(e.name);
     name = gk || e.sub; // the goalie's name, or the action itself when no name is given
     sub = gk ? e.sub : "";
   } else {
@@ -378,18 +379,28 @@ const Goalies = ({ goalies, game }) => {
   );
 };
 
-// "MIKKOLA" + "Jusu" → "Mikkola Jusu"
-const personName = (last, first) =>
-  `${String(last || "")
-    .split(/\s+/)
-    .map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w))
-    .join(" ")} ${first || ""}`.trim();
-
 // Roster (Kokoonpanot) players: surname in ALL CAPS, given name as-is — matches
 // the tulospalvelu lineup style (LastName arrives upper-cased already; force it
 // to be safe).
 const rosterName = (last, first) =>
   `${String(last || "").toLocaleUpperCase("fi")} ${first || ""}`.trim();
+
+// Full name from a tulospalvelu "SURNAME Given" string: surname ALL CAPS + the
+// WHOLE given name (no initial). Used for scorers / assists / referees.
+const fullName = (raw) => {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const tokens = s.split(/\s+/);
+  const isUpper = (t) => t === t.toLocaleUpperCase("fi") && /[A-ZÅÄÖ]/i.test(t);
+  const title = (w) => w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi");
+  const surname = [];
+  let i = 0;
+  while (i < tokens.length && isUpper(tokens[i])) surname.push(tokens[i++]);
+  const given = tokens.slice(i);
+  const sn = (surname.length ? surname : [tokens[0]]).map((t) => t.toLocaleUpperCase("fi")).join(" ");
+  const gn = given.map(title).join(" ");
+  return gn ? `${sn} ${gn}` : sn;
+};
 
 const WinningShots = ({ shots, game }) => {
   if (!shots || shots.length === 0) return null;
@@ -411,7 +422,7 @@ const WinningShots = ({ shots, game }) => {
           <div className={`bx-ws-row${w.winner ? " is-win" : ""}`} key={i}>
             <img className="bx-ws-logo" src={w.side === "home" ? game.home_logo : game.away_logo} alt="" />
             {w.jersey ? <span className="bx-ws-num">{w.jersey}</span> : null}
-            <span className="bx-ws-name">{personName(w.last, w.first)}</span>
+            <span className="bx-ws-name">{rosterName(w.last, w.first)}</span>
             <span className={`bx-ws-mark${w.scored ? " is-goal" : ""}`}>{w.scored ? w.tally : "–"}</span>
           </div>
         ))}
@@ -535,7 +546,7 @@ const RosterTeam = ({ side, logo, name }) => {
           <div className="bx-rstaff">
             {staff.map((s, i) => (
               <div className="bx-rstaff-row" key={i}>
-                <span>{personName(s.last, s.first)}</span>
+                <span>{rosterName(s.last, s.first)}</span>
                 <span className="bx-rstaff-role">{s.role}</span>
               </div>
             ))}
@@ -561,11 +572,8 @@ const Rosters = ({ rosters, game }) => {
 };
 
 const Footer = ({ report, game }) => {
-  const refs = (report.referees || []).map((r) => formatName(r.name)).filter(Boolean);
+  const refs = (report.referees || []).map((r) => fullName(r.name)).filter(Boolean);
   const venue = report.arena || game.rink;
-  const url = report.realId
-    ? `https://tulospalvelu.leijonat.fi/game?season=${seasonOf(game.date)}&gameid=${report.realId}&lang=fi`
-    : null;
   const hasInfo = refs.length > 0 || venue || report.spectators != null;
   return (
     <div className="bx-footer">
@@ -593,11 +601,6 @@ const Footer = ({ report, game }) => {
           )}
           </div>
         </div>
-      )}
-      {url && (
-        <a className="bx-footer-link" href={url} target="_blank" rel="noopener noreferrer">
-          Avaa tulospalvelussa <LuExternalLink aria-hidden="true" />
-        </a>
       )}
     </div>
   );
@@ -634,9 +637,17 @@ body { margin: 0; }
 }
 .bx-back svg { width: 20px; height: 20px; }
 .bx-topbar-title {
+  flex: 1 1 auto;
   font-size: 15px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--color-primary);
 }
+.bx-topbar-link {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  color: var(--gz-text-secondary); text-decoration: none; -webkit-tap-highlight-color: transparent;
+}
+.bx-topbar-link svg { width: 18px; height: 18px; }
 
 .bx-body { width: 100%; max-width: 640px; margin: 0 auto; padding: 12px 12px 0; }
 .bx-center { display: flex; justify-content: center; padding: 40px 0; }

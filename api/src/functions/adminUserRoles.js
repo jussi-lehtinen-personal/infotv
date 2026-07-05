@@ -3,15 +3,17 @@ const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, upsertEntity } = require('../lib/tables');
 const { isAdmin, parseRoles, ROLES, TEAM_SCOPED } = require('../lib/admin');
 
-// POST /api/admin/userRoles — admin-only add/remove a role tag on a user.
+// POST /api/adminUserRoles — admin-only add/remove a role tag on a user.
 // Body: { userId, role, team?, action:'add'|'remove' }.
 //   role ∈ ROLES; `team` (tulospalvelu teamKey, e.g. "U13 Musta") is REQUIRED
 //   for team-scoped roles (valmentaja) and identifies the exact entry to
 //   add/remove. Returns the target's updated roles array.
+// NB: single-segment route (NOT `admin/userRoles`) — SWA does not route
+// `/api/admin/*` to managed functions, so those 404.
 app.http('adminUserRoles', {
   methods: ['POST'],
   authLevel: 'anonymous',
-  route: 'admin/userRoles',
+  route: 'adminUserRoles',
   handler: async (request, context) => {
     try {
       const callerId = await requireAuth(request);
