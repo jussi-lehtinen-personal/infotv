@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   LuHome,
@@ -13,8 +13,10 @@ import {
   LuAward,
   LuMessageSquare,
   LuUser,
+  LuShieldCheck,
   LuX,
 } from "react-icons/lu";
+import { getCachedUser, getMe } from "../../auth/authClient";
 
 // Full navigation, in display order. `external` rows open in a new tab.
 const NAV_SECTIONS = [
@@ -42,6 +44,15 @@ const NAV_SECTIONS = [
 ];
 
 export const NavDrawer = ({ open, onClose }) => {
+  // Admins get an extra "Admin" row. Seed from the cached user for an instant
+  // paint, then refresh via /api/me on open (self-heals if isAdmin changed).
+  const [isAdmin, setIsAdmin] = useState(() => !!(getCachedUser() || {}).isAdmin);
+  useEffect(() => {
+    if (!open) return;
+    setIsAdmin(!!(getCachedUser() || {}).isAdmin);
+    getMe().then((u) => setIsAdmin(!!(u && u.isAdmin))).catch(() => {});
+  }, [open]);
+
   // Close on Escape + lock body scroll while open.
   useEffect(() => {
     if (!open) return;
@@ -110,6 +121,11 @@ export const NavDrawer = ({ open, onClose }) => {
               {section.map(renderRow)}
             </div>
           ))}
+          {isAdmin && (
+            <div className="ui-drawer-section">
+              {renderRow({ to: "/admin", label: "Admin", Icon: LuShieldCheck })}
+            </div>
+          )}
         </nav>
       </aside>
     </div>

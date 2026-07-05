@@ -271,6 +271,34 @@ export async function getStats() {
   return { status: "ok", data };
 }
 
+// Admin-only registered-user list (with roles). Same status shape as getStats:
+// 'ok' | 'forbidden' (youAre = your userId) | 'unauthorized'.
+export async function getAdminUsers() {
+  const token = getToken();
+  if (!token) return { status: "unauthorized" };
+  const res = await fetch("/api/admin/users", { headers: { "X-Ahma-Auth": token } });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) return { status: "unauthorized" };
+  if (res.status === 403) return { status: "forbidden", youAre: data.youAre };
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return { status: "ok", data };
+}
+
+// Add / remove a role tag on a user (admin only). `team` (teamKey) is required
+// for team-scoped roles (valmentaja). Returns { userId, roles }.
+export async function setUserRole({ userId, role, team, action }) {
+  const token = getToken();
+  if (!token) throw new Error("Kirjautuminen vaaditaan.");
+  const res = await fetch("/api/admin/userRoles", {
+    method: "POST",
+    headers: { "X-Ahma-Auth": token, "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, role, team, action }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return data;
+}
+
 let configCache = null;
 export async function getAuthConfig() {
   if (configCache) return configCache;

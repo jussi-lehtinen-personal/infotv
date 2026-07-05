@@ -31,6 +31,8 @@ import Supporters from "./pages/supporters";
 import Partners from "./pages/partners";
 import Report from "./pages/report";
 import Stats from "./pages/stats";
+import Admin from "./pages/admin";
+import AdminUsers from "./pages/admin_users";
 import NextHomeGame from "./pages/next_home_game";
 
 function App() {
@@ -93,6 +95,8 @@ function App() {
 
             <Route path="/report" element={<Report />} />
             <Route path="/stats" element={<Stats />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/next_home_game" element={<NextHomeGame />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route

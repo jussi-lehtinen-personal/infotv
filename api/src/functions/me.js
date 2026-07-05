@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
 const { avatarUrl } = require('../lib/blob');
+const { parseRoles, isAdmin } = require('../lib/admin');
 
 // GET /api/me — returns the current user's profile (requires Bearer token).
 app.http('me', {
@@ -22,6 +23,7 @@ app.http('me', {
       const creds = await listByPartition('Credentials', userId);
       let favourites = [];
       try { favourites = user.favourites ? JSON.parse(user.favourites) : []; } catch { favourites = []; }
+      const roles = parseRoles(user);
       return {
         jsonBody: {
           userId,
@@ -31,6 +33,8 @@ app.http('me', {
           hasPasskey: creds.length > 0,
           avatar: avatarUrl(userId, user),
           favourites,
+          roles,
+          isAdmin: await isAdmin(userId, user),
         },
       };
     } catch (err) {
