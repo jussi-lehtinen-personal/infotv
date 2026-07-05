@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowLeft, LuPlus, LuX, LuSearch } from "react-icons/lu";
+import { LuArrowLeft, LuPlus, LuX, LuSearch, LuChevronRight } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { getAdminUsers, setUserRole } from "../auth/authClient";
@@ -24,21 +24,21 @@ const roleLabel = (r) =>
   TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role]} · ${r.team}` : ROLE_LABELS[r.role] || r.role;
 const roleKey = (r) => `${r.role}:${r.team || ""}`;
 
-// Popup: pick a role, and a team when the role is valmentaja.
+// Popup: a two-step wizard. Step 1 = pick a role (clean uniform rows). A global
+// role (media/admin) is added immediately; a team-scoped role advances to
+// Step 2 = pick a team. No native <select> (that renders an off-theme white OS
+// dropdown) and no wrapping button-soup.
 const AddRoleModal = ({ user, onClose, onChange }) => {
-  const [role, setRole] = useState("pelaaja");
-  const [team, setTeam] = useState(JOPOX_TEAMS[0] ? JOPOX_TEAMS[0].name : "");
+  const [step, setStep] = useState("role"); // "role" | "team"
+  const [role, setRole] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const needsTeam = TEAM_ROLES.has(role);
-  const canAdd = !busy && (!needsTeam || !!team);
-
-  const submit = async () => {
+  const add = async (chosenRole, team) => {
     setBusy(true);
     setErr("");
     try {
-      const res = await setUserRole({ userId: user.userId, role, team: needsTeam ? team : undefined, action: "add" });
+      const res = await setUserRole({ userId: user.userId, role: chosenRole, team, action: "add" });
       onChange(user.userId, res.roles);
       onClose();
     } catch (e) {
@@ -47,55 +47,66 @@ const AddRoleModal = ({ user, onClose, onChange }) => {
     }
   };
 
+  const pickRole = (r) => {
+    if (busy) return;
+    if (TEAM_ROLES.has(r)) {
+      setRole(r);
+      setErr("");
+      setStep("team");
+    } else {
+      add(r);
+    }
+  };
+
   return (
     <div className="au-modal-backdrop" onClick={onClose}>
       <div className="au-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="au-modal-head">
-          <span>Lisää rooli · {user.nickname || "(nimetön)"}</span>
-          <button type="button" className="au-modal-x" onClick={onClose} aria-label="Sulje"><LuX aria-hidden="true" /></button>
-        </div>
-
-        <div className="au-modal-label">Rooli</div>
-        <div className="au-seg">
-          {ROLE_ORDER.map((r) => (
+          {step === "team" && (
             <button
-              key={r}
               type="button"
-              className={`au-seg-btn${role === r ? " is-active" : ""}`}
-              onClick={() => setRole(r)}
+              className="au-modal-icon"
+              onClick={() => { setStep("role"); setErr(""); }}
+              aria-label="Takaisin"
             >
-              {ROLE_LABELS[r]}
+              <LuArrowLeft aria-hidden="true" />
             </button>
-          ))}
+          )}
+          <span className="au-modal-title">
+            {step === "role"
+              ? `Lisää rooli · ${user.nickname || "(nimetön)"}`
+              : `${ROLE_LABELS[role]} — valitse joukkue`}
+          </span>
+          <button type="button" className="au-modal-icon" onClick={onClose} aria-label="Sulje">
+            <LuX aria-hidden="true" />
+          </button>
         </div>
-
-        {needsTeam && (
-          <>
-            <div className="au-modal-label">Joukkue</div>
-            <div className="au-teams">
-              {JOPOX_TEAMS.map((t) => (
-                <button
-                  key={t.subsiteId}
-                  type="button"
-                  className={`au-team-btn${team === t.name ? " is-active" : ""}`}
-                  onClick={() => setTeam(t.name)}
-                >
-                  <span className="au-team-name">{t.name}</span>
-                  {t.sub && <span className="au-team-sub">{t.sub}</span>}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
 
         {err && <div className="au-err">{err}</div>}
 
-        <div className="au-modal-actions">
-          <button type="button" className="au-btn au-btn--ghost" onClick={onClose} disabled={busy}>Peruuta</button>
-          <button type="button" className="au-btn au-btn--primary" onClick={submit} disabled={!canAdd}>
-            {busy ? "Lisätään…" : "Lisää"}
-          </button>
-        </div>
+        {step === "role" && (
+          <div className="au-rows">
+            {ROLE_ORDER.map((r) => (
+              <button key={r} type="button" className="au-row" disabled={busy} onClick={() => pickRole(r)}>
+                <span className="au-row-main">{ROLE_LABELS[r]}</span>
+                <span className="au-row-aside">
+                  {TEAM_ROLES.has(r) ? <LuChevronRight aria-hidden="true" /> : "Lisää"}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === "team" && (
+          <div className="au-rows">
+            {JOPOX_TEAMS.map((t) => (
+              <button key={t.subsiteId} type="button" className="au-row" disabled={busy} onClick={() => add(role, t.name)}>
+                <span className="au-row-main">{t.name}</span>
+                {t.sub && <span className="au-row-aside">{t.sub}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -347,51 +358,34 @@ body { margin: 0; }
 .au-modal {
   width: 100%; max-width: 480px; box-sizing: border-box;
   background: var(--color-bg); border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 18px 18px 0 0; padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
+  border-radius: 18px 18px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 18px);
+  color: var(--color-secondary);
 }
 @media (min-width: 520px) {
   .au-modal-backdrop { align-items: center; }
   .au-modal { border-radius: 18px; }
 }
-.au-modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 15px; font-weight: 700; margin-bottom: 14px;
+.au-modal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.au-modal-title {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 15px; font-weight: 800; color: var(--color-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.au-modal-x {
+.au-modal-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 999px; border: none; cursor: pointer;
-  background: rgba(255,255,255,0.06); color: var(--color-secondary); flex: 0 0 auto;
+  width: 34px; height: 34px; border-radius: 999px; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.06); color: var(--color-secondary); flex: 0 0 auto; font-size: 18px;
 }
-.au-modal-label { font-size: 12px; color: var(--color-accent); margin: 10px 0 6px; }
-.au-seg { display: flex; flex-wrap: wrap; gap: 6px; }
-.au-seg-btn {
-  flex: 0 0 auto; padding: 9px 13px; border-radius: var(--radius-item); cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
-  color: var(--color-secondary); font-family: inherit; font-size: 13px; font-weight: 700;
-}
-.au-seg-btn.is-active {
-  border-color: rgba(var(--color-primary-rgb),0.6);
-  background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary);
-}
-.au-teams { display: flex; flex-wrap: wrap; gap: 6px; }
-.au-team-btn {
-  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
-  padding: 8px 12px; border-radius: var(--radius-item); cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
+.au-rows { display: flex; flex-direction: column; gap: 6px; max-height: 54vh; overflow-y: auto; }
+.au-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; box-sizing: border-box; padding: 13px 14px; text-align: left;
+  border-radius: var(--radius-item); cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
   color: var(--color-secondary); font-family: inherit;
 }
-.au-team-btn.is-active {
-  border-color: rgba(var(--color-primary-rgb),0.6);
-  background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary);
-}
-.au-team-name { font-size: 13px; font-weight: 700; }
-.au-team-sub { font-size: 10px; opacity: 0.65; }
-.au-modal-actions { display: flex; gap: 8px; margin-top: 18px; }
-.au-btn {
-  flex: 1 1 0; padding: 12px; border-radius: var(--radius-item); cursor: pointer;
-  font-family: inherit; font-size: 14px; font-weight: 700; border: 1px solid transparent;
-}
-.au-btn--ghost { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.14); color: var(--color-secondary); }
-.au-btn--primary { background: var(--color-primary); color: var(--color-on-primary); }
-.au-btn:disabled { opacity: 0.5; cursor: default; }
+.au-row:hover { background: rgba(255,255,255,0.07); }
+.au-row:disabled { opacity: 0.5; cursor: default; }
+.au-row-main { font-size: 15px; font-weight: 700; }
+.au-row-aside { font-size: 12px; color: var(--color-accent); display: inline-flex; align-items: center; }
 `;
