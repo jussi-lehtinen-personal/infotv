@@ -511,6 +511,43 @@ const TTL_REPORT_LIVE_S = 30; // in progress: keep fresh
 const TTL_REPORT_UPCOMING_S = 5 * 60; // not started yet
 const TTL_REPORT_FINISHED_S = 24 * 60 * 60; // final: immutable
 
+// Write a FINAL result back into the shared 24 h season list (keyed exactly like
+// cachedJson stores /getSeasonGames), so clients that never open this game's box
+// score still get the result off the list — no need to wait for the 24 h refresh.
+// Best-effort; bumps fetchedAt only on a real change.
+async function writeBackSeasonResult(url, extId, box) {
+  try {
+    const cache = caches.default;
+    const keyUrl = new URL("/getSeasonGames", url.origin);
+    keyUrl.searchParams.set("__cv", CACHE_VERSION);
+    const req = new Request(keyUrl.toString(), { method: "GET" });
+    const hit = await cache.match(req);
+    if (!hit) return;
+    const data = await hit.json(); // { fetchedAt, games }
+    const g = (data.games || []).find((x) => String(x.id) === String(extId));
+    if (!g) return;
+    const hg = box.score.home;
+    const ag = box.score.away;
+    if (
+      String(g.home_goals) === String(hg) &&
+      String(g.away_goals) === String(ag) &&
+      Number(g.finished) === Number(box.finishedType)
+    ) {
+      return; // already up to date
+    }
+    g.home_goals = hg;
+    g.away_goals = ag;
+    g.finished = box.finishedType;
+    g.period = box.status;
+    data.fetchedAt = new Date().toISOString();
+    const resp = json(data);
+    resp.headers.set("cache-control", `public, max-age=${TTL_SEASON_S}`);
+    await cache.put(req, resp);
+  } catch {
+    /* best-effort */
+  }
+}
+
 async function handleGetGameReport(url, env, ctx) {
   const date = url.searchParams.get("date");
   const homeTeamId = url.searchParams.get("home");
@@ -543,6 +580,12 @@ async function handleGetGameReport(url, env, ctx) {
   ]);
   const box = buildBoxScore(report, { realId, season });
   box.rosters = rostersRaw ? buildRosters(rostersRaw) : null;
+
+  // Write a final result back to the season list for non-polling clients.
+  if (box.finished && ctx && ctx.waitUntil) {
+    ctx.waitUntil(writeBackSeasonResult(url, extId, box));
+  }
+
   const ttl = box.finished
     ? TTL_REPORT_FINISHED_S
     : box.started

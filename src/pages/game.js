@@ -84,6 +84,29 @@ const BoxScore = () => {
     return () => { cancelled = true; };
   }, [game]);
 
+  // Live: while the open game is in progress, re-poll its report every 30 s
+  // (foreground only). Stops once it finishes / unmounts / the game changes.
+  const live = !!(report && report.started && !report.finished);
+  useEffect(() => {
+    if (!game || !live) return;
+    let cancelled = false;
+    const params = new URLSearchParams({
+      date: game.date,
+      home: String(game.homeTeamId),
+      away: String(game.awayTeamId),
+      extId: String(game.id),
+    });
+    const poll = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch(`/api/getGameReport?${params.toString()}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d) => { if (!cancelled && d && d.resolved) setReport(d); })
+        .catch(() => {});
+    };
+    const iv = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [game, live]);
+
   return (
     <>
       <style>{css}</style>

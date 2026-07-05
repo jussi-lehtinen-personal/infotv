@@ -18,6 +18,12 @@ const LS_KEY = `ahma.seasonGames.v${VERSION}`;
 // instantly anyway (SWR) — consumers call fetchSeasonGames() on mount to
 // revalidate through the cheap cached Azure/worker layers.
 const TTL = 30 * 60_000; // 30 min
+// Live overlay: poll "active" games (started, no final result) for their box-score
+// report and patch the live/final score into the list. 30 s matches the worker
+// report TTL. A game is active from its start until +3.5 h or until the report
+// says finished. Foreground only.
+const OVERLAY_MS = 30_000;
+const ACTIVE_WINDOW_MS = 3.5 * 60 * 60_000;
 
 let games = null; // processed games array (null = not loaded)
 let ts = 0; // last local revalidation time (freshness)
@@ -71,6 +77,62 @@ function persist() {
   }
 }
 
+// Games that are "active" = started but with no final result → poll their report.
+// Dates are Finnish local; the client is assumed to be too (Finnish club app).
+function activeGames() {
+  const now = Date.now();
+  return (games || []).filter((g) => {
+    if (Number(g.finished) > 0) return false;
+    const start = new Date(String(g.date).replace(" ", "T")).getTime();
+    return !Number.isNaN(start) && now >= start && now < start + ACTIVE_WINDOW_MS;
+  });
+}
+
+// Patch a game's live/final score in place; rebuild + notify only on real change.
+function patchGame(extId, patch) {
+  const g = (games || []).find((x) => String(x.id) === String(extId));
+  if (!g) return;
+  let changed = false;
+  for (const k of ["home_goals", "away_goals", "finished", "period"]) {
+    if (patch[k] != null && String(g[k]) !== String(patch[k])) {
+      g[k] = patch[k];
+      changed = true;
+    }
+  }
+  if (changed) {
+    rebuildIndex();
+    persist();
+    notify();
+  }
+}
+
+// Poll each active game's box-score report → patch its score/status into the list
+// (the same call also write-backs a FINAL result to the shared worker cache, so
+// non-polling clients get it). Foreground only; no-op when nothing is active.
+function overlayTick() {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+  for (const g of activeGames()) {
+    const params = new URLSearchParams({
+      date: g.date,
+      home: String(g.homeTeamId),
+      away: String(g.awayTeamId),
+      extId: String(g.id),
+    });
+    fetch(`/api/getGameReport?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("report"))))
+      .then((rep) => {
+        if (!rep || !rep.resolved || !rep.score) return;
+        patchGame(g.id, {
+          home_goals: rep.score.home,
+          away_goals: rep.score.away,
+          finished: rep.finishedType,
+          period: rep.status,
+        });
+      })
+      .catch(() => {});
+  }
+}
+
 // Revalidation triggers (SWR): without these, the cache would only refetch on a
 // component mount — keeping the app open and scrolling would NEVER refresh. So
 // on the first subscriber we install focus / visibility / online listeners + a
@@ -85,9 +147,13 @@ function installRevalidation() {
   window.addEventListener("focus", revalidate);
   window.addEventListener("online", revalidate);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") revalidate();
+    if (document.visibilityState === "visible") {
+      revalidate();
+      overlayTick();
+    }
   });
   setInterval(revalidate, TTL); // catches "open for hours, never blurred"
+  setInterval(overlayTick, OVERLAY_MS); // live / settled-result overlay
 }
 
 export function subscribe(fn) {
