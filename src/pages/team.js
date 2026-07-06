@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useGoBack } from "../hooks/useGoBack";
-import { LuArrowLeft, LuShirt, LuUsers, LuPhone, LuBarChart3, LuTable, LuTarget, LuShield, LuMail } from "react-icons/lu";
+import { LuArrowLeft, LuShirt, LuUsers, LuPhone, LuBarChart3, LuTable, LuTarget, LuShield, LuMail, LuCalendarDays, LuChevronRight } from "react-icons/lu";
 import {
   Box, Typography, IconButton, ToggleButtonGroup, ToggleButton, Tabs, Tab,
   Card, Avatar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Stack, CircularProgress, Link as MuiLink, Select, MenuItem,
 } from "@mui/material";
 import { findJopoxTeam } from "../data/jopoxTeams";
-import { favouriteAgeKey } from "../lib/teamMatch";
+import { favouriteAgeKey, gameAgeKey } from "../lib/teamMatch";
+import { fetchSeasonGames } from "../lib/seasonGamesCache";
 
 // Team page (MUI content inside a hand-rolled shell: hero + a drag-animated
 // Joukkue/Tilastot pager). Data = getTeamRoster (Jopox). Standings is mock for
@@ -24,8 +25,8 @@ const seasonLabel = () => {
 };
 
 const JOUKKUE_TABS = [["Pelaajat", LuShirt], ["Toimihenkilöt", LuUsers], ["Yhteystiedot", LuPhone]];
-const TILASTOT_TABS = [["Sarjataulukko", LuTable], ["Pistepörssi", LuTarget], ["MV", LuShield]];
-const TAB_KEYS = ["standings", "scorers", "goalies"]; // tTab index → /getSeriesTable tab
+const TILASTOT_TABS = [["Sarja", LuTable], ["Pörssi", LuTarget], ["MV", LuShield], ["Ottelut", LuCalendarDays]];
+const TAB_KEYS = ["standings", "scorers", "goalies"]; // tTab 0-2 → /getSeriesTable tab (tTab 3 = Ottelut, local)
 
 // Portrait roster/official photos crop badly in a small square — keep them tall
 // and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
@@ -193,6 +194,42 @@ const GoaliesTable = ({ goalies }) => {
   );
 };
 
+// One game row: date/time + the two teams (Ahma side highlighted) + score
+// (played) or nothing (upcoming). Played games link to the box score.
+const MatchRow = ({ g }) => {
+  const played = Number(g.finished) > 0;
+  const d = String(g.date);
+  const day = `${d.slice(8, 10)}.${d.slice(5, 7)}.`;
+  const time = d.slice(11, 16);
+  const teamLine = (name, goals, isAhma) => (
+    <Stack direction="row" alignItems="center" spacing={1}>
+      <Typography variant="body2" sx={{ flex: 1, minWidth: 0, whiteSpace: "normal", fontWeight: isAhma ? 700 : 500, color: isAhma ? "primary.main" : "text.primary" }}>{name}</Typography>
+      {played && <Typography variant="body2" sx={{ fontWeight: 800, minWidth: 16, textAlign: "right" }}>{goals}</Typography>}
+    </Stack>
+  );
+  const card = (
+    <Card variant="outlined" sx={{ p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 1.25, ...(played && { "&:active": { bgcolor: "#202020" } }) }}>
+      <Box sx={{ width: 40, flexShrink: 0, textAlign: "center", color: "text.secondary" }}>
+        <Typography variant="caption" sx={{ display: "block", lineHeight: 1.25 }}>{day}</Typography>
+        <Typography variant="caption" sx={{ display: "block", lineHeight: 1.25 }}>{time}</Typography>
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {teamLine(g.home, g.home_goals, g.ahmaHome)}
+        {teamLine(g.away, g.away_goals, !g.ahmaHome)}
+      </Box>
+      {played && <LuChevronRight size={18} style={{ opacity: 0.5, flexShrink: 0 }} />}
+    </Card>
+  );
+  return played
+    ? <Link to={`/gamezone/game/${g.id}`} state={{ game: g }} style={{ textDecoration: "none" }}>{card}</Link>
+    : card;
+};
+
+const MatchTable = ({ games }) => {
+  if (!games.length) return <Note>Ei otteluita tälle sarjalle.</Note>;
+  return <Stack spacing={1}>{games.map((g) => <MatchRow key={g.id} g={g} />)}</Stack>;
+};
+
 const TabRow = ({ items, value, onChange }) => (
   <Tabs
     value={value}
@@ -231,6 +268,7 @@ const Team = () => {
   const [tables, setTables] = useState({}); // `${seriesIdx}|${tab}` -> {loading|error|data}
   const [resolvedSids, setResolvedSids] = useState({}); // seriesIdx -> {subSerieId, levelId, subSerieName}
   const tableReqRef = useRef({}); // keys already requested (guard WITHOUT `tables` in deps)
+  const [seasonGames, setSeasonGames] = useState(null); // 24h game list (shared cache) for the Matches tab
   const seasonOverride = searchParams.get("season");
 
   // Reset stats when the team (subsiteId) changes — the component is reused across
@@ -293,7 +331,7 @@ const Team = () => {
     const el = pagerRef.current;
     const pane = (mode === "joukkue" ? pane0Ref : pane1Ref).current;
     if (el && pane) el.style.height = `${pane.scrollHeight}px`;
-  }, [mode, data, jTab, tTab, loading, error, seriesInfo, seriesLoading, seriesIdx, tables]);
+  }, [mode, data, jTab, tTab, loading, error, seriesInfo, seriesLoading, seriesIdx, tables, seasonGames]);
 
   useEffect(() => {
     let cancelled = false;
@@ -330,7 +368,9 @@ const Team = () => {
   // any OTHER series is resolved on demand here (the worker resolves from the rep
   // game identity — one call, only when the user opens that series). No loop.
   useEffect(() => {
-    if (mode !== "tilastot" || !seriesInfo || !seriesInfo.series?.length) return;
+    // tTab >= TAB_KEYS.length = the Matches tab, which uses the local game list (no
+    // server table fetch).
+    if (mode !== "tilastot" || tTab >= TAB_KEYS.length || !seriesInfo || !seriesInfo.series?.length) return;
     const idx = Math.min(seriesIdx, seriesInfo.series.length - 1);
     const s = seriesInfo.series[idx];
     const tab = TAB_KEYS[tTab];
@@ -364,6 +404,15 @@ const Team = () => {
       .catch(() => { if (!cancelled) { tableReqRef.current[key] = false; setTables((t) => ({ ...t, [key]: { error: true } })); } });
     return () => { cancelled = true; };
   }, [mode, seriesInfo, seriesIdx, tTab, resolvedSids]);
+
+  // The Matches tab reads the shared 24h game list (SWR-cached, also used by the
+  // Ottelut page) — no extra tulospalvelu call. Loaded when Tilastot first opens.
+  useEffect(() => {
+    if (mode !== "tilastot" || seasonGames) return;
+    let cancelled = false;
+    fetchSeasonGames().then((gs) => { if (!cancelled) setSeasonGames(gs); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [mode, seasonGames]);
 
   const heroTitle = `Kiekko-Ahma ${known?.name || data?.teamName || ""}`.trim();
   const players = data?.players || [];
@@ -466,8 +515,15 @@ const Team = () => {
                 const series = info?.series || [];
                 if (!info || !series.length) return <Note>Ei tilastoja tälle kaudelle.</Note>;
                 const idx = Math.min(seriesIdx, series.length - 1);
+                const sel = series[idx];
                 const cell = tables[`${idx}|${TAB_KEYS[tTab]}`];
                 const label = (s, i) => resolvedSids[i]?.subSerieName || s.subSerieName || s.label;
+                // Matches tab: the selected series' games from the shared 24h list,
+                // scoped by the series' date range, newest first.
+                const matchGames = (seasonGames || [])
+                  .filter((g) => gameAgeKey(g) === age && !/harjoitus/i.test(g.level || "")
+                    && String(g.date).slice(0, 10) >= sel.from && String(g.date).slice(0, 10) <= sel.to)
+                  .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
                 return (
                   <>
                     {info.fallback && (
@@ -486,11 +542,13 @@ const Team = () => {
                         ))}
                       </Select>
                     )}
-                    {!cell || cell.loading ? <Center><CircularProgress color="primary" /></Center>
-                      : cell.error ? <Note>Taulukkoa ei saatu haettua.</Note>
-                        : tTab === 0 ? <StandingsTable standings={cell.data.standings} />
-                          : tTab === 1 ? <ScorersTable scorers={cell.data.scorers} />
-                            : <GoaliesTable goalies={cell.data.goalies} />}
+                    {tTab === 3
+                      ? (seasonGames == null ? <Center><CircularProgress color="primary" /></Center> : <MatchTable games={matchGames} />)
+                      : !cell || cell.loading ? <Center><CircularProgress color="primary" /></Center>
+                        : cell.error ? <Note>Taulukkoa ei saatu haettua.</Note>
+                          : tTab === 0 ? <StandingsTable standings={cell.data.standings} />
+                            : tTab === 1 ? <ScorersTable scorers={cell.data.scorers} />
+                              : <GoaliesTable goalies={cell.data.goalies} />}
                   </>
                 );
               })()}
