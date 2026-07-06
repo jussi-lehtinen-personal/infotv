@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { themeCSS } from "../theme";
-import { PageHeader } from "../components/ui/PageHeader";
+import { Box } from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
 import { NewsCard } from "../components/ui/NewsCard";
 import { useGoBack } from "../hooks/useGoBack";
+
+const Status = ({ error, children }) => (
+  <Box sx={{ textAlign: "center", py: 5, fontSize: 14, color: error ? "var(--color-loss)" : "text.secondary" }}>{children}</Box>
+);
 
 const News = () => {
   const goBack = useGoBack("/");
@@ -15,11 +19,8 @@ const News = () => {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          // Lajitellaan päivämäärän mukaan uusin ensin — sama kuin
-          // etusivun Ajankohtaista-listassa.
-          const sorted = [...data].sort(
-            (a, b) => new Date(b.date) - new Date(a.date)
-          );
+          // Newest first — same as the home "Ajankohtaista" list.
+          const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
           setNews(sorted);
         }
         setLoading(false);
@@ -31,104 +32,22 @@ const News = () => {
   }, []);
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="news-root">
-        <PageHeader
-          title="UUTISET"
-          left={
-            <button type="button" className="news-back" onClick={goBack} aria-label="Takaisin">
-              <span className="material-symbols-rounded">&#xE5CB;</span>
-            </button>
-          }
-        />
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      <MuiHeader title="Uutiset" onBack={goBack} />
 
-        {loading && <div className="news-status">Ladataan uutisia…</div>}
+      {loading && <Status>Ladataan uutisia…</Status>}
+      {error && <Status error>Uutisten lataus epäonnistui.</Status>}
+      {!loading && !error && news.length === 0 && <Status>Ei uutisia.</Status>}
 
-        {error && (
-          <div className="news-status news-status--error">
-            Uutisten lataus epäonnistui.
-          </div>
-        )}
-
-        {!loading && !error && news.length === 0 && (
-          <div className="news-status">Ei uutisia.</div>
-        )}
-
-        {!loading && !error && news.length > 0 && (
-          <div className="news-list">
-            {news.map((item) => (
-              <NewsCard key={item.id || item.url} item={item} />
-            ))}
-          </div>
-        )}
-      </div>
-    </>
+      {!loading && !error && news.length > 0 && (
+        <Box sx={{ maxWidth: 520, mx: "auto", px: 1, display: "flex", flexDirection: "column", gap: 1.25 }}>
+          {news.map((item) => (
+            <NewsCard key={item.id || item.url} item={item} />
+          ))}
+        </Box>
+      )}
+    </Box>
   );
 };
 
 export default News;
-
-const css = `${themeCSS}
-
-html, body, #root {
-  height: 100%;
-  background: var(--color-bg);
-}
-body { margin: 0; }
-
-.news-root {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 14px;
-  /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator + a small gap. */
-  padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
-
-  background: var(--bg-gradient);
-  font-family: var(--font-family-base);
-}
-
-/* Sama back-link -tyyli kuin teams-sivulla */
-.news-back {
-  display: flex;
-  align-items: center;
-  color: rgba(255, 255, 255, 0.6);
-  text-decoration: none;
-  border-radius: 10px;
-  padding: 2px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.news-back:hover { color: var(--color-primary); }
-.news-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
-
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
-}
-
-.news-status {
-  text-align: center;
-  font-size: var(--gz-fs-sm);
-  color: var(--gz-text-muted);
-  padding: 28px 0;
-}
-.news-status--error { color: var(--color-loss); }
-
-@media (min-width: 768px) {
-  .news-root {
-    padding: 26px 26px 28px 26px;
-  }
-  .news-list {
-    max-width: 720px;
-  }
-}
-`;

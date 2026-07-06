@@ -1,22 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { themeCSS } from "../theme";
-import { PageHeader } from "../components/ui/PageHeader";
+import { Box, Typography, Card, Stack } from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 
-// Kannattajajäsenten lista. Data tulee staattisesta public/supporters.json
-// -tiedostosta — sama kevyt malli kuin /news (gamezone-news.json). Listan
-// päivitys = muokkaa supporters.json + deploy.
-//
-// Tiedoston muoto on tarkoituksella mahdollisimman helppo käsin ylläpidettävä:
-// pelkkä taulukko nimi-merkkijonoja. Tämä sivu sietää myös {name}-objekteja,
-// jos muotoa joskus laajennetaan.
+// Supporter-member list. Data is the static public/supporters.json (same light
+// model as /news). Tolerates either bare name strings or { name } objects.
 const toName = (entry) => {
   if (typeof entry === "string") return entry.trim();
-  if (entry && typeof entry === "object" && typeof entry.name === "string") {
-    return entry.name.trim();
-  }
+  if (entry && typeof entry === "object" && typeof entry.name === "string") return entry.name.trim();
   return "";
 };
+
+const Status = ({ error, children }) => (
+  <Box sx={{ textAlign: "center", py: 5, fontSize: 14, color: error ? "var(--color-loss)" : "text.secondary" }}>{children}</Box>
+);
 
 const Supporters = () => {
   const goBack = useGoBack("/");
@@ -29,11 +26,7 @@ const Supporters = () => {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const cleaned = data
-            .map(toName)
-            .filter(Boolean)
-            // Aakkostus suomalaisittain (ä/ö oikeilla paikoillaan).
-            .sort((a, b) => a.localeCompare(b, "fi"));
+          const cleaned = data.map(toName).filter(Boolean).sort((a, b) => a.localeCompare(b, "fi"));
           setNames(cleaned);
         }
         setLoading(false);
@@ -45,202 +38,45 @@ const Supporters = () => {
   }, []);
 
   const count = names.length;
-  const subtitle = loading
-    ? null
-    : count > 0
-    ? `${count} ${count === 1 ? "kannattaja" : "kannattajaa"}`
-    : null;
+  const subtitle = loading ? null : count > 0 ? `${count} ${count === 1 ? "kannattaja" : "kannattajaa"}` : null;
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="sup-root">
-        <PageHeader
-          title="KANNATTAJAT"
-          subtitle={subtitle}
-          left={
-            <button type="button" className="sup-back" onClick={goBack} aria-label="Takaisin">
-              <span className="material-symbols-rounded">&#xE5CB;</span>
-            </button>
-          }
-        />
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      <MuiHeader title="Kannattajat" subtitle={subtitle} onBack={goBack} />
 
-        <div className="sup-content">
-          <p className="sup-intro">
-            Kiitos, että tuette Kiekko-Ahmaa kannattajajäsenenä. 🧡
-          </p>
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, display: "flex", flexDirection: "column", gap: 1.75 }}>
+        <Typography sx={{ textAlign: "center", fontSize: 14, color: "var(--color-accent)" }}>
+          Kiitos, että tuette Kiekko-Ahmaa kannattajajäsenenä. 🧡
+        </Typography>
 
-          {loading && <div className="sup-status">Ladataan…</div>}
+        {loading && <Status>Ladataan…</Status>}
+        {error && <Status error>Listan lataus epäonnistui.</Status>}
+        {!loading && !error && count === 0 && <Status>Ei kannattajajäseniä vielä.</Status>}
 
-          {error && (
-            <div className="sup-status sup-status--error">
-              Listan lataus epäonnistui.
-            </div>
-          )}
+        {!loading && !error && count > 0 && (
+          <Card variant="outlined" sx={{ p: 2, bgcolor: "background.paper", borderColor: "divider", display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, columnGap: 2.25, rowGap: 0.5 }}>
+            {names.map((name, i) => (
+              <Stack key={`${name}-${i}`} direction="row" alignItems="center" spacing={1.25} sx={{ py: 1, px: 0.75, minWidth: 0 }}>
+                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 }} />
+                <Typography sx={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</Typography>
+              </Stack>
+            ))}
+          </Card>
+        )}
 
-          {!loading && !error && count === 0 && (
-            <div className="sup-status">Ei kannattajajäseniä vielä.</div>
-          )}
-
-          {!loading && !error && count > 0 && (
-            <ul className="sup-list">
-              {names.map((name, i) => (
-                <li key={`${name}-${i}`} className="sup-item">
-                  <span className="sup-bullet" aria-hidden="true" />
-                  <span className="sup-name">{name}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <a
-            className="sup-cta"
-            href="https://www.kiekko-ahma.fi/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span>Haluatko mukaan?</span>
-            <span>Liity kannattajajäseneksi</span>
-          </a>
-        </div>
-      </div>
-    </>
+        <Box
+          component="a"
+          href="https://www.kiekko-ahma.fi/"
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.25, textAlign: "center", color: "primary.main", textDecoration: "none", py: 0.75, "&:hover": { textDecoration: "underline" } }}
+        >
+          <Typography sx={{ fontWeight: 700, letterSpacing: ".02em" }}>Haluatko mukaan?</Typography>
+          <Typography sx={{ fontWeight: 700, letterSpacing: ".02em" }}>Liity kannattajajäseneksi</Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 };
 
 export default Supporters;
-
-const css = `${themeCSS}
-
-html, body, #root {
-  height: 100%;
-  background: var(--color-bg);
-}
-body { margin: 0; }
-
-.sup-root {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 14px;
-  /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator. */
-  padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
-  background: var(--bg-gradient);
-  font-family: var(--font-family-base);
-}
-
-/* Sama back-link -tyyli kuin /news -sivulla. */
-.sup-back {
-  display: flex;
-  align-items: center;
-  color: rgba(255, 255, 255, 0.6);
-  text-decoration: none;
-  border-radius: 10px;
-  padding: 2px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.sup-back:hover { color: var(--color-primary); }
-.sup-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
-
-.sup-content {
-  width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.sup-intro {
-  margin: 0;
-  text-align: center;
-  font-size: var(--gz-fs-sm);
-  /* Sama luettavampi väri kuin otsikon alateksti ("N kannattaja"),
-     joka käyttää PageHeaderin --color-accent -väriä. */
-  color: var(--color-accent);
-}
-
-/* Frosted-glass -kortti, jonka sisällä nimet responsiivisena gridinä.
-   Yksisarakkeinen kapealla, useampi sarake leveämmällä näytöllä. */
-.sup-list {
-  list-style: none;
-  margin: 0;
-  padding: 16px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px 18px;
-  border-radius: var(--radius-card);
-  background:
-    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
-    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05)) border-box;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-card);
-}
-
-.sup-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 6px;
-  border-radius: var(--radius-small);
-}
-
-.sup-bullet {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-primary);
-}
-
-.sup-name {
-  flex: 1 1 auto;
-  font-size: var(--gz-fs-md);
-  font-weight: var(--gz-fw-medium);
-  color: var(--gz-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sup-status {
-  text-align: center;
-  font-size: var(--gz-fs-sm);
-  color: var(--gz-text-muted);
-  padding: 28px 0;
-}
-.sup-status--error { color: var(--color-loss); }
-
-.sup-cta {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  text-align: center;
-  font-size: var(--gz-fs-sm);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  color: var(--color-primary);
-  text-decoration: none;
-  padding: 6px 0 2px;
-}
-.sup-cta:hover { text-decoration: underline; }
-
-@media (min-width: 560px) {
-  .sup-list {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (min-width: 768px) {
-  .sup-root {
-    padding: 26px 26px 28px 26px;
-  }
-}
-`;

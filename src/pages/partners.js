@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, IconButton, Card, Stack, CircularProgress } from "@mui/material";
-import { LuArrowLeft } from "react-icons/lu";
+import { Box, Typography, Card, CircularProgress } from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 
 // One partner card. Falls back to the name as a wordmark if the logo image is
@@ -60,16 +60,7 @@ const Partners = () => {
 
   return (
     <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
-      {/* HEADER */}
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1.5, pt: "calc(env(safe-area-inset-top) + 10px)", pb: 1.5 }}>
-        <IconButton onClick={goBack} aria-label="Takaisin" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}>
-          <LuArrowLeft />
-        </IconButton>
-        <Box>
-          <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".02em", fontSize: 20, lineHeight: 1.15 }}>Yhteistyökumppanit</Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>Kiitos tuesta!</Typography>
-        </Box>
-      </Stack>
+      <MuiHeader title="Yhteistyökumppanit" subtitle="Kiitos tuesta!" onBack={goBack} />
 
       {loading && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
       {error && (
