@@ -94,7 +94,7 @@ const statTableSx = {
   // Rank column: shrink to content + tight gap before the name. The name column
   // (2nd) absorbs the slack (width:100%) so numbers don't leave a gap after #.
   // Last column: extra right room so the vertical scrollbar never overlaps.
-  "& td:first-of-type, & th:first-of-type": { width: 1, pr: 0.5 },
+  "& td:first-of-type, & th:first-of-type": { width: "1px", pr: 0.5 }, // "1px" not 1 (MUI sx: 1 = 100%)
   "& td:nth-of-type(2), & th:nth-of-type(2)": { width: "100%" },
   "& td:last-of-type, & th:last-of-type": { pr: 2 },
 };
