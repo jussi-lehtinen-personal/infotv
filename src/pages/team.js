@@ -34,6 +34,12 @@ const MOCK_STANDINGS = [
   { pos: 6, team: "SaiPa", gp: 14, w: 2, t: 1, l: 11, gd: "-41", pts: 7 },
 ];
 
+// Portrait roster/official photos crop badly in a small square — keep them tall
+// and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
+// their round background never squashes to an ellipse in a tight flex row.
+const portraitAvatarSx = (w, h) => ({ width: w, height: h, flexShrink: 0, bgcolor: "rgba(255,255,255,0.06)", "& .MuiAvatar-img": { objectPosition: "top" } });
+const contactBtnSx = { width: 40, height: 40, flexShrink: 0, color: "primary.main", bgcolor: "rgba(249,115,22,0.12)", "&:hover": { bgcolor: "rgba(249,115,22,0.2)" } };
+
 const Center = ({ children }) => (
   <Box sx={{ display: "flex", justifyContent: "center", py: 6, color: "text.secondary" }}>{children}</Box>
 );
@@ -48,7 +54,7 @@ const Grid2 = ({ children }) => (
 
 const PlayerCard = ({ p }) => (
   <Card variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.07)" }}>
-    <Avatar variant="rounded" src={p.photo || undefined} sx={{ width: 56, height: 72, bgcolor: "rgba(255,255,255,0.06)" }}><LuShirt /></Avatar>
+    <Avatar variant="rounded" src={p.photo || undefined} sx={portraitAvatarSx(56, 72)}><LuShirt /></Avatar>
     <Box sx={{ minWidth: 0 }}>
       <Typography sx={{ fontWeight: 800, color: "primary.main", fontSize: 18, lineHeight: 1.1 }}>{p.number != null ? p.number : ""}</Typography>
       <Typography sx={{ fontSize: 13, lineHeight: 1.2 }}>{p.firstName}</Typography>
@@ -61,16 +67,16 @@ const PlayerCard = ({ p }) => (
 const ContactRow = ({ o }) => (
   <Card variant="outlined" sx={{ p: 1.5, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)" }}>
     <Stack direction="row" spacing={1.5} alignItems="center">
-      <Avatar variant="rounded" src={o.photo || undefined} sx={{ width: 52, height: 52, bgcolor: "rgba(255,255,255,0.06)" }}><LuUsers /></Avatar>
+      <Avatar variant="rounded" src={o.photo || undefined} sx={portraitAvatarSx(54, 68)}><LuUsers /></Avatar>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: 11, color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
         <Typography sx={{ fontWeight: 700 }}>{o.name}</Typography>
       </Box>
       {o.phone && (
-        <IconButton href={`tel:${o.phone}`} aria-label="Soita" sx={{ color: "primary.main", bgcolor: "rgba(249,115,22,0.12)", "&:hover": { bgcolor: "rgba(249,115,22,0.2)" } }}><LuPhone size={18} /></IconButton>
+        <IconButton href={`tel:${o.phone}`} aria-label="Soita" sx={contactBtnSx}><LuPhone size={18} /></IconButton>
       )}
       {o.email && (
-        <IconButton href={`mailto:${o.email}`} aria-label="Sähköposti" sx={{ color: "primary.main", bgcolor: "rgba(249,115,22,0.12)", "&:hover": { bgcolor: "rgba(249,115,22,0.2)" } }}><LuMail size={18} /></IconButton>
+        <IconButton href={`mailto:${o.email}`} aria-label="Sähköposti" sx={contactBtnSx}><LuMail size={18} /></IconButton>
       )}
     </Stack>
     <Stack spacing={0.5} sx={{ mt: 1.25, color: "text.secondary", fontSize: 13 }}>
@@ -270,7 +276,7 @@ const Team = () => {
                   <SectionTitle>Toimihenkilöt ({officials.length})</SectionTitle>
                   {officials.map((o, i) => (
                     <Card key={i} variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.07)" }}>
-                      <Avatar variant="rounded" src={o.photo || undefined} sx={{ width: 48, height: 60, bgcolor: "rgba(255,255,255,0.06)" }}><LuUsers /></Avatar>
+                      <Avatar variant="rounded" src={o.photo || undefined} sx={portraitAvatarSx(56, 72)}><LuUsers /></Avatar>
                       <Box>
                         <Typography sx={{ fontWeight: 700 }}>{o.name}</Typography>
                         <Typography sx={{ fontSize: 11, color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>

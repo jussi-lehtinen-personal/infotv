@@ -41,6 +41,30 @@
 
     <title>Ahma Gamezone</title>
 
+    <!-- Chunk-load failsafe (runs even if the app bundle never loads). After a
+         deploy, a stale cached index.html can point at a /static/ chunk that no
+         longer exists → the app boots BLANK and the JS that would refresh the
+         service worker never runs, so the blank screen sticks. On the first such
+         load error, purge all caches + service workers and reload ONCE (guarded
+         via sessionStorage so it can't loop). This breaks the stuck-blank cycle
+         that MUI's chunk-hash change exposed. -->
+    <script>
+      (function () {
+        window.addEventListener('error', function (e) {
+          var t = e && e.target;
+          if (!t || !t.tagName || (t.tagName !== 'SCRIPT' && t.tagName !== 'LINK')) return;
+          var src = t.src || t.href || '';
+          if (src.indexOf('/static/') === -1) return;
+          try { if (sessionStorage.getItem('ahma_recover')) return; sessionStorage.setItem('ahma_recover', '1'); } catch (x) {}
+          var done = function () { location.reload(); };
+          var p = (window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : Promise.resolve());
+          p.then(function () {
+            return navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : null;
+          }).then(done, done);
+        }, true);
+      })();
+    </script>
+
     <!-- No custom loading screen: on an installed PWA the OS shows its own splash
          (manifest background_color #111 + the app icon), and layering our own on
          top read as a double flash. This only paints the page dark before the CSS
