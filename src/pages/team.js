@@ -25,6 +25,7 @@ const seasonLabel = () => {
 
 const JOUKKUE_TABS = [["Pelaajat", LuShirt], ["Toimihenkilöt", LuUsers], ["Yhteystiedot", LuPhone]];
 const TILASTOT_TABS = [["Sarjataulukko", LuTable], ["Pistepörssi", LuTarget], ["MV", LuShield]];
+const TAB_KEYS = ["standings", "scorers", "goalies"]; // tTab index → /getSeriesTable tab
 
 // Portrait roster/official photos crop badly in a small square — keep them tall
 // and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
@@ -218,14 +219,16 @@ const Team = () => {
   const [jTab, setJTab] = useState(0);
   const [tTab, setTTab] = useState(0);
 
-  // Tilastot (real tulospalvelu data): lazy-loaded the first time the Tilastot
-  // pane is opened (so roster-only visits don't hit it). ?season= pins a season
-  // (testing / off-season) — otherwise the worker uses the current season and
-  // falls back to the previous one if it hasn't started.
-  const [stats, setStats] = useState(null);
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [statsError, setStatsError] = useState(false);
+  // Tilastot (real tulospalvelu data), lazy-loaded when the pane is first opened.
+  // Two steps, minimal calls: (1) /getTeamSeries → the season's series for this
+  // age (0 tulospalvelu calls beyond the shared 24 h list + KV-permanent resolve);
+  // (2) /getSeriesTable → ONE table per opened tab per selected series, cached.
+  // ?season= pins a season (testing / off-season).
+  const [seriesInfo, setSeriesInfo] = useState(null);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [seriesError, setSeriesError] = useState(false);
   const [seriesIdx, setSeriesIdx] = useState(0);
+  const [tables, setTables] = useState({}); // `${subSerieId}|${tab}` -> {loading|error|data}
   const seasonOverride = searchParams.get("season");
 
   // Drag-animated 2-pane pager (native non-passive listeners lock horizontal so
@@ -281,7 +284,7 @@ const Team = () => {
     const el = pagerRef.current;
     const pane = (mode === "joukkue" ? pane0Ref : pane1Ref).current;
     if (el && pane) el.style.height = `${pane.scrollHeight}px`;
-  }, [mode, data, jTab, tTab, loading, error, stats, statsLoading, seriesIdx]);
+  }, [mode, data, jTab, tTab, loading, error, seriesInfo, seriesLoading, seriesIdx, tables]);
 
   useEffect(() => {
     let cancelled = false;
@@ -293,20 +296,39 @@ const Team = () => {
     return () => { cancelled = true; };
   }, [subsiteId]);
 
-  // Lazy-load stats when Tilastot is first opened (or immediately if we deep-link
-  // with a season override). Skips ages with no tulospalvelu mapping (age == null).
+  // Step 1: the series list, first time Tilastot opens. Skips ages with no
+  // tulospalvelu mapping (age == null, e.g. Kiekkokoulu).
   useEffect(() => {
-    if (mode !== "tilastot" || !age || stats || statsLoading || statsError) return;
+    if (mode !== "tilastot" || !age || seriesInfo || seriesLoading || seriesError) return;
     let cancelled = false;
-    setStatsLoading(true);
+    setSeriesLoading(true);
     const qs = new URLSearchParams({ age });
     if (seasonOverride) qs.set("season", seasonOverride);
-    fetch(`/api/getTeamStats?${qs.toString()}`)
+    fetch(`/api/getTeamSeries?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => { if (!cancelled) { setStats(d); setSeriesIdx(0); setStatsLoading(false); } })
-      .catch(() => { if (!cancelled) { setStatsError(true); setStatsLoading(false); } });
+      .then((d) => { if (!cancelled) { setSeriesInfo(d); setSeriesIdx(d.activeIdx || 0); setSeriesLoading(false); } })
+      .catch(() => { if (!cancelled) { setSeriesError(true); setSeriesLoading(false); } });
     return () => { cancelled = true; };
-  }, [mode, age, seasonOverride, stats, statsLoading, statsError]);
+  }, [mode, age, seasonOverride, seriesInfo, seriesLoading, seriesError]);
+
+  // Step 2: the ONE table for the selected series + open tab — fetched lazily and
+  // cached per (subSerieId, tab), so switching tabs/series never refetches.
+  useEffect(() => {
+    if (mode !== "tilastot" || !seriesInfo || !seriesInfo.series?.length) return;
+    const s = seriesInfo.series[Math.min(seriesIdx, seriesInfo.series.length - 1)];
+    const tab = TAB_KEYS[tTab];
+    const key = `${s.subSerieId}|${tab}`;
+    if (tables[key]) return; // already loading / loaded / errored
+    let cancelled = false;
+    setTables((t) => ({ ...t, [key]: { loading: true } }));
+    const qs = new URLSearchParams({ season: String(seriesInfo.usedSeason), subSerieId: s.subSerieId, tab });
+    if (s.levelId) qs.set("levelId", s.levelId);
+    fetch(`/api/getSeriesTable?${qs.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { if (!cancelled) setTables((t) => ({ ...t, [key]: { data: d } })); })
+      .catch(() => { if (!cancelled) setTables((t) => ({ ...t, [key]: { error: true } })); });
+    return () => { cancelled = true; };
+  }, [mode, seriesInfo, seriesIdx, tTab, tables]);
 
   const heroTitle = `Kiekko-Ahma ${known?.name || data?.teamName || ""}`.trim();
   const players = data?.players || [];
@@ -402,17 +424,19 @@ const Team = () => {
             <TabRow items={TILASTOT_TABS} value={tTab} onChange={setTTab} />
             <Box sx={{ p: 1.5, maxWidth: 760, mx: "auto" }}>
               {(() => {
-                const series = stats?.series || [];
-                const sel = series[Math.min(seriesIdx, series.length - 1)] || null;
                 if (!age) return <Note>Tälle joukkueelle ei ole tulospalvelun tilastoja.</Note>;
-                if (statsLoading) return <Center><CircularProgress color="primary" /></Center>;
-                if (statsError) return <Note>Tilastoja ei saatu haettua.</Note>;
-                if (!sel) return <Note>Ei tilastoja tälle kaudelle.</Note>;
+                if (seriesLoading) return <Center><CircularProgress color="primary" /></Center>;
+                if (seriesError) return <Note>Tilastoja ei saatu haettua.</Note>;
+                const info = seriesInfo;
+                const series = info?.series || [];
+                if (!info || !series.length) return <Note>Ei tilastoja tälle kaudelle.</Note>;
+                const sel = series[Math.min(seriesIdx, series.length - 1)];
+                const cell = tables[`${sel.subSerieId}|${TAB_KEYS[tTab]}`];
                 return (
                   <>
-                    {stats.fallback && (
+                    {info.fallback && (
                       <Box sx={{ mb: 1.5, p: 1, borderRadius: 2, bgcolor: "rgba(255,255,255,0.05)", color: "text.secondary", fontSize: 13 }}>
-                        Kausi {stats.requestedSeason - 1}–{stats.requestedSeason} ei ole vielä alkanut – näytetään kausi {stats.usedSeason - 1}–{stats.usedSeason}.
+                        Kausi {info.usedSeason}–{info.usedSeason + 1} ei ole vielä alkanut – näytetään {info.usedSeason - 1}–{info.usedSeason}.
                       </Box>
                     )}
                     {series.length > 1 && (
@@ -421,12 +445,16 @@ const Team = () => {
                         onChange={(e) => setSeriesIdx(Number(e.target.value))}
                         sx={{ mb: 1.5, bgcolor: "#1a1a1a", "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" } }}
                       >
-                        {series.map((s, i) => <MenuItem key={s.subSerieId} value={i}>{s.subSerieName}</MenuItem>)}
+                        {series.map((s, i) => (
+                          <MenuItem key={s.subSerieId} value={i}>{s.subSerieName}{s.ongoing ? " (kesken)" : ""}</MenuItem>
+                        ))}
                       </Select>
                     )}
-                    {tTab === 0 ? <StandingsTable standings={sel.standings} />
-                      : tTab === 1 ? <ScorersTable scorers={sel.scorers} />
-                        : <GoaliesTable goalies={sel.goalies} />}
+                    {!cell || cell.loading ? <Center><CircularProgress color="primary" /></Center>
+                      : cell.error ? <Note>Taulukkoa ei saatu haettua.</Note>
+                        : tTab === 0 ? <StandingsTable standings={cell.data.standings} />
+                          : tTab === 1 ? <ScorersTable scorers={cell.data.scorers} />
+                            : <GoaliesTable goalies={cell.data.goalies} />}
                   </>
                 );
               })()}
