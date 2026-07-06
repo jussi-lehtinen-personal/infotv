@@ -685,11 +685,12 @@ async function fetchGoalies(season, subSerieId, levelId) {
   }));
 }
 
-// Resolve ONE game's real subSerieId — reusing the box score's proven district
-// scan (fetchDay returns statGroupId + SubSerieName + real LevelID). Matched by
-// team ids + start time, KV-cached PERMANENTLY per game (a game's series never
-// changes). Home games live in HOME_DISTRICT first → usually a single getgames
-// call. This is the ONLY tulospalvelu call needed to map a series (no scanning).
+// Resolve ONE Ahma HOME game's real subSerieId — EXACTLY ONE getgames call to the
+// HOME district (Ahma home games are always Valkeakoski = Häme). NO district loop
+// (an earlier loop over all 8 districts for away games made resolution 8× slower
+// and call-heavy). fetchDay returns statGroupId + SubSerieName + real LevelID;
+// matched by team ids + start time, KV-cached PERMANENTLY per game. Caller MUST
+// pass a home game (ahmaHome) — away games return null and are skipped.
 async function resolveGameSeries(env, extId, dateStr, homeTeamId, awayTeamId) {
   const kvKey = `gser:${extId}`;
   if (env && env.GAME_IDS) {
@@ -698,22 +699,18 @@ async function resolveGameSeries(env, extId, dateStr, homeTeamId, awayTeamId) {
   }
   const dog = String(dateStr).slice(0, 10);
   const time = String(dateStr).slice(11, 16);
-  for (const d of DISTRICT_TRY_ORDER) {
-    let games;
-    try { games = await fetchDay(dog, d); } catch { continue; }
-    const hit = games.find(
-      (g) =>
-        String(g.homeTeamId) === String(homeTeamId) &&
-        String(g.awayTeamId) === String(awayTeamId) &&
-        String(g.date).slice(11, 16) === time
-    );
-    if (hit) {
-      const out = { subSerieId: hit.statGroupId, subSerieName: hit.league, levelId: hit.levelId };
-      if (env && env.GAME_IDS) env.GAME_IDS.put(kvKey, JSON.stringify(out)).catch(() => {}); // permanent
-      return out;
-    }
-  }
-  return null;
+  let games;
+  try { games = await fetchDay(dog, HOME_DISTRICT_ID); } catch { return null; }
+  const hit = games.find(
+    (g) =>
+      String(g.homeTeamId) === String(homeTeamId) &&
+      String(g.awayTeamId) === String(awayTeamId) &&
+      String(g.date).slice(11, 16) === time
+  );
+  if (!hit) return null;
+  const out = { subSerieId: hit.statGroupId, subSerieName: hit.league, levelId: hit.levelId };
+  if (env && env.GAME_IDS) env.GAME_IDS.put(kvKey, JSON.stringify(out)).catch(() => {}); // permanent
+  return out;
 }
 
 // Group a season's games into series by big date gaps (>21 d) — the liiga runs
@@ -757,18 +754,20 @@ async function handleGetTeamSeries(url, env) {
   }
   if (!games.length) return { age, usedSeason, fallback, activeIdx: 0, series: [] };
 
-  // Representative game per cluster: latest PLAYED Ahma-home game (home = HOME
-  // district → 1 call), else latest home, else latest game.
+  // Representative = an Ahma HOME game (→ HOME district → exactly 1 call, no loop):
+  // latest PLAYED home game, else latest home game. A cluster with no home game is
+  // skipped (its series is picked up from a cluster that does have one).
   const rep = (cl) => {
     const home = cl.filter((g) => g.ahmaHome);
-    const played = (home.length ? home : cl).filter((g) => Number(g.finished) > 0);
-    const pool = played.length ? played : home.length ? home : cl;
-    return pool[pool.length - 1];
+    if (!home.length) return null;
+    const played = home.filter((g) => Number(g.finished) > 0);
+    return (played.length ? played : home)[(played.length ? played : home).length - 1];
   };
 
   const bySid = new Map();
   for (const cl of clusterByDate(games)) {
     const g = rep(cl);
+    if (!g) continue;
     const s = await resolveGameSeries(env, g.id, g.date, g.homeTeamId, g.awayTeamId);
     if (!s) continue;
     const from = String(cl[0].date).slice(0, 10);
@@ -864,7 +863,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "12";
+const CACHE_VERSION = "13";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
