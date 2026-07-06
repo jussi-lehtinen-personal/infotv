@@ -10,6 +10,25 @@ import { findJopoxTeam } from "../data/jopoxTeams";
 // Hero image. Swap to a real per-team hero photo later.
 const HERO_PLACEHOLDER = "/gamezone_3d.webp";
 
+const JOUKKUE_TABS = [["players", "Pelaajat", LuShirt], ["officials", "Toimihenkilöt", LuUsers], ["contacts", "Yhteystiedot", LuPhone]];
+const TILASTOT_TABS = [["standings", "Sarjataulukko", LuTable], ["scorers", "Pistepörssi", LuTarget], ["goalies", "MV", LuShield]];
+
+const TabRow = ({ items, activeKey, onSelect }) => (
+  <div className="tm-tabs" role="tablist">
+    {items.map(([key, label, Icon]) => (
+      <button
+        key={key}
+        role="tab"
+        className={`tm-tab${activeKey === key ? " tm-tab--active" : ""}`}
+        onClick={() => onSelect(key)}
+      >
+        <Icon className="tm-tab-ico" aria-hidden="true" />
+        <span>{label}</span>
+      </button>
+    ))}
+  </div>
+);
+
 const isGoalie = (p) => /maalivahti|goalie|gk/i.test(p.position || "");
 const byNumber = (a, b) => {
   const na = a.number == null ? 9999 : parseInt(a.number, 10);
@@ -68,21 +87,70 @@ const Team = () => {
   const [jTab, setJTab] = useState("players"); // players | officials | contacts
   const [tTab, setTTab] = useState("standings"); // standings | scorers | goalies
 
-  // Lightweight horizontal-swipe → switch mode (ignores mostly-vertical drags so
-  // it doesn't fight scrolling).
-  const touch = useRef({ x: 0, y: 0 });
-  const onTouchStart = (e) => {
-    const t = e.touches[0];
-    touch.current = { x: t.clientX, y: t.clientY };
-  };
-  const onTouchEnd = (e) => {
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touch.current.x;
-    const dy = t.clientY - touch.current.y;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      setMode(dx < 0 ? "tilastot" : "joukkue");
-    }
-  };
+  // Drag-animated 2-pane pager (Joukkue / Tilastot). Native NON-passive touch
+  // listeners so we can preventDefault the page scroll once a horizontal drag is
+  // locked; the track follows the finger and snaps on release.
+  const pagerRef = useRef(null);
+  const trackRef = useRef(null);
+  const pane0Ref = useRef(null);
+  const pane1Ref = useRef(null);
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+
+  useEffect(() => {
+    const el = pagerRef.current;
+    const track = trackRef.current;
+    if (!el || !track) return undefined;
+    let startX = 0, startY = 0, lock = null, W = 0;
+    const idx = () => (modeRef.current === "joukkue" ? 0 : 1);
+    const onStart = (e) => {
+      const t = e.touches[0];
+      startX = t.clientX; startY = t.clientY; lock = null; W = el.clientWidth;
+    };
+    const onMove = (e) => {
+      const t = e.touches[0];
+      const dx = t.clientX - startX, dy = t.clientY - startY;
+      if (lock === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        lock = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      }
+      if (lock === "h") {
+        e.preventDefault();
+        let tr = Math.max(-W, Math.min(0, -idx() * W + dx));
+        track.style.transition = "none";
+        track.style.transform = `translateX(${tr}px)`;
+      }
+    };
+    const onEnd = (e) => {
+      if (lock !== "h") return;
+      const dx = e.changedTouches[0].clientX - startX;
+      let target = idx();
+      if (dx < -W * 0.2) target = 1;
+      else if (dx > W * 0.2) target = 0;
+      track.style.transition = "";
+      track.style.transform = `translateX(${-target * W}px)`;
+      setMode(target === 0 ? "joukkue" : "tilastot");
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  // Snap the track to the active pane on mode change (toggle click) + set the
+  // pager height to the active pane so the shorter one doesn't leave a gap.
+  useEffect(() => {
+    const el = pagerRef.current, track = trackRef.current;
+    if (el && track) track.style.transform = `translateX(${-(mode === "joukkue" ? 0 : 1) * el.clientWidth}px)`;
+  }, [mode]);
+  useEffect(() => {
+    const el = pagerRef.current;
+    const pane = (mode === "joukkue" ? pane0Ref : pane1Ref).current;
+    if (el && pane) el.style.height = `${pane.scrollHeight}px`;
+  }, [mode, data, jTab, tTab, loading, error]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,67 +194,42 @@ const Team = () => {
             </button>
           </div>
           <div className="tm-hero-scrim" />
-          <div className="tm-hero-titles">
+          <div className="tm-hero-bottom">
             <h1 className="tm-hero-name">{heroTitle}</h1>
             <div className="tm-hero-season">{seasonLabel()}</div>
+            <div className="tm-modetoggle" role="tablist" aria-label="Joukkue tai Tilastot">
+              <button
+                type="button"
+                role="tab"
+                className={`tm-mode${mode === "joukkue" ? " tm-mode--active" : ""}`}
+                onClick={() => setMode("joukkue")}
+                aria-selected={mode === "joukkue"}
+              >
+                <LuUsers className="tm-mode-ico" aria-hidden="true" /> <span>Joukkue</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={`tm-mode${mode === "tilastot" ? " tm-mode--active" : ""}`}
+                onClick={() => setMode("tilastot")}
+                aria-selected={mode === "tilastot"}
+              >
+                <LuBarChart3 className="tm-mode-ico" aria-hidden="true" /> <span>Tilastot</span>
+              </button>
+            </div>
+            <div className="tm-dots" aria-hidden="true">
+              <span className={`tm-dot${mode === "joukkue" ? " tm-dot--active" : ""}`} />
+              <span className={`tm-dot${mode === "tilastot" ? " tm-dot--active" : ""}`} />
+            </div>
           </div>
         </div>
 
-        {/* MODE TOGGLE + PAGE DOTS */}
-        <div className="tm-modebar">
-          <div className="tm-modetoggle" role="tablist" aria-label="Joukkue tai Tilastot">
-            <button
-              type="button"
-              role="tab"
-              className={`tm-mode${mode === "joukkue" ? " tm-mode--active" : ""}`}
-              onClick={() => setMode("joukkue")}
-              aria-selected={mode === "joukkue"}
-            >
-              <LuUsers className="tm-mode-ico" aria-hidden="true" /> <span>Joukkue</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`tm-mode${mode === "tilastot" ? " tm-mode--active" : ""}`}
-              onClick={() => setMode("tilastot")}
-              aria-selected={mode === "tilastot"}
-            >
-              <LuBarChart3 className="tm-mode-ico" aria-hidden="true" /> <span>Tilastot</span>
-            </button>
-          </div>
-          <div className="tm-dots" aria-hidden="true">
-            <span className={`tm-dot${mode === "joukkue" ? " tm-dot--active" : ""}`} />
-            <span className={`tm-dot${mode === "tilastot" ? " tm-dot--active" : ""}`} />
-          </div>
-        </div>
-
-        <div className="tm-swipe" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-          {/* TABS (per mode) */}
-          <div className="tm-tabs" role="tablist">
-            {(mode === "joukkue"
-              ? [["players", "Pelaajat", LuShirt], ["officials", "Toimihenkilöt", LuUsers], ["contacts", "Yhteystiedot", LuPhone]]
-              : [["standings", "Sarjataulukko", LuTable], ["scorers", "Pistepörssi", LuTarget], ["goalies", "MV", LuShield]]
-            ).map(([key, label, Icon]) => {
-              const active = mode === "joukkue" ? jTab === key : tTab === key;
-              const set = mode === "joukkue" ? setJTab : setTTab;
-              return (
-                <button
-                  key={key}
-                  role="tab"
-                  className={`tm-tab${active ? " tm-tab--active" : ""}`}
-                  onClick={() => set(key)}
-                >
-                  <Icon className="tm-tab-ico" aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* CONTENT */}
-          <div className="tm-content">
-            {mode === "joukkue" ? (
-              <>
+        {/* PAGER — Joukkue / Tilastot panes, drag-animated (swipe or toggle) */}
+        <div className="tm-pager" ref={pagerRef}>
+          <div className="tm-track" ref={trackRef}>
+            <div className="tm-pane" ref={pane0Ref}>
+              <TabRow items={JOUKKUE_TABS} activeKey={jTab} onSelect={setJTab} />
+              <div className="tm-content">
                 {loading && <div className="tm-status"><Spinner /></div>}
                 {error && (
                   <div className="tm-status tm-status--error">
@@ -234,24 +277,22 @@ const Team = () => {
                 {!loading && !error && data && jTab === "contacts" && (
                   <div className="tm-contacts">
                     {contacts.map((o, i) => (
-                      <ContactCard
-                        key={i}
-                        name={o.name}
-                        role={o.role}
-                        email={o.email}
-                        phone={o.phone}
-                        photo={o.photo}
-                      />
+                      <ContactCard key={i} name={o.name} role={o.role} email={o.email} phone={o.phone} photo={o.photo} />
                     ))}
                     {contacts.length === 0 && <div className="tm-status">Ei yhteystietoja.</div>}
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="tm-status tm-soon">
-                {tTab === "standings" ? "Sarjataulukko" : tTab === "scorers" ? "Pistepörssi" : "Maalivahtitilastot"} — tulossa.
               </div>
-            )}
+            </div>
+
+            <div className="tm-pane" ref={pane1Ref}>
+              <TabRow items={TILASTOT_TABS} activeKey={tTab} onSelect={setTTab} />
+              <div className="tm-content">
+                <div className="tm-status tm-soon">
+                  {tTab === "standings" ? "Sarjataulukko" : tTab === "scorers" ? "Pistepörssi" : "Maalivahtitilastot"} — tulossa.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -312,9 +353,10 @@ body { margin: 0; }
   position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(8,10,15,0.15) 0%, rgba(8,10,15,0) 35%, rgba(8,10,15,0.55) 72%, var(--color-bg) 100%);
 }
-.tm-hero-titles {
+.tm-hero-bottom {
   position: absolute; left: 0; right: 0; bottom: 12px;
-  padding: 0 18px; z-index: 1;
+  padding: 0 16px; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
   text-align: center;
 }
 .tm-hero-name {
@@ -334,15 +376,12 @@ body { margin: 0; }
   color: rgba(255,255,255,0.72);
 }
 
-/* MODE TOGGLE (Joukkue / Tilastot) + page dots */
-.tm-modebar {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 14px 12px 10px;
-}
+/* MODE TOGGLE (Joukkue / Tilastot) + page dots — over the hero bottom */
 .tm-modetoggle {
   display: flex; gap: 4px; padding: 4px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.38); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.14);
 }
 .tm-mode {
   display: inline-flex; align-items: center; gap: 7px;
@@ -367,9 +406,17 @@ body { margin: 0; }
   gap: 6px;
   padding: 4px 12px 0;
   border-bottom: 1px solid rgba(255,255,255,0.10);
-  position: sticky; top: 0; z-index: 3;
   background: var(--color-bg);
 }
+
+/* PAGER — two side-by-side panes; JS drives translateX (drag/snap) + height. */
+.tm-pager { overflow: hidden; transition: height 0.28s ease; }
+.tm-track {
+  display: flex; align-items: flex-start; width: 200%;
+  will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tm-pane { width: 50%; flex: 0 0 50%; }
 .tm-tab {
   flex: 1 1 0;
   display: flex; flex-direction: column; align-items: center; gap: 5px;
