@@ -38,14 +38,14 @@ const MOCK_STANDINGS = [
 // and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
 // their round background never squashes to an ellipse in a tight flex row.
 const portraitAvatarSx = (w, h) => ({ width: w, height: h, flexShrink: 0, bgcolor: "rgba(255,255,255,0.06)", "& .MuiAvatar-img": { objectPosition: "top" } });
-const contactBtnSx = { width: 40, height: 40, flexShrink: 0, color: "primary.main", bgcolor: "rgba(249,115,22,0.12)", "&:hover": { bgcolor: "rgba(249,115,22,0.2)" } };
+const contactBtnSx = { width: 40, height: 40, flexShrink: 0, color: "text.primary", bgcolor: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", "&:hover": { bgcolor: "rgba(255,255,255,0.14)" } };
 
 const Center = ({ children }) => (
   <Box sx={{ display: "flex", justifyContent: "center", py: 6, color: "text.secondary" }}>{children}</Box>
 );
 
 const SectionTitle = ({ children }) => (
-  <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", fontSize: 14, mt: 1, mb: 1.25 }}>{children}</Typography>
+  <Typography variant="h6" sx={{ textTransform: "uppercase", mt: 1.5, mb: 1.25 }}>{children}</Typography>
 );
 
 const Grid2 = ({ children }) => (
@@ -56,10 +56,10 @@ const PlayerCard = ({ p }) => (
   <Card variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.07)" }}>
     <Avatar variant="rounded" src={p.photo || undefined} sx={portraitAvatarSx(56, 72)}><LuShirt /></Avatar>
     <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontWeight: 800, color: "primary.main", fontSize: 18, lineHeight: 1.1 }}>{p.number != null ? p.number : ""}</Typography>
-      <Typography sx={{ fontSize: 13, lineHeight: 1.2 }}>{p.firstName}</Typography>
-      <Typography sx={{ fontSize: 13, lineHeight: 1.2 }}>{p.lastName}</Typography>
-      {p.position && <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{p.position}</Typography>}
+      <Typography sx={{ fontWeight: 800, color: "primary.main", fontSize: 20, lineHeight: 1.1 }}>{p.number != null ? p.number : ""}</Typography>
+      <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.25 }}>{p.firstName}</Typography>
+      <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.25 }}>{p.lastName}</Typography>
+      {p.position && <Typography variant="caption" color="text.secondary">{p.position}</Typography>}
     </Box>
   </Card>
 );
@@ -69,8 +69,8 @@ const ContactRow = ({ o }) => (
     <Stack direction="row" spacing={1.5} alignItems="center">
       <Avatar variant="rounded" src={o.photo || undefined} sx={portraitAvatarSx(54, 68)}><LuUsers /></Avatar>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 11, color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
-        <Typography sx={{ fontWeight: 700 }}>{o.name}</Typography>
+        <Typography variant="caption" sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
+        <Typography variant="subtitle1">{o.name}</Typography>
       </Box>
       {o.phone && (
         <IconButton href={`tel:${o.phone}`} aria-label="Soita" sx={contactBtnSx}><LuPhone size={18} /></IconButton>
@@ -79,9 +79,9 @@ const ContactRow = ({ o }) => (
         <IconButton href={`mailto:${o.email}`} aria-label="Sähköposti" sx={contactBtnSx}><LuMail size={18} /></IconButton>
       )}
     </Stack>
-    <Stack spacing={0.5} sx={{ mt: 1.25, color: "text.secondary", fontSize: 13 }}>
-      {o.phone && <Stack direction="row" spacing={1} alignItems="center"><LuPhone size={14} /><MuiLink href={`tel:${o.phone}`} underline="hover" color="inherit">{o.phone}</MuiLink></Stack>}
-      {o.email && <Stack direction="row" spacing={1} alignItems="center"><LuMail size={14} /><MuiLink href={`mailto:${o.email}`} underline="hover" color="inherit">{o.email}</MuiLink></Stack>}
+    <Stack spacing={0.75} sx={{ mt: 1.25, color: "text.secondary", fontSize: 14 }}>
+      {o.phone && <Stack direction="row" spacing={1.25} alignItems="center"><Box component="span" sx={{ color: "primary.main", display: "inline-flex", flexShrink: 0 }}><LuPhone size={17} /></Box><MuiLink href={`tel:${o.phone}`} underline="hover" color="inherit">{o.phone}</MuiLink></Stack>}
+      {o.email && <Stack direction="row" spacing={1.25} alignItems="center"><Box component="span" sx={{ color: "primary.main", display: "inline-flex", flexShrink: 0 }}><LuMail size={17} /></Box><MuiLink href={`mailto:${o.email}`} underline="hover" color="inherit">{o.email}</MuiLink></Stack>}
     </Stack>
   </Card>
 );
@@ -123,7 +123,7 @@ const TabRow = ({ items, value, onChange }) => (
     variant="fullWidth"
     textColor="primary"
     indicatorColor="primary"
-    sx={{ borderBottom: 1, borderColor: "divider", minHeight: 0, "& .MuiTab-root": { minHeight: 0, py: 1.25, fontSize: 12, fontWeight: 700, letterSpacing: ".06em", textTransform: "none" } }}
+    sx={{ borderBottom: 1, borderColor: "divider", minHeight: 0, "& .MuiTab-root": { minHeight: 0, py: 1.25, fontSize: 13, fontWeight: 700, letterSpacing: ".04em", textTransform: "none" } }}
   >
     {items.map(([label, Icon], i) => <Tab key={i} icon={<Icon size={18} />} iconPosition="top" label={label} />)}
   </Tabs>
@@ -260,7 +260,7 @@ const Team = () => {
                 <Center><Typography color="error">Joukkueen tietoja ei saatu haettua.</Typography></Center>
               ) : jTab === 0 ? (
                 <>
-                  {data?.description && <Typography sx={{ color: "text.secondary", fontSize: 13, mb: 1.5 }}>{data.description}</Typography>}
+                  {data?.description && <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>{data.description}</Typography>}
                   <SectionTitle>Pelaajat ({field.length})</SectionTitle>
                   <Grid2>{field.map((p, i) => <PlayerCard key={i} p={p} />)}</Grid2>
                   {goalies.length > 0 && (
@@ -278,8 +278,8 @@ const Team = () => {
                     <Card key={i} variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.07)" }}>
                       <Avatar variant="rounded" src={o.photo || undefined} sx={portraitAvatarSx(56, 72)}><LuUsers /></Avatar>
                       <Box>
-                        <Typography sx={{ fontWeight: 700 }}>{o.name}</Typography>
-                        <Typography sx={{ fontSize: 11, color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
+                        <Typography variant="subtitle1">{o.name}</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
                       </Box>
                     </Card>
                   ))}
