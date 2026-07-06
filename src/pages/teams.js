@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { LuArrowLeft, LuStar } from "react-icons/lu";
+import { Box, Typography, IconButton, Card, Stack } from "@mui/material";
 import { useGoBack } from "../hooks/useGoBack";
-import { themeCSS } from "../theme";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
 import {
   loadFavouriteTeams,
@@ -77,30 +77,22 @@ const Teams = () => {
   }, []);
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="teams-root">
-        {/* HERO */}
-        <div className="teams-hero">
-          <img className="teams-hero-img" src={HERO} alt="" />
-          <div className="teams-hero-top">
-            <button
-              className="teams-icon-btn"
-              onClick={goBack}
-              aria-label="Takaisin"
-            >
-              <LuArrowLeft />
-            </button>
-          </div>
-          <div className="teams-hero-scrim" />
-          <div className="teams-hero-titles">
-            <h1 className="teams-hero-title">JOUKKUEET</h1>
-            <div className="teams-hero-sub">Valitse joukkue</div>
-          </div>
-        </div>
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      {/* HERO */}
+      <Box sx={{ position: "relative", height: 300, overflow: "hidden", backgroundImage: `url(${HERO})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,15,.15) 0%, rgba(8,10,15,0) 35%, rgba(8,10,15,.55) 72%, var(--color-bg) 100%)" }} />
+        <IconButton onClick={goBack} aria-label="Takaisin" sx={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 14, color: "#fff", bgcolor: "rgba(0,0,0,.38)", backdropFilter: "blur(6px)", "&:hover": { bgcolor: "rgba(0,0,0,.5)" } }}>
+          <LuArrowLeft />
+        </IconButton>
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 14, px: 2, textAlign: "center" }}>
+          <Typography sx={{ fontWeight: 800, textTransform: "uppercase", color: "primary.main", textShadow: "0 2px 12px rgba(0,0,0,.6)", fontSize: "clamp(26px,7vw,34px)", lineHeight: 1.05, letterSpacing: ".02em" }}>Joukkueet</Typography>
+          <Typography sx={{ color: "rgba(255,255,255,.78)", fontWeight: 700, fontSize: 14, mt: 0.25 }}>Valitse joukkue</Typography>
+        </Box>
+      </Box>
 
-        {/* LIST */}
-        <div className="teams-list">
+      {/* LIST */}
+      <Box sx={{ maxWidth: 560, mx: "auto", px: 1.5, pt: 2 }}>
+        <Stack spacing={1}>
           {JOPOX_TEAMS.map((team) => {
             const isFav = isFavouriteSubsite(favourites, team.subsiteId);
             const favEntry = favourites.find((f) => String(f.subsiteId) === String(team.subsiteId));
@@ -108,257 +100,67 @@ const Teams = () => {
             const subs = SUBGROUPS_ENABLED && isFav ? subGroupsForFavourite(team, games) : [];
             const hasSubs = SUBGROUPS_ENABLED && user && isFav && subs.length > 1;
             return (
-              <div className={`teams-row${hasSubs ? " teams-row--has-subs" : ""}`} key={team.subsiteId}>
-                <div className="teams-head">
-                  <Link to={`/teams/${team.subsiteId}`} className="teams-row-link">
-                    <img
-                      className="teams-logo"
-                      src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"}
-                      alt=""
-                      aria-hidden="true"
-                    />
-                    <div className="teams-info">
-                      <div className="teams-name">{team.name}</div>
-                      {team.sub && <div className="teams-short">{team.sub}</div>}
-                    </div>
-                  </Link>
+              <Card
+                key={team.subsiteId}
+                variant="outlined"
+                sx={{ bgcolor: "background.paper", borderColor: hasSubs ? "rgba(var(--color-primary-rgb),0.28)" : "divider", "&:hover": { borderColor: "rgba(var(--color-primary-rgb),0.35)" } }}
+              >
+                <Stack direction="row" alignItems="center" sx={{ pl: 1.75, pr: 0.5 }}>
+                  <Box component={Link} to={`/teams/${team.subsiteId}`} sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 1.5, py: 1.4, textDecoration: "none", color: "inherit" }}>
+                    <Box component="img" src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"} alt="" aria-hidden="true" sx={{ width: 54, height: 54, objectFit: "contain", flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: ".02em", lineHeight: 1.2 }}>{team.name}</Typography>
+                      {team.sub && <Typography variant="body2" sx={{ color: "text.secondary" }}>{team.sub}</Typography>}
+                    </Box>
+                  </Box>
                   {user && (
-                    <button
-                      type="button"
-                      className={`teams-fav${isFav ? " teams-fav--on" : ""}`}
+                    <IconButton
                       onClick={() => toggleFavourite(team)}
                       aria-pressed={isFav}
-                      aria-label={
-                        isFav
-                          ? `Poista ${team.name} suosikeista`
-                          : `Lisää ${team.name} suosikkeihin`
-                      }
+                      aria-label={isFav ? `Poista ${team.name} suosikeista` : `Lisää ${team.name} suosikkeihin`}
+                      sx={{ color: isFav ? "primary.main" : "rgba(255,255,255,0.3)", "&:hover": { color: isFav ? "primary.main" : "rgba(255,255,255,0.55)" } }}
                     >
-                      <LuStar className="teams-fav-ico" aria-hidden="true" />
-                    </button>
+                      <LuStar fill={isFav ? "currentColor" : "none"} />
+                    </IconButton>
                   )}
-                </div>
+                </Stack>
+
                 {hasSubs && (
-                  <div className="teams-subs">
-                    <div className="teams-subs-head">Peliryhmät</div>
-                    {subs.map((s) => {
-                      const on = selected.includes(s);
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          className={`teams-sub${on ? " teams-sub--on" : ""}`}
-                          onClick={() => toggleSubGroup(team, s)}
-                          aria-pressed={on}
-                        >
-                          <LuStar className="teams-sub-ico" aria-hidden="true" />
-                          <span className="teams-sub-name">{displaySub(s)}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <Box sx={{ mx: 1.25, mb: 1.25, pt: 1.25, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: ".04em", mb: 0.75, ml: 0.25 }}>Peliryhmät</Typography>
+                    <Stack spacing={0.75}>
+                      {subs.map((s) => {
+                        const on = selected.includes(s);
+                        return (
+                          <Box
+                            key={s}
+                            component="button"
+                            type="button"
+                            onClick={() => toggleSubGroup(team, s)}
+                            aria-pressed={on}
+                            sx={{
+                              display: "flex", alignItems: "center", gap: 1, width: "100%", p: "11px 12px",
+                              borderRadius: "14px", cursor: "pointer", textAlign: "left", fontWeight: 700, fontSize: 14, fontFamily: "inherit",
+                              border: on ? "1px solid rgba(var(--color-primary-rgb),0.55)" : "1px solid var(--color-surface-border)",
+                              bgcolor: on ? "rgba(var(--color-primary-rgb),0.10)" : "var(--color-surface)",
+                              color: on ? "primary.main" : "text.secondary",
+                            }}
+                          >
+                            <LuStar size={18} fill={on ? "currentColor" : "none"} style={{ flexShrink: 0 }} />
+                            <Box component="span" sx={{ flex: 1 }}>{displaySub(s)}</Box>
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </Box>
                 )}
-              </div>
+              </Card>
             );
           })}
-        </div>
-      </div>
-    </>
+        </Stack>
+      </Box>
+    </Box>
   );
 };
 
 export default Teams;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root {
-  height: 100%;
-  background: var(--color-bg);
-}
-body { margin: 0; }
-
-.teams-root {
-  min-height: 100dvh;
-  background: #0a0b0e;
-  font-family: var(--font-family-base);
-  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
-}
-
-/* HERO */
-.teams-hero {
-  position: relative;
-  width: 100%;
-  height: 300px;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 50% 30%, rgba(var(--color-primary-rgb),0.10), rgba(12,14,19,0) 60%),
-    #0c0e13;
-}
-.teams-hero-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-.teams-hero-top {
-  position: absolute; top: 0; left: 0; right: 0;
-  display: flex; align-items: center;
-  padding: calc(env(safe-area-inset-top) + 12px) 14px 0;
-  z-index: 2;
-}
-.teams-icon-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 50%;
-  background: rgba(0,0,0,0.38); backdrop-filter: blur(6px);
-  border: none; color: #fff; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.teams-icon-btn svg { width: 22px; height: 22px; }
-.teams-hero-scrim {
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(8,10,15,0.15) 0%, rgba(8,10,15,0) 35%, rgba(8,10,15,0.55) 72%, var(--color-bg) 100%);
-}
-.teams-hero-titles {
-  position: absolute; left: 0; right: 0; bottom: 14px;
-  padding: 0 18px; z-index: 1;
-  text-align: center;
-}
-.teams-hero-title {
-  margin: 0;
-  font-size: clamp(26px, 7vw, 34px);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
-}
-.teams-hero-sub {
-  margin-top: 2px;
-  font-size: var(--gz-fs-sm);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  color: rgba(255,255,255,0.78);
-}
-
-/* LIST */
-.teams-list {
-  width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
-  padding: 16px 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* TEAM ROW (card = link + favourite star) */
-.teams-row {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  border-radius: var(--radius-item);
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,0.06);
-  color: var(--gz-text-primary);
-  transition: background 0.15s, border-color 0.15s;
-}
-.teams-row:hover,
-.teams-row:active {
-  background: #202020;
-  border-color: rgba(var(--color-primary-rgb),0.35);
-}
-.teams-row--has-subs { border-color: rgba(var(--color-primary-rgb),0.28); }
-/* Header (logo + name + star) — the horizontal top part of the card. */
-.teams-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 11px 8px 11px 14px;
-}
-/* The navigating part of the row (logo + info). */
-.teams-row-link {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: inherit;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.teams-logo {
-  flex: 0 0 auto;
-  width: 54px;
-  height: 54px;
-  object-fit: contain;
-}
-
-.teams-info { flex: 1; min-width: 0; }
-.teams-name {
-  font-size: var(--gz-fs-md);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--gz-text-primary);
-}
-.teams-short {
-  font-size: var(--gz-fs-sm);
-  font-weight: var(--gz-fw-regular);
-  color: var(--gz-text-tertiary);
-  margin-top: 2px;
-}
-/* Favourite star button */
-.teams-fav {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.30);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.15s, background 0.15s, transform 0.1s;
-}
-.teams-fav:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); }
-.teams-fav:active { transform: scale(0.88); }
-.teams-fav-ico { width: 22px; height: 22px; }
-.teams-fav--on { color: var(--color-primary); }
-.teams-fav--on:hover { color: var(--color-primary); }
-.teams-fav--on .teams-fav-ico { fill: var(--color-primary); }
-
-/* Sub-group (peliryhmä) rows — inside the (taller) favourited card. */
-.teams-subs {
-  display: flex; flex-direction: column; gap: 6px;
-  margin: 0 10px 10px; padding-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-}
-.teams-subs-head {
-  margin: 2px 2px 4px;
-  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.5);
-  text-transform: uppercase; letter-spacing: 0.04em;
-}
-.teams-sub {
-  display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box;
-  padding: 11px 12px; border-radius: var(--radius-item); cursor: pointer; text-align: left;
-  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.75); font-family: inherit; font-size: 14px; font-weight: 700;
-  -webkit-tap-highlight-color: transparent;
-}
-.teams-sub-ico { width: 18px; height: 18px; flex: 0 0 auto; }
-.teams-sub-name { flex: 1 1 auto; }
-.teams-sub--on { border-color: rgba(var(--color-primary-rgb),0.55); background: rgba(var(--color-primary-rgb),0.10); color: var(--color-primary); }
-.teams-sub--on .teams-sub-ico { fill: var(--color-primary); }
-
-@media (min-width: 768px) {
-  .teams-list { max-width: 760px; }
-}
-`;
