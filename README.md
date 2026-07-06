@@ -112,11 +112,11 @@ Kriittinen data on Azure **Table Storagessa** (`Users`, `Credentials`, `GoogleIn
 
 ### Miten se toimii
 
-- **`POST /api/exportBackup`** dumppaa kaikki taulut → gzip-JSON → `backups`-Blob-container (`gamezonestore`). Auth: `x-backup-key`-header (= `BACKUP_KEY`) **tai** kirjautunut admin. `?download=1` palauttaa tiedoston.
+- **`POST /api/exportBackup`** dumppaa **kaikki taulut** (listataan dynaamisesti → uudetkin taulut mukaan automaattisesti) **+ profiilikuvat** (`avatars`-blobit base64:na) → gzip-JSON → `backups`-Blob-container (`gamezonestore`). Auth: `x-backup-key`-header (= `BACKUP_KEY`) **tai** kirjautunut admin. `?download=1` palauttaa tiedoston.
 - **Päivittäinen cron** (`.github/workflows/backup.yml`, 02:00 UTC) kutsuu endpointtia ja tallentaa gzipin myös **GitHub-artefaktiksi** (90 pv, tilin ulkopuolinen kopio).
 - **GFS-retentio** (`api/src/lib/backup.js`): 14 päivittäistä + 8 viikoittaista + 6 kuukausittaista, loput siivotaan.
 - **Admin-näkymä** `/admin/backups`: viimeisin varmuuskopio, määrä, lista + "Luo nyt".
-- Kaikki taulusarakkeet ovat merkkijonoja/lukuja (passkey-avaimet base64url) → **JSON round-trippaa häviöttä** (testattu: 35/35 riviä identtisinä).
+- Kaikki taulusarakkeet ovat merkkijonoja/lukuja (passkey-avaimet base64url) → **JSON round-trippaa häviöttä**. Testattu täysi palautus (taulut + avatarit) paikalliseen Azuriteen: **kaikki rivit + kuvat identtisinä**.
 
 ### Kertaluontoinen setup
 
