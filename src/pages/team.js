@@ -25,8 +25,9 @@ const seasonLabel = () => {
 };
 
 const JOUKKUE_TABS = [["Pelaajat", LuShirt], ["Toimihenkilöt", LuUsers], ["Yhteystiedot", LuPhone]];
-const TILASTOT_TABS = [["Sarja", LuTable], ["Pörssi", LuTarget], ["MV", LuShield], ["Ottelut", LuCalendarDays]];
-const TAB_KEYS = ["standings", "scorers", "goalies"]; // tTab 0-2 → /getSeriesTable tab (tTab 3 = Ottelut, local)
+const TILASTOT_TABS = [["Ottelut", LuCalendarDays], ["Sarja", LuTable], ["Pisteet", LuTarget], ["MV", LuShield]];
+// tTab index → /getSeriesTable tab; index 0 (Matches) is local (null = no server fetch).
+const TAB_KEYS = [null, "standings", "scorers", "goalies"];
 
 // Portrait roster/official photos crop badly in a small square — keep them tall
 // and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
@@ -194,28 +195,42 @@ const GoaliesTable = ({ goalies }) => {
   );
 };
 
-// One game row: date/time + the two teams (Ahma side highlighted) + score
-// (played) or nothing (upcoming). Played games link to the box score.
+// One game row, styled like the Ottelut page: a coloured left border marks the
+// result from Ahma's perspective (win/loss/tie), UPPERCASE team names with the
+// Ahma side in orange, and the winner's goals bold. Played games link to the box
+// score.
 const MatchRow = ({ g }) => {
   const played = Number(g.finished) > 0;
+  const hg = parseInt(g.home_goals, 10);
+  const ag = parseInt(g.away_goals, 10);
+  const hasResult = played && !isNaN(hg) && !isNaN(ag);
+  const homeWon = hasResult && hg > ag;
+  const awayWon = hasResult && ag > hg;
+  const ahmaGoals = g.ahmaHome ? hg : ag;
+  const oppGoals = g.ahmaHome ? ag : hg;
+  const borderColor = !hasResult
+    ? "rgba(255,255,255,0.08)"
+    : ahmaGoals > oppGoals ? "var(--color-win)"
+      : ahmaGoals < oppGoals ? "var(--color-loss)"
+        : "rgba(255,255,255,0.45)"; // tie
   const d = String(g.date);
   const day = `${d.slice(8, 10)}.${d.slice(5, 7)}.`;
   const time = d.slice(11, 16);
-  const teamLine = (name, goals, isAhma) => (
+  const teamLine = (name, goals, isAhma, won) => (
     <Stack direction="row" alignItems="center" spacing={1}>
-      <Typography variant="body2" sx={{ flex: 1, minWidth: 0, whiteSpace: "normal", fontWeight: isAhma ? 700 : 500, color: isAhma ? "primary.main" : "text.primary" }}>{name}</Typography>
-      {played && <Typography variant="body2" sx={{ fontWeight: 800, minWidth: 16, textAlign: "right" }}>{goals}</Typography>}
+      <Typography variant="body2" sx={{ flex: 1, minWidth: 0, whiteSpace: "normal", textTransform: "uppercase", fontWeight: isAhma ? 700 : 500, color: isAhma ? "primary.main" : "text.primary" }}>{name}</Typography>
+      {played && <Typography variant="body2" sx={{ minWidth: 16, textAlign: "right", fontWeight: won ? 800 : 500, opacity: hasResult && !won ? 0.7 : 1 }}>{goals}</Typography>}
     </Stack>
   );
   const card = (
-    <Card variant="outlined" sx={{ p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 1.25, ...(played && { "&:active": { bgcolor: "#202020" } }) }}>
+    <Card variant="outlined" sx={{ p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)", borderLeft: `4px solid ${borderColor}`, display: "flex", alignItems: "center", gap: 1.25, ...(played && { "&:active": { bgcolor: "#202020" } }) }}>
       <Box sx={{ width: 40, flexShrink: 0, textAlign: "center", color: "text.secondary" }}>
         <Typography variant="caption" sx={{ display: "block", lineHeight: 1.25 }}>{day}</Typography>
         <Typography variant="caption" sx={{ display: "block", lineHeight: 1.25 }}>{time}</Typography>
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        {teamLine(g.home, g.home_goals, g.ahmaHome)}
-        {teamLine(g.away, g.away_goals, !g.ahmaHome)}
+        {teamLine(g.home, g.home_goals, g.ahmaHome, homeWon)}
+        {teamLine(g.away, g.away_goals, !g.ahmaHome, awayWon)}
       </Box>
       {played && <LuChevronRight size={18} style={{ opacity: 0.5, flexShrink: 0 }} />}
     </Card>
@@ -368,9 +383,9 @@ const Team = () => {
   // any OTHER series is resolved on demand here (the worker resolves from the rep
   // game identity — one call, only when the user opens that series). No loop.
   useEffect(() => {
-    // tTab >= TAB_KEYS.length = the Matches tab, which uses the local game list (no
+    // TAB_KEYS[tTab] == null = the Matches tab, which uses the local game list (no
     // server table fetch).
-    if (mode !== "tilastot" || tTab >= TAB_KEYS.length || !seriesInfo || !seriesInfo.series?.length) return;
+    if (mode !== "tilastot" || !TAB_KEYS[tTab] || !seriesInfo || !seriesInfo.series?.length) return;
     const idx = Math.min(seriesIdx, seriesInfo.series.length - 1);
     const s = seriesInfo.series[idx];
     const tab = TAB_KEYS[tTab];
@@ -542,12 +557,12 @@ const Team = () => {
                         ))}
                       </Select>
                     )}
-                    {tTab === 3
+                    {tTab === 0
                       ? (seasonGames == null ? <Center><CircularProgress color="primary" /></Center> : <MatchTable games={matchGames} />)
                       : !cell || cell.loading ? <Center><CircularProgress color="primary" /></Center>
                         : cell.error ? <Note>Taulukkoa ei saatu haettua.</Note>
-                          : tTab === 0 ? <StandingsTable standings={cell.data.standings} />
-                            : tTab === 1 ? <ScorersTable scorers={cell.data.scorers} />
+                          : tTab === 1 ? <StandingsTable standings={cell.data.standings} />
+                            : tTab === 2 ? <ScorersTable scorers={cell.data.scorers} />
                               : <GoaliesTable goalies={cell.data.goalies} />}
                   </>
                 );
