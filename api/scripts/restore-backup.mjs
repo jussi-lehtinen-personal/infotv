@@ -10,7 +10,13 @@
 // not delete rows that exist in the target but not the backup.
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-import { TableClient } from "@azure/data-tables";
+import { webcrypto } from "node:crypto";
+// Some Node builds (e.g. the 32-bit Azure Functions Core Tools runtime) don't
+// expose a global `crypto`, which @azure/data-tables needs at load time. Set the
+// polyfill BEFORE importing it — so it's a dynamic import (ESM static imports are
+// hoisted and would run first).
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
+const { TableClient } = await import("@azure/data-tables");
 
 const conn = process.env.TABLES_CONNECTION_STRING;
 const file = process.argv[2];
