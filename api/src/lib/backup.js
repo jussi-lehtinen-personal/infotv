@@ -1,5 +1,6 @@
 const zlib = require('zlib');
 const { BlobServiceClient } = require('@azure/storage-blob');
+const { TableServiceClient } = require('@azure/data-tables');
 const { TABLE_NAMES, listEntities } = require('./tables');
 
 // Backups of the stateful Table Storage (Users/Credentials/GoogleIndex/Usernames)
@@ -26,16 +27,59 @@ async function container() {
   return c;
 }
 
-// Read every table into one snapshot object.
+// ALL tables in the account, so a newly-added table is backed up automatically
+// (no need to maintain a hardcoded list). Falls back to the known set on error.
+async function allTableNames() {
+  try {
+    const svc = TableServiceClient.fromConnectionString(CONN, { allowInsecureConnection: true });
+    const names = [];
+    for await (const t of svc.listTables()) names.push(t.name);
+    return names.length ? names : TABLE_NAMES;
+  } catch {
+    return TABLE_NAMES;
+  }
+}
+
+function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on('data', (d) => chunks.push(d instanceof Buffer ? d : Buffer.from(d)));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+}
+
+// Profile avatars (blob name = userId) as base64. They're capped at 600 kB and
+// typically ~10-30 kB (256px webp), so a copy in the snapshot is cheap — and it
+// makes the backup complete + portable (restore into a fresh account brings them).
+async function snapshotAvatars() {
+  const out = {};
+  try {
+    const c = service().getContainerClient('avatars');
+    for await (const b of c.listBlobsFlat()) {
+      const dl = await c.getBlockBlobClient(b.name).download();
+      const buf = await streamToBuffer(dl.readableStreamBody);
+      out[b.name] = { contentType: dl.contentType || 'image/webp', b64: buf.toString('base64') };
+    }
+  } catch {
+    /* container may not exist yet */
+  }
+  return out;
+}
+
+// Read every table + avatars into one snapshot object.
 async function snapshot() {
+  const names = await allTableNames();
   const tables = {};
   const counts = {};
-  for (const t of TABLE_NAMES) {
+  for (const t of names) {
     const rows = await listEntities(t);
     tables[t] = rows;
     counts[t] = rows.length;
   }
-  return { createdAt: new Date().toISOString(), version: 1, counts, tables };
+  const avatars = await snapshotAvatars();
+  counts.avatars = Object.keys(avatars).length;
+  return { createdAt: new Date().toISOString(), version: 2, counts, tables, avatars };
 }
 
 // Run a backup: snapshot → gzip → upload to `backups/backup-<iso>.json.gz`.

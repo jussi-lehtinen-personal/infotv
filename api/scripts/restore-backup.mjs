@@ -17,6 +17,7 @@ import { webcrypto } from "node:crypto";
 // hoisted and would run first).
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 const { TableClient } = await import("@azure/data-tables");
+const { BlobServiceClient } = await import("@azure/storage-blob");
 
 const conn = process.env.TABLES_CONNECTION_STRING;
 const file = process.argv[2];
@@ -50,4 +51,22 @@ for (const [table, rows] of Object.entries(snap.tables || {})) {
   }
   console.log(`  done ${n}`);
 }
+
+// Avatars (backup version >= 2): blob name = userId, base64 content.
+const avatars = snap.avatars || {};
+const avatarNames = Object.keys(avatars);
+console.log(`\navatars: ${avatarNames.length} blobs`);
+if (apply && avatarNames.length) {
+  const c = BlobServiceClient.fromConnectionString(conn, { allowInsecureConnection: true }).getContainerClient("avatars");
+  try { await c.createIfNotExists(); } catch { /* exists */ }
+  let n = 0;
+  for (const [name, a] of Object.entries(avatars)) {
+    await c.getBlockBlobClient(name).uploadData(Buffer.from(a.b64, "base64"), {
+      blobHTTPHeaders: { blobContentType: a.contentType || "image/webp" },
+    });
+    n++;
+  }
+  console.log(`  done ${n}`);
+}
+
 console.log(apply ? "\nRestore complete." : "\nDry-run only. Re-run with --apply to write.");
