@@ -91,9 +91,11 @@ const statTableSx = {
   bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)",
   "& th": { color: "text.secondary", fontWeight: 700, borderColor: "rgba(255,255,255,0.08)", whiteSpace: "nowrap", px: 1, py: 0.75, bgcolor: "#1a1a1a" },
   "& td": { borderColor: "rgba(255,255,255,0.06)", px: 1, py: 0.75, whiteSpace: "nowrap" },
-  // Rank column: shrink to content + tight gap before the name. Last column: extra
-  // right room so the vertical scrollbar never overlaps the value.
+  // Rank column: shrink to content + tight gap before the name. The name column
+  // (2nd) absorbs the slack (width:100%) so numbers don't leave a gap after #.
+  // Last column: extra right room so the vertical scrollbar never overlaps.
   "& td:first-of-type, & th:first-of-type": { width: 1, pr: 0.5 },
+  "& td:nth-of-type(2), & th:nth-of-type(2)": { width: "100%" },
   "& td:last-of-type, & th:last-of-type": { pr: 2 },
 };
 const ahmaRowSx = (me) => (me ? { bgcolor: "rgba(249,115,22,0.12)" } : null);
