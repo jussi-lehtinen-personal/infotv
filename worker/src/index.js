@@ -600,6 +600,201 @@ async function handleGetGameReport(url, env, ctx) {
   return resp;
 }
 
+/* ------------------------------ getTeamStats ------------------------------ */
+// Real per-age statistics: OFFICIAL standings + series pistepörssi + goalie
+// stats, straight from tulospalvelu's serie endpoints (reverse-engineered from
+// the serie SPA: serie/helpers/getstandings, helpers/getplayers,
+// helpers/getgoalkeepers). The team page is keyed on a Jopox AGE GROUP;
+// tulospalvelu on a subSerieId. We bridge by DAY-SCANNING the age's Ahma games
+// (the same district scan the box score uses) to read the REAL SubSerieID off a
+// game — no fragile level→lohko guessing (a level's "lohko" list doesn't reliably
+// contain Ahma). A Musta/Valkoinen age plays 2 subseries → we collect both.
+
+// Same mapping as the client's teamMatch.js ageKey (U-number first, then
+// naiset / edustus) so game.level → the Jopox age the page asked for.
+function ageKeyFromLevel(text) {
+  const s = String(text || "");
+  const m = s.match(/U\s*(\d+)/i);
+  if (m) return `U${m[1]}`;
+  if (/nais/i.test(s)) return "naiset";
+  if (/divisioona|suomi-sarja|mestis|miehet|edustus/i.test(s)) return "edustus";
+  return null;
+}
+
+const isAhmaName = (abbr) => /ahma/i.test(String(abbr || ""));
+const isAhmaAss = (id) => String(id) === String(ASSOCIATION_ID);
+
+// The nested `filters` object jQuery serializes for getplayers/getgoalkeepers.
+function statFilters(sortedBy, extra) {
+  return {
+    "filters[Games]": "",
+    "filters[Strength]": "",
+    "filters[Rookies]": "0",
+    "filters[Total]": "0",
+    "filters[Period]": "",
+    "filters[SortOrder]": "DESC",
+    "filters[SortedBy]": sortedBy,
+    ...(extra || {}),
+  };
+}
+
+async function fetchStandings(season, subSerieId) {
+  const d = await tpGet("serie/helpers/getstandings", { season, subSerieId }).catch(() => null);
+  const teams = (d && Array.isArray(d.Teams) ? d.Teams : []).map((t) => ({
+    rank: t.Ranking,
+    team: t.TeamAbbrv,
+    img: t.TeamImg ? IMAGE_URI + t.TeamImg : null,
+    isAhma: isAhmaAss(t.TeamAssociationId) || isAhmaName(t.TeamAbbrv),
+    gp: t.Games, w: t.Wins, otw: t.OtWins, ties: t.Ties, otl: t.OtLooses, l: t.Looses,
+    gf: t.GoalsFor, ga: t.GoalsAgainst, gd: t.GoalDiff, pts: t.Points,
+  }));
+  // Junior series (U9–U13) return rows but zero points for everyone (no official
+  // point-keeping); the UI drops the points column + notes it. Real leagues have
+  // points → the "meaningful" series to default-select.
+  const hasPoints = teams.some((t) => t.pts > 0);
+  return { winPoints: d ? d.WinPoints : null, hasPoints, teams };
+}
+
+async function fetchScorers(season, subSerieId) {
+  const d = await tpGet("helpers/getplayers", {
+    season, subSerieId, teamid: 0, type: 0, nop: 1000, ...statFilters("PlayerPoints"),
+  }).catch(() => null);
+  const P = d && Array.isArray(d.Players) ? d.Players : [];
+  // Keep the whole series' top 75 + every Ahma player (they may rank lower) so
+  // the payload stays lean without dropping "our" players.
+  return P.map((p) => ({
+    rank: p.Ranking, first: p.FirstName, last: p.LastName, yob: p.Yob,
+    team: p.TeamAbbrv, isAhma: isAhmaAss(p.AssociationID) || isAhmaName(p.TeamAbbrv),
+    gp: p.PlayerGames, g: p.PlayerGoals, a: p.PlayerAssists, pts: p.PlayerPoints, pim: p.PlayerPenaltyMin,
+  })).filter((p) => p.rank <= 75 || p.isAhma);
+}
+
+async function fetchGoalies(season, subSerieId, levelId) {
+  const d = await tpGet("helpers/getgoalkeepers", {
+    season, subSerieId, teamid: 0, type: 0, nop: 1000, gamesratio: 0, levelid: levelId,
+    ...statFilters("GoalieSavesPerc", { "filters[PlayerName]": "" }),
+  }).catch(() => null);
+  const P = d && Array.isArray(d.Players) ? d.Players : [];
+  return P.map((p) => ({
+    rank: p.Ranking, first: p.FirstName, last: p.LastName,
+    team: p.TeamAbbrv, isAhma: isAhmaAss(p.CurrentTeamAssID) || isAhmaName(p.TeamAbbrv),
+    gp: p.GoaliePlayedGames, saves: p.GoalieSaves, ga: p.GoalieGoalsAgainst,
+    savePct: p.GoalieSavesPerc, ga60: p.GoalieGA60Min,
+  }));
+}
+
+// Evenly sample up to `n` items across an array (first + last always kept), so a
+// season's SPREAD of dates is covered without scanning every one.
+function spread(arr, n) {
+  if (arr.length <= n) return arr.slice();
+  const out = [];
+  const step = (arr.length - 1) / (n - 1);
+  for (let i = 0; i < n; i++) out.push(arr[Math.round(i * step)]);
+  return [...new Set(out)];
+}
+
+// Resolve the real tulospalvelu subSerieId(s) an Ahma age group plays in. A team
+// plays SEVERAL subseries (regular season, playoffs, friendlies) — only some have
+// points — so we sample dates ACROSS the whole season (not just the newest, which
+// would only find the playoff group) and collect them all. Day-scan → statGroupId
+// (home district first). KV-cached per (season, age) since assignments are stable.
+async function resolveAgeSeries(env, season, age) {
+  const kvKey = `sser2:${season}:${age}`;
+  if (env && env.GAME_IDS) {
+    const cached = await env.GAME_IDS.get(kvKey);
+    if (cached) { try { return JSON.parse(cached); } catch { /* refetch */ } }
+  }
+  const games = (await fetchExtGames(season).catch(() => [])).filter(
+    (g) => ageKeyFromLevel(g.level) === age
+  );
+  if (!games.length) return [];
+  const allDates = [...new Set(games.map((g) => String(g.date).slice(0, 10)))].sort();
+  const dates = spread(allDates, 12);
+  const found = new Map(); // subSerieId -> {subSerieId, subSerieName, levelId, levelName}
+  for (const day of dates) {
+    for (const district of DISTRICT_TRY_ORDER) {
+      let dayGames;
+      try { dayGames = await fetchDay(day, district); } catch { continue; }
+      const ms = dayGames.filter((g) => ageKeyFromLevel(g.level) === age);
+      if (ms.length) {
+        for (const m of ms) {
+          if (!found.has(m.statGroupId)) {
+            found.set(m.statGroupId, {
+              subSerieId: m.statGroupId, subSerieName: m.league, levelId: m.levelId, levelName: m.level,
+            });
+          }
+        }
+        break; // this date's games came from this district
+      }
+    }
+  }
+  const list = [...found.values()];
+  // Stable → KV-cache (current season shorter, in case playoffs are added later).
+  if (env && env.GAME_IDS && list.length) {
+    const isCurrent = String(season) === String(await getCurrentSeason());
+    env.GAME_IDS.put(kvKey, JSON.stringify(list), { expirationTtl: isCurrent ? 6 * 3600 : 30 * 24 * 3600 }).catch(() => {});
+  }
+  return list;
+}
+
+async function buildTeamStats(season, series) {
+  const out = await Promise.all(
+    series.map(async (s) => {
+      const [standings, scorers, goalies] = await Promise.all([
+        fetchStandings(season, s.subSerieId),
+        fetchScorers(season, s.subSerieId),
+        fetchGoalies(season, s.subSerieId, s.levelId),
+      ]);
+      const ahma = (standings.teams || []).find((t) => t.isAhma);
+      const games = ahma ? ahma.gp : Math.max(0, ...(standings.teams || []).map((t) => t.gp || 0));
+      return {
+        subSerieId: s.subSerieId,
+        subSerieName: s.subSerieName || s.levelName,
+        levelName: s.levelName,
+        games,
+        hasPoints: standings.hasPoints,
+        standings, scorers, goalies,
+      };
+    })
+  );
+  // Best-first: real point series before junior/playoff groups, then most games
+  // (the regular season dominates the calendar) → the client defaults to [0].
+  out.sort((a, b) => (b.hasPoints - a.hasPoints) || (b.games - a.games));
+  return out;
+}
+
+const hasPlayedGames = (out) => out.some((s) => (s.standings.teams || []).some((t) => t.gp));
+
+async function handleGetTeamStats(url, env) {
+  const age = url.searchParams.get("age");
+  if (!age) return { error: "age required", series: [] };
+  const seasonParam = url.searchParams.get("season");
+  const current = Number(await getCurrentSeason());
+  let usedSeason = seasonParam ? Number(seasonParam) : current;
+
+  const series = await resolveAgeSeries(env, usedSeason, age);
+  let out = series.length ? await buildTeamStats(usedSeason, series) : [];
+  let fallback = false;
+
+  // Off-season / a brand-new season with no games yet → show the PREVIOUS season
+  // so the tables aren't empty (flagged so the UI can note it). Only when the
+  // caller didn't pin a season.
+  if (!seasonParam && !hasPlayedGames(out)) {
+    const prev = current - 1;
+    const prevSeries = await resolveAgeSeries(env, prev, age);
+    const prevOut = prevSeries.length ? await buildTeamStats(prev, prevSeries) : [];
+    if (hasPlayedGames(prevOut)) { usedSeason = prev; out = prevOut; fallback = true; }
+  }
+
+  return {
+    age,
+    requestedSeason: seasonParam ? Number(seasonParam) : current,
+    usedSeason,
+    fallback,
+    series: out,
+  };
+}
+
 /* --------------------------------- router --------------------------------- */
 
 function json(body, status = 200) {
@@ -625,6 +820,7 @@ const TTL_GAMES_FUTURE_S = 15 * 60;
 const TTL_GAMES_PAST_S = 6 * 60 * 60;
 const TTL_TEAMS_S = 60 * 60;
 const TTL_SEASON_S = 24 * 60 * 60; // 24 h — fixtures are set days ahead (referees); live scores come from getLive
+const TTL_STATS_S = 10 * 60; // standings/scorers: current season refreshes every 10 min
 
 function weekTtlSeconds(url) {
   const now = url.searchParams.has("date") ? new Date(url.searchParams.get("date")) : new Date();
@@ -640,7 +836,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "8";
+const CACHE_VERSION = "9";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
@@ -707,7 +903,12 @@ export default {
         return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url));
       if (url.pathname === "/getGameReport")
         return await handleGetGameReport(url, env, ctx);
-      return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getImage"] }, 404);
+      if (url.pathname === "/getTeamStats") {
+        // Pinned (past) season is immutable → 24 h; current season → 10 min.
+        const ttl = url.searchParams.get("season") ? TTL_SEASON_S : TTL_STATS_S;
+        return await cachedJson(ctx, url, ttl, () => handleGetTeamStats(url, env));
+      }
+      return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getTeamStats", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
     }

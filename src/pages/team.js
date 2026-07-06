@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useGoBack } from "../hooks/useGoBack";
 import { LuArrowLeft, LuShirt, LuUsers, LuPhone, LuBarChart3, LuTable, LuTarget, LuShield, LuMail } from "react-icons/lu";
 import {
   Box, Typography, IconButton, ToggleButtonGroup, ToggleButton, Tabs, Tab,
   Card, Avatar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Stack, CircularProgress, Link as MuiLink,
+  Paper, Stack, CircularProgress, Link as MuiLink, Select, MenuItem,
 } from "@mui/material";
 import { findJopoxTeam } from "../data/jopoxTeams";
+import { favouriteAgeKey } from "../lib/teamMatch";
 
 // Team page (MUI content inside a hand-rolled shell: hero + a drag-animated
 // Joukkue/Tilastot pager). Data = getTeamRoster (Jopox). Standings is mock for
@@ -24,15 +25,6 @@ const seasonLabel = () => {
 
 const JOUKKUE_TABS = [["Pelaajat", LuShirt], ["Toimihenkilöt", LuUsers], ["Yhteystiedot", LuPhone]];
 const TILASTOT_TABS = [["Sarjataulukko", LuTable], ["Pistepörssi", LuTarget], ["MV", LuShield]];
-
-const MOCK_STANDINGS = [
-  { pos: 1, team: "HPK", gp: 14, w: 11, t: 1, l: 2, gd: "+34", pts: 34 },
-  { pos: 2, team: "Kiekko-Ahma", gp: 14, w: 10, t: 2, l: 2, gd: "+27", pts: 32 },
-  { pos: 3, team: "Ilves", gp: 14, w: 9, t: 1, l: 4, gd: "+18", pts: 28 },
-  { pos: 4, team: "Pelicans", gp: 14, w: 7, t: 2, l: 5, gd: "+6", pts: 23 },
-  { pos: 5, team: "KOOVEE", gp: 14, w: 5, t: 1, l: 8, gd: "-9", pts: 16 },
-  { pos: 6, team: "SaiPa", gp: 14, w: 2, t: 1, l: 11, gd: "-41", pts: 7 },
-];
 
 // Portrait roster/official photos crop badly in a small square — keep them tall
 // and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
@@ -86,35 +78,119 @@ const ContactRow = ({ o }) => (
   </Card>
 );
 
-const StandingsTable = () => (
-  <TableContainer component={Paper} variant="outlined" sx={{ bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)" }}>
-    <Table size="small">
-      <TableHead>
-        <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 700, borderColor: "rgba(255,255,255,0.08)" } }}>
-          <TableCell>#</TableCell><TableCell>Joukkue</TableCell>
-          <TableCell align="right">O</TableCell><TableCell align="right">V</TableCell>
-          <TableCell align="right">T</TableCell><TableCell align="right">H</TableCell>
-          <TableCell align="right">+/-</TableCell><TableCell align="right">P</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {MOCK_STANDINGS.map((r) => {
-          const me = r.team === "Kiekko-Ahma";
-          return (
-            <TableRow key={r.pos} sx={{ "& td": { borderColor: "rgba(255,255,255,0.06)" }, ...(me && { bgcolor: "rgba(249,115,22,0.12)" }) }}>
-              <TableCell sx={{ color: "text.secondary" }}>{r.pos}</TableCell>
-              <TableCell sx={{ fontWeight: me ? 800 : 500, color: me ? "primary.main" : "text.primary" }}>{r.team}</TableCell>
-              <TableCell align="right">{r.gp}</TableCell><TableCell align="right">{r.w}</TableCell>
-              <TableCell align="right">{r.t}</TableCell><TableCell align="right">{r.l}</TableCell>
-              <TableCell align="right">{r.gd}</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>{r.pts}</TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  </TableContainer>
+// Shared table shell (dark, outlined, small, Ahma rows tinted).
+const statTableSx = {
+  bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)",
+  "& th": { color: "text.secondary", fontWeight: 700, borderColor: "rgba(255,255,255,0.08)", whiteSpace: "nowrap", px: 1, py: 0.75 },
+  "& td": { borderColor: "rgba(255,255,255,0.06)", px: 1, py: 0.75, whiteSpace: "nowrap" },
+};
+const ahmaRowSx = (me) => (me ? { bgcolor: "rgba(249,115,22,0.12)" } : null);
+const Note = ({ children }) => (
+  <Box sx={{ py: 4, textAlign: "center", color: "text.secondary", fontSize: 14 }}>{children}</Box>
 );
+
+const StandingsTable = ({ standings }) => {
+  const teams = (standings && standings.teams) || [];
+  if (!teams.length) return <Note>Ei virallista sarjataulukkoa tälle sarjalle.</Note>;
+  const showPts = standings.hasPoints;
+  return (
+    <>
+      <TableContainer component={Paper} variant="outlined" sx={statTableSx}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>#</TableCell><TableCell>Joukkue</TableCell>
+              <TableCell align="right">O</TableCell><TableCell align="right">V</TableCell>
+              <TableCell align="right">T</TableCell><TableCell align="right">H</TableCell>
+              <TableCell align="right">Maalit</TableCell><TableCell align="right">+/-</TableCell>
+              {showPts && <TableCell align="right">P</TableCell>}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {teams.map((r) => (
+              <TableRow key={r.rank + r.team} sx={ahmaRowSx(r.isAhma)}>
+                <TableCell sx={{ color: "text.secondary" }}>{r.rank}</TableCell>
+                <TableCell sx={{ fontWeight: r.isAhma ? 800 : 500, color: r.isAhma ? "primary.main" : "text.primary", whiteSpace: "normal", minWidth: 88 }}>{r.team}</TableCell>
+                <TableCell align="right">{r.gp}</TableCell>
+                <TableCell align="right">{(r.w || 0) + (r.otw || 0)}</TableCell>
+                <TableCell align="right">{r.ties}</TableCell>
+                <TableCell align="right">{(r.l || 0) + (r.otl || 0)}</TableCell>
+                <TableCell align="right" sx={{ color: "text.secondary" }}>{r.gf}–{r.ga}</TableCell>
+                <TableCell align="right">{r.gd > 0 ? `+${r.gd}` : r.gd}</TableCell>
+                {showPts && <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>{r.pts}</TableCell>}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      {!showPts && <Box sx={{ mt: 1, color: "text.secondary", fontSize: 12.5 }}>Juniorisarja – ei virallista pistelaskentaa.</Box>}
+    </>
+  );
+};
+
+const ScorersTable = ({ scorers }) => {
+  const rows = (scorers || []).filter((p) => p.rank <= 25 || p.isAhma);
+  if (!rows.length) return <Note>Ei pistepörssiä tälle sarjalle.</Note>;
+  return (
+    <TableContainer component={Paper} variant="outlined" sx={statTableSx}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>#</TableCell><TableCell>Pelaaja</TableCell><TableCell>Joukkue</TableCell>
+            <TableCell align="right">O</TableCell><TableCell align="right">M</TableCell>
+            <TableCell align="right">S</TableCell><TableCell align="right">P</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((p, i) => (
+            <TableRow key={p.rank + (p.last || "") + i} sx={ahmaRowSx(p.isAhma)}>
+              <TableCell sx={{ color: "text.secondary" }}>{p.rank}</TableCell>
+              <TableCell sx={{ whiteSpace: "normal", minWidth: 120, fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>
+                {p.first} {p.last}{p.yob ? <Box component="span" sx={{ color: "text.secondary", fontWeight: 500 }}> ’{String(p.yob).slice(-2)}</Box> : null}
+              </TableCell>
+              <TableCell sx={{ color: "text.secondary", whiteSpace: "normal", minWidth: 80 }}>{p.team}</TableCell>
+              <TableCell align="right">{p.gp}</TableCell>
+              <TableCell align="right">{p.g}</TableCell>
+              <TableCell align="right">{p.a}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>{p.pts}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+const GoaliesTable = ({ goalies }) => {
+  const rows = (goalies || []).filter((p) => p.rank <= 20 || p.isAhma);
+  if (!rows.length) return <Note>Ei maalivahtitilastoja tälle sarjalle.</Note>;
+  return (
+    <TableContainer component={Paper} variant="outlined" sx={statTableSx}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>#</TableCell><TableCell>Maalivahti</TableCell><TableCell>Joukkue</TableCell>
+            <TableCell align="right">O</TableCell><TableCell align="right">Torj.</TableCell>
+            <TableCell align="right">PÄ</TableCell><TableCell align="right">Torj.%</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((p, i) => (
+            <TableRow key={p.rank + (p.last || "") + i} sx={ahmaRowSx(p.isAhma)}>
+              <TableCell sx={{ color: "text.secondary" }}>{p.rank}</TableCell>
+              <TableCell sx={{ whiteSpace: "normal", minWidth: 120, fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>{p.first} {p.last}</TableCell>
+              <TableCell sx={{ color: "text.secondary", whiteSpace: "normal", minWidth: 80 }}>{p.team}</TableCell>
+              <TableCell align="right">{p.gp}</TableCell>
+              <TableCell align="right">{p.saves}</TableCell>
+              <TableCell align="right">{p.ga}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>{p.savePct}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
 
 const TabRow = ({ items, value, onChange }) => (
   <Tabs
@@ -131,14 +207,26 @@ const TabRow = ({ items, value, onChange }) => (
 
 const Team = () => {
   const { subsiteId } = useParams();
+  const [searchParams] = useSearchParams();
   const goBack = useGoBack("/teams");
   const known = findJopoxTeam(subsiteId);
+  const age = favouriteAgeKey(known); // "U15" | "naiset" | "edustus" | null
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [mode, setMode] = useState("joukkue");
   const [jTab, setJTab] = useState(0);
   const [tTab, setTTab] = useState(0);
+
+  // Tilastot (real tulospalvelu data): lazy-loaded the first time the Tilastot
+  // pane is opened (so roster-only visits don't hit it). ?season= pins a season
+  // (testing / off-season) — otherwise the worker uses the current season and
+  // falls back to the previous one if it hasn't started.
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState(false);
+  const [seriesIdx, setSeriesIdx] = useState(0);
+  const seasonOverride = searchParams.get("season");
 
   // Drag-animated 2-pane pager (native non-passive listeners lock horizontal so
   // the page still scrolls vertically; track follows the finger, snaps on release).
@@ -193,7 +281,7 @@ const Team = () => {
     const el = pagerRef.current;
     const pane = (mode === "joukkue" ? pane0Ref : pane1Ref).current;
     if (el && pane) el.style.height = `${pane.scrollHeight}px`;
-  }, [mode, data, jTab, tTab, loading, error]);
+  }, [mode, data, jTab, tTab, loading, error, stats, statsLoading, seriesIdx]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +292,21 @@ const Team = () => {
       .catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
     return () => { cancelled = true; };
   }, [subsiteId]);
+
+  // Lazy-load stats when Tilastot is first opened (or immediately if we deep-link
+  // with a season override). Skips ages with no tulospalvelu mapping (age == null).
+  useEffect(() => {
+    if (mode !== "tilastot" || !age || stats || statsLoading || statsError) return;
+    let cancelled = false;
+    setStatsLoading(true);
+    const qs = new URLSearchParams({ age });
+    if (seasonOverride) qs.set("season", seasonOverride);
+    fetch(`/api/getTeamStats?${qs.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { if (!cancelled) { setStats(d); setSeriesIdx(0); setStatsLoading(false); } })
+      .catch(() => { if (!cancelled) { setStatsError(true); setStatsLoading(false); } });
+    return () => { cancelled = true; };
+  }, [mode, age, seasonOverride, stats, statsLoading, statsError]);
 
   const heroTitle = `Kiekko-Ahma ${known?.name || data?.teamName || ""}`.trim();
   const players = data?.players || [];
@@ -298,7 +401,35 @@ const Team = () => {
           <Box ref={pane1Ref} sx={{ width: "50%", flex: "0 0 50%", minHeight: "60vh" }}>
             <TabRow items={TILASTOT_TABS} value={tTab} onChange={setTTab} />
             <Box sx={{ p: 1.5, maxWidth: 760, mx: "auto" }}>
-              {tTab === 0 ? <StandingsTable /> : <Center>{tTab === 1 ? "Pistepörssi" : "Maalivahtitilastot"} — tulossa.</Center>}
+              {(() => {
+                const series = stats?.series || [];
+                const sel = series[Math.min(seriesIdx, series.length - 1)] || null;
+                if (!age) return <Note>Tälle joukkueelle ei ole tulospalvelun tilastoja.</Note>;
+                if (statsLoading) return <Center><CircularProgress color="primary" /></Center>;
+                if (statsError) return <Note>Tilastoja ei saatu haettua.</Note>;
+                if (!sel) return <Note>Ei tilastoja tälle kaudelle.</Note>;
+                return (
+                  <>
+                    {stats.fallback && (
+                      <Box sx={{ mb: 1.5, p: 1, borderRadius: 2, bgcolor: "rgba(255,255,255,0.05)", color: "text.secondary", fontSize: 13 }}>
+                        Kausi {stats.requestedSeason - 1}–{stats.requestedSeason} ei ole vielä alkanut – näytetään kausi {stats.usedSeason - 1}–{stats.usedSeason}.
+                      </Box>
+                    )}
+                    {series.length > 1 && (
+                      <Select
+                        size="small" fullWidth value={Math.min(seriesIdx, series.length - 1)}
+                        onChange={(e) => setSeriesIdx(Number(e.target.value))}
+                        sx={{ mb: 1.5, bgcolor: "#1a1a1a", "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" } }}
+                      >
+                        {series.map((s, i) => <MenuItem key={s.subSerieId} value={i}>{s.subSerieName}</MenuItem>)}
+                      </Select>
+                    )}
+                    {tTab === 0 ? <StandingsTable standings={sel.standings} />
+                      : tTab === 1 ? <ScorersTable scorers={sel.scorers} />
+                        : <GoaliesTable goalies={sel.goalies} />}
+                  </>
+                );
+              })()}
             </Box>
           </Box>
         </Box>
