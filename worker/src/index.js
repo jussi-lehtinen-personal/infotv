@@ -709,11 +709,16 @@ async function resolveAgeSeries(env, season, age) {
   );
   if (!games.length) return [];
   const allDates = [...new Set(games.map((g) => String(g.date).slice(0, 10)))].sort();
-  const dates = spread(allDates, 12);
+  const dates = spread(allDates, 6); // spread across the season (regular + playoffs)
   const found = new Map(); // subSerieId -> {subSerieId, subSerieName, levelId, levelName}
+  let scans = 0;
+  const SCAN_CAP = 12; // hard ceiling on getgames calls (stay well under CF's 50)
   for (const day of dates) {
+    if (scans >= SCAN_CAP) break;
     for (const district of DISTRICT_TRY_ORDER) {
+      if (scans >= SCAN_CAP) break;
       let dayGames;
+      scans++;
       try { dayGames = await fetchDay(day, district); } catch { continue; }
       const ms = dayGames.filter((g) => ageKeyFromLevel(g.level) === age);
       if (ms.length) {
@@ -763,28 +768,28 @@ async function buildTeamStats(season, series) {
   return out;
 }
 
-const hasPlayedGames = (out) => out.some((s) => (s.standings.teams || []).some((t) => t.gp));
-
 async function handleGetTeamStats(url, env) {
   const age = url.searchParams.get("age");
   if (!age) return { error: "age required", series: [] };
   const seasonParam = url.searchParams.get("season");
   const current = Number(await getCurrentSeason());
-  let usedSeason = seasonParam ? Number(seasonParam) : current;
 
-  const series = await resolveAgeSeries(env, usedSeason, age);
-  let out = series.length ? await buildTeamStats(usedSeason, series) : [];
+  let usedSeason = seasonParam ? Number(seasonParam) : current;
   let fallback = false;
 
-  // Off-season / a brand-new season with no games yet → show the PREVIOUS season
-  // so the tables aren't empty (flagged so the UI can note it). Only when the
-  // caller didn't pin a season.
-  if (!seasonParam && !hasPlayedGames(out)) {
-    const prev = current - 1;
-    const prevSeries = await resolveAgeSeries(env, prev, age);
-    const prevOut = prevSeries.length ? await buildTeamStats(prev, prevSeries) : [];
-    if (hasPlayedGames(prevOut)) { usedSeason = prev; out = prevOut; fallback = true; }
+  // Decide the season WITHOUT building stats twice: if the caller didn't pin one
+  // and the current season has no FINISHED game for this age yet (off-season /
+  // not started), use the previous season. That check is one cheap
+  // getextsearchgames call — no resolve+build of an empty current season.
+  if (!seasonParam) {
+    const curGames = (await fetchExtGames(current).catch(() => [])).filter(
+      (g) => ageKeyFromLevel(g.level) === age
+    );
+    if (!curGames.some((g) => Number(g.finished) > 0)) { usedSeason = current - 1; fallback = true; }
   }
+
+  const series = await resolveAgeSeries(env, usedSeason, age);
+  const out = series.length ? await buildTeamStats(usedSeason, series) : [];
 
   return {
     age,
@@ -836,7 +841,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "9";
+const CACHE_VERSION = "10";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
@@ -904,9 +909,12 @@ export default {
       if (url.pathname === "/getGameReport")
         return await handleGetGameReport(url, env, ctx);
       if (url.pathname === "/getTeamStats") {
-        // Pinned (past) season is immutable → 24 h; current season → 10 min.
-        const ttl = url.searchParams.get("season") ? TTL_SEASON_S : TTL_STATS_S;
-        return await cachedJson(ctx, url, ttl, () => handleGetTeamStats(url, env));
+        // DISABLED: the old resolver day-scanned tulospalvelu to map age→subSerieId
+        // (too many calls → ban risk). Being rebuilt to read subSerieId from static
+        // config (resolved once, offline) so each table is a single direct call.
+        // Returns empty (0 tulospalvelu calls) until the config-based version lands.
+        void handleGetTeamStats;
+        return json({ series: [], disabled: true });
       }
       return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getTeamStats", "/getImage"] }, 404);
     } catch (e) {
