@@ -1,34 +1,38 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { LuArrowLeft, LuPlus, LuX, LuSearch, LuChevronRight } from "react-icons/lu";
-import { themeCSS } from "../theme";
-import { Spinner } from "../components/ui/Spinner";
+import {
+  Box, Typography, Card, Stack, Chip, Button, TextField, InputAdornment,
+  Dialog, List, ListItemButton, IconButton, CircularProgress,
+} from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
+import { useGoBack } from "../hooks/useGoBack";
 import { getAdminUsers, setUserRole } from "../auth/authClient";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
 
 // Admin › Käyttäjät & roolit (/admin/users). Each user lists their roles as
-// removable chips; "＋ Lisää rooli" opens a popup to pick a role (+ a team for
-// the team-scoped valmentaja, from the year-round Jopox team list). See memory:
+// deletable chips; "Lisää rooli" opens a dialog to pick a role (+ a team for the
+// team-scoped valmentaja, from the year-round Jopox team list). See memory:
 // project_admin_roles + reference_data_map (teams = Jopox, NOT tulospalvelu).
 
-const ROLE_LABELS = {
-  pelaaja: "Pelaaja",
-  valmentaja: "Valmentaja",
-  toimihenkilo: "Toimihenkilö",
-  media: "Media",
-  admin: "Admin",
-};
+const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Valmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
 const ROLE_ORDER = ["pelaaja", "valmentaja", "toimihenkilo", "media", "admin"];
 const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
-const roleLabel = (r) =>
-  TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role]} · ${r.team}` : ROLE_LABELS[r.role] || r.role;
+// Distinct per-role colours (role identity, not brand) so chips are scannable.
+const ROLE_CHIP = {
+  pelaaja: { bg: "rgba(167,139,250,0.20)", fg: "#c4b5fd" },
+  valmentaja: { bg: "rgba(var(--color-primary-rgb),0.18)", fg: "var(--color-primary)" },
+  toimihenkilo: { bg: "rgba(45,212,191,0.18)", fg: "#5eead4" },
+  media: { bg: "rgba(96,165,250,0.18)", fg: "#93c5fd" },
+  admin: { bg: "rgba(74,222,128,0.18)", fg: "var(--color-live)" },
+};
+const roleLabel = (r) => (TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role]} · ${r.team}` : ROLE_LABELS[r.role] || r.role);
 const roleKey = (r) => `${r.role}:${r.team || ""}`;
 
-// Popup: a two-step wizard. Step 1 = pick a role (clean uniform rows). A global
-// role (media/admin) is added immediately; a team-scoped role advances to
-// Step 2 = pick a team. No native <select> (that renders an off-theme white OS
-// dropdown) and no wrapping button-soup.
-const AddRoleModal = ({ user, onClose, onChange }) => {
+// Add-role dialog: a two-step wizard. Step 1 = pick a role. A global role
+// (media/admin) is added immediately; a team-scoped role advances to Step 2 =
+// pick a team.
+const AddRoleDialog = ({ user, onClose, onChange }) => {
   const [step, setStep] = useState("role"); // "role" | "team"
   const [role, setRole] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -49,70 +53,67 @@ const AddRoleModal = ({ user, onClose, onChange }) => {
 
   const pickRole = (r) => {
     if (busy) return;
-    if (TEAM_ROLES.has(r)) {
-      setRole(r);
-      setErr("");
-      setStep("team");
-    } else {
-      add(r);
-    }
+    if (TEAM_ROLES.has(r)) { setRole(r); setErr(""); setStep("team"); }
+    else add(r);
   };
 
+  const rowSx = { borderRadius: 2, mb: 0.75, border: "1px solid var(--color-surface-border)", bgcolor: "var(--color-surface)", "&:hover": { bgcolor: "var(--color-surface-divider)" } };
+
   return (
-    <div className="au-modal-backdrop" onClick={onClose}>
-      <div className="au-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="au-modal-head">
+    <Dialog
+      open
+      onClose={onClose}
+      fullWidth
+      maxWidth="xs"
+      PaperProps={{ sx: { bgcolor: "background.default", backgroundImage: "none", border: "1px solid var(--color-surface-border)", color: "text.primary", m: { xs: 0, sm: 2 }, position: { xs: "fixed", sm: "static" }, bottom: { xs: 0, sm: "auto" }, borderRadius: { xs: "18px 18px 0 0", sm: 2 }, width: "100%" } }}
+    >
+      <Box sx={{ p: 2, pb: "calc(env(safe-area-inset-bottom) + 16px)" }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
           {step === "team" && (
-            <button
-              type="button"
-              className="au-modal-icon"
-              onClick={() => { setStep("role"); setErr(""); }}
-              aria-label="Takaisin"
-            >
-              <LuArrowLeft aria-hidden="true" />
-            </button>
+            <IconButton size="small" onClick={() => { setStep("role"); setErr(""); }} aria-label="Takaisin" sx={{ color: "text.primary" }}><LuArrowLeft /></IconButton>
           )}
-          <span className="au-modal-title">
-            {step === "role"
-              ? `Lisää rooli · ${user.nickname || "(nimetön)"}`
-              : `${ROLE_LABELS[role]} — valitse joukkue`}
-          </span>
-          <button type="button" className="au-modal-icon" onClick={onClose} aria-label="Sulje">
-            <LuX aria-hidden="true" />
-          </button>
-        </div>
+          <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {step === "role" ? `Lisää rooli · ${user.nickname || "(nimetön)"}` : `${ROLE_LABELS[role]} — valitse joukkue`}
+          </Typography>
+          <IconButton size="small" onClick={onClose} aria-label="Sulje" sx={{ color: "text.primary" }}><LuX /></IconButton>
+        </Stack>
 
-        {err && <div className="au-err">{err}</div>}
+        {err && <Typography sx={{ mb: 1, fontSize: 13, color: "var(--color-loss)" }}>{err}</Typography>}
 
-        {step === "role" && (
-          <div className="au-rows">
-            {ROLE_ORDER.map((r) => (
-              <button key={r} type="button" className="au-row" disabled={busy} onClick={() => pickRole(r)}>
-                <span className="au-row-main">{ROLE_LABELS[r]}</span>
-                <span className="au-row-aside">
-                  {TEAM_ROLES.has(r) ? <LuChevronRight aria-hidden="true" /> : "Lisää"}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {step === "team" && (
-          <div className="au-rows">
-            {JOPOX_TEAMS.map((t) => (
-              <button key={t.subsiteId} type="button" className="au-row" disabled={busy} onClick={() => add(role, t.name)}>
-                <span className="au-row-main">{t.name}</span>
-                {t.sub && <span className="au-row-aside">{t.sub}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+        <List disablePadding sx={{ maxHeight: "54vh", overflowY: "auto" }}>
+          {step === "role" && ROLE_ORDER.map((r) => (
+            <ListItemButton key={r} disabled={busy} onClick={() => pickRole(r)} sx={rowSx}>
+              <Typography sx={{ flex: 1, fontWeight: 700 }}>{ROLE_LABELS[r]}</Typography>
+              <Box sx={{ fontSize: 12, color: "text.secondary", display: "inline-flex", alignItems: "center" }}>
+                {TEAM_ROLES.has(r) ? <LuChevronRight /> : "Lisää"}
+              </Box>
+            </ListItemButton>
+          ))}
+          {step === "team" && JOPOX_TEAMS.map((t) => (
+            <ListItemButton key={t.subsiteId} disabled={busy} onClick={() => add(role, t.name)} sx={rowSx}>
+              <Typography sx={{ flex: 1, fontWeight: 700 }}>{t.name}</Typography>
+              {t.sub && <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{t.sub}</Typography>}
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
+    </Dialog>
   );
 };
 
-const UserRow = ({ user, onOpenAdd, onChange }) => {
+const MethodBadge = ({ user }) => {
+  const method = user.hasPasskey && user.googleLinked ? "passkey+google"
+    : user.hasPasskey ? "passkey"
+    : user.googleLinked ? "google" : "—";
+  const primary = method.split("+")[0];
+  const sx = primary === "passkey"
+    ? { bg: "rgba(var(--color-primary-rgb),0.16)", fg: "var(--color-primary)" }
+    : primary === "google" ? { bg: "rgba(96,165,250,0.16)", fg: "#93c5fd" }
+    : { bg: "var(--color-surface-divider)", fg: "text.secondary" };
+  return <Box sx={{ flexShrink: 0, fontSize: 11, fontWeight: 700, px: 0.875, py: 0.25, borderRadius: 999, bgcolor: sx.bg, color: sx.fg }}>{method}</Box>;
+};
+
+const UserCard = ({ user, onOpenAdd, onChange }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -129,44 +130,47 @@ const UserRow = ({ user, onOpenAdd, onChange }) => {
     }
   };
 
-  const method = user.hasPasskey && user.googleLinked
-    ? "passkey+google"
-    : user.hasPasskey
-    ? "passkey"
-    : user.googleLinked
-    ? "google"
-    : "—";
-
   return (
-    <div className="au-user ui-surface">
-      <div className="au-user-top">
-        <span className="au-nick">{user.nickname || "(nimetön)"}</span>
-        <span className={`au-method au-method--${method.split("+")[0]}`}>{method}</span>
-      </div>
-      {user.email && <div className="au-email">{user.email}</div>}
+    <Card variant="outlined" sx={{ p: 1.75, bgcolor: "background.paper", borderColor: "divider" }}>
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Typography sx={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.nickname || "(nimetön)"}</Typography>
+        <Box sx={{ flex: 1 }} />
+        <MethodBadge user={user} />
+      </Stack>
+      {user.email && <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>{user.email}</Typography>}
 
-      <div className="au-roles">
-        {user.roles.length === 0 && <span className="au-norole">Ei rooleja</span>}
-        {user.roles.map((r) => (
-          <span key={roleKey(r)} className={`au-chip au-chip--${r.role}`}>
-            {roleLabel(r)}
-            <button type="button" className="au-chip-x" disabled={busy} aria-label="Poista rooli" onClick={() => remove(r)}>
-              <LuX aria-hidden="true" />
-            </button>
-          </span>
-        ))}
-      </div>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 1.25 }}>
+        {user.roles.length === 0 && <Typography variant="body2" sx={{ color: "text.secondary", opacity: 0.7 }}>Ei rooleja</Typography>}
+        {user.roles.map((r) => {
+          const c = ROLE_CHIP[r.role] || { bg: "var(--color-surface-divider)", fg: "text.secondary" };
+          return (
+            <Chip
+              key={roleKey(r)}
+              label={roleLabel(r)}
+              size="small"
+              onDelete={busy ? undefined : () => remove(r)}
+              deleteIcon={<LuX />}
+              sx={{ fontWeight: 700, bgcolor: c.bg, color: c.fg, "& .MuiChip-deleteIcon": { color: c.fg, opacity: 0.7, "&:hover": { color: c.fg, opacity: 1 } } }}
+            />
+          );
+        })}
+      </Box>
 
-      {err && <div className="au-err">{err}</div>}
+      {err && <Typography sx={{ mt: 1, fontSize: 12, color: "var(--color-loss)" }}>{err}</Typography>}
 
-      <button type="button" className="au-add-link" onClick={() => onOpenAdd(user)}>
-        <LuPlus aria-hidden="true" /> Lisää rooli
-      </button>
-    </div>
+      <Button onClick={() => onOpenAdd(user)} startIcon={<LuPlus />} sx={{ mt: 1.25, p: 0, minWidth: 0, color: "primary.main", fontWeight: 700, fontSize: 13, textTransform: "none", "&:hover": { bgcolor: "transparent", textDecoration: "underline" } }}>
+        Lisää rooli
+      </Button>
+    </Card>
   );
 };
 
+const Status = ({ error, children }) => (
+  <Box sx={{ textAlign: "center", py: 5, color: error ? "var(--color-loss)" : "text.secondary" }}>{children}</Box>
+);
+
 const AdminUsers = () => {
+  const goBack = useGoBack("/admin");
   const [state, setState] = useState({ status: "loading" });
   const [q, setQ] = useState("");
   const [modalUser, setModalUser] = useState(null);
@@ -176,9 +180,7 @@ const AdminUsers = () => {
     getAdminUsers()
       .then((r) => !cancelled && setState(r))
       .catch((e) => !cancelled && setState({ status: "error", error: e.message }));
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const onChange = (userId, roles) => {
@@ -195,197 +197,47 @@ const AdminUsers = () => {
     const needle = q.trim().toLowerCase();
     if (!needle) return users;
     return users.filter(
-      (u) =>
-        (u.nickname || "").toLowerCase().includes(needle) ||
-        (u.email || "").toLowerCase().includes(needle) ||
-        u.userId.toLowerCase().includes(needle)
+      (u) => (u.nickname || "").toLowerCase().includes(needle) || (u.email || "").toLowerCase().includes(needle) || u.userId.toLowerCase().includes(needle)
     );
   }, [users, q]);
 
   const { status } = state;
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="au-root">
-        <header className="au-head">
-          <Link to="/admin" className="au-back" aria-label="Takaisin">
-            <LuArrowLeft aria-hidden="true" />
-          </Link>
-          <div>
-            <h1 className="au-title">KÄYTTÄJÄT</h1>
-            <p className="au-subtitle">Roolien hallinta</p>
-          </div>
-        </header>
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "60px" }}>
+      <MuiHeader title="Käyttäjät" subtitle="Roolien hallinta" onBack={goBack} />
 
-        {status === "loading" && <div className="au-status"><Spinner /></div>}
-
-        {status === "unauthorized" && (
-          <div className="au-status">
-            Kirjaudu ensin sisään (<Link className="au-link" to="/account">Minä</Link>).
-          </div>
-        )}
-
-        {status === "forbidden" && <div className="au-status">Tällä tilillä ei ole admin-oikeuksia.</div>}
-
-        {status === "error" && <div className="au-status au-error">Lataus epäonnistui. {state.error}</div>}
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5 }}>
+        {status === "loading" && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
+        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Minä</Box>).</Status>}
+        {status === "forbidden" && <Status>Tällä tilillä ei ole admin-oikeuksia.</Status>}
+        {status === "error" && <Status error>Lataus epäonnistui. {state.error}</Status>}
 
         {status === "ok" && (
           <>
-            <div className="au-searchbar">
-              <LuSearch aria-hidden="true" className="au-search-icon" />
-              <input
-                className="au-search"
-                type="search"
-                placeholder="Hae nimellä, sähköpostilla tai id:llä"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-            <p className="au-count">{filtered.length} / {users.length} käyttäjää</p>
+            <TextField
+              fullWidth
+              size="small"
+              type="search"
+              placeholder="Hae nimellä, sähköpostilla tai id:llä"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><LuSearch /></InputAdornment> }}
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "var(--color-surface)" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-surface-border)" } }}
+            />
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 1, mb: 1.5, fontSize: 12 }}>{filtered.length} / {users.length} käyttäjää</Typography>
 
-            <div className="au-list">
-              {filtered.map((u) => (
-                <UserRow key={u.userId} user={u} onOpenAdd={setModalUser} onChange={onChange} />
-              ))}
-              {filtered.length === 0 && <div className="au-empty">Ei osumia.</div>}
-            </div>
+            <Stack spacing={1.25}>
+              {filtered.map((u) => <UserCard key={u.userId} user={u} onOpenAdd={setModalUser} onChange={onChange} />)}
+              {filtered.length === 0 && <Box sx={{ p: 2.5, textAlign: "center", color: "text.secondary" }}>Ei osumia.</Box>}
+            </Stack>
           </>
         )}
-      </div>
+      </Box>
 
-      {modalUser && <AddRoleModal user={modalUser} onClose={() => setModalUser(null)} onChange={onChange} />}
-    </>
+      {modalUser && <AddRoleDialog user={modalUser} onClose={() => setModalUser(null)} onChange={onChange} />}
+    </Box>
   );
 };
 
 export default AdminUsers;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root { height: 100%; background: var(--color-bg); }
-body { margin: 0; }
-
-.au-root {
-  min-height: 100dvh;
-  padding: 22px 14px 60px;
-  max-width: 640px;
-  margin: 0 auto;
-  background: var(--bg-gradient);
-  font-family: var(--font-family-base);
-  color: var(--color-secondary);
-}
-.au-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.au-back {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 999px; flex: 0 0 auto;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
-  color: var(--color-secondary); font-size: 18px; text-decoration: none;
-}
-.au-title {
-  font-family: var(--font-family-display, var(--font-family-base));
-  font-size: 26px; font-weight: 800; letter-spacing: 0.06em;
-  margin: 0; color: var(--color-secondary);
-}
-.au-subtitle { margin: 2px 0 0; color: var(--color-accent); font-size: 13px; }
-
-.au-status { text-align: center; padding: 40px 0; color: var(--color-accent); }
-.au-error { color: var(--color-loss); }
-.au-link { color: var(--color-primary); }
-
-.au-searchbar { position: relative; margin-bottom: 8px; }
-.au-search-icon {
-  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-  color: var(--color-accent); font-size: 16px; pointer-events: none;
-}
-.au-search {
-  width: 100%; box-sizing: border-box; padding: 11px 12px 11px 36px;
-  border-radius: var(--radius-item); border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.05); color: var(--color-secondary);
-  font-family: inherit; font-size: 14px;
-}
-.au-count { margin: 0 0 12px; font-size: 12px; color: var(--color-accent); }
-
-.au-list { display: flex; flex-direction: column; gap: 10px; }
-.au-user { padding: 14px; border-radius: var(--radius-card); }
-.au-user-top { display: flex; align-items: center; gap: 8px; }
-.au-nick { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.au-method {
-  font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; flex: 0 0 auto;
-  background: rgba(255,255,255,0.08); color: var(--color-accent);
-}
-.au-method--passkey { background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary); }
-.au-method--google { background: rgba(96,165,250,0.16); color: #93c5fd; }
-.au-email { font-size: 12px; color: var(--color-accent); margin-top: 2px; }
-
-.au-roles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.au-norole { font-size: 12px; color: var(--color-accent); opacity: 0.7; }
-.au-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; font-weight: 700; padding: 3px 4px 3px 9px; border-radius: 999px;
-  background: rgba(255,255,255,0.08); color: var(--color-secondary);
-}
-.au-chip--pelaaja { background: rgba(167,139,250,0.20); color: #c4b5fd; }
-.au-chip--valmentaja { background: rgba(var(--color-primary-rgb),0.18); color: var(--color-primary); }
-.au-chip--toimihenkilo { background: rgba(45,212,191,0.18); color: #5eead4; }
-.au-chip--media { background: rgba(96,165,250,0.18); color: #93c5fd; }
-.au-chip--admin { background: rgba(74,222,128,0.18); color: var(--color-live); }
-.au-chip-x {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; border-radius: 999px; border: none; cursor: pointer;
-  background: rgba(0,0,0,0.25); color: inherit; font-size: 12px; padding: 0;
-}
-.au-chip-x:disabled { opacity: 0.4; cursor: default; }
-
-.au-err { margin-top: 8px; font-size: 12px; color: var(--color-loss); }
-
-.au-add-link {
-  margin-top: 10px; padding: 0; background: none; border: none; cursor: pointer;
-  color: var(--color-primary); font-family: inherit; font-size: 13px; font-weight: 700;
-  display: inline-flex; align-items: center; gap: 4px;
-}
-.au-empty { padding: 20px; text-align: center; color: var(--color-accent); }
-
-/* ---- Add-role popup ---- */
-.au-modal-backdrop {
-  position: fixed; inset: 0; z-index: 50;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
-  display: flex; align-items: flex-end; justify-content: center;
-  padding: 0;
-}
-.au-modal {
-  width: 100%; max-width: 480px; box-sizing: border-box;
-  background: var(--color-bg); border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 18px 18px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 18px);
-  color: var(--color-secondary);
-}
-@media (min-width: 520px) {
-  .au-modal-backdrop { align-items: center; }
-  .au-modal { border-radius: 18px; }
-}
-.au-modal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.au-modal-title {
-  flex: 1 1 auto; min-width: 0;
-  font-size: 15px; font-weight: 800; color: var(--color-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.au-modal-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 999px; border: none; cursor: pointer;
-  background: rgba(255,255,255,0.06); color: var(--color-secondary); flex: 0 0 auto; font-size: 18px;
-}
-.au-rows { display: flex; flex-direction: column; gap: 6px; max-height: 54vh; overflow-y: auto; }
-.au-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  width: 100%; box-sizing: border-box; padding: 13px 14px; text-align: left;
-  border-radius: var(--radius-item); cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
-  color: var(--color-secondary); font-family: inherit;
-}
-.au-row:hover { background: rgba(255,255,255,0.07); }
-.au-row:disabled { opacity: 0.5; cursor: default; }
-.au-row-main { font-size: 15px; font-weight: 700; }
-.au-row-aside { font-size: 12px; color: var(--color-accent); display: inline-flex; align-items: center; }
-`;

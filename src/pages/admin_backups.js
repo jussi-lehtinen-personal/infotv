@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowLeft, LuDatabase, LuRefreshCw, LuCheckCircle, LuAlertTriangle } from "react-icons/lu";
-import { themeCSS } from "../theme";
-import { Spinner } from "../components/ui/Spinner";
+import { LuDatabase, LuRefreshCw, LuCheckCircle, LuAlertTriangle } from "react-icons/lu";
+import { Box, Typography, Card, Stack, Button, CircularProgress } from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
+import { useGoBack } from "../hooks/useGoBack";
 import { getBackups, runBackup } from "../auth/authClient";
 
 // Admin › Varmuuskopiot (/admin/backups). Shows the latest backup time + a list,
@@ -38,7 +39,12 @@ const isStale = (iso) => {
   return isNaN(t) || Date.now() - t > 26 * 3_600_000;
 };
 
+const Status = ({ error, children }) => (
+  <Box sx={{ textAlign: "center", py: 5, color: error ? "var(--color-loss)" : "text.secondary" }}>{children}</Box>
+);
+
 const AdminBackups = () => {
+  const goBack = useGoBack("/admin");
   const [state, setState] = useState({ status: "loading" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -73,148 +79,75 @@ const AdminBackups = () => {
   const data = status === "ok" ? state.data : null;
   const latest = data && data.latest;
   const stale = latest && isStale(latest.createdAt);
+  const warn = !latest || stale;
+  const statusColor = warn ? "var(--color-accent-yellow)" : "var(--color-live)";
+  const statusBg = warn ? "rgba(251,191,36,0.16)" : "rgba(74,222,128,0.16)";
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="ab-root">
-        <header className="ab-head">
-          <Link to="/admin" className="ab-back" aria-label="Takaisin">
-            <LuArrowLeft aria-hidden="true" />
-          </Link>
-          <div>
-            <h1 className="ab-title">VARMUUSKOPIOT</h1>
-            <p className="ab-subtitle">Käyttäjät, roolit, asetukset</p>
-          </div>
-        </header>
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "60px" }}>
+      <MuiHeader title="Varmuuskopiot" subtitle="Käyttäjät, roolit, asetukset" onBack={goBack} />
 
-        {status === "loading" && <div className="ab-status"><Spinner /></div>}
-        {status === "unauthorized" && (
-          <div className="ab-status">Kirjaudu ensin sisään (<Link className="ab-link" to="/account">Minä</Link>).</div>
-        )}
-        {status === "forbidden" && <div className="ab-status">Tällä tilillä ei ole admin-oikeuksia.</div>}
-        {status === "error" && <div className="ab-status ab-error">Lataus epäonnistui. {state.error}</div>}
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5 }}>
+        {status === "loading" && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
+        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Minä</Box>).</Status>}
+        {status === "forbidden" && <Status>Tällä tilillä ei ole admin-oikeuksia.</Status>}
+        {status === "error" && <Status error>Lataus epäonnistui. {state.error}</Status>}
 
         {status === "ok" && (
           <>
-            <div className={`ab-latest ui-surface${stale ? " ab-latest--stale" : ""}`}>
-              <div className="ab-latest-icon">
-                {latest ? (stale ? <LuAlertTriangle aria-hidden="true" /> : <LuCheckCircle aria-hidden="true" />) : <LuAlertTriangle aria-hidden="true" />}
-              </div>
-              <div className="ab-latest-main">
+            <Card variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.75, p: 2, bgcolor: "background.paper", borderColor: stale ? "rgba(251,191,36,0.5)" : "divider" }}>
+              <Box sx={{ width: 42, height: 42, borderRadius: 1.5, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, bgcolor: statusBg, color: statusColor }}>
+                {latest && !stale ? <LuCheckCircle /> : <LuAlertTriangle />}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 {latest ? (
                   <>
-                    <div className="ab-latest-when">{fmtDateTime(latest.createdAt)}</div>
-                    <div className="ab-latest-sub">
-                      Viimeisin varmuuskopio · {ago(latest.createdAt)}
-                      {stale ? " · vanhentunut!" : ""}
-                    </div>
+                    <Typography sx={{ fontWeight: 700 }}>{fmtDateTime(latest.createdAt)}</Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>Viimeisin varmuuskopio · {ago(latest.createdAt)}{stale ? " · vanhentunut!" : ""}</Typography>
                   </>
                 ) : (
                   <>
-                    <div className="ab-latest-when">Ei varmuuskopioita</div>
-                    <div className="ab-latest-sub">Luo ensimmäinen alta.</div>
+                    <Typography sx={{ fontWeight: 700 }}>Ei varmuuskopioita</Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>Luo ensimmäinen alta.</Typography>
                   </>
                 )}
-              </div>
-              <div className="ab-latest-count">{data.total}<span>kpl</span></div>
-            </div>
+              </Box>
+              <Box sx={{ textAlign: "center", flexShrink: 0 }}>
+                <Typography sx={{ fontSize: 26, fontWeight: 800, color: "primary.main", lineHeight: 1 }}>{data.total}</Typography>
+                <Typography sx={{ fontSize: 10, fontWeight: 600, color: "text.secondary", letterSpacing: ".06em" }}>kpl</Typography>
+              </Box>
+            </Card>
 
-            {err && <div className="ab-err">{err}</div>}
+            {err && <Typography sx={{ mt: 1.5, fontSize: 13, color: "var(--color-loss)" }}>{err}</Typography>}
 
-            <button type="button" className="ab-run" onClick={createNow} disabled={busy}>
-              <LuRefreshCw className={busy ? "ab-spin" : ""} aria-hidden="true" />
+            <Button
+              onClick={createNow}
+              disabled={busy}
+              startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <LuRefreshCw />}
+              sx={{ my: 2.5, width: "100%", py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", color: "primary.main", border: "1px solid rgba(var(--color-primary-rgb),0.4)", bgcolor: "rgba(var(--color-primary-rgb),0.12)", "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.2)" } }}
+            >
               {busy ? "Luodaan…" : "Luo varmuuskopio nyt"}
-            </button>
+            </Button>
 
-            <div className="ab-list">
-              {data.backups.length === 0 && <div className="ab-empty">Ei varmuuskopioita vielä.</div>}
+            <Stack spacing={0.75}>
+              {data.backups.length === 0 && <Box sx={{ p: 2.5, textAlign: "center", color: "text.secondary" }}>Ei varmuuskopioita vielä.</Box>}
               {data.backups.map((b) => (
-                <div className="ab-row" key={b.name}>
-                  <LuDatabase className="ab-row-ico" aria-hidden="true" />
-                  <span className="ab-row-when">{fmtDateTime(b.createdAt)}</span>
-                  <span className="ab-row-size">{fmtSize(b.size)}</span>
-                </div>
+                <Stack key={b.name} direction="row" alignItems="center" spacing={1.25} sx={{ px: 1.75, py: 1.25, borderRadius: 2, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-divider)", fontSize: 14 }}>
+                  <LuDatabase style={{ flexShrink: 0, opacity: 0.6 }} />
+                  <Box sx={{ flex: 1 }}>{fmtDateTime(b.createdAt)}</Box>
+                  <Box sx={{ fontSize: 12, color: "text.secondary" }}>{fmtSize(b.size)}</Box>
+                </Stack>
               ))}
-            </div>
+            </Stack>
 
-            <p className="ab-foot">
-              Automaattinen varmuuskopio kerran vuorokaudessa (GitHub Actions).
-              Retentio: 14 päivittäistä + 8 viikoittaista + 6 kuukausittaista.
-            </p>
+            <Typography variant="body2" sx={{ mt: 2, color: "text.secondary", opacity: 0.8, lineHeight: 1.5 }}>
+              Automaattinen varmuuskopio kerran vuorokaudessa (GitHub Actions). Retentio: 14 päivittäistä + 8 viikoittaista + 6 kuukausittaista.
+            </Typography>
           </>
         )}
-      </div>
-    </>
+      </Box>
+    </Box>
   );
 };
 
 export default AdminBackups;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root { height: 100%; background: var(--color-bg); }
-body { margin: 0; }
-
-.ab-root {
-  min-height: 100dvh; padding: 22px 14px 60px; max-width: 640px; margin: 0 auto;
-  background: var(--bg-gradient); font-family: var(--font-family-base); color: var(--color-secondary);
-}
-.ab-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.ab-back {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 999px; flex: 0 0 auto;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
-  color: var(--color-secondary); font-size: 18px; text-decoration: none;
-}
-.ab-title {
-  font-family: var(--font-family-display, var(--font-family-base));
-  font-size: 26px; font-weight: 800; letter-spacing: 0.06em; margin: 0; color: var(--color-secondary);
-}
-.ab-subtitle { margin: 2px 0 0; color: var(--color-accent); font-size: 13px; }
-.ab-status { text-align: center; padding: 40px 0; color: var(--color-accent); }
-.ab-error { color: var(--color-loss); }
-.ab-link { color: var(--color-primary); }
-
-.ab-latest {
-  display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: var(--radius-card);
-}
-.ab-latest--stale { border-color: rgba(251,191,36,0.5); }
-.ab-latest-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 42px; height: 42px; border-radius: 12px; flex: 0 0 auto; font-size: 22px;
-  background: rgba(74,222,128,0.16); color: var(--color-live);
-}
-.ab-latest--stale .ab-latest-icon { background: rgba(251,191,36,0.16); color: var(--color-accent-yellow); }
-.ab-latest-main { flex: 1 1 auto; min-width: 0; }
-.ab-latest-when { font-size: 16px; font-weight: 700; }
-.ab-latest-sub { font-size: 12px; color: var(--color-accent); margin-top: 2px; }
-.ab-latest-count { font-size: 26px; font-weight: 800; color: var(--color-primary); line-height: 1; text-align: center; }
-.ab-latest-count span { display: block; font-size: 10px; font-weight: 600; color: var(--color-accent); letter-spacing: 0.06em; }
-
-.ab-err { margin: 12px 0 0; font-size: 13px; color: var(--color-loss); }
-.ab-run {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin: 14px 0 20px; padding: 13px; border-radius: var(--radius-item); cursor: pointer;
-  border: 1px solid rgba(var(--color-primary-rgb),0.4);
-  background: rgba(var(--color-primary-rgb),0.12); color: var(--color-primary);
-  font-family: inherit; font-size: 14px; font-weight: 700;
-}
-.ab-run:disabled { opacity: 0.6; cursor: default; }
-.ab-spin { animation: ab-spin 1s linear infinite; }
-@keyframes ab-spin { to { transform: rotate(360deg); } }
-
-.ab-list { display: flex; flex-direction: column; gap: 6px; }
-.ab-row {
-  display: flex; align-items: center; gap: 10px; padding: 11px 14px;
-  border-radius: var(--radius-item); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
-  font-size: 14px;
-}
-.ab-row-ico { color: var(--color-accent); flex: 0 0 auto; }
-.ab-row-when { flex: 1 1 auto; }
-.ab-row-size { font-size: 12px; color: var(--color-accent); }
-.ab-empty { padding: 20px; text-align: center; color: var(--color-accent); }
-.ab-foot { margin-top: 16px; font-size: 12px; color: var(--color-accent); opacity: 0.75; line-height: 1.5; }
-`;
