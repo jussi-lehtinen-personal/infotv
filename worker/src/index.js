@@ -774,7 +774,10 @@ async function handleGetTeamSeries(url, env) {
   const metas = clusterByDate(games)
     .map((cl) => {
       const rep = repHome(cl);
-      if (!rep) return null;
+      // Drop isolated one-off games (a real series has ≥2 games) — this removes
+      // the odd pre-season friendly that slips the level filter (e.g. a single
+      // "Suomi-sarja" harjoitusottelu whose level isn't "Harjoitus").
+      if (!rep || cl.length < 2) return null;
       return {
         from: String(cl[0].date).slice(0, 10),
         to: String(cl[cl.length - 1].date).slice(0, 10),
@@ -877,7 +880,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "14";
+const CACHE_VERSION = "15";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
