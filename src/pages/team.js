@@ -230,7 +230,15 @@ const Team = () => {
   const [seriesIdx, setSeriesIdx] = useState(0);
   const [tables, setTables] = useState({}); // `${seriesIdx}|${tab}` -> {loading|error|data}
   const [resolvedSids, setResolvedSids] = useState({}); // seriesIdx -> {subSerieId, levelId, subSerieName}
+  const tableReqRef = useRef({}); // keys already requested (guard WITHOUT `tables` in deps)
   const seasonOverride = searchParams.get("season");
+
+  // Reset stats when the team (subsiteId) changes — the component is reused across
+  // /teams/:subsiteId routes, so state would otherwise leak between teams.
+  useEffect(() => {
+    setSeriesInfo(null); setSeriesLoading(false); setSeriesError(false);
+    setSeriesIdx(0); setTables({}); setResolvedSids({}); tableReqRef.current = {};
+  }, [subsiteId]);
 
   // Drag-animated 2-pane pager (native non-passive listeners lock horizontal so
   // the page still scrolls vertically; track follows the finger, snaps on release).
@@ -299,18 +307,23 @@ const Team = () => {
 
   // Step 1: the series list, first time Tilastot opens. Skips ages with no
   // tulospalvelu mapping (age == null, e.g. Kiekkokoulu).
+  // NOTE: seriesLoading/seriesError are set INSIDE but MUST NOT be in the dep array
+  // — if they were, setSeriesLoading(true) would re-run this effect, whose cleanup
+  // cancels the in-flight fetch → the result is dropped → spinner spins forever.
   useEffect(() => {
-    if (mode !== "tilastot" || !age || seriesInfo || seriesLoading || seriesError) return;
+    if (mode !== "tilastot" || !age || seriesInfo) return;
     let cancelled = false;
     setSeriesLoading(true);
+    setSeriesError(false);
     const qs = new URLSearchParams({ age });
     if (seasonOverride) qs.set("season", seasonOverride);
     fetch(`/api/getTeamSeries?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => { if (!cancelled) { setSeriesInfo(d); setSeriesIdx(d.activeIdx || 0); setSeriesLoading(false); } })
-      .catch(() => { if (!cancelled) { setSeriesError(true); setSeriesLoading(false); } });
+      .then((d) => { if (!cancelled) { setSeriesInfo(d); setSeriesIdx(d.activeIdx || 0); } })
+      .catch(() => { if (!cancelled) setSeriesError(true); })
+      .finally(() => { if (!cancelled) setSeriesLoading(false); });
     return () => { cancelled = true; };
-  }, [mode, age, seasonOverride, seriesInfo, seriesLoading, seriesError]);
+  }, [mode, age, seasonOverride, seriesInfo]);
 
   // Step 2: the ONE table for the selected series + open tab — fetched lazily and
   // cached per (seriesIdx, tab). The ACTIVE series already carries its subSerieId;
@@ -322,7 +335,10 @@ const Team = () => {
     const s = seriesInfo.series[idx];
     const tab = TAB_KEYS[tTab];
     const key = `${idx}|${tab}`;
-    if (tables[key]) return; // already loading / loaded / errored
+    // Guard via a ref (NOT `tables` in deps) — else setTables(loading) would re-run
+    // this effect, whose cleanup cancels the fetch → table spinner spins forever.
+    if (tableReqRef.current[key]) return;
+    tableReqRef.current[key] = true;
     let cancelled = false;
     setTables((t) => ({ ...t, [key]: { loading: true } }));
     const known = resolvedSids[idx] || (s.subSerieId ? { subSerieId: s.subSerieId, levelId: s.levelId } : null);
@@ -345,9 +361,9 @@ const Team = () => {
         }
         setTables((t) => ({ ...t, [key]: { data: d } }));
       })
-      .catch(() => { if (!cancelled) setTables((t) => ({ ...t, [key]: { error: true } })); });
+      .catch(() => { if (!cancelled) { tableReqRef.current[key] = false; setTables((t) => ({ ...t, [key]: { error: true } })); } });
     return () => { cancelled = true; };
-  }, [mode, seriesInfo, seriesIdx, tTab, tables, resolvedSids]);
+  }, [mode, seriesInfo, seriesIdx, tTab, resolvedSids]);
 
   const heroTitle = `Kiekko-Ahma ${known?.name || data?.teamName || ""}`.trim();
   const players = data?.players || [];
