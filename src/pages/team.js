@@ -33,7 +33,7 @@ const TAB_KEYS = [null, "standings", "scorers", "goalies"];
 // Portrait roster/official photos crop badly in a small square — keep them tall
 // and anchored to the TOP (head stays, legs crop). Buttons stay a fixed square so
 // their round background never squashes to an ellipse in a tight flex row.
-const portraitAvatarSx = (w, h) => ({ width: w, height: h, flexShrink: 0, bgcolor: "rgba(255,255,255,0.06)", "& .MuiAvatar-img": { objectPosition: "top" } });
+const portraitAvatarSx = (w, h) => ({ width: w, height: h, flexShrink: 0, bgcolor: "var(--color-surface-divider)", color: "text.secondary", "& .MuiAvatar-img": { objectPosition: "top" } });
 const contactBtnSx = { width: 40, height: 40, flexShrink: 0, color: "text.primary", bgcolor: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", "&:hover": { bgcolor: "rgba(255,255,255,0.14)" } };
 
 const Center = ({ children }) => (
@@ -76,8 +76,8 @@ const ContactRow = ({ o }) => (
       )}
     </Stack>
     <Stack spacing={0.75} sx={{ mt: 1.25, color: "text.secondary", fontSize: 14 }}>
-      {o.phone && <Stack direction="row" spacing={1.25} alignItems="center"><Box component="span" sx={{ color: "primary.main", display: "inline-flex", flexShrink: 0 }}><LuPhone size={17} /></Box><MuiLink href={`tel:${o.phone}`} underline="hover" color="inherit">{o.phone}</MuiLink></Stack>}
-      {o.email && <Stack direction="row" spacing={1.25} alignItems="center"><Box component="span" sx={{ color: "primary.main", display: "inline-flex", flexShrink: 0 }}><LuMail size={17} /></Box><MuiLink href={`mailto:${o.email}`} underline="hover" color="inherit">{o.email}</MuiLink></Stack>}
+      {o.phone && <Stack direction="row" spacing={1.25} alignItems="center"><Box sx={{ color: "primary.main", display: "flex", alignItems: "center", flexShrink: 0 }}><LuPhone size={16} /></Box><MuiLink href={`tel:${o.phone}`} underline="hover" color="inherit" sx={{ lineHeight: 1.2 }}>{o.phone}</MuiLink></Stack>}
+      {o.email && <Stack direction="row" spacing={1.25} alignItems="center"><Box sx={{ color: "primary.main", display: "flex", alignItems: "center", flexShrink: 0 }}><LuMail size={16} /></Box><MuiLink href={`mailto:${o.email}`} underline="hover" color="inherit" sx={{ lineHeight: 1.2, wordBreak: "break-all" }}>{o.email}</MuiLink></Stack>}
     </Stack>
   </Card>
 );
