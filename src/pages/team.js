@@ -228,7 +228,8 @@ const Team = () => {
   const [seriesLoading, setSeriesLoading] = useState(false);
   const [seriesError, setSeriesError] = useState(false);
   const [seriesIdx, setSeriesIdx] = useState(0);
-  const [tables, setTables] = useState({}); // `${subSerieId}|${tab}` -> {loading|error|data}
+  const [tables, setTables] = useState({}); // `${seriesIdx}|${tab}` -> {loading|error|data}
+  const [resolvedSids, setResolvedSids] = useState({}); // seriesIdx -> {subSerieId, levelId, subSerieName}
   const seasonOverride = searchParams.get("season");
 
   // Drag-animated 2-pane pager (native non-passive listeners lock horizontal so
@@ -312,23 +313,41 @@ const Team = () => {
   }, [mode, age, seasonOverride, seriesInfo, seriesLoading, seriesError]);
 
   // Step 2: the ONE table for the selected series + open tab — fetched lazily and
-  // cached per (subSerieId, tab), so switching tabs/series never refetches.
+  // cached per (seriesIdx, tab). The ACTIVE series already carries its subSerieId;
+  // any OTHER series is resolved on demand here (the worker resolves from the rep
+  // game identity — one call, only when the user opens that series). No loop.
   useEffect(() => {
     if (mode !== "tilastot" || !seriesInfo || !seriesInfo.series?.length) return;
-    const s = seriesInfo.series[Math.min(seriesIdx, seriesInfo.series.length - 1)];
+    const idx = Math.min(seriesIdx, seriesInfo.series.length - 1);
+    const s = seriesInfo.series[idx];
     const tab = TAB_KEYS[tTab];
-    const key = `${s.subSerieId}|${tab}`;
+    const key = `${idx}|${tab}`;
     if (tables[key]) return; // already loading / loaded / errored
     let cancelled = false;
     setTables((t) => ({ ...t, [key]: { loading: true } }));
-    const qs = new URLSearchParams({ season: String(seriesInfo.usedSeason), subSerieId: s.subSerieId, tab });
-    if (s.levelId) qs.set("levelId", s.levelId);
+    const known = resolvedSids[idx] || (s.subSerieId ? { subSerieId: s.subSerieId, levelId: s.levelId } : null);
+    const qs = new URLSearchParams({ season: String(seriesInfo.usedSeason), tab });
+    if (known) {
+      qs.set("subSerieId", known.subSerieId);
+      if (known.levelId) qs.set("levelId", known.levelId);
+    } else if (s.game) {
+      qs.set("gameId", s.game.id);
+      qs.set("date", s.game.date);
+      qs.set("home", s.game.home);
+      qs.set("away", s.game.away);
+    }
     fetch(`/api/getSeriesTable?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => { if (!cancelled) setTables((t) => ({ ...t, [key]: { data: d } })); })
+      .then((d) => {
+        if (cancelled) return;
+        if (!known && d.subSerieId) {
+          setResolvedSids((m) => ({ ...m, [idx]: { subSerieId: d.subSerieId, levelId: d.levelId, subSerieName: d.subSerieName } }));
+        }
+        setTables((t) => ({ ...t, [key]: { data: d } }));
+      })
       .catch(() => { if (!cancelled) setTables((t) => ({ ...t, [key]: { error: true } })); });
     return () => { cancelled = true; };
-  }, [mode, seriesInfo, seriesIdx, tTab, tables]);
+  }, [mode, seriesInfo, seriesIdx, tTab, tables, resolvedSids]);
 
   const heroTitle = `Kiekko-Ahma ${known?.name || data?.teamName || ""}`.trim();
   const players = data?.players || [];
@@ -430,8 +449,9 @@ const Team = () => {
                 const info = seriesInfo;
                 const series = info?.series || [];
                 if (!info || !series.length) return <Note>Ei tilastoja tälle kaudelle.</Note>;
-                const sel = series[Math.min(seriesIdx, series.length - 1)];
-                const cell = tables[`${sel.subSerieId}|${TAB_KEYS[tTab]}`];
+                const idx = Math.min(seriesIdx, series.length - 1);
+                const cell = tables[`${idx}|${TAB_KEYS[tTab]}`];
+                const label = (s, i) => resolvedSids[i]?.subSerieName || s.subSerieName || s.label;
                 return (
                   <>
                     {info.fallback && (
@@ -441,12 +461,12 @@ const Team = () => {
                     )}
                     {series.length > 1 && (
                       <Select
-                        size="small" fullWidth value={Math.min(seriesIdx, series.length - 1)}
+                        size="small" fullWidth value={idx}
                         onChange={(e) => setSeriesIdx(Number(e.target.value))}
                         sx={{ mb: 1.5, bgcolor: "#1a1a1a", "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.14)" } }}
                       >
                         {series.map((s, i) => (
-                          <MenuItem key={s.subSerieId} value={i}>{s.subSerieName}{s.ongoing ? " (kesken)" : ""}</MenuItem>
+                          <MenuItem key={i} value={i}>{label(s, i)}{s.ongoing ? " (kesken)" : ""}</MenuItem>
                         ))}
                       </Select>
                     )}

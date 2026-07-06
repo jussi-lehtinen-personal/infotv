@@ -732,9 +732,15 @@ function clusterByDate(games) {
   return clusters;
 }
 
+function monthRange(from, to) {
+  const mm = (s) => `${s.slice(5, 7)}/${s.slice(0, 4)}`;
+  return mm(from) === mm(to) ? mm(from) : `${mm(from)}–${mm(to)}`;
+}
+
 // The series a team plays this season, from the 24 h game list (0 tulospalvelu
-// calls) + one resolve per cluster (KV-permanent). NO standings/scorer calls here
-// — the client fetches those lazily per tab via /getSeriesTable.
+// calls) + resolving ONLY the active series (exactly ONE call — NO loop). The
+// other series carry their representative game's identity so the client can
+// resolve them LAZILY, one at a time, when the user actually opens them.
 async function handleGetTeamSeries(url, env) {
   const age = url.searchParams.get("age");
   if (!age) return { error: "age required", series: [] };
@@ -754,72 +760,80 @@ async function handleGetTeamSeries(url, env) {
   }
   if (!games.length) return { age, usedSeason, fallback, activeIdx: 0, series: [] };
 
-  // Representative = an Ahma HOME game (→ HOME district → exactly 1 call, no loop):
-  // latest PLAYED home game, else latest home game. A cluster with no home game is
-  // skipped (its series is picked up from a cluster that does have one).
-  const rep = (cl) => {
+  // A representative Ahma HOME game per cluster (home → HOME district → a single
+  // call WHEN resolved). Clusters with no home game are dropped (not resolvable in
+  // one call). Nothing is resolved here except the active series below.
+  const repHome = (cl) => {
     const home = cl.filter((g) => g.ahmaHome);
     if (!home.length) return null;
     const played = home.filter((g) => Number(g.finished) > 0);
-    return (played.length ? played : home)[(played.length ? played : home).length - 1];
+    const g = (played.length ? played : home)[(played.length ? played : home).length - 1];
+    return { id: g.id, date: g.date, home: g.homeTeamId, away: g.awayTeamId };
   };
 
-  const bySid = new Map();
-  for (const cl of clusterByDate(games)) {
-    const g = rep(cl);
-    if (!g) continue;
-    const s = await resolveGameSeries(env, g.id, g.date, g.homeTeamId, g.awayTeamId);
-    if (!s) continue;
-    const from = String(cl[0].date).slice(0, 10);
-    const to = String(cl[cl.length - 1].date).slice(0, 10);
-    const ongoing = cl.some((x) => Number(x.finished) === 0);
-    const e = bySid.get(s.subSerieId);
-    if (!e) bySid.set(s.subSerieId, { ...s, from, to, ongoing, lastDate: to, games: cl.length });
-    else {
-      if (from < e.from) e.from = from;
-      if (to > e.to) e.to = to;
-      e.ongoing = e.ongoing || ongoing;
-      if (to > e.lastDate) e.lastDate = to;
-      e.games += cl.length;
-    }
-  }
-
-  // Drop friendly series (some slip the level filter — e.g. "Suomi-sarjan
-  // harjoitusottelut" has level "Suomi-sarja", not "Harjoitus"). Only real
-  // (Karsinta/Alku/Jatko/playoff) series remain.
-  const series = [...bySid.values()]
-    .filter((s) => !/harjoitus/i.test(s.subSerieName || ""))
+  const metas = clusterByDate(games)
+    .map((cl) => {
+      const rep = repHome(cl);
+      if (!rep) return null;
+      return {
+        from: String(cl[0].date).slice(0, 10),
+        to: String(cl[cl.length - 1].date).slice(0, 10),
+        ongoing: cl.some((x) => Number(x.finished) === 0),
+        games: cl.length,
+        rep,
+      };
+    })
+    .filter(Boolean)
     .sort((a, b) => (a.from < b.from ? -1 : 1));
-  // Active = the ONGOING series (latest one, if a season is in progress); once a
-  // season is over, default to the PRIMARY series (most games) — not a small
-  // playoff bracket.
-  let activeIdx = 0;
-  const ongoingIdx = series.map((s, i) => (s.ongoing ? i : -1)).filter((i) => i >= 0);
-  if (ongoingIdx.length) {
-    activeIdx = ongoingIdx.reduce((a, i) => (series[i].lastDate > series[a].lastDate ? i : a), ongoingIdx[0]);
-  } else {
-    series.forEach((s, i) => { if (s.games > series[activeIdx].games) activeIdx = i; });
-  }
+  if (!metas.length) return { age, usedSeason, fallback, activeIdx: 0, series: [] };
+
+  // Active = ongoing cluster (latest) in-season, else the biggest (primary) once
+  // the season is over. Resolve ONLY this one (1 call). The rest stay lazy.
+  const ongoing = metas.filter((m) => m.ongoing);
+  const chosen = ongoing.length
+    ? ongoing.reduce((a, b) => (b.to > a.to ? b : a))
+    : metas.reduce((a, b) => (b.games > a.games ? b : a));
+  const activeIdx = metas.indexOf(chosen);
+  const resolved = await resolveGameSeries(env, chosen.rep.id, chosen.rep.date, chosen.rep.home, chosen.rep.away);
 
   return {
     age, usedSeason, fallback, activeIdx,
-    series: series.map((s, i) => ({
-      idx: i, subSerieId: s.subSerieId, subSerieName: s.subSerieName, levelId: s.levelId,
-      from: s.from, to: s.to, ongoing: s.ongoing, active: i === activeIdx,
+    series: metas.map((m, i) => ({
+      idx: i,
+      from: m.from, to: m.to, ongoing: m.ongoing,
+      active: i === activeIdx,
+      label: monthRange(m.from, m.to),
+      game: m.rep, // identity for lazy resolve of a non-active series
+      ...(i === activeIdx && resolved
+        ? { subSerieId: resolved.subSerieId, subSerieName: resolved.subSerieName, levelId: resolved.levelId }
+        : {}),
     })),
   };
 }
 
-// ONE table for one series — a single tulospalvelu call, cached long.
-async function handleGetSeriesTable(url) {
+// ONE table for one series = ONE getstandings/getplayers/getgoalkeepers call. If
+// the series isn't resolved yet (a non-active one the user just opened), the
+// client passes the rep game identity → we resolve it here (one KV-permanent
+// call), then fetch the table. Still no loop.
+async function handleGetSeriesTable(url, env) {
   const season = url.searchParams.get("season");
-  const subSerieId = url.searchParams.get("subSerieId");
-  const levelId = url.searchParams.get("levelId");
+  let subSerieId = url.searchParams.get("subSerieId");
+  let levelId = url.searchParams.get("levelId");
+  let subSerieName = null;
   const tab = url.searchParams.get("tab") || "standings";
-  if (!season || !subSerieId) return { error: "season + subSerieId required" };
-  if (tab === "scorers") return { tab, scorers: await fetchScorers(season, subSerieId) };
-  if (tab === "goalies") return { tab, goalies: await fetchGoalies(season, subSerieId, levelId) };
-  return { tab: "standings", standings: await fetchStandings(season, subSerieId) };
+  if (!subSerieId && url.searchParams.get("gameId")) {
+    const r = await resolveGameSeries(
+      env,
+      url.searchParams.get("gameId"), url.searchParams.get("date"),
+      url.searchParams.get("home"), url.searchParams.get("away")
+    );
+    if (r) { subSerieId = r.subSerieId; levelId = levelId || r.levelId; subSerieName = r.subSerieName; }
+  }
+  if (!season || !subSerieId) return { error: "season + subSerieId (or game identity) required" };
+  const base = { tab, subSerieId, levelId, subSerieName };
+  if (tab === "scorers") return { ...base, scorers: await fetchScorers(season, subSerieId) };
+  if (tab === "goalies") return { ...base, goalies: await fetchGoalies(season, subSerieId, levelId) };
+  return { ...base, tab: "standings", standings: await fetchStandings(season, subSerieId) };
 }
 
 /* --------------------------------- router --------------------------------- */
@@ -863,7 +877,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "13";
+const CACHE_VERSION = "14";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
@@ -933,7 +947,7 @@ export default {
       if (url.pathname === "/getTeamSeries")
         return await cachedJson(ctx, url, TTL_STATS_S, () => handleGetTeamSeries(url, env));
       if (url.pathname === "/getSeriesTable")
-        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeriesTable(url));
+        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeriesTable(url, env));
       return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getTeamSeries", "/getSeriesTable", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
