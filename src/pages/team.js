@@ -10,6 +10,7 @@ import {
 import { findJopoxTeam } from "../data/jopoxTeams";
 import { favouriteAgeKey, gameAgeKey } from "../lib/teamMatch";
 import { fetchSeasonGames } from "../lib/seasonGamesCache";
+import { splitTeamName } from "../Util";
 
 // Team page (MUI content inside a hand-rolled shell: hero + a drag-animated
 // Joukkue/Tilastot pager). Data = getTeamRoster (Jopox). Standings is mock for
@@ -81,13 +82,28 @@ const ContactRow = ({ o }) => (
   </Card>
 );
 
-// Shared table shell (dark, outlined, small, Ahma rows tinted).
+// Shared table shell (dark, outlined, small, Ahma rows tinted). maxHeight + a
+// sticky header keep the column labels visible while scrolling a long list; the
+// th needs an opaque bg so rows don't bleed under it.
 const statTableSx = {
+  maxHeight: "58vh",
   bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)",
-  "& th": { color: "text.secondary", fontWeight: 700, borderColor: "rgba(255,255,255,0.08)", whiteSpace: "nowrap", px: 1, py: 0.75 },
+  "& th": { color: "text.secondary", fontWeight: 700, borderColor: "rgba(255,255,255,0.08)", whiteSpace: "nowrap", px: 1, py: 0.75, bgcolor: "#1a1a1a" },
   "& td": { borderColor: "rgba(255,255,255,0.06)", px: 1, py: 0.75, whiteSpace: "nowrap" },
 };
 const ahmaRowSx = (me) => (me ? { bgcolor: "rgba(249,115,22,0.12)" } : null);
+
+// Team name that keeps the club name and lets only the variant ("lisänimi" —
+// colour word like Sininen/Musta) drop to a dimmer second line when space is tight.
+const TeamName = ({ name }) => {
+  const { main, sub } = splitTeamName(name);
+  return (
+    <>
+      {main}
+      {sub && <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}> {sub}</Box>}
+    </>
+  );
+};
 const Note = ({ children }) => (
   <Box sx={{ py: 4, textAlign: "center", color: "text.secondary", fontSize: 14 }}>{children}</Box>
 );
@@ -99,13 +115,12 @@ const StandingsTable = ({ standings }) => {
   return (
     <>
       <TableContainer component={Paper} variant="outlined" sx={statTableSx}>
-        <Table size="small">
+        <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell>#</TableCell><TableCell>Joukkue</TableCell>
               <TableCell align="right">O</TableCell><TableCell align="right">V</TableCell>
               <TableCell align="right">T</TableCell><TableCell align="right">H</TableCell>
-              <TableCell align="right">Maalit</TableCell><TableCell align="right">+/-</TableCell>
               {showPts && <TableCell align="right">P</TableCell>}
             </TableRow>
           </TableHead>
@@ -113,13 +128,11 @@ const StandingsTable = ({ standings }) => {
             {teams.map((r) => (
               <TableRow key={r.rank + r.team} sx={ahmaRowSx(r.isAhma)}>
                 <TableCell sx={{ color: "text.secondary" }}>{r.rank}</TableCell>
-                <TableCell sx={{ fontWeight: r.isAhma ? 800 : 500, color: r.isAhma ? "primary.main" : "text.primary", whiteSpace: "normal", minWidth: 88 }}>{r.team}</TableCell>
+                <TableCell sx={{ fontWeight: r.isAhma ? 800 : 500, color: r.isAhma ? "primary.main" : "text.primary", whiteSpace: "normal", minWidth: 88 }}><TeamName name={r.team} /></TableCell>
                 <TableCell align="right">{r.gp}</TableCell>
                 <TableCell align="right">{(r.w || 0) + (r.otw || 0)}</TableCell>
                 <TableCell align="right">{r.ties}</TableCell>
                 <TableCell align="right">{(r.l || 0) + (r.otl || 0)}</TableCell>
-                <TableCell align="right" sx={{ color: "text.secondary" }}>{r.gf}–{r.ga}</TableCell>
-                <TableCell align="right">{r.gd > 0 ? `+${r.gd}` : r.gd}</TableCell>
                 {showPts && <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>{r.pts}</TableCell>}
               </TableRow>
             ))}
@@ -136,10 +149,10 @@ const ScorersTable = ({ scorers }) => {
   if (!rows.length) return <Note>Ei pistepörssiä tälle sarjalle.</Note>;
   return (
     <TableContainer component={Paper} variant="outlined" sx={statTableSx}>
-      <Table size="small">
+      <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell>#</TableCell><TableCell>Pelaaja</TableCell><TableCell>Joukkue</TableCell>
+            <TableCell>#</TableCell><TableCell>Pelaaja</TableCell>
             <TableCell align="right">O</TableCell><TableCell align="right">M</TableCell>
             <TableCell align="right">S</TableCell><TableCell align="right">P</TableCell>
           </TableRow>
@@ -148,10 +161,10 @@ const ScorersTable = ({ scorers }) => {
           {rows.map((p, i) => (
             <TableRow key={p.rank + (p.last || "") + i} sx={ahmaRowSx(p.isAhma)}>
               <TableCell sx={{ color: "text.secondary" }}>{p.rank}</TableCell>
-              <TableCell sx={{ whiteSpace: "normal", minWidth: 120, fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>
-                {p.first} {p.last}
+              <TableCell sx={{ whiteSpace: "normal", minWidth: 120 }}>
+                <Box sx={{ fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>{p.first} {p.last}</Box>
+                <Box sx={{ color: "text.secondary", fontSize: 11 }}><TeamName name={p.team} /></Box>
               </TableCell>
-              <TableCell sx={{ color: "text.secondary", whiteSpace: "normal", minWidth: 80 }}>{p.team}</TableCell>
               <TableCell align="right">{p.gp}</TableCell>
               <TableCell align="right">{p.g}</TableCell>
               <TableCell align="right">{p.a}</TableCell>
@@ -169,10 +182,10 @@ const GoaliesTable = ({ goalies }) => {
   if (!rows.length) return <Note>Ei maalivahtitilastoja tälle sarjalle.</Note>;
   return (
     <TableContainer component={Paper} variant="outlined" sx={statTableSx}>
-      <Table size="small">
+      <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell>#</TableCell><TableCell>Maalivahti</TableCell><TableCell>Joukkue</TableCell>
+            <TableCell>#</TableCell><TableCell>Maalivahti</TableCell>
             <TableCell align="right">O</TableCell><TableCell align="right">Torj.</TableCell>
             <TableCell align="right">PÄ</TableCell><TableCell align="right">Torj.%</TableCell>
           </TableRow>
@@ -181,8 +194,10 @@ const GoaliesTable = ({ goalies }) => {
           {rows.map((p, i) => (
             <TableRow key={p.rank + (p.last || "") + i} sx={ahmaRowSx(p.isAhma)}>
               <TableCell sx={{ color: "text.secondary" }}>{p.rank}</TableCell>
-              <TableCell sx={{ whiteSpace: "normal", minWidth: 120, fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>{p.first} {p.last}</TableCell>
-              <TableCell sx={{ color: "text.secondary", whiteSpace: "normal", minWidth: 80 }}>{p.team}</TableCell>
+              <TableCell sx={{ whiteSpace: "normal", minWidth: 120 }}>
+                <Box sx={{ fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>{p.first} {p.last}</Box>
+                <Box sx={{ color: "text.secondary", fontSize: 11 }}><TeamName name={p.team} /></Box>
+              </TableCell>
               <TableCell align="right">{p.gp}</TableCell>
               <TableCell align="right">{p.saves}</TableCell>
               <TableCell align="right">{p.ga}</TableCell>
