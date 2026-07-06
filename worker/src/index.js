@@ -775,18 +775,32 @@ async function handleGetTeamSeries(url, env) {
     const to = String(cl[cl.length - 1].date).slice(0, 10);
     const ongoing = cl.some((x) => Number(x.finished) === 0);
     const e = bySid.get(s.subSerieId);
-    if (!e) bySid.set(s.subSerieId, { ...s, from, to, ongoing, lastDate: to });
+    if (!e) bySid.set(s.subSerieId, { ...s, from, to, ongoing, lastDate: to, games: cl.length });
     else {
       if (from < e.from) e.from = from;
       if (to > e.to) e.to = to;
       e.ongoing = e.ongoing || ongoing;
       if (to > e.lastDate) e.lastDate = to;
+      e.games += cl.length;
     }
   }
 
-  const series = [...bySid.values()].sort((a, b) => (a.from < b.from ? -1 : 1));
-  let activeIdx = 0, best = "";
-  series.forEach((s, i) => { if (s.lastDate > best) { best = s.lastDate; activeIdx = i; } });
+  // Drop friendly series (some slip the level filter — e.g. "Suomi-sarjan
+  // harjoitusottelut" has level "Suomi-sarja", not "Harjoitus"). Only real
+  // (Karsinta/Alku/Jatko/playoff) series remain.
+  const series = [...bySid.values()]
+    .filter((s) => !/harjoitus/i.test(s.subSerieName || ""))
+    .sort((a, b) => (a.from < b.from ? -1 : 1));
+  // Active = the ONGOING series (latest one, if a season is in progress); once a
+  // season is over, default to the PRIMARY series (most games) — not a small
+  // playoff bracket.
+  let activeIdx = 0;
+  const ongoingIdx = series.map((s, i) => (s.ongoing ? i : -1)).filter((i) => i >= 0);
+  if (ongoingIdx.length) {
+    activeIdx = ongoingIdx.reduce((a, i) => (series[i].lastDate > series[a].lastDate ? i : a), ongoingIdx[0]);
+  } else {
+    series.forEach((s, i) => { if (s.games > series[activeIdx].games) activeIdx = i; });
+  }
 
   return {
     age, usedSeason, fallback, activeIdx,
@@ -850,7 +864,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "11";
+const CACHE_VERSION = "12";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
