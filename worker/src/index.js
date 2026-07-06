@@ -732,15 +732,12 @@ function clusterByDate(games) {
   return clusters;
 }
 
-function monthRange(from, to) {
-  const mm = (s) => `${s.slice(5, 7)}/${s.slice(0, 4)}`;
-  return mm(from) === mm(to) ? mm(from) : `${mm(from)}–${mm(to)}`;
-}
-
 // The series a team plays this season, from the 24 h game list (0 tulospalvelu
-// calls) + resolving ONLY the active series (exactly ONE call — NO loop). The
-// other series carry their representative game's identity so the client can
-// resolve them LAZILY, one at a time, when the user actually opens them.
+// calls) + ONE HOME-district resolve per date-cluster (a season has ~2–3:
+// Alku/Karsinta, Jatko, maybe playoffs). Home-district only → 1 fast call each,
+// NO district loop; KV-permanent per game. Deduped by real subSerieId, so a single
+// series split by the Christmas break (same subSerieId in the autumn + spring
+// clusters) collapses to ONE entry — no phantom duplicate.
 async function handleGetTeamSeries(url, env) {
   const age = url.searchParams.get("age");
   if (!age) return { error: "age required", series: [] };
@@ -760,56 +757,51 @@ async function handleGetTeamSeries(url, env) {
   }
   if (!games.length) return { age, usedSeason, fallback, activeIdx: 0, series: [] };
 
-  // A representative Ahma HOME game per cluster (home → HOME district → a single
-  // call WHEN resolved). Clusters with no home game are dropped (not resolvable in
-  // one call). Nothing is resolved here except the active series below.
+  // Representative Ahma HOME game of a cluster (home = Valkeakoski = HOME district).
   const repHome = (cl) => {
     const home = cl.filter((g) => g.ahmaHome);
     if (!home.length) return null;
     const played = home.filter((g) => Number(g.finished) > 0);
-    const g = (played.length ? played : home)[(played.length ? played : home).length - 1];
-    return { id: g.id, date: g.date, home: g.homeTeamId, away: g.awayTeamId };
+    return (played.length ? played : home)[(played.length ? played : home).length - 1];
   };
 
-  const metas = clusterByDate(games)
-    .map((cl) => {
-      const rep = repHome(cl);
-      // Drop isolated one-off games (a real series has ≥2 games) — this removes
-      // the odd pre-season friendly that slips the level filter (e.g. a single
-      // "Suomi-sarja" harjoitusottelu whose level isn't "Harjoitus").
-      if (!rep || cl.length < 2) return null;
-      return {
-        from: String(cl[0].date).slice(0, 10),
-        to: String(cl[cl.length - 1].date).slice(0, 10),
-        ongoing: cl.some((x) => Number(x.finished) === 0),
-        games: cl.length,
-        rep,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => (a.from < b.from ? -1 : 1));
-  if (!metas.length) return { age, usedSeason, fallback, activeIdx: 0, series: [] };
+  // Resolve each cluster (≤ ~3) to its real subSerieId, deduping. One home-district
+  // call per cluster; skip 1-game clusters (stray friendlies).
+  const bySid = new Map();
+  for (const cl of clusterByDate(games)) {
+    if (cl.length < 2) continue;
+    const g = repHome(cl);
+    if (!g) continue;
+    const s = await resolveGameSeries(env, g.id, g.date, g.homeTeamId, g.awayTeamId);
+    if (!s) continue;
+    const from = String(cl[0].date).slice(0, 10);
+    const to = String(cl[cl.length - 1].date).slice(0, 10);
+    const ongoing = cl.some((x) => Number(x.finished) === 0);
+    const e = bySid.get(s.subSerieId);
+    if (!e) bySid.set(s.subSerieId, { ...s, from, to, ongoing, lastDate: to });
+    else {
+      if (from < e.from) e.from = from;
+      if (to > e.to) e.to = to;
+      e.ongoing = e.ongoing || ongoing;
+      if (to > e.lastDate) e.lastDate = to;
+    }
+  }
 
-  // Active = ongoing cluster (latest) in-season, else the biggest (primary) once
-  // the season is over. Resolve ONLY this one (1 call). The rest stay lazy.
-  const ongoing = metas.filter((m) => m.ongoing);
-  const chosen = ongoing.length
-    ? ongoing.reduce((a, b) => (b.to > a.to ? b : a))
-    : metas.reduce((a, b) => (b.games > a.games ? b : a));
-  const activeIdx = metas.indexOf(chosen);
-  const resolved = await resolveGameSeries(env, chosen.rep.id, chosen.rep.date, chosen.rep.home, chosen.rep.away);
+  const series = [...bySid.values()]
+    .filter((s) => !/harjoitus/i.test(s.subSerieName || ""))
+    .sort((a, b) => (a.from < b.from ? -1 : 1));
+  if (!series.length) return { age, usedSeason, fallback, activeIdx: 0, series: [] };
+
+  // Active default = the LATEST series (most recent games) — the current /
+  // jatkosarja, not the old alkusarja.
+  let activeIdx = 0;
+  series.forEach((s, i) => { if (s.lastDate > series[activeIdx].lastDate) activeIdx = i; });
 
   return {
     age, usedSeason, fallback, activeIdx,
-    series: metas.map((m, i) => ({
-      idx: i,
-      from: m.from, to: m.to, ongoing: m.ongoing,
-      active: i === activeIdx,
-      label: monthRange(m.from, m.to),
-      game: m.rep, // identity for lazy resolve of a non-active series
-      ...(i === activeIdx && resolved
-        ? { subSerieId: resolved.subSerieId, subSerieName: resolved.subSerieName, levelId: resolved.levelId }
-        : {}),
+    series: series.map((s, i) => ({
+      idx: i, subSerieId: s.subSerieId, subSerieName: s.subSerieName, levelId: s.levelId,
+      from: s.from, to: s.to, ongoing: s.ongoing, active: i === activeIdx,
     })),
   };
 }
@@ -880,7 +872,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "15";
+const CACHE_VERSION = "16";
 
 async function cachedJson(ctx, url, ttlSeconds, compute) {
   const cache = caches.default;
