@@ -3,6 +3,8 @@ import {
     Routes,
     Route
 } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
+import { muiTheme } from "./theme/muiTheme";
 import './App.css';
 
 import Home from "./pages";
@@ -38,6 +40,7 @@ import NextHomeGame from "./pages/next_home_game";
 
 function App() {
   return (
+    <ThemeProvider theme={muiTheme}>
     <Router>
       <UpdatePrompt />
       <ErrorBoundary>
@@ -108,6 +111,7 @@ function App() {
         </Routes>
       </ErrorBoundary>
     </Router>
+    </ThemeProvider>
   );
 }
 
