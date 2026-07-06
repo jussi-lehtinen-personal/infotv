@@ -299,6 +299,28 @@ export async function setUserRole({ userId, role, team, action }) {
   return data;
 }
 
+// Admin-only backup status (last backup, count, recent list). getStats-style.
+export async function getBackups() {
+  const token = getToken();
+  if (!token) return { status: "unauthorized" };
+  const res = await fetch("/api/manageBackups", { headers: { "X-Ahma-Auth": token } });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) return { status: "unauthorized" };
+  if (res.status === 403) return { status: "forbidden", youAre: data.youAre };
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return { status: "ok", data };
+}
+
+// Admin-triggered manual backup ("Luo varmuuskopio nyt"). Returns the summary.
+export async function runBackup() {
+  const token = getToken();
+  if (!token) throw new Error("Kirjautuminen vaaditaan.");
+  const res = await fetch("/api/exportBackup", { method: "POST", headers: { "X-Ahma-Auth": token } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return data;
+}
+
 let configCache = null;
 export async function getAuthConfig() {
   if (configCache) return configCache;

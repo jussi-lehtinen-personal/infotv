@@ -33,6 +33,7 @@ import Report from "./pages/report";
 import Stats from "./pages/stats";
 import Admin from "./pages/admin";
 import AdminUsers from "./pages/admin_users";
+import AdminBackups from "./pages/admin_backups";
 import NextHomeGame from "./pages/next_home_game";
 
 function App() {
@@ -97,6 +98,7 @@ function App() {
             <Route path="/stats" element={<Stats />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/backups" element={<AdminBackups />} />
             <Route path="/next_home_game" element={<NextHomeGame />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route

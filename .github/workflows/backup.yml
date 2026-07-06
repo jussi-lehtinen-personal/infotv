@@ -1,0 +1,33 @@
+name: Daily data backup
+
+# Backs up the stateful Table Storage (users/roles/settings/passkeys) daily.
+# Hits /api/exportBackup (which writes a gzipped snapshot to the `backups` Blob
+# container + prunes old ones) and ALSO keeps the returned file as a workflow
+# artifact — an off-account copy that survives even total loss of the storage
+# account. See memory: project_backups.
+#
+# Requires repo secret BACKUP_KEY (same value as the SWA app-setting BACKUP_KEY).
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 02:00 UTC ≈ 04:00–05:00 Helsinki (off-peak)
+  workflow_dispatch: {} # allow a manual run from the Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backup + download snapshot
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --retry-delay 10 \
+            -X POST "https://gamezone.kiekko-ahma.fi/api/exportBackup?download=1" \
+            -H "x-backup-key: ${{ secrets.BACKUP_KEY }}" \
+            -o backup.json.gz
+          echo "Downloaded $(stat -c%s backup.json.gz) bytes"
+      - name: Upload off-account artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ahma-backup-${{ github.run_id }}
+          path: backup.json.gz
+          retention-days: 90

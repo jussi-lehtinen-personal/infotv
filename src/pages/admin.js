@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuUsers, LuArrowLeft, LuChevronRight, LuShieldCheck } from "react-icons/lu";
+import { LuUsers, LuArrowLeft, LuChevronRight, LuDatabase, LuBarChart3 } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { getMe } from "../auth/authClient";
@@ -102,13 +102,23 @@ const Admin = () => {
               <LuChevronRight className="ad-card-arrow" aria-hidden="true" />
             </Link>
 
-            <div className="ad-card ui-surface ad-card--soon">
-              <span className="ad-card-icon"><LuShieldCheck aria-hidden="true" /></span>
+            <Link to="/stats" className="ad-card ui-surface">
+              <span className="ad-card-icon"><LuBarChart3 aria-hidden="true" /></span>
               <span className="ad-card-main">
-                <span className="ad-card-title">Lisää työkaluja</span>
-                <span className="ad-card-sub">Tulossa</span>
+                <span className="ad-card-title">Tilastot</span>
+                <span className="ad-card-sub">Rekisteröityneet käyttäjät</span>
               </span>
-            </div>
+              <LuChevronRight className="ad-card-arrow" aria-hidden="true" />
+            </Link>
+
+            <Link to="/admin/backups" className="ad-card ui-surface">
+              <span className="ad-card-icon"><LuDatabase aria-hidden="true" /></span>
+              <span className="ad-card-main">
+                <span className="ad-card-title">Varmuuskopiot</span>
+                <span className="ad-card-sub">Käyttäjä- ja asetusdatan varmuuskopioiden tila</span>
+              </span>
+              <LuChevronRight className="ad-card-arrow" aria-hidden="true" />
+            </Link>
           </div>
         )}
       </div>

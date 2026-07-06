@@ -89,4 +89,4 @@ async function listEntities(table, filter) {
   return out;
 }
 
-module.exports = { ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities };
+module.exports = { TABLE_NAMES, ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities };
