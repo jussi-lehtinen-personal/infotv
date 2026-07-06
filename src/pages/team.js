@@ -147,7 +147,7 @@ const ScorersTable = ({ scorers }) => {
             <TableRow key={p.rank + (p.last || "") + i} sx={ahmaRowSx(p.isAhma)}>
               <TableCell sx={{ color: "text.secondary" }}>{p.rank}</TableCell>
               <TableCell sx={{ whiteSpace: "normal", minWidth: 120, fontWeight: p.isAhma ? 700 : 500, color: p.isAhma ? "primary.main" : "text.primary" }}>
-                {p.first} {p.last}{p.yob ? <Box component="span" sx={{ color: "text.secondary", fontWeight: 500 }}> ’{String(p.yob).slice(-2)}</Box> : null}
+                {p.first} {p.last}
               </TableCell>
               <TableCell sx={{ color: "text.secondary", whiteSpace: "normal", minWidth: 80 }}>{p.team}</TableCell>
               <TableCell align="right">{p.gp}</TableCell>
