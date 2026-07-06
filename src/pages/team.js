@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useGoBack } from "../hooks/useGoBack";
-import { LuArrowLeft, LuShirt, LuUsers, LuPhone } from "react-icons/lu";
+import { LuArrowLeft, LuShirt, LuUsers, LuPhone, LuBarChart3, LuTable, LuTarget, LuShield } from "react-icons/lu";
 import { themeCSS } from "../theme";
 import { Spinner } from "../components/ui/Spinner";
 import { ContactCard } from "../components/ui/ContactCard";
@@ -62,7 +62,27 @@ const Team = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [tab, setTab] = useState("players");
+  // Two "modes" (Joukkue / Tilastot) switched by a toggle OR a horizontal swipe;
+  // each mode has its own tab row + content.
+  const [mode, setMode] = useState("joukkue"); // "joukkue" | "tilastot"
+  const [jTab, setJTab] = useState("players"); // players | officials | contacts
+  const [tTab, setTTab] = useState("standings"); // standings | scorers | goalies
+
+  // Lightweight horizontal-swipe → switch mode (ignores mostly-vertical drags so
+  // it doesn't fight scrolling).
+  const touch = useRef({ x: 0, y: 0 });
+  const onTouchStart = (e) => {
+    const t = e.touches[0];
+    touch.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touch.current.x;
+    const dy = t.clientY - touch.current.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      setMode(dx < 0 ? "tilastot" : "joukkue");
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,88 +132,127 @@ const Team = () => {
           </div>
         </div>
 
-        {/* TABS */}
-        <div className="tm-tabs" role="tablist">
-          {[
-            ["players", "Pelaajat", LuShirt],
-            ["officials", "Toimihenkilöt", LuUsers],
-            ["contacts", "Yhteystiedot", LuPhone],
-          ].map(([key, label, Icon]) => (
+        {/* MODE TOGGLE + PAGE DOTS */}
+        <div className="tm-modebar">
+          <div className="tm-modetoggle" role="tablist" aria-label="Joukkue tai Tilastot">
             <button
-              key={key}
+              type="button"
               role="tab"
-              className={`tm-tab${tab === key ? " tm-tab--active" : ""}`}
-              onClick={() => setTab(key)}
+              className={`tm-mode${mode === "joukkue" ? " tm-mode--active" : ""}`}
+              onClick={() => setMode("joukkue")}
+              aria-selected={mode === "joukkue"}
             >
-              <Icon className="tm-tab-ico" aria-hidden="true" />
-              <span>{label}</span>
+              <LuUsers className="tm-mode-ico" aria-hidden="true" /> <span>Joukkue</span>
             </button>
-          ))}
+            <button
+              type="button"
+              role="tab"
+              className={`tm-mode${mode === "tilastot" ? " tm-mode--active" : ""}`}
+              onClick={() => setMode("tilastot")}
+              aria-selected={mode === "tilastot"}
+            >
+              <LuBarChart3 className="tm-mode-ico" aria-hidden="true" /> <span>Tilastot</span>
+            </button>
+          </div>
+          <div className="tm-dots" aria-hidden="true">
+            <span className={`tm-dot${mode === "joukkue" ? " tm-dot--active" : ""}`} />
+            <span className={`tm-dot${mode === "tilastot" ? " tm-dot--active" : ""}`} />
+          </div>
         </div>
 
-        {/* CONTENT */}
-        <div className="tm-content">
-          {loading && (
-            <div className="tm-status"><Spinner /></div>
-          )}
-          {error && (
-            <div className="tm-status tm-status--error">
-              Joukkueen tietoja ei saatu haettua. Yritä myöhemmin uudelleen.
-            </div>
-          )}
+        <div className="tm-swipe" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          {/* TABS (per mode) */}
+          <div className="tm-tabs" role="tablist">
+            {(mode === "joukkue"
+              ? [["players", "Pelaajat", LuShirt], ["officials", "Toimihenkilöt", LuUsers], ["contacts", "Yhteystiedot", LuPhone]]
+              : [["standings", "Sarjataulukko", LuTable], ["scorers", "Pistepörssi", LuTarget], ["goalies", "MV", LuShield]]
+            ).map(([key, label, Icon]) => {
+              const active = mode === "joukkue" ? jTab === key : tTab === key;
+              const set = mode === "joukkue" ? setJTab : setTTab;
+              return (
+                <button
+                  key={key}
+                  role="tab"
+                  className={`tm-tab${active ? " tm-tab--active" : ""}`}
+                  onClick={() => set(key)}
+                >
+                  <Icon className="tm-tab-ico" aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-          {!loading && !error && data && tab === "players" && (
-            <>
-              {data.description && <p className="tm-desc">{data.description}</p>}
-              <h2 className="tm-h">Pelaajat <span className="tm-count">({field.length})</span></h2>
-              <div className="tm-grid">
-                {field.map((p, i) => <PlayerCard key={i} p={p} />)}
-              </div>
-              {goalies.length > 0 && (
-                <>
-                  <h2 className="tm-h">Maalivahdit <span className="tm-count">({goalies.length})</span></h2>
-                  <div className="tm-grid">
-                    {goalies.map((p, i) => <PlayerCard key={i} p={p} />)}
+          {/* CONTENT */}
+          <div className="tm-content">
+            {mode === "joukkue" ? (
+              <>
+                {loading && <div className="tm-status"><Spinner /></div>}
+                {error && (
+                  <div className="tm-status tm-status--error">
+                    Joukkueen tietoja ei saatu haettua. Yritä myöhemmin uudelleen.
                   </div>
-                </>
-              )}
-              {players.length === 0 && <div className="tm-status">Ei kokoonpanoa saatavilla.</div>}
-            </>
-          )}
+                )}
 
-          {!loading && !error && data && tab === "officials" && (
-            <>
-              <h2 className="tm-h">Toimihenkilöt <span className="tm-count">({officials.length})</span></h2>
-              <div className="tm-list">
-                {officials.map((o, i) => (
-                  <div className="tm-orow" key={i}>
-                    <Avatar photo={o.photo} className="tm-ophoto" />
-                    <div className="tm-oinfo">
-                      <div className="tm-oname">{o.name}</div>
-                      <div className="tm-orole">{o.role}</div>
+                {!loading && !error && data && jTab === "players" && (
+                  <>
+                    {data.description && <p className="tm-desc">{data.description}</p>}
+                    <h2 className="tm-h">Pelaajat <span className="tm-count">({field.length})</span></h2>
+                    <div className="tm-grid">
+                      {field.map((p, i) => <PlayerCard key={i} p={p} />)}
                     </div>
-                  </div>
-                ))}
-                {officials.length === 0 && <div className="tm-status">Ei toimihenkilöitä.</div>}
-              </div>
-            </>
-          )}
+                    {goalies.length > 0 && (
+                      <>
+                        <h2 className="tm-h">Maalivahdit <span className="tm-count">({goalies.length})</span></h2>
+                        <div className="tm-grid">
+                          {goalies.map((p, i) => <PlayerCard key={i} p={p} />)}
+                        </div>
+                      </>
+                    )}
+                    {players.length === 0 && <div className="tm-status">Ei kokoonpanoa saatavilla.</div>}
+                  </>
+                )}
 
-          {!loading && !error && data && tab === "contacts" && (
-            <div className="tm-contacts">
-              {contacts.map((o, i) => (
-                <ContactCard
-                  key={i}
-                  name={o.name}
-                  role={o.role}
-                  email={o.email}
-                  phone={o.phone}
-                  photo={o.photo}
-                />
-              ))}
-              {contacts.length === 0 && <div className="tm-status">Ei yhteystietoja.</div>}
-            </div>
-          )}
+                {!loading && !error && data && jTab === "officials" && (
+                  <>
+                    <h2 className="tm-h">Toimihenkilöt <span className="tm-count">({officials.length})</span></h2>
+                    <div className="tm-list">
+                      {officials.map((o, i) => (
+                        <div className="tm-orow" key={i}>
+                          <Avatar photo={o.photo} className="tm-ophoto" />
+                          <div className="tm-oinfo">
+                            <div className="tm-oname">{o.name}</div>
+                            <div className="tm-orole">{o.role}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {officials.length === 0 && <div className="tm-status">Ei toimihenkilöitä.</div>}
+                    </div>
+                  </>
+                )}
+
+                {!loading && !error && data && jTab === "contacts" && (
+                  <div className="tm-contacts">
+                    {contacts.map((o, i) => (
+                      <ContactCard
+                        key={i}
+                        name={o.name}
+                        role={o.role}
+                        email={o.email}
+                        phone={o.phone}
+                        photo={o.photo}
+                      />
+                    ))}
+                    {contacts.length === 0 && <div className="tm-status">Ei yhteystietoja.</div>}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="tm-status tm-soon">
+                {tTab === "standings" ? "Sarjataulukko" : tTab === "scorers" ? "Pistepörssi" : "Maalivahtitilastot"} — tulossa.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
@@ -275,6 +334,33 @@ body { margin: 0; }
   color: rgba(255,255,255,0.72);
 }
 
+/* MODE TOGGLE (Joukkue / Tilastot) + page dots */
+.tm-modebar {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px 12px 10px;
+}
+.tm-modetoggle {
+  display: flex; gap: 4px; padding: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+}
+.tm-mode {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: 999px; border: none; background: none;
+  color: var(--gz-text-tertiary); cursor: pointer; font-family: inherit;
+  font-size: var(--gz-fs-sm); font-weight: 800; letter-spacing: var(--gz-ls-wide);
+  -webkit-tap-highlight-color: transparent; transition: background 0.18s, color 0.18s;
+}
+.tm-mode-ico { width: 18px; height: 18px; flex: 0 0 auto; }
+.tm-mode--active { background: var(--color-primary); color: var(--color-on-primary); }
+/* Page dots — same style as the home hero carousel (7px dot, active = 20px pill). */
+.tm-dots { display: flex; justify-content: center; gap: 6px; }
+.tm-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,0.28); transition: width 0.2s, background-color 0.2s;
+}
+.tm-dot--active { background: var(--color-primary); width: 20px; border-radius: 4px; }
+
 /* TABS */
 .tm-tabs {
   display: flex;
@@ -305,6 +391,7 @@ body { margin: 0; }
 .tm-content { padding: 16px 12px 0; max-width: 760px; margin: 0 auto; }
 .tm-status { text-align: center; padding: 28px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
 .tm-status--error { color: var(--color-loss); }
+.tm-soon { padding: 48px 0; }
 .tm-desc { color: var(--gz-text-secondary); font-size: var(--gz-fs-sm); margin: 0 0 14px; }
 
 .tm-h {
