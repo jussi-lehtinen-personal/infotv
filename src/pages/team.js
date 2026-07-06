@@ -7,8 +7,8 @@ import { Spinner } from "../components/ui/Spinner";
 import { ContactCard } from "../components/ui/ContactCard";
 import { findJopoxTeam } from "../data/jopoxTeams";
 
-// Hero image. Swap to a real per-team hero photo later.
-const HERO_PLACEHOLDER = "/gamezone_3d.webp";
+// Hero image (team-page specific — leaves room for the title + toggle controls).
+const HERO_PLACEHOLDER = "/joukkue_hero.webp";
 
 const JOUKKUE_TABS = [["players", "Pelaajat", LuShirt], ["officials", "Toimihenkilöt", LuUsers], ["contacts", "Yhteystiedot", LuPhone]];
 const TILASTOT_TABS = [["standings", "Sarjataulukko", LuTable], ["scorers", "Pistepörssi", LuTarget], ["goalies", "MV", LuShield]];
@@ -416,7 +416,9 @@ body { margin: 0; }
   will-change: transform;
   transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.tm-pane { width: 50%; flex: 0 0 50%; }
+/* min-height keeps a swipe surface even when a pane's content is short (e.g. the
+   "tulossa" placeholder) so you can always drag back. */
+.tm-pane { width: 50%; flex: 0 0 50%; min-height: 60vh; }
 .tm-tab {
   flex: 1 1 0;
   display: flex; flex-direction: column; align-items: center; gap: 5px;
