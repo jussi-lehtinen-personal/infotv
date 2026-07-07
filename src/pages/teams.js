@@ -118,7 +118,7 @@ const Teams = () => {
                       onClick={() => toggleFavourite(team)}
                       aria-pressed={isFav}
                       aria-label={isFav ? `Poista ${team.name} suosikeista` : `Lisää ${team.name} suosikkeihin`}
-                      sx={{ color: isFav ? "primary.main" : "rgba(255,255,255,0.3)", "&:hover": { color: isFav ? "primary.main" : "rgba(255,255,255,0.55)" } }}
+                      sx={{ alignSelf: "center", flexShrink: 0, width: 44, height: 44, color: isFav ? "primary.main" : "rgba(255,255,255,0.3)", "&:hover": { color: isFav ? "primary.main" : "rgba(255,255,255,0.55)" } }}
                     >
                       <LuStar fill={isFav ? "currentColor" : "none"} />
                     </IconButton>

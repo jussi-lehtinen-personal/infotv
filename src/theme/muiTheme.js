@@ -32,4 +32,13 @@ export const muiTheme = createTheme({
     overline: { fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.6 }, // ~11 uppercase label
     button: { textTransform: "none", fontWeight: 700 },
   },
+  components: {
+    // Buttons rendered as links (component={Link}) must never pick up the default
+    // link underline/blue on hover/visited.
+    MuiButton: {
+      styleOverrides: {
+        root: { "&:hover, &:focus, &:visited": { textDecoration: "none" } },
+      },
+    },
+  },
 });

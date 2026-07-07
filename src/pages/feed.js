@@ -180,7 +180,9 @@ const EventRow = ({ e, expanded, onToggle }) => {
   );
 };
 
-const primaryBtnSx = { mt: 0.75, px: 2.75, py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", color: "primary.contrastText", bgcolor: "primary.main", "&:hover": { bgcolor: "primary.main", filter: "brightness(1.08)" } };
+// component={Link} → lock the text colour for every anchor state so hover/visited
+// don't paint it the default link blue.
+const primaryBtnSx = { mt: 0.75, px: 2.75, py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", bgcolor: "primary.main", "&, &:hover, &:focus, &:visited": { color: "primary.contrastText" }, "&:hover": { bgcolor: "primary.main", filter: "brightness(1.08)" } };
 
 const Gate = ({ icon, title, text, action }) => (
   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5, py: 5.5, px: 2.75, maxWidth: 380, mx: "auto", mt: 3 }}>
