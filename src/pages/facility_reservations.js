@@ -183,6 +183,7 @@ const FacilityReservations = () => {
               onSelect={setSelected}
               onMonth={(delta) => setMonthKey(moment(monthKey + "-01").add(delta, "month").format("YYYY-MM"))}
               byDate={byDate}
+              myUserId={myUserId}
             />
             <DayPanel
               selected={selected}
@@ -226,7 +227,7 @@ export default FacilityReservations;
 
 /* ============================= MONTH CALENDAR ============================= */
 
-function MonthCalendar({ monthKey, selected, onSelect, onMonth, byDate }) {
+function MonthCalendar({ monthKey, selected, onSelect, onMonth, byDate, myUserId }) {
   const first = moment(monthKey + "-01");
   const daysInMonth = first.daysInMonth();
   const lead = (first.isoWeekday() + 6) % 7; // Monday=0 … Sunday=6
@@ -252,21 +253,24 @@ function MonthCalendar({ monthKey, selected, onSelect, onMonth, byDate }) {
           const dateStr = `${monthKey}-${String(d).padStart(2, "0")}`;
           const isSel = dateStr === selected;
           const isToday = dateStr === now;
-          const has = (byDate[dateStr] || []).length > 0;
+          const dayRes = byDate[dateStr] || [];
+          const hasAny = dayRes.length > 0;
+          const hasOwn = dayRes.some((r) => r.ownerUserId === myUserId);
           return (
             <Box key={dateStr} component="button" type="button" onClick={() => onSelect(dateStr)}
               sx={{
-                position: "relative", aspectRatio: "1 / 1", border: 0, cursor: "pointer", borderRadius: "50%",
-                bgcolor: isSel ? "primary.main" : "transparent",
-                color: isSel ? "primary.contrastText" : isToday ? "primary.main" : "text.primary",
+                position: "relative", aspectRatio: "1 / 1", boxSizing: "border-box", cursor: "pointer", borderRadius: "50%",
+                bgcolor: isSel ? "rgba(var(--color-primary-rgb),0.18)" : "transparent",
+                border: isSel ? "1px solid var(--color-primary)" : "1px solid transparent",
+                color: isSel || isToday ? "primary.main" : "text.primary",
                 fontWeight: isSel || isToday ? 800 : 500, fontSize: 14, fontFamily: "inherit",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 WebkitTapHighlightColor: "transparent",
-                "&:hover": { bgcolor: isSel ? "primary.main" : "var(--color-surface-divider)" },
+                "&:hover": { bgcolor: isSel ? "rgba(var(--color-primary-rgb),0.24)" : "var(--color-surface-divider)" },
               }}>
               {d}
-              {has && (
-                <Box component="span" sx={{ position: "absolute", bottom: 3, width: 5, height: 5, borderRadius: "50%", bgcolor: isSel ? "primary.contrastText" : "var(--color-primary)" }} />
+              {hasAny && (
+                <Box component="span" sx={{ position: "absolute", bottom: 3, width: 5, height: 5, borderRadius: "50%", bgcolor: hasOwn ? "var(--color-primary)" : "var(--gz-text-muted)" }} />
               )}
             </Box>
           );
@@ -296,73 +300,90 @@ function DayPanel({ selected, onSwipe, children }) {
   );
 }
 
+const rowBase = {
+  display: "flex", alignItems: "center", gap: 1, p: "8px 12px",
+  borderRadius: "var(--radius-small)", border: "1px solid var(--color-surface-border)",
+  bgcolor: "var(--color-surface)",
+};
+const varaaBtnSx = { minWidth: 0, px: 1.75, fontWeight: 800, bgcolor: "var(--color-win)", color: "#04240f", "&:hover": { bgcolor: "#1eb257" } };
+
 function SlotList({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn, onRelease }) {
   const nowMins = moment().hours() * 60 + moment().minutes();
-  const isPast = (slot) => selected < today() || (selected === today() && slot.mins + 30 <= nowMins);
+  const isPast = (mins) => selected < today() || (selected === today() && mins + 30 <= nowMins);
+
+  // Merge consecutive slots of the same booking into one block; free slots stay
+  // individual so any start time is bookable.
+  const rows = [];
+  for (let i = 0; i < slots.length; ) {
+    const res = dayMap[slots[i].rowKey];
+    if (!res) { rows.push({ kind: "free", slot: slots[i], idx: i }); i += 1; continue; }
+    let j = i + 1;
+    while (j < slots.length && dayMap[slots[j].rowKey] && dayMap[slots[j].rowKey].bookingId === res.bookingId) j += 1;
+    rows.push({ kind: "res", res, count: j - i });
+    i = j;
+  }
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, pb: 2 }}>
-      {slots.map((slot, idx) => {
-        const res = dayMap[slot.rowKey];
-        const own = res && res.ownerUserId === myUserId;
-        const past = isPast(slot);
+      {rows.map((row) => {
+        if (row.kind === "free") {
+          return (
+            <FreeRow key={row.slot.rowKey} label={`${row.slot.label} – ${row.slot.endLabel}`}
+              canBook={canBook} past={isPast(row.slot.mins)} onBook={() => onBook(row.slot, row.idx)} />
+          );
+        }
+        const { res, count } = row;
         return (
-          <SlotRow
-            key={slot.rowKey}
-            slot={slot}
-            res={res}
-            own={own}
-            past={past}
-            canBook={canBook}
-            onBook={() => onBook(slot, idx)}
-            onEditOwn={() => res && onEditOwn(res)}
-            onRelease={() => res && onRelease({ date: selected, bookingId: res.bookingId })}
-          />
+          <BookingRow key={res.bookingId} res={res} count={count} own={res.ownerUserId === myUserId}
+            onEdit={() => onEditOwn(res)} onRelease={() => onRelease({ date: selected, bookingId: res.bookingId })} />
         );
       })}
     </Box>
   );
 }
 
-function SlotRow({ slot, res, own, past, canBook, onBook, onEditOwn, onRelease }) {
-  const label = `${slot.label} – ${slot.endLabel}`;
-  const base = {
-    display: "flex", alignItems: "center", gap: 1, p: "8px 12px",
-    borderRadius: "var(--radius-small)", minHeight: 44,
-    border: "1px solid var(--color-surface-border)", bgcolor: "var(--color-surface)",
-  };
-
-  if (own) {
-    return (
-      <Box sx={{ ...base, borderColor: "rgba(var(--color-primary-rgb),0.5)", bgcolor: "rgba(var(--color-primary-rgb),0.10)", cursor: "pointer" }}
-        role="button" tabIndex={0} onClick={onEditOwn}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEditOwn(); } }}>
-        <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", minWidth: 108 }}>{label}</Typography>
-        <Typography sx={{ flex: 1, fontSize: 12, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main" }}>Oma varaus</Typography>
-        <Button size="small" variant="contained" color="primary" onClick={(e) => { e.stopPropagation(); onRelease(); }}
-          sx={{ minWidth: 0, px: 1.5, fontWeight: 800 }}>Vapauta</Button>
-      </Box>
-    );
-  }
-  if (res) {
-    return (
-      <Box sx={{ ...base, opacity: 0.7 }}>
-        <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", minWidth: 108, color: "var(--gz-text-secondary)" }}>{label}</Typography>
-        <Typography sx={{ flex: 1, fontSize: 12, color: "var(--gz-text-muted)" }} noWrap>{res.teamName || "Varattu"}</Typography>
-        <LuLock aria-label="Varattu" style={{ color: "var(--gz-text-muted)", flexShrink: 0 }} />
-      </Box>
-    );
-  }
-  // Free
+function FreeRow({ label, canBook, past, onBook }) {
   return (
-    <Box sx={{ ...base }}>
+    <Box sx={{ ...rowBase, minHeight: 44 }}>
       <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", minWidth: 108 }}>{label}</Typography>
       <Box sx={{ flex: 1 }} />
-      {canBook && !past ? (
-        <Button size="small" variant="contained" onClick={onBook}
-          sx={{ minWidth: 0, px: 1.75, fontWeight: 800, bgcolor: "var(--color-win)", color: "#04240f", "&:hover": { bgcolor: "#1eb257" } }}>Varaa</Button>
-      ) : (
-        <Typography sx={{ fontSize: 12, color: "var(--gz-text-muted)" }}>{past ? "" : "Vapaa"}</Typography>
-      )}
+      {canBook && !past
+        ? <Button size="small" variant="contained" onClick={onBook} sx={varaaBtnSx}>Varaa</Button>
+        : <Typography sx={{ fontSize: 12, color: "var(--gz-text-muted)" }}>{past ? "" : "Vapaa"}</Typography>}
+    </Box>
+  );
+}
+
+// A whole booking as ONE block; height grows with the number of 30-min slots.
+function BookingRow({ res, count, own, onEdit, onRelease }) {
+  const label = `${res.startSlot} – ${res.endSlot}`;
+  const minHeight = 44 + (count - 1) * 22;
+  if (own) {
+    return (
+      <Box sx={{ ...rowBase, minHeight, alignItems: "stretch", borderColor: "rgba(var(--color-primary-rgb),0.5)", bgcolor: "rgba(var(--color-primary-rgb),0.10)", cursor: "pointer" }}
+        role="button" tabIndex={0} onClick={onEdit}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEdit(); } }}>
+        <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{label}</Typography>
+          <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main" }} noWrap>
+            Oma varaus{res.description ? ` · ${res.description}` : ""}
+          </Typography>
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Button size="small" variant="contained" color="primary" onClick={(e) => { e.stopPropagation(); onRelease(); }} sx={{ minWidth: 0, px: 1.5, fontWeight: 800 }}>Vapauta</Button>
+        </Box>
+      </Box>
+    );
+  }
+  return (
+    <Box sx={{ ...rowBase, minHeight, alignItems: "stretch", opacity: 0.7 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--gz-text-secondary)" }}>{label}</Typography>
+        <Typography sx={{ fontSize: 12, color: "var(--gz-text-muted)" }} noWrap>{res.teamName || "Varattu"}</Typography>
+      </Box>
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <LuLock aria-label="Varattu" style={{ color: "var(--gz-text-muted)", flexShrink: 0 }} />
+      </Box>
     </Box>
   );
 }
