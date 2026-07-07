@@ -33,7 +33,7 @@ export const ahmaSubGroups = (game) => {
 };
 
 // Distinct sub-group labels present for an age group, derived from games.
-export const subGroupsForAge = (ageKey, games) => {
+const subGroupsForAge = (ageKey, games) => {
   if (!ageKey) return [];
   const out = new Set();
   for (const g of games || []) {

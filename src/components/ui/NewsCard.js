@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 
 // "Tänään 18:42", "Eilen 14:21", "3 pv sitten 09:15", muuten "30.3.2026".
-export function formatNewsDate(iso) {
+function formatNewsDate(iso) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   const time = d.toLocaleTimeString("fi-FI", {

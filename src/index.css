@@ -211,23 +211,6 @@ code {
   flex: 0 0 44px;
 }
 
-/* Gamezone-scoped page-header typography. The InfoTV pages use the
-   default sizing above (tight clamp for kiosk landscape). On Gamezone the
-   header has historically read smaller than the card content; pull it onto
-   the same token scale as the rest of the mobile typography so the page
-   title is visibly the loudest piece on screen. */
-.gz-root .ui-page-header-main {
-  font-family: var(--font-family-base);
-  font-size: var(--gz-fs-xl);
-  font-weight: 700;
-  letter-spacing: var(--gz-ls-wider);
-}
-.gz-root .ui-page-header-sub {
-  font-size: var(--gz-fs-sm);
-  font-weight: var(--gz-fw-medium);
-  color: var(--gz-text-secondary);
-}
-
 /* App header — Gamezone home -sivun yläpalkki: hamburger + AHMA/GAMEZONE
    wordmark kahdella rivillä (oranssi AHMA / ohut valkoinen GAMEZONE) +
    ilmoituskello punaisella badge-merkillä. Päivitetään myöhemmin
