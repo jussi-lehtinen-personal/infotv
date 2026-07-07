@@ -7,7 +7,7 @@ import { createTheme } from "@mui/material/styles";
 export const muiTheme = createTheme({
   palette: {
     mode: "dark",
-    primary: { main: "#f97316", contrastText: "#1a1206" }, // Ahma orange / --color-primary
+    primary: { main: "#f97316", contrastText: "#ffffff" }, // Ahma orange / --color-primary; white text on filled buttons
     background: { default: "#111111", paper: "#1a1a1a" },
     text: { primary: "rgba(255,255,255,0.95)", secondary: "rgba(255,255,255,0.62)" },
     divider: "rgba(255,255,255,0.10)",
@@ -33,7 +33,7 @@ export const muiTheme = createTheme({
     body2: { fontSize: "0.875rem", lineHeight: 1.45 },                        // ~14 secondary body
     caption: { fontSize: "0.75rem", lineHeight: 1.4 },                        // ~12 small
     overline: { fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.6 }, // ~11 uppercase label
-    button: { textTransform: "none", fontWeight: 700 },
+    button: { textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.03em" },
   },
   components: {
     // Buttons rendered as links (component={Link}) must never pick up the default
