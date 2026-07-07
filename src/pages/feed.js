@@ -3,14 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuChevronRight, LuClock, LuPlane } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
-import { themeCSS } from "../theme";
-import { Spinner } from "../components/ui/Spinner";
+import { Box, Typography, Card, Stack, Avatar, IconButton, Button, CircularProgress, Collapse, Link as MuiLink } from "@mui/material";
 import { loadFavouriteTeams } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
 import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
 import { isGameForFavourite } from "../lib/teamMatch";
-import { gamePassesSubGroups, displaySub, subColorClass, SUBGROUPS_ENABLED } from "../lib/subGroups";
+import { gamePassesSubGroups, displaySub, SUBGROUPS_ENABLED } from "../lib/subGroups";
 
 moment.locale("fi");
 
@@ -39,53 +38,39 @@ const loadCardState = () => {
 const saveCardState = (obj) => {
   try {
     const keys = Object.keys(obj);
-    const trimmed =
-      keys.length > 300
-        ? Object.fromEntries(keys.slice(-300).map((k) => [k, obj[k]]))
-        : obj;
+    const trimmed = keys.length > 300 ? Object.fromEntries(keys.slice(-300).map((k) => [k, obj[k]])) : obj;
     localStorage.setItem(CARDS_KEY, JSON.stringify(trimmed));
   } catch {
     /* ignore */
   }
 };
 
-// Pull the "17.00 - 19.00" time range out of the subtitle ("13.07.2026 17.00 -
-// 19.00, Wareena"); fall back to just the start time.
+// Pull the "17.00 - 19.00" time range out of the subtitle; fall back to start time.
 const timeRange = (e) => {
   const m = String(e.subtitle || "").match(/(\d{1,2}[.:]\d{2})\s*-\s*(\d{1,2}[.:]\d{2})/);
   if (m) return `${m[1]} – ${m[2]}`;
   return e.uiTime || null;
 };
 
-// Chronological sort key from an agenda item's date ("YYYY-MM-DD HH:mm" or ISO).
 const sortKey = (e) => String(e.date || "").replace(" ", "T");
 
-// Tag each GAME with which source(s) it came from, so out-of-sync entries stand
-// out (a QA aid — this is how the U14 wrong-time bug surfaced):
-//   both   tp + Jopox matched (same date+time)      → in sync
-//   tp     only tulospalvelu (not in Jopox calendar)
-//   jopox  only Jopox (friendly/tournament, no tp)
-// A game entered at two different times shows as two same-day cards (one "tp",
-// one "jopox") — the discrepancy reads directly off the tags, so we don't try to
-// infer a "same game, wrong time" link (can't tell it from two genuinely
-// different games on one day). Practices get no source tag. Mutates + returns.
+// Tag each GAME with which source(s) it came from (QA aid — spot out-of-sync):
+//   both = tp + Jopox matched · tp = only tulospalvelu · jopox = only Jopox.
 const gameSource = (e) => (e.tp && e.eventId ? "both" : e.tp ? "tp" : "jopox");
 function annotateSources(items) {
   for (const it of items) it.source = it.type === "game" ? gameSource(it) : null;
   return items;
 }
-const SOURCE_LABEL = {
-  both: "OK",
-  tp: "Tulospalvelu",
-  jopox: "Jopox",
+const SOURCE_LABEL = { both: "OK", tp: "Tulospalvelu", jopox: "Jopox" };
+const SOURCE_CHIP = {
+  both: { fg: "var(--color-live)", bg: "rgba(34,197,94,0.12)", bd: "rgba(34,197,94,0.35)" },
+  tp: { fg: "var(--color-accent-yellow)", bg: "rgba(var(--color-primary-rgb),0.12)", bd: "rgba(var(--color-primary-rgb),0.35)" },
+  jopox: { fg: "var(--color-info)", bg: "rgba(96,165,250,0.12)", bd: "rgba(96,165,250,0.38)" },
 };
 
 // The "Minä" feed: a signed-in user's favourite team(s) upcoming events
-// (harjoitukset + games), sourced from the PUBLIC Jopox calendar API via the
-// getTeamEvents proxy. Multiple favourites are INTERLEAVED into one
-// chronological stream (day headers), each event tagged with its team. No
-// Jopox login needed (that's a later tier). Profile → avatar (top-right) →
-// /account. See memory: project_gamezone_feed_plan.
+// (harjoitukset + games), from the PUBLIC Jopox calendar via getTeamEvents,
+// interleaved chronologically. See memory: project_gamezone_feed_plan.
 
 const initials = (name) => {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
@@ -94,7 +79,6 @@ const initials = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-// "Maanantai 13.7." from a "YYYY-MM-DD" key.
 const dayLabel = (key) => {
   const m = moment(key, "YYYY-MM-DD");
   if (!m.isValid()) return key;
@@ -102,18 +86,24 @@ const dayLabel = (key) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
+const MiniChip = ({ children, sx }) => (
+  <Box component="span" sx={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em", px: 0.75, py: "1px", borderRadius: 999, whiteSpace: "nowrap", ...sx }}>{children}</Box>
+);
+
+const Detail = ({ icon, children }) => (
+  <Stack direction="row" alignItems="center" spacing={1} sx={{ fontSize: 14, color: "text.secondary" }}>
+    <Box sx={{ display: "flex", flexShrink: 0, opacity: 0.7 }}>{icon}</Box>
+    <span>{children}</span>
+  </Stack>
+);
+
 const EventRow = ({ e, expanded, onToggle }) => {
   const isGame = e.type === "game";
   const range = timeRange(e);
-  // The tulospalvelu game (logos/score) is already on the item (buildTeamAgenda).
   const tp = e.tp;
   const oppLogo = opponentLogo(tp);
   const played = tp && Number(tp.finished) > 0;
   const score = played ? `${tp.home_goals ?? ""}–${tp.away_goals ?? ""}` : null;
-  // Games: show just the opponent (the favourite is already on the team line)
-  // so the long "Kiekko-Ahma – X" doesn't crowd out the time on the right. For
-  // Jopox-only games with a blank home team the title comes as "– Diskos U14";
-  // strip a dangling leading/trailing dash so it never renders as "– Team".
   const rawHeading = isGame && tp ? opponentName(tp) || e.title : e.title;
   const heading = isGame
     ? String(rawHeading || "").replace(/^\s*[–-]\s*/, "").replace(/\s*[–-]\s*$/, "").trim() || rawHeading
@@ -121,8 +111,7 @@ const EventRow = ({ e, expanded, onToggle }) => {
   const detailKey = `${e.subsiteId}|${e.eventId}`;
   const [desc, setDesc] = useState(() => detailCache.get(detailKey));
 
-  // Lazily fetch the event's free-text description, but ONLY when the card is
-  // expanded (and cache it) — a 10-min server cache keeps Jopox from flooding.
+  // Lazily fetch the event's free-text description, only when expanded (cached).
   useEffect(() => {
     if (!expanded || e.eventId == null) return;
     if (detailCache.has(detailKey)) {
@@ -130,11 +119,7 @@ const EventRow = ({ e, expanded, onToggle }) => {
       return;
     }
     let cancelled = false;
-    const params = new URLSearchParams({
-      eventId: String(e.eventId),
-      subsiteId: String(e.subsiteId ?? ""),
-      type: e.type,
-    });
+    const params = new URLSearchParams({ eventId: String(e.eventId), subsiteId: String(e.subsiteId ?? ""), type: e.type });
     fetch(`/api/getEventDetail?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
@@ -147,97 +132,71 @@ const EventRow = ({ e, expanded, onToggle }) => {
   }, [expanded, detailKey, e.eventId, e.subsiteId, e.type]);
 
   return (
-    <div className={`fd-event${isGame ? " fd-event--game" : ""}${expanded ? " is-open" : ""}`}>
-      <button
-        type="button"
-        className="fd-event-head"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
-        <div className={`fd-event-icon${isGame && oppLogo ? " fd-event-icon--logo" : ""}`}>
-          {isGame && oppLogo ? (
-            <img className="fd-event-opplogo" src={oppLogo} alt="" />
-          ) : isGame ? (
-            <LuTrophy aria-hidden="true" />
-          ) : (
-            <LuCalendarDays aria-hidden="true" />
-          )}
-        </div>
-        <div className="fd-event-main">
+    <Card variant="outlined" sx={{ overflow: "hidden", bgcolor: isGame ? "rgba(var(--color-primary-rgb),0.06)" : "background.paper", borderColor: isGame ? "rgba(var(--color-primary-rgb),0.30)" : "divider" }}>
+      <Box component="button" type="button" onClick={onToggle} aria-expanded={expanded}
+        sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", p: "11px 14px", bgcolor: "transparent", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+        {isGame && oppLogo ? (
+          <Box component="img" src={oppLogo} alt="" sx={{ width: 38, height: 38, flexShrink: 0, boxSizing: "border-box", borderRadius: 1, bgcolor: "#fff", objectFit: "contain", p: "3px", boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
+        ) : (
+          <Box sx={{ width: 38, height: 38, flexShrink: 0, borderRadius: 1.25, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: isGame ? "rgba(var(--color-primary-rgb),0.15)" : "var(--color-surface-divider)", color: isGame ? "primary.main" : "text.secondary" }}>
+            {isGame ? <LuTrophy size={20} /> : <LuCalendarDays size={20} />}
+          </Box>
+        )}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           {e.teamName && (
-            <div className="fd-event-team">
-              {e.teamName}
-              {isGame && e.home != null && (
-                <span className="fd-event-ha">{e.home ? "koti" : "vieras"}</span>
-              )}
-              {isGame && e.source && (
-                <span className={`fd-src fd-src--${e.source}`}>
-                  {SOURCE_LABEL[e.source]}
-                </span>
-              )}
-              {SUBGROUPS_ENABLED &&
-                isGame &&
-                Array.isArray(e.subGroups) &&
-                e.subGroups.map((s) => (
-                  <span key={s} className={`fd-sub${subColorClass(s) ? ` fd-sub--${subColorClass(s)}` : ""}`}>
-                    {displaySub(s)}
-                  </span>
-                ))}
-            </div>
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.75, mb: "1px" }}>
+              <Typography component="span" sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main" }}>{e.teamName}</Typography>
+              {isGame && e.home != null && <MiniChip sx={{ color: "text.secondary", bgcolor: "var(--color-surface-divider)", border: "1px solid var(--color-surface-border)" }}>{e.home ? "koti" : "vieras"}</MiniChip>}
+              {isGame && e.source && <MiniChip sx={{ color: SOURCE_CHIP[e.source].fg, bgcolor: SOURCE_CHIP[e.source].bg, border: `1px solid ${SOURCE_CHIP[e.source].bd}` }}>{SOURCE_LABEL[e.source]}</MiniChip>}
+              {SUBGROUPS_ENABLED && isGame && Array.isArray(e.subGroups) && e.subGroups.map((s) => (
+                <MiniChip key={s} sx={{ color: "rgba(255,255,255,0.85)", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.28)" }}>{displaySub(s)}</MiniChip>
+              ))}
+            </Box>
           )}
-          <div className="fd-event-title">{heading}</div>
-        </div>
-        <div className="fd-event-when">
-          {score ? (
-            <div className="fd-event-score">{score}</div>
-          ) : e.uiTime ? (
-            <div className="fd-event-time">klo {e.uiTime}</div>
-          ) : null}
-        </div>
-        <LuChevronDown className="fd-event-chev" aria-hidden="true" />
-      </button>
+          <Typography sx={{ fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{heading}</Typography>
+        </Box>
+        <Box sx={{ flexShrink: 0, textAlign: "right", whiteSpace: "nowrap", pl: 0.5 }}>
+          {score ? <Typography sx={{ fontWeight: 800, color: "primary.main", fontVariantNumeric: "tabular-nums" }}>{score}</Typography>
+            : e.uiTime ? <Typography variant="body2" sx={{ fontWeight: 700, color: "text.secondary" }}>klo {e.uiTime}</Typography> : null}
+        </Box>
+        <LuChevronDown size={18} style={{ flexShrink: 0, opacity: 0.5, transition: "transform .18s ease", transform: expanded ? "rotate(180deg)" : "none" }} />
+      </Box>
 
-      {expanded && (
-        <div className="fd-event-details">
-          {range && (
-            <div className="fd-detail">
-              <LuClock className="fd-detail-ico" aria-hidden="true" />
-              <span>{range}</span>
-            </div>
-          )}
-          {e.place && (
-            <div className="fd-detail">
-              <LuMapPin className="fd-detail-ico" aria-hidden="true" />
-              <span>{e.place}</span>
-            </div>
-          )}
-          {isGame && e.league && (
-            <div className="fd-detail">
-              <LuTrophy className="fd-detail-ico" aria-hidden="true" />
-              <span>{e.league}</span>
-            </div>
-          )}
-          {isGame && e.home != null && (
-            <div className="fd-detail">
-              <LuPlane className="fd-detail-ico" aria-hidden="true" />
-              <span>{e.home ? "Kotipeli" : "Vieraspeli"}</span>
-            </div>
-          )}
-          {desc && <div className="fd-event-desc">{desc}</div>}
+      <Collapse in={expanded} unmountOnExit>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.875, p: "10px 14px 12px", borderTop: "1px solid var(--color-surface-divider)" }}>
+          {range && <Detail icon={<LuClock size={15} />}>{range}</Detail>}
+          {e.place && <Detail icon={<LuMapPin size={15} />}>{e.place}</Detail>}
+          {isGame && e.league && <Detail icon={<LuTrophy size={15} />}>{e.league}</Detail>}
+          {isGame && e.home != null && <Detail icon={<LuPlane size={15} />}>{e.home ? "Kotipeli" : "Vieraspeli"}</Detail>}
+          {desc && <Typography variant="body2" sx={{ whiteSpace: "pre-line", mt: 0.5, pt: 1, borderTop: "1px solid var(--color-surface-divider)", color: "text.secondary", lineHeight: 1.5 }}>{desc}</Typography>}
           {isGame && tp && (
-            <Link
-              className="fd-event-link"
-              to={`/gamezone/game/${tp.id}`}
-              state={{ game: tp }}
-            >
-              Näytä ottelu <LuChevronRight aria-hidden="true" />
-            </Link>
+            <MuiLink component={Link} to={`/gamezone/game/${tp.id}`} state={{ game: tp }} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 1, fontWeight: 700, color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+              Näytä ottelu <LuChevronRight size={16} />
+            </MuiLink>
           )}
-        </div>
-      )}
-    </div>
+        </Box>
+      </Collapse>
+    </Card>
   );
 };
+
+const primaryBtnSx = { mt: 0.75, px: 2.75, py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", color: "primary.contrastText", bgcolor: "primary.main", "&:hover": { bgcolor: "primary.main", filter: "brightness(1.08)" } };
+
+const Gate = ({ icon, title, text, action }) => (
+  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5, py: 5.5, px: 2.75, maxWidth: 380, mx: "auto", mt: 3 }}>
+    <Box sx={{ width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "rgba(var(--color-primary-rgb),0.13)", border: "1px solid rgba(var(--color-primary-rgb),0.35)", color: "primary.main" }}>{icon}</Box>
+    <Typography sx={{ fontWeight: 800, textTransform: "uppercase", fontSize: 18 }}>{title}</Typography>
+    <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>{text}</Typography>
+    {action}
+  </Box>
+);
+
+const Loading = ({ text }) => (
+  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5, py: 6 }}>
+    <CircularProgress color="primary" />
+    {text && <Typography variant="body2" sx={{ color: "text.secondary" }}>{text}</Typography>}
+  </Box>
+);
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -262,7 +221,6 @@ const Feed = () => {
       .then((u) => {
         if (cancelled) return;
         setUser(u);
-        // getMe mirrors the account's favourites to localStorage → reload them.
         setFavourites(loadFavouriteTeams());
       })
       .catch(() => { if (!cancelled) setUser(null); })
@@ -270,26 +228,15 @@ const Feed = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Reload favourites when returning to the tab (they may change on /teams).
   const reloadFavs = useCallback(() => setFavourites(loadFavouriteTeams()), []);
   useEffect(() => {
     window.addEventListener("focus", reloadFavs);
     return () => window.removeEventListener("focus", reloadFavs);
   }, [reloadFavs]);
 
-  // Only Jopox-sourced favourites (carry a subsiteId) drive the feed.
-  const teams = useMemo(
-    () => favourites.filter((t) => t.subsiteId != null),
-    [favourites]
-  );
-  // Stable dependency for the fetch effect (array ref changes every render).
+  const teams = useMemo(() => favourites.filter((t) => t.subsiteId != null), [favourites]);
   const teamsKey = teams.map((t) => t.subsiteId).join(",");
 
-  // Build the merged agenda per favourite: Jopox events (harjoitukset + Jopox
-  // games, from getTeamEvents) ⊕ the team's tulospalvelu games (from the season
-  // cache, filtered by age) — deduped by date+time so tp-only games (e.g. U15
-  // sarjapelit not in Jopox) also show. Interleave all favourites chronologically.
-  // SWR: seed from caches, revalidate Jopox + the season schedule in the bg.
   const jopoxRef = useRef([]);
   useEffect(() => {
     if (!user || teams.length === 0) {
@@ -298,17 +245,12 @@ const Feed = () => {
     }
     let cancelled = false;
     const now = Date.now();
-    // Upcoming only: the season cache also holds LAST season's games (for the
-    // Ottelut history view), but the feed is a "tulevat tapahtumat" stream —
-    // drop anything before today so old results don't flood the top.
     const todayStr = moment().format("YYYY-MM-DD");
 
     const computeMerged = () => {
       const all = [];
       teams.forEach((t, i) => {
         const jopox = jopoxRef.current[i] || [];
-        // Match by age group, then narrow to the favourite's followed sub-groups
-        // (empty selection = follow all). Practices (Jopox) aren't sub-grouped.
         const tp = peekSeasonGames().filter(
           (g) => isGameForFavourite(g, t) && (!SUBGROUPS_ENABLED || gamePassesSubGroups(g, t.subGroups))
         );
@@ -321,17 +263,14 @@ const Feed = () => {
     };
     const rebuild = () => { if (!cancelled) setEvents(computeMerged()); };
 
-    // Seed from caches so the list paints immediately.
     jopoxRef.current = teams.map((t) => eventsCache.get(String(t.subsiteId))?.events || null);
     if (jopoxRef.current.some(Boolean) || peekSeasonGames().length) rebuild();
     else setEvents(null);
     setEventsError(false);
 
-    // Load/revalidate the season schedule + re-merge when it arrives or updates.
     fetchSeasonGames().catch(() => {});
     const unsub = subscribeSeason(rebuild);
 
-    // Fetch each team's Jopox events (SWR from eventsCache).
     let anyError = false;
     Promise.all(
       teams.map((t) => {
@@ -359,7 +298,6 @@ const Feed = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId, teamsKey]);
 
-  // Group the interleaved stream into day blocks.
   const days = useMemo(() => {
     if (!events) return [];
     const map = new Map();
@@ -368,403 +306,95 @@ const Feed = () => {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(e);
     }
-    return Array.from(map.keys())
-      .sort()
-      .map((key) => ({ key, label: dayLabel(key), items: map.get(key) }));
+    return Array.from(map.keys()).sort().map((key) => ({ key, label: dayLabel(key), items: map.get(key) }));
   }, [events]);
 
-  // Default-expanded = each team's NEXT (earliest) item only. events are sorted
-  // ascending, so the first item seen per team is that team's next one.
   const defaultExpanded = useMemo(() => {
     const seenTeam = new Set();
     const ids = new Set();
     for (const e of events || []) {
       const tn = String(e.teamName);
-      if (!seenTeam.has(tn)) {
-        seenTeam.add(tn);
-        ids.add(e.key);
-      }
+      if (!seenTeam.has(tn)) { seenTeam.add(tn); ids.add(e.key); }
     }
     return ids;
   }, [events]);
 
-  // Incremental render: show day-groups in chunks, growing as the user scrolls
-  // near the bottom. Off-screen days aren't mounted, so their cards don't fetch
-  // details until scrolled into view.
+  // Incremental render: grow the visible day-groups as the user scrolls near the bottom.
   const DAY_CHUNK = 4;
   const [visibleDays, setVisibleDays] = useState(DAY_CHUNK);
   useEffect(() => { setVisibleDays(DAY_CHUNK); }, [events]);
   const sentinelRef = useRef(null);
-  // NOTE: depend on visibleDays too. IntersectionObserver only fires on a CHANGE
-  // of intersection state — after one bump the sentinel is often STILL within the
-  // 400px margin (state stays "intersecting" → no new callback), so the list
-  // would grow only once and stop. Re-observing on each visibleDays change
-  // re-fires the initial callback, filling until the sentinel leaves the margin
-  // or every day is shown (then the sentinel isn't rendered → el null → stop).
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting)
-          setVisibleDays((n) => Math.min(n + DAY_CHUNK, days.length));
-      },
+      (entries) => { if (entries[0].isIntersecting) setVisibleDays((n) => Math.min(n + DAY_CHUNK, days.length)); },
       { rootMargin: "400px" }
     );
     io.observe(el);
     return () => io.disconnect();
   }, [days.length, visibleDays]);
 
-  const header = (
-    <div className="fd-head">
-      <h1 className="fd-head-title">Minä</h1>
-      <button
-        type="button"
-        className="fd-avatar"
-        onClick={() => navigate("/account")}
-        aria-label="Oma profiili"
-      >
-        {user && user.avatar ? (
-          <img className="fd-avatar-img" src={user.avatar} alt="" />
-        ) : (
-          <span className="fd-avatar-initials">{user ? initials(user.nickname) : "?"}</span>
-        )}
-      </button>
-    </div>
-  );
-
   return (
-    <>
-      <style>{css}</style>
-      <div className="fd-root">
-        {header}
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      {/* HEADER (title + avatar → profile) */}
+      <Box sx={{ position: "sticky", top: 0, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, pt: "calc(env(safe-area-inset-top) + 14px)", pb: 1.5, bgcolor: "background.default", borderBottom: "1px solid var(--color-surface-divider)" }}>
+        <Typography sx={{ fontSize: 20, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: "primary.main" }}>Minä</Typography>
+        <IconButton onClick={() => navigate("/account")} aria-label="Oma profiili" sx={{ p: 0 }}>
+          <Avatar src={user && user.avatar ? user.avatar : undefined} sx={{ width: 40, height: 40, fontSize: 15, fontWeight: 800, bgcolor: "#16181d", color: "#fff", border: "2px solid", borderColor: "primary.main" }}>{user ? initials(user.nickname) : "?"}</Avatar>
+        </IconButton>
+      </Box>
 
-        <div className="fd-body">
-          {authLoading && <div className="fd-center"><Spinner text="Ladataan…" /></div>}
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, pt: 1.75 }}>
+        {authLoading && <Loading text="Ladataan…" />}
 
-          {/* Signed out → login gate */}
-          {!authLoading && !user && (
-            <div className="fd-gate">
-              <div className="fd-gate-icon"><LuStar aria-hidden="true" /></div>
-              <h2 className="fd-gate-title">Oman joukkueen tapahtumat</h2>
-              <p className="fd-gate-text">
-                Kirjaudu sisään ja valitse suosikkijoukkue, niin näet sen
-                harjoitukset ja pelit tässä.
-              </p>
-              <button className="fd-btn fd-btn--primary" onClick={() => navigate("/account")}>
-                <LuLogIn aria-hidden="true" /> Kirjaudu
-              </button>
-            </div>
-          )}
+        {!authLoading && !user && (
+          <Gate
+            icon={<LuStar size={30} />}
+            title="Oman joukkueen tapahtumat"
+            text="Kirjaudu sisään ja valitse suosikkijoukkue, niin näet sen harjoitukset ja pelit tässä."
+            action={<Button onClick={() => navigate("/account")} startIcon={<LuLogIn size={18} />} sx={primaryBtnSx}>Kirjaudu</Button>}
+          />
+        )}
 
-          {/* Signed in, no favourite → pick one */}
-          {!authLoading && user && teams.length === 0 && (
-            <div className="fd-gate">
-              <div className="fd-gate-icon"><LuStar aria-hidden="true" /></div>
-              <h2 className="fd-gate-title">Valitse suosikkijoukkue</h2>
-              <p className="fd-gate-text">
-                Merkitse joukkue suosikiksi tähdellä, niin sen tapahtumat
-                ilmestyvät tänne.
-              </p>
-              <Link className="fd-btn fd-btn--primary" to="/teams">Joukkueet</Link>
-            </div>
-          )}
+        {!authLoading && user && teams.length === 0 && (
+          <Gate
+            icon={<LuStar size={30} />}
+            title="Valitse suosikkijoukkue"
+            text="Merkitse joukkue suosikiksi tähdellä, niin sen tapahtumat ilmestyvät tänne."
+            action={<Button component={Link} to="/teams" sx={primaryBtnSx}>Joukkueet</Button>}
+          />
+        )}
 
-          {/* Signed in with favourites → interleaved stream */}
-          {!authLoading && user && teams.length > 0 && (
-            <>
-              {events === null && !eventsError && (
-                <div className="fd-center"><Spinner text="Ladataan tapahtumia…" /></div>
-              )}
-              {eventsError && (
-                <div className="fd-status fd-status--error">
-                  Tapahtumia ei saatu haettua. Yritä myöhemmin uudelleen.
-                </div>
-              )}
-              {events && events.length === 0 && !eventsError && (
-                <div className="fd-empty">
-                  <div className="fd-empty-icon"><LuCalendarDays aria-hidden="true" /></div>
-                  <div className="fd-empty-title">Ei tulevia tapahtumia</div>
-                  <div className="fd-empty-text">Harjoitukset ja pelit ilmestyvät tähän, kun niitä on kalenterissa.</div>
-                </div>
-              )}
-              {days.slice(0, visibleDays).map((d) => (
-                <div className="fd-day" key={d.key}>
-                  <div className="fd-day-head">{d.label}</div>
-                  <div className="fd-events">
-                    {d.items.map((e) => {
-                      const id = e.key;
-                      const expanded = id in cardState ? cardState[id] : defaultExpanded.has(id);
-                      return (
-                        <EventRow
-                          key={id}
-                          e={e}
-                          expanded={expanded}
-                          onToggle={() => toggleCard(id, expanded)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-              {events && visibleDays < days.length && (
-                <div ref={sentinelRef} className="fd-sentinel" aria-hidden="true" />
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </>
+        {!authLoading && user && teams.length > 0 && (
+          <>
+            {events === null && !eventsError && <Loading text="Ladataan tapahtumia…" />}
+            {eventsError && <Box sx={{ textAlign: "center", py: 4, color: "var(--color-loss)" }}>Tapahtumia ei saatu haettua. Yritä myöhemmin uudelleen.</Box>}
+            {events && events.length === 0 && !eventsError && (
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1, pt: 5, pb: 3, px: 2.75, maxWidth: 360, mx: "auto" }}>
+                <Box sx={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", color: "text.secondary" }}><LuCalendarDays size={26} /></Box>
+                <Typography sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>Ei tulevia tapahtumia</Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>Harjoitukset ja pelit ilmestyvät tähän, kun niitä on kalenterissa.</Typography>
+              </Box>
+            )}
+            {days.slice(0, visibleDays).map((d) => (
+              <Box key={d.key} sx={{ mb: 2.25 }}>
+                <Box sx={{ position: "sticky", top: 66, zIndex: 2, px: 0.25, pt: 0.75, pb: 1, fontSize: 14, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main", background: "linear-gradient(180deg, var(--color-bg) 70%, rgba(17,17,17,0))" }}>{d.label}</Box>
+                <Stack spacing={1}>
+                  {d.items.map((e) => {
+                    const id = e.key;
+                    const expanded = id in cardState ? cardState[id] : defaultExpanded.has(id);
+                    return <EventRow key={id} e={e} expanded={expanded} onToggle={() => toggleCard(id, expanded)} />;
+                  })}
+                </Stack>
+              </Box>
+            ))}
+            {events && visibleDays < days.length && <Box ref={sentinelRef} sx={{ height: 1 }} aria-hidden="true" />}
+          </>
+        )}
+      </Box>
+    </Box>
   );
 };
 
 export default Feed;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root { height: 100%; background: var(--color-bg); }
-body { margin: 0; }
-
-.fd-root {
-  min-height: 100dvh;
-  background: var(--color-bg);
-  font-family: var(--font-family-base);
-  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
-}
-
-/* HEADER (title + avatar → profile) */
-.fd-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + 14px) 16px 12px;
-  position: sticky; top: 0; z-index: 5;
-  background: var(--color-bg);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-.fd-head-title {
-  margin: 0;
-  font-size: 20px; font-weight: 800;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  color: var(--color-primary);
-}
-.fd-avatar {
-  flex: 0 0 auto;
-  width: 40px; height: 40px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: #16181d;
-  border: 2px solid var(--color-primary);
-  color: #fff; font-weight: 800; font-size: 15px;
-  overflow: hidden; cursor: pointer; padding: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-.fd-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-
-.fd-body {
-  width: 100%; max-width: 640px; margin: 0 auto;
-  padding: 14px 12px 0;
-}
-.fd-center { display: flex; justify-content: center; padding: 48px 0; }
-.fd-status { text-align: center; padding: 28px 0; color: var(--gz-text-muted); font-size: var(--gz-fs-sm); }
-.fd-status--error { color: var(--color-loss); }
-
-/* EMPTY (signed in, favourite picked, but no upcoming events) */
-.fd-empty {
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: 8px; padding: 40px 22px 24px;
-  max-width: 360px; margin: 12px auto 0;
-}
-.fd-empty-icon {
-  width: 56px; height: 56px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: var(--gz-text-tertiary);
-}
-.fd-empty-icon svg { width: 26px; height: 26px; }
-.fd-empty-title {
-  font-size: var(--gz-fs-md); font-weight: 800;
-  letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
-  color: var(--gz-text-secondary);
-}
-.fd-empty-text {
-  font-size: var(--gz-fs-sm); color: var(--gz-text-tertiary); line-height: 1.5;
-}
-
-/* GATE (signed-out / no favourite) */
-.fd-gate {
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: 12px; padding: 44px 22px;
-  max-width: 380px; margin: 24px auto 0;
-}
-.fd-gate-icon {
-  width: 64px; height: 64px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(var(--color-primary-rgb),0.13);
-  border: 1px solid rgba(var(--color-primary-rgb),0.35);
-  color: var(--color-primary);
-}
-.fd-gate-icon svg { width: 30px; height: 30px; }
-.fd-gate-title {
-  margin: 0;
-  font-size: var(--gz-fs-lg, 18px); font-weight: 800;
-  letter-spacing: 0.01em; text-transform: uppercase;
-  color: var(--gz-text-primary);
-}
-.fd-gate-text {
-  margin: 0;
-  font-size: var(--gz-fs-sm); color: var(--gz-text-tertiary);
-  line-height: 1.5;
-}
-.fd-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  margin-top: 6px;
-  padding: 12px 22px;
-  border-radius: var(--radius-item);
-  border: 1px solid transparent;
-  font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  text-decoration: none; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.fd-btn svg { width: 18px; height: 18px; }
-.fd-btn--primary { background: var(--color-primary); color: var(--color-on-primary); }
-.fd-btn--primary:hover { filter: brightness(1.08); }
-
-/* DAY BLOCKS */
-.fd-day { margin-bottom: 18px; }
-.fd-day-head {
-  position: sticky; top: 66px; z-index: 2;
-  padding: 6px 2px 8px;
-  font-size: var(--gz-fs-sm); font-weight: 800;
-  letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
-  color: var(--color-primary);
-  background: linear-gradient(180deg, var(--color-bg) 70%, rgba(17,17,17,0));
-}
-
-/* EVENTS */
-.fd-events { display: flex; flex-direction: column; gap: 8px; }
-.fd-event {
-  border-radius: var(--radius-item);
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,0.06);
-  overflow: hidden;
-}
-.fd-event--game { border-color: rgba(var(--color-primary-rgb),0.30); background: rgba(var(--color-primary-rgb),0.06); }
-
-/* Clickable header row (toggles expand/collapse). */
-.fd-event-head {
-  display: flex; align-items: center; gap: 12px;
-  width: 100%;
-  padding: 11px 14px;
-  background: none; border: none; text-align: left; font: inherit;
-  color: inherit; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.fd-event-icon {
-  flex: 0 0 auto;
-  width: 38px; height: 38px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.05);
-  color: var(--gz-text-tertiary);
-}
-.fd-event--game .fd-event-icon { background: rgba(var(--color-primary-rgb),0.15); color: var(--color-primary); }
-.fd-event-icon svg { width: 20px; height: 20px; }
-/* Opponent logo replaces the trophy once the tulospalvelu game is matched.
-   Same theme as the match cards: white rounded-rect with a little padding. */
-.fd-event-icon--logo { background: transparent; }
-.fd-event-opplogo {
-  width: 38px; height: 38px;
-  box-sizing: border-box;
-  border-radius: 8px;
-  background: #fff;
-  object-fit: contain;
-  padding: 3px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
-}
-.fd-event-main { flex: 1; min-width: 0; }
-.fd-event-team {
-  display: flex; align-items: center; gap: 6px;
-  font-size: var(--gz-fs-xs); font-weight: 800;
-  letter-spacing: var(--gz-ls-wide); text-transform: uppercase;
-  color: var(--color-primary);
-  margin-bottom: 1px;
-}
-/* koti/vieras chip next to the team on a game row */
-.fd-event-ha {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-  padding: 1px 6px; border-radius: 999px;
-  color: var(--gz-text-tertiary);
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.10);
-}
-/* Data-source chip: which system(s) a game came from (QA aid, spot out-of-sync) */
-.fd-src {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-  padding: 1px 6px; border-radius: 999px;
-  border: 1px solid transparent; white-space: nowrap;
-}
-.fd-src--both   { color: var(--color-live); background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.35); }
-.fd-src--tp     { color: var(--color-accent-yellow); background: rgba(var(--color-primary-rgb),0.12); border-color: rgba(var(--color-primary-rgb),0.35); }
-.fd-src--jopox  { color: var(--color-info); background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.38); }
-/* Peliryhmä (sub-group) chip, e.g. Musta / Valkoinen. */
-.fd-sub {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-  padding: 1px 6px; border-radius: 999px; white-space: nowrap;
-  border: 1px solid rgba(255,255,255,0.28); color: rgba(255,255,255,0.85);
-  background: rgba(255,255,255,0.06);
-}
-.fd-sub--musta     { color: #d6d6d6; background: rgba(0,0,0,0.45); border-color: rgba(255,255,255,0.35); }
-.fd-sub--valkoinen { color: #0e0e0f; background: rgba(255,255,255,0.92); border-color: rgba(255,255,255,0.92); }
-.fd-sub--oranssi   { color: var(--color-primary); background: rgba(var(--color-primary-rgb),0.14); border-color: rgba(var(--color-primary-rgb),0.45); }
-.fd-sub--sininen   { color: var(--color-info); background: rgba(96,165,250,0.14); border-color: rgba(96,165,250,0.45); }
-.fd-sub--punainen  { color: #fca5a5; background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.45); }
-.fd-sub--keltainen { color: #fde047; background: rgba(234,179,8,0.14); border-color: rgba(234,179,8,0.45); }
-.fd-sub--harmaa    { color: #cbd5e1; background: rgba(148,163,184,0.16); border-color: rgba(148,163,184,0.45); }
-.fd-event-title {
-  font-size: var(--gz-fs-md); font-weight: var(--gz-fw-bold);
-  color: var(--gz-text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.fd-event-when { flex: 0 0 auto; text-align: right; white-space: nowrap; padding-left: 4px; }
-.fd-event-time { font-size: var(--gz-fs-sm); font-weight: var(--gz-fw-bold); color: var(--gz-text-secondary); }
-.fd-event-score {
-  font-size: var(--gz-fs-md); font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-primary);
-  white-space: nowrap;
-}
-.fd-event-chev {
-  flex: 0 0 auto; width: 18px; height: 18px;
-  color: var(--gz-text-tertiary);
-  transition: transform 0.18s ease;
-}
-.fd-event.is-open .fd-event-chev { transform: rotate(180deg); }
-
-/* Expanded details */
-.fd-event-details {
-  display: flex; flex-direction: column; gap: 7px;
-  padding: 10px 14px 12px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-.fd-detail {
-  display: flex; align-items: center; gap: 8px;
-  font-size: var(--gz-fs-sm); color: var(--gz-text-secondary);
-}
-.fd-detail-ico { width: 15px; height: 15px; flex: 0 0 auto; color: var(--gz-text-tertiary); }
-.fd-sentinel { height: 1px; }
-.fd-event-desc {
-  white-space: pre-line;
-  margin-top: 3px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  font-size: var(--gz-fs-sm); line-height: 1.5;
-  color: var(--gz-text-secondary);
-}
-.fd-event-link {
-  display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;
-  font-size: var(--gz-fs-sm); font-weight: 700; color: var(--color-primary);
-  text-decoration: none; -webkit-tap-highlight-color: transparent;
-}
-.fd-event-link svg { width: 16px; height: 16px; }
-`;

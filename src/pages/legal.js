@@ -1,7 +1,7 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { themeCSS } from "../theme";
-import { PageHeader } from "../components/ui/PageHeader";
+import { Box, Typography, Stack } from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 import { LEGAL_DOCS } from "../data/legalDocs";
 
@@ -11,114 +11,33 @@ const Legal = () => {
   const data = LEGAL_DOCS[doc];
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="lg-root">
-        <PageHeader
-          title={(data && data.title) || "—"}
-          left={
-            <button type="button" className="lg-back" onClick={goBack} aria-label="Takaisin">
-              <span className="material-symbols-rounded">&#xE5CB;</span>
-            </button>
-          }
-        />
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      <MuiHeader title={(data && data.title) || "—"} onBack={goBack} />
 
-        <div className="lg-card">
-          {!data ? (
-            <p className="lg-intro">Asiakirjaa ei löytynyt.</p>
-          ) : (
-            <>
-              <p className="lg-updated">Päivitetty {data.updated}</p>
-              {data.intro && <p className="lg-intro">{data.intro}</p>}
-              {data.sections.map((s, i) => (
-                <section key={i} className="lg-section">
-                  <h2 className="lg-h">{s.h}</h2>
-                  {Array.isArray(s.p) ? (
-                    <ul className="lg-list">
-                      {s.p.map((item, j) => (
-                        <li key={j}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="lg-p">{s.p}</p>
-                  )}
-                </section>
-              ))}
-            </>
-          )}
-        </div>
-      </div>
-    </>
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 2 }}>
+        {!data ? (
+          <Typography sx={{ color: "text.secondary" }}>Asiakirjaa ei löytynyt.</Typography>
+        ) : (
+          <Stack spacing={2.25}>
+            <Typography sx={{ fontSize: 12, color: "text.secondary", textTransform: "uppercase", letterSpacing: ".04em" }}>Päivitetty {data.updated}</Typography>
+            {data.intro && <Typography sx={{ color: "text.secondary", lineHeight: 1.55 }}>{data.intro}</Typography>}
+            {data.sections.map((s, i) => (
+              <Box key={i}>
+                <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".03em", mb: 0.75 }}>{s.h}</Typography>
+                {Array.isArray(s.p) ? (
+                  <Box component="ul" sx={{ m: 0, pl: 2.5, display: "flex", flexDirection: "column", gap: 0.5, color: "text.secondary", fontSize: 14, lineHeight: 1.5 }}>
+                    {s.p.map((item, j) => <li key={j}>{item}</li>)}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.55 }}>{s.p}</Typography>
+                )}
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </Box>
+    </Box>
   );
 };
 
 export default Legal;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root { height: 100%; background: var(--color-bg); }
-body { margin: 0; }
-
-.lg-root {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
-  background: var(--bg-gradient);
-  font-family: var(--font-family-base);
-}
-.lg-back {
-  display: flex; align-items: center;
-  color: rgba(255,255,255,0.6);
-  background: none; border: none; cursor: pointer;
-  border-radius: 10px; padding: 2px;
-  transition: color 0.15s;
-}
-.lg-back:hover { color: var(--color-primary); }
-.lg-back .material-symbols-rounded { font-size: 30px; line-height: 1; }
-
-.lg-card {
-  width: 100%; max-width: 640px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 18px;
-  padding: 4px 14px;
-}
-.lg-updated {
-  margin: 0;
-  font-size: var(--gz-fs-xs);
-  color: var(--gz-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: var(--gz-ls-wide);
-}
-.lg-intro {
-  margin: 0;
-  font-size: var(--gz-fs-md);
-  color: var(--gz-text-secondary);
-  line-height: 1.55;
-}
-.lg-section { display: flex; flex-direction: column; gap: 6px; }
-.lg-h {
-  margin: 0;
-  font-size: var(--gz-fs-md);
-  font-weight: 800;
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--gz-text-primary);
-}
-.lg-p {
-  margin: 0;
-  font-size: var(--gz-fs-sm);
-  color: var(--gz-text-secondary);
-  line-height: 1.55;
-}
-.lg-list {
-  margin: 0;
-  padding-left: 20px;
-  display: flex; flex-direction: column; gap: 4px;
-  font-size: var(--gz-fs-sm);
-  color: var(--gz-text-secondary);
-  line-height: 1.5;
-}
-`;
