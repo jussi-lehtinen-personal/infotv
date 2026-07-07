@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { flushSync } from "react-dom";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDrag } from "@use-gesture/react";
-import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuClock, LuMapPin } from "react-icons/lu";
+import { Box, Typography, GlobalStyles } from "@mui/material";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -11,7 +12,6 @@ import {
   loadFavouriteTeams,
 } from "../Util";
 import { isGameForAnyFavourite } from "../lib/teamMatch";
-import { themeCSS } from "../theme";
 import { ToggleButton } from "../components/ui/Buttons";
 import { Spinner } from "../components/ui/Spinner";
 import { TopProgressBar } from "../components/ui/TopProgressBar";
@@ -24,6 +24,13 @@ import { getCachedUser, getMe } from "../auth/authClient";
 moment.locale("fi");
 
 const HERO = "/games_hero.webp";
+
+// Result / state colours mapped to the index.css tokens (no hardcoded brand hex).
+const WIN = "var(--color-win)";
+const LOSS = "var(--color-loss)";
+const DRAW = "var(--color-draw)";
+const LIVE = "var(--color-primary)";
+const MUTED = "rgba(255, 255, 255, 0.4)";
 
 // Robust date parse — the feed uses "YYYY-MM-DD HH:mm" (space, not T). Safari/
 // iOS rejects that via native Date, yielding "Invalid Date". ISO-ify the space
@@ -61,6 +68,97 @@ const computeWeekRange = (weekDate) => {
 
 // Centering transform for the 3-panel carousel: middle panel sits at viewport centre.
 const CENTER_TX = -33.333;
+
+// One-off style objects reused across rows/chips.
+const iconBtnSx = {
+  flex: "0 0 auto",
+  width: 40,
+  height: 40,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "50%",
+  background: "rgba(0,0,0,0.38)",
+  backdropFilter: "blur(6px)",
+  WebkitBackdropFilter: "blur(6px)",
+  border: "none",
+  color: "#fff",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+  "& svg": { width: 22, height: 22 },
+};
+
+const weekArrowSx = {
+  flex: "0 0 auto",
+  width: 30,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "none",
+  border: "none",
+  color: "rgba(255,255,255,0.7)",
+  cursor: "pointer",
+  p: 0,
+  WebkitTapHighlightColor: "transparent",
+  "& svg": { width: 22, height: 22 },
+};
+
+const teamLogoSx = {
+  width: 38,
+  height: 38,
+  borderRadius: "8px",
+  flexShrink: 0,
+  background: "white",
+  objectFit: "contain",
+  padding: "3px",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.35)",
+  "@media (max-width:380px)": { width: 32, height: 32 },
+};
+
+const teamNameSx = {
+  flex: "1 1 auto",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "var(--gz-fs-md)",
+  fontWeight: "var(--gz-fw-bold)",
+  letterSpacing: "var(--gz-ls-wide)",
+  color: "var(--gz-text-primary)",
+  textTransform: "uppercase",
+  "@media (max-width:380px)": { fontSize: 14 },
+};
+
+const scoreSx = {
+  fontSize: "var(--gz-fs-score)",
+  fontWeight: "var(--gz-fw-black)",
+  fontVariantNumeric: "tabular-nums",
+  color: "var(--gz-text-primary)",
+  minWidth: 32,
+  textAlign: "center",
+  lineHeight: 1,
+  "@media (max-width:380px)": { fontSize: 22, minWidth: 24 },
+};
+
+// Global keyframes + page background. Kept global (not per-element sx) so the
+// html/body background prevents a white overscroll flash behind the 100dvh
+// fixed carousel, and the pulse animations are referenced by name below.
+const globalStyles = (
+  <GlobalStyles
+    styles={{
+      "html, body, #root": { margin: 0, minHeight: "100%", background: "var(--color-bg)" },
+      "@keyframes gzDotPulse": {
+        "0%, 100%": { opacity: 0.25, transform: "scale(0.8)" },
+        "50%": { opacity: 0.95, transform: "scale(1.2)" },
+      },
+      "@keyframes gzLivePulse": {
+        "0%": { boxShadow: "0 0 0 0 rgba(239,68,68,0.55)" },
+        "70%": { boxShadow: "0 0 0 7px rgba(239,68,68,0)" },
+        "100%": { boxShadow: "0 0 0 0 rgba(239,68,68,0)" },
+      },
+    }}
+  />
+);
 
 const Gamezone = () => {
   const { timestamp } = useParams();
@@ -304,34 +402,38 @@ const Gamezone = () => {
   };
 
   return (
-    <div className="gz-root">
-      <style>{css}</style>
+    <Box sx={{ height: "100dvh", display: "flex", flexDirection: "column", touchAction: "pan-y", overflow: "hidden", bgcolor: "var(--color-bg)", fontFamily: "var(--font-family-base)" }}>
+      {globalStyles}
 
       {/* ===== Fixed top chrome: hero + title + filters + week strip ===== */}
-      <div className="gz-top">
-        <img className="gz-top-img" src={HERO} alt="" />
-        <div className="gz-top-scrim" />
-        <div className="gz-top-content">
-          <div className="gz-top-bar">
-            <button className="gz-icon-btn" onClick={goBack} aria-label="Takaisin">
+      <Box sx={{ position: "relative", flex: "0 0 auto", overflow: "hidden" }}>
+        <Box component="img" src={HERO} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+        <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,15,0.45) 0%, rgba(8,10,15,0.25) 35%, rgba(8,10,15,0.7) 80%, var(--color-bg) 100%)" }} />
+        <Box sx={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 1.5, padding: "calc(env(safe-area-inset-top) + 10px) 12px 12px" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, position: "relative" }}>
+            <Box component="button" onClick={goBack} aria-label="Takaisin" sx={iconBtnSx}>
               <LuArrowLeft aria-hidden="true" />
-            </button>
-            <div className="gz-top-title">{title}</div>
-            <button className="gz-icon-btn" onClick={openPicker} aria-label="Valitse päivä">
+            </Box>
+            <Typography component="div" sx={{ flex: "1 1 auto", textAlign: "center", fontSize: "clamp(18px, 5.2vw, 24px)", fontWeight: 800, letterSpacing: "0.02em", textTransform: "uppercase", color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {title}
+            </Typography>
+            <Box component="button" onClick={openPicker} aria-label="Valitse päivä" sx={iconBtnSx}>
               <LuCalendarDays aria-hidden="true" />
-            </button>
-            <input
+            </Box>
+            {/* Hidden native date input anchored to the calendar button. */}
+            <Box
+              component="input"
               ref={dateInputRef}
               type="date"
-              className="gz-date-input"
               onChange={onPickDate}
               aria-hidden="true"
               tabIndex={-1}
+              sx={{ position: "absolute", right: 0, top: 40, width: "1px", height: "1px", opacity: 0, pointerEvents: "none", border: 0, p: 0, m: 0 }}
             />
-          </div>
+          </Box>
 
           {showOptions && (
-            <div className="gz-filter-row">
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
               <ToggleButton onClick={onToggleHome} active={onlyHome} icon="&#xE88A;">
                 Kotipelit
               </ToggleButton>
@@ -340,7 +442,7 @@ const Gamezone = () => {
                   Suosikit
                 </ToggleButton>
               )}
-            </div>
+            </Box>
           )}
 
           <WeekStrip
@@ -351,12 +453,12 @@ const Gamezone = () => {
             request={requestAvailability}
             isPending={isWeekPending}
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* ===== Swipeable match-list carousel ===== */}
-      <div className="gz-carousel-viewport">
-        <div className="gz-carousel-track" ref={trackRef} {...bind()}>
+      <Box sx={{ flex: "1 1 auto", minHeight: 0, width: "100%", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+        <Box ref={trackRef} {...bind()} sx={{ display: "flex", flexDirection: "row", width: "300%", flex: "1 1 auto", minHeight: 0, willChange: "transform", touchAction: "pan-y" }}>
           <WeekList {...listProps} weekDate={prevDate} matches={prevMatches} isCurrent={false} />
           <WeekList
             {...listProps}
@@ -367,9 +469,9 @@ const Gamezone = () => {
             bgFetching={bgFetching}
           />
           <WeekList {...listProps} weekDate={nextDate} matches={nextMatches} isCurrent={false} />
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 };
 
@@ -421,12 +523,27 @@ function WeekStrip({ weeks, selectedKey, onSelect, getCount, request, isPending 
   };
 
   return (
-    <div className="gz-weekstrip">
-      <button className="gz-week-arrow" onClick={() => scrollByChip(-1)} aria-label="Edellinen viikko">
+    <Box sx={{ display: "flex", alignItems: "stretch", gap: "6px" }}>
+      <Box component="button" onClick={() => scrollByChip(-1)} aria-label="Edellinen viikko" sx={weekArrowSx}>
         <LuChevronLeft aria-hidden="true" />
-      </button>
+      </Box>
 
-      <div className="gz-week-scroll" ref={scrollRef}>
+      <Box
+        ref={scrollRef}
+        sx={{
+          flex: "1 1 auto",
+          display: "flex",
+          gap: 1,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          padding: "2px 6px",
+          // Fade partial chips at the edges so they don't hard-clip mid-card.
+          WebkitMaskImage: "linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%)",
+          maskImage: "linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%)",
+          "&::-webkit-scrollbar": { display: "none" },
+        }}
+      >
         {weeks.map((w) => {
           const sel = w.key === selectedKey;
           const wk = moment(w.monday).isoWeek();
@@ -434,25 +551,58 @@ function WeekStrip({ weeks, selectedKey, onSelect, getCount, request, isPending 
           const hasGames = count > 0;
           const loading = count === undefined && isPending(w.key);
           return (
-            <button
+            <Box
               key={w.key}
+              component="button"
               data-key={w.key}
               ref={sel ? selRef : null}
-              className={`gz-week-chip${sel ? " gz-week-chip--sel" : ""}`}
               onClick={() => onSelect(w.key)}
+              sx={{
+                flex: "0 0 auto",
+                width: 92,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "4px",
+                padding: "8px 6px 7px",
+                borderRadius: "14px",
+                background: sel ? "rgba(var(--color-primary-rgb),0.10)" : "rgba(16,18,22,0.88)",
+                border: sel ? "1.5px solid var(--color-primary)" : "1.5px solid rgba(255,255,255,0.18)",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                WebkitTapHighlightColor: "transparent",
+                transition: "border-color 0.15s, background 0.15s",
+                "@media (max-width:380px)": { width: 84 },
+              }}
             >
-              <span className="gz-week-num">VK {wk}</span>
-              <span className="gz-week-range">{computeWeekRange(w.monday)}</span>
-              <span className={`gz-week-dot${hasGames ? " gz-week-dot--games" : ""}${loading ? " gz-week-dot--loading" : ""}`} />
-            </button>
+              <Box component="span" sx={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.02em", color: sel ? "var(--color-primary)" : "rgba(255,255,255,0.85)" }}>
+                VK {wk}
+              </Box>
+              <Box component="span" sx={{ fontSize: 11, color: "var(--gz-text-tertiary)", whiteSpace: "nowrap" }}>
+                {computeWeekRange(w.monday)}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: hasGames ? "var(--color-primary)" : "rgba(255,255,255,0.28)",
+                  mt: "1px",
+                  ...(loading ? { animation: "gzDotPulse 0.9s ease-in-out infinite" } : {}),
+                }}
+              />
+            </Box>
           );
         })}
-      </div>
+      </Box>
 
-      <button className="gz-week-arrow" onClick={() => scrollByChip(1)} aria-label="Seuraava viikko">
+      <Box component="button" onClick={() => scrollByChip(1)} aria-label="Seuraava viikko" sx={weekArrowSx}>
         <LuChevronRight aria-hidden="true" />
-      </button>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -511,57 +661,78 @@ function WeekList({
   }, [groups, showOptions, onlyHome, onlyFavourites, favouriteTeams]);
 
   const renderDayBlock = (g) => (
-    <div key={g.day} className="gz-dayblock">
-      <div className="gz-dayheader">
-        <span className="gz-dayheader-date">
+    <Box key={g.day} sx={{ display: "flex", flexDirection: "column" }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, padding: "6px 6px 2px 6px", fontSize: "var(--gz-fs-lg)", fontWeight: "var(--gz-fw-bold)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-primary)", textTransform: "uppercase" }}>
+        <Box component="span" sx={{ opacity: 0.95 }}>
           <strong>{capitalize(moment(g.day).format("dddd"))}</strong>{" "}
           <span>{moment(g.day).format("D.M")}</span>
-        </span>
-      </div>
+        </Box>
+      </Box>
 
       {g.items.map((m, idx) => (
         <MatchRow key={m.id ?? `${g.day}-${idx}`} match={m} />
       ))}
-    </div>
+    </Box>
   );
 
   const showSpinner = isCurrent && loading;
 
   return (
-    <div className={`gz-carousel-panel ${isCurrent ? "" : "gz-carousel-panel--inactive"}`}>
-      <div className="gz-panel-inner">
+    <Box sx={{ flex: "0 0 33.3333%", boxSizing: "border-box", padding: "0 6px", minWidth: 0, display: "flex", flexDirection: "column", ...(isCurrent ? {} : { pointerEvents: "none" }) }}>
+      <Box sx={{ flex: "1 1 auto", minHeight: 0, width: "100%", maxWidth: 760, mx: "auto", display: "flex", flexDirection: "column" }}>
         {isCurrent && <TopProgressBar visible={bgFetching && !loading} />}
 
-        <div ref={containerRef} className="gz-container">
+        <Box
+          ref={containerRef}
+          sx={{
+            flex: "1 1 auto",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            padding: "12px",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+            "@media (min-width:768px)": { padding: "14px 16px" },
+          }}
+        >
           {showSpinner && <Spinner text="Ladataan otteluita..." />}
 
           {!showSpinner && (onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
-            <div className="gz-empty">
+            <EmptyState>
               {onlyFavourites && favouriteTeams.length === 0 ? (
                 <>
                   <span>Ei suosikkijoukkueita. </span>
-                  <Link to="/teams" className="gz-empty-link">
+                  <Box component={Link} to="/teams" sx={{ color: "var(--color-primary)", textDecoration: "underline", "&:hover": { opacity: 0.8 }, "&, &:visited": { color: "var(--color-primary)" } }}>
                     Lisää niitä Joukkueet-sivulta.
-                  </Link>
+                  </Box>
                 </>
               ) : (
                 <span>Ei pelejä tällä viikolla.</span>
               )}
-            </div>
+            </EmptyState>
           )}
 
           {!showSpinner && !(onlyFavourites || onlyHome) && visibleGroups.length === 0 && (
-            <div className="gz-empty"><span>Ei pelejä tällä viikolla.</span></div>
+            <EmptyState><span>Ei pelejä tällä viikolla.</span></EmptyState>
           )}
 
           {!showSpinner && visibleGroups.length > 0 && (
-            <div className="gz-list">{visibleGroups.map(renderDayBlock)}</div>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "14px", pb: "calc(var(--ui-bottom-nav-clearance, 80px) + 28px)" }}>
+              {visibleGroups.map(renderDayBlock)}
+            </Box>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }
+
+const EmptyState = ({ children }) => (
+  <Box sx={{ flex: "1 1 auto", display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 16px", fontSize: "var(--gz-fs-sm)", color: "var(--gz-text-muted)", textAlign: "center" }}>
+    {children}
+  </Box>
+);
 
 /* ============================= */
 /*           ROW UI              */
@@ -592,9 +763,9 @@ function MatchRow({ match }) {
     if (!hasResult) return null;
     const ahmaGoals = match.isHomeGame ? hg : ag;
     const oppGoals  = match.isHomeGame ? ag : hg;
-    if (ahmaGoals > oppGoals) return "#22c55e";
-    if (ahmaGoals < oppGoals) return "#ef4444";
-    return "#e8e8e8";
+    if (ahmaGoals > oppGoals) return WIN;
+    if (ahmaGoals < oppGoals) return LOSS;
+    return DRAW;
   })();
 
   const ahmaIsHome = match.isHomeGame === true;
@@ -604,23 +775,21 @@ function MatchRow({ match }) {
   const homeIsLoser  = hasResult && hg < ag;
   const awayIsLoser  = hasResult && ag < hg;
 
-  const mutedColor = "rgba(255, 255, 255, 0.4)";
-
   const homeScoreStyle = (() => {
-    if (isLive) return { color: "#f97316" };
+    if (isLive) return { color: LIVE };
     if (!hasResult || hg === ag) return undefined;
-    if (homeIsWinner) return { color: ahmaIsHome ? "#22c55e" : "#ef4444" };
-    return { color: mutedColor };
+    if (homeIsWinner) return { color: ahmaIsHome ? WIN : LOSS };
+    return { color: MUTED };
   })();
   const awayScoreStyle = (() => {
-    if (isLive) return { color: "#f97316" };
+    if (isLive) return { color: LIVE };
     if (!hasResult || hg === ag) return undefined;
-    if (awayIsWinner) return { color: ahmaIsAway ? "#22c55e" : "#ef4444" };
-    return { color: mutedColor };
+    if (awayIsWinner) return { color: ahmaIsAway ? WIN : LOSS };
+    return { color: MUTED };
   })();
 
-  const homeNameStyle = (homeIsLoser && !isLive) ? { color: mutedColor } : undefined;
-  const awayNameStyle = (awayIsLoser && !isLive) ? { color: mutedColor } : undefined;
+  const homeNameStyle = (homeIsLoser && !isLive) ? { color: MUTED } : undefined;
+  const awayNameStyle = (awayIsLoser && !isLive) ? { color: MUTED } : undefined;
 
   const venueLabel = match.isHomeGame === true ? "Koti"
                    : match.isHomeGame === false ? "Vieras"
@@ -629,57 +798,81 @@ function MatchRow({ match }) {
 
   // Left indicator line only when there's something to show: live (orange) or
   // a finished result (green win / red loss / grey draw). Plain upcoming = none.
-  const lineColor = resultColor || (isLive ? "#f97316" : null);
-  const rowStyle = { cursor: "pointer", ...(lineColor ? { "--gz-result-color": lineColor } : {}) };
+  const lineColor = resultColor || (isLive ? LIVE : null);
 
   return (
-    <div
-      className="gz-row"
-      style={rowStyle}
+    <Box
       role="button"
       tabIndex={0}
       onClick={openGame}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGame(); } }}
+      sx={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+        padding: "16px 8px 16px 18px",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        cursor: "pointer",
+        "&:last-child": { borderBottom: "none" },
+        ...(lineColor ? { "--gz-result-color": lineColor } : {}),
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          left: 0,
+          top: "12px",
+          bottom: "12px",
+          width: "4px",
+          borderRadius: "2px",
+          background: "linear-gradient(180deg, var(--gz-result-color, transparent) 0%, color-mix(in srgb, var(--gz-result-color, transparent) 55%, transparent) 100%)",
+          pointerEvents: "none",
+        },
+        "@media (max-width:380px)": { padding: "12px 6px 12px 16px", gap: "10px" },
+      }}
     >
-      <div className="gz-row-top">
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
         {isLive && (
-          <div className="gz-live">
-            <span className="gz-live-dot" aria-hidden="true" />
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: "5px", pr: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-bold)", letterSpacing: "var(--gz-ls-wide)", color: LOSS, flexShrink: 0, lineHeight: 1 }}>
+            <Box component="span" aria-hidden="true" sx={{ width: 7, height: 7, borderRadius: "50%", background: LOSS, boxShadow: "0 0 0 0 rgba(239,68,68,0.6)", animation: "gzLivePulse 1.6s ease-in-out infinite" }} />
             <span>LIVE</span>
-          </div>
+          </Box>
         )}
-        <div className="gz-time">
-          <span className="material-symbols-rounded gz-time-icon">&#xE8B5;</span>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "var(--gz-fs-md)", fontWeight: "var(--gz-fw-bold)", color: "var(--gz-text-primary)", flexShrink: 0, lineHeight: 1, "@media (max-width:380px)": { fontSize: 14 } }}>
+          <LuClock size={15} style={{ flexShrink: 0 }} />
           <span>{timeStr}</span>
-        </div>
-        {level && <div className="gz-level-badge">{level}</div>}
+        </Box>
+        {level && (
+          <Box sx={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "6px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-medium)", color: "var(--gz-text-primary)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", flexShrink: 0, lineHeight: 1.3, whiteSpace: "nowrap" }}>
+            {level}
+          </Box>
+        )}
         {(venueLabel || rink) && (
-          <div className="gz-location">
-            <span className="material-symbols-rounded gz-location-icon">&#xE0C8;</span>
-            <span className="gz-location-text">
+          <Box sx={{ ml: "auto", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
+            <LuMapPin size={14} style={{ flexShrink: 0 }} />
+            <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
               {rink}
               {rink && venueLabel && " • "}
               {venueLabel}
-            </span>
-          </div>
+            </Box>
+          </Box>
         )}
-      </div>
+      </Box>
 
-      <div className="gz-row-body">
-        <div className="gz-team-row gz-team-row--home">
-          <img className="gz-team-logo ui-team-logo" src={match.home_logo} alt="" />
-          <span className="gz-team-name" style={homeNameStyle}>{match.home}</span>
-        </div>
-        <div className="gz-team-divider" />
-        <div className="gz-team-row gz-team-row--away">
-          <img className="gz-team-logo ui-team-logo" src={match.away_logo} alt="" />
-          <span className="gz-team-name" style={awayNameStyle}>{match.away}</span>
-        </div>
-        <div className="gz-row-separator" />
-        <div className="gz-team-score gz-team-score--home" style={homeScoreStyle}>{homeGoals}</div>
-        <div className="gz-team-score gz-team-score--away" style={awayScoreStyle}>{awayGoals}</div>
-      </div>
-    </div>
+      <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", gridTemplateRows: "auto auto auto", columnGap: "18px", rowGap: "10px", alignItems: "center" }}>
+        <Box sx={{ gridColumn: 1, gridRow: 1, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+          <Box component="img" src={match.home_logo} alt="" sx={teamLogoSx} />
+          <Box component="span" sx={{ ...teamNameSx, ...(homeNameStyle || {}) }}>{match.home}</Box>
+        </Box>
+        <Box sx={{ gridColumn: 1, gridRow: 2, height: "1px", background: "rgba(255,255,255,0.08)" }} />
+        <Box sx={{ gridColumn: 1, gridRow: 3, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+          <Box component="img" src={match.away_logo} alt="" sx={teamLogoSx} />
+          <Box component="span" sx={{ ...teamNameSx, ...(awayNameStyle || {}) }}>{match.away}</Box>
+        </Box>
+        <Box sx={{ gridColumn: 2, gridRow: "1 / 4", width: "2px", background: "var(--gz-result-color, rgba(255,255,255,0.22))", alignSelf: "stretch", borderRadius: "1px", my: "-4px" }} />
+        <Box sx={{ gridColumn: 3, gridRow: 1, ...scoreSx, ...(homeScoreStyle || {}) }}>{homeGoals}</Box>
+        <Box sx={{ gridColumn: 3, gridRow: 3, ...scoreSx, ...(awayScoreStyle || {}) }}>{awayGoals}</Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -690,472 +883,3 @@ function simplifyLevel(level) {
   if (m) return `U${m[1]}`;
   return s;
 }
-
-/* ============================= */
-/*             CSS               */
-/* ============================= */
-
-const css = `${themeCSS}
-
-html, body, #root{
-  margin: 0;
-  min-height: 100%;
-  background: var(--color-bg);
-}
-
-.gz-root{
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  touch-action: pan-y;
-  overflow: hidden;
-  background: var(--color-bg);
-  font-family: var(--font-family-base);
-}
-
-.material-symbols-rounded {
-  font-size: 34px;
-  line-height: 1;
-}
-
-/* ===== TOP CHROME (hero bg behind title + filters + week strip) ===== */
-.gz-top{
-  position: relative;
-  flex: 0 0 auto;
-  overflow: hidden;
-}
-.gz-top-img{
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover; object-position: center;
-}
-.gz-top-scrim{
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(8,10,15,0.45) 0%, rgba(8,10,15,0.25) 35%, rgba(8,10,15,0.7) 80%, var(--color-bg) 100%);
-}
-.gz-top-content{
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top) + 10px) 12px 12px;
-}
-
-.gz-top-bar{
-  display: flex; align-items: center; gap: 10px;
-  position: relative;
-}
-.gz-top-title{
-  flex: 1 1 auto;
-  text-align: center;
-  font-size: clamp(18px, 5.2vw, 24px);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: #fff;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.gz-icon-btn{
-  flex: 0 0 auto;
-  width: 40px; height: 40px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.38);
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  border: none; color: #fff; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.gz-icon-btn svg{ width: 22px; height: 22px; }
-/* Hidden native date input anchored to the calendar button. */
-.gz-date-input{
-  position: absolute; right: 0; top: 40px;
-  width: 1px; height: 1px; opacity: 0; pointer-events: none;
-  border: 0; padding: 0; margin: 0;
-}
-
-.gz-filter-row{
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* ===== WEEK STRIP ===== */
-.gz-weekstrip{
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-}
-.gz-week-arrow{
-  flex: 0 0 auto;
-  width: 30px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; color: rgba(255,255,255,0.7);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.gz-week-arrow svg{ width: 22px; height: 22px; }
-.gz-week-scroll{
-  flex: 1 1 auto;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding: 2px 6px;
-  /* Fade partial chips at the edges so they don't hard-clip mid-card. */
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
-}
-.gz-week-scroll::-webkit-scrollbar{ display: none; }
-.gz-week-chip{
-  flex: 0 0 auto;
-  width: 92px;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 4px;
-  padding: 8px 6px 7px;
-  border-radius: 14px;
-  background: rgba(16,18,22,0.88);
-  border: 1.5px solid rgba(255,255,255,0.18);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.15s, background 0.15s;
-}
-.gz-week-chip--sel{
-  border-color: var(--color-primary);
-  background: rgba(var(--color-primary-rgb),0.10);
-}
-.gz-week-num{
-  font-size: 15px; font-weight: 800;
-  letter-spacing: 0.02em;
-  color: rgba(255,255,255,0.85);
-}
-.gz-week-chip--sel .gz-week-num{ color: var(--color-primary); }
-.gz-week-range{
-  font-size: 11px;
-  color: var(--gz-text-tertiary);
-  white-space: nowrap;
-}
-.gz-week-dot{
-  width: 8px; height: 8px; border-radius: 50%;
-  background: rgba(255,255,255,0.28);
-  margin-top: 1px;
-}
-.gz-week-dot--games{ background: var(--color-primary); }
-.gz-week-dot--loading{ animation: gz-dot-pulse 0.9s ease-in-out infinite; }
-@keyframes gz-dot-pulse{
-  0%, 100% { opacity: 0.25; transform: scale(0.8); }
-  50%      { opacity: 0.95; transform: scale(1.2); }
-}
-
-/* ===== CAROUSEL ===== */
-.gz-carousel-viewport{
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-.gz-carousel-track{
-  display: flex;
-  flex-direction: row;
-  width: 300%;
-  flex: 1 1 auto;
-  min-height: 0;
-  will-change: transform;
-  touch-action: pan-y;
-}
-.gz-carousel-panel{
-  flex: 0 0 33.3333%;
-  box-sizing: border-box;
-  padding: 0 6px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.gz-carousel-panel--inactive{
-  pointer-events: none;
-}
-.gz-panel-inner{
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  max-width: 760px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.gz-container{
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 12px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
-
-.gz-list{
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-bottom: calc(var(--ui-bottom-nav-clearance, 80px) + 28px);
-}
-
-.gz-dayblock{
-  display: flex;
-  flex-direction: column;
-}
-
-.gz-dayheader{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 6px 2px 6px;
-  font-size: var(--gz-fs-lg);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  color: var(--gz-text-primary);
-  text-transform: uppercase;
-}
-
-.gz-dayheader-date{
-  opacity: 0.95;
-}
-
-/* Flat match rows — no card. Divider between games, optional coloured left
-   line for indication (live / result). */
-.gz-row{
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px 8px 16px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.gz-row:last-child{ border-bottom: none; }
-
-.gz-row::before{
-  content: "";
-  position: absolute;
-  left: 0; top: 12px; bottom: 12px;
-  width: 4px;
-  border-radius: 2px;
-  background: linear-gradient(
-    180deg,
-    var(--gz-result-color, transparent) 0%,
-    color-mix(in srgb, var(--gz-result-color, transparent) 55%, transparent) 100%
-  );
-  pointer-events: none;
-}
-
-.gz-row-top{
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.gz-time{
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--gz-fs-md);
-  font-weight: var(--gz-fw-bold);
-  color: var(--gz-text-primary);
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.gz-live{
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding-right: 4px;
-  font-size: var(--gz-fs-xs);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  color: #ef4444;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.gz-live-dot{
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
-  animation: gz-live-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes gz-live-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
-  70%  { box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-.gz-time-icon{
-  font-size: 16px;
-  line-height: 1;
-  color: var(--gz-text-primary);
-  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
-}
-
-.gz-level-badge{
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  font-size: var(--gz-fs-xs);
-  font-weight: var(--gz-fw-medium);
-  color: var(--gz-text-primary);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  flex-shrink: 0;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.gz-location{
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--gz-fs-xs);
-  font-weight: var(--gz-fw-regular);
-  letter-spacing: var(--gz-ls-wide);
-  color: var(--gz-text-muted);
-  min-width: 0;
-}
-
-.gz-location-icon{
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.gz-location-text{
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.gz-row-body{
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-rows: auto auto auto;
-  column-gap: 18px;
-  row-gap: 10px;
-  align-items: center;
-}
-
-.gz-team-row{
-  grid-column: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.gz-team-row--home{ grid-row: 1; }
-.gz-team-row--away{ grid-row: 3; }
-
-.gz-team-divider{
-  grid-row: 2;
-  grid-column: 1;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.gz-team-logo{
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  background: white;
-  object-fit: contain;
-  padding: 3px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
-}
-
-.gz-team-name{
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--gz-fs-md);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  color: var(--gz-text-primary);
-  text-transform: uppercase;
-}
-
-.gz-row-separator{
-  grid-column: 2;
-  grid-row: 1 / 4;
-  width: 2px;
-  background: var(--gz-result-color, rgba(255, 255, 255, 0.22));
-  align-self: stretch;
-  border-radius: 1px;
-  margin: -4px 0;
-}
-
-.gz-team-score{
-  grid-column: 3;
-  font-size: var(--gz-fs-score);
-  font-weight: var(--gz-fw-black);
-  font-variant-numeric: tabular-nums;
-  color: var(--gz-text-primary);
-  min-width: 32px;
-  text-align: center;
-  line-height: 1;
-}
-
-.gz-team-score--home{ grid-row: 1; }
-.gz-team-score--away{ grid-row: 3; }
-
-.gz-empty{
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  font-size: var(--gz-fs-sm);
-  color: var(--gz-text-muted);
-  text-align: center;
-}
-
-.gz-empty-link{
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-.gz-empty-link:hover{ opacity: 0.8; }
-
-/* Narrow phones */
-@media (max-width: 380px){
-  .gz-row{ padding: 12px 6px 12px 16px; gap: 10px; }
-  .gz-time{ font-size: 14px; }
-  .gz-team-logo{ width: 32px; height: 32px; }
-  .gz-team-name{ font-size: 14px; }
-  .gz-team-score{ font-size: 22px; min-width: 24px; }
-  .gz-location{ font-size: 11px; }
-  .gz-week-chip{ width: 84px; }
-}
-
-/* Tablet */
-@media (min-width: 768px){
-  .gz-panel-inner{ max-width: 760px; }
-  .gz-container{ padding: 14px 16px; }
-}
-`;
