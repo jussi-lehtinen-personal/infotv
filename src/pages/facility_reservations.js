@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock } from "react-icons/lu";
+import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuInfo } from "react-icons/lu";
 import {
   Box, Typography, IconButton, Button, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
@@ -10,7 +10,7 @@ import "moment/locale/fi";
 
 import { useGoBack } from "../hooks/useGoBack";
 import { getCachedUser, getMe } from "../auth/authClient";
-import { ROOMS, getRoom, daySlots, DURATIONS, durationLabel } from "../data/rooms";
+import { ROOMS, getRoom, daySlots, durationOptions, durationLabel, SLOT_MIN, MAX_DURATION_MIN, DEFAULT_DURATION_MIN } from "../data/rooms";
 import {
   fetchReservations, createReservation, releaseReservation, updateReservation,
   fetchMyReservations, coachTeamsOf,
@@ -21,6 +21,11 @@ moment.locale("fi");
 const FMT = "YYYY-MM-DD";
 const today = () => moment().format(FMT);
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// Grid cell colours (green free / orange own / grey reserved).
+const FREE_BG = "#2e7d32";
+const FREE_HOVER = "#388e3c";
 
 // Bebas title, matching the other headers (tracking + optical shift tokens).
 const titleSx = {
@@ -85,6 +90,7 @@ const FacilityReservations = () => {
   const [dialog, setDialog] = useState(null); // { mode:'create'|'edit', ... }
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const daySlotsForRoom = useMemo(() => daySlots(room), [room]);
   const dayMap = useMemo(() => {
@@ -93,20 +99,21 @@ const FacilityReservations = () => {
     return map;
   }, [byDate, selected]);
 
-  // Max bookable duration starting at a given slot index: consecutive free slots.
+  // Max bookable duration starting at a given slot index: consecutive free slots
+  // (capped at 3 h).
   const maxDurationAt = useCallback((idx) => {
     let n = 0;
     for (let i = idx; i < daySlotsForRoom.length; i += 1) {
       if (dayMap[daySlotsForRoom[i].rowKey]) break;
       n += 1;
-      if (n * 30 >= 180) break;
+      if (n * SLOT_MIN >= MAX_DURATION_MIN) break;
     }
-    return n * 30;
+    return n * SLOT_MIN;
   }, [daySlotsForRoom, dayMap]);
 
   const openCreate = (slot, idx) => {
     const maxDur = maxDurationAt(idx);
-    const durationMin = maxDur >= 60 ? 60 : maxDur;
+    const durationMin = Math.min(DEFAULT_DURATION_MIN, maxDur);
     setErr("");
     setDialog({ mode: "create", slot, maxDur, durationMin, teamKey: myTeams[0] || "", description: "" });
   };
@@ -190,7 +197,11 @@ const FacilityReservations = () => {
               <Typography sx={{ fontWeight: 700, textTransform: "capitalize" }}>{capitalize(moment(selected).format("dddd D.M.YYYY"))}</Typography>
               <IconButton size="small" aria-label="Seuraava päivä" onClick={() => selectDate(moment(selected).add(1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronRight /></IconButton>
             </Box>
-            <SlotList
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
+              <Legend />
+              <IconButton size="small" aria-label="Ohjeet" onClick={() => setInfoOpen(true)} sx={{ color: "text.secondary" }}><LuInfo /></IconButton>
+            </Box>
+            <DayGrid
               slots={daySlotsForRoom}
               dayMap={dayMap}
               selected={selected}
@@ -198,7 +209,6 @@ const FacilityReservations = () => {
               myUserId={myUserId}
               onBook={openCreate}
               onEditOwn={openEdit}
-              onRelease={doRelease}
             />
           </Box>
           {/* Omat varaukset */}
@@ -219,6 +229,7 @@ const FacilityReservations = () => {
         onRelease={() => dialog && doRelease({ date: dialog.date, bookingId: dialog.bookingId })}
         selected={selected}
       />
+      <InfoDialog open={infoOpen} onClose={() => setInfoOpen(false)} />
     </Box>
   );
 };
@@ -280,93 +291,103 @@ function MonthCalendar({ monthKey, selected, onSelect, onMonth, byDate, myUserId
   );
 }
 
-/* ============================= SLOT LIST ============================= */
+/* ============================= DAY GRID ============================= */
 
-const rowBase = {
-  display: "flex", alignItems: "center", gap: 1, p: "8px 12px",
-  borderRadius: "var(--radius-small)", border: "1px solid var(--color-surface-border)",
-  bgcolor: "var(--color-surface)",
-};
-const varaaBtnSx = { minWidth: 0, px: 1.75, fontWeight: 800, bgcolor: "#16a34a", color: "#fff", "&:hover": { bgcolor: "#128a3e" } };
+// Small colour-key row above the grid.
+function Legend() {
+  const chip = (bg, label, lock) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+      <Box sx={{ width: 13, height: 13, borderRadius: "3px", bgcolor: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {lock && <LuLock size={8} style={{ color: "var(--gz-text-muted)" }} />}
+      </Box>
+      <Typography sx={{ fontSize: 11, color: "var(--gz-text-secondary)" }}>{label}</Typography>
+    </Box>
+  );
+  return (
+    <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+      {chip(FREE_BG, "Vapaa")}
+      {chip("var(--color-primary)", "Oma varaus")}
+      {chip("rgba(255,255,255,0.08)", "Varattu", true)}
+    </Box>
+  );
+}
 
-function SlotList({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn, onRelease }) {
+// Hour rows × 15-min columns (00/15/30/45). Tap a green cell to book, an orange
+// (own) cell to edit/release. Consecutive booked cells read as one block by
+// colour; the booking spans them via a shared bookingId.
+function DayGrid({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn }) {
   const nowMins = moment().hours() * 60 + moment().minutes();
-  const isPast = (mins) => selected < today() || (selected === today() && mins + 30 <= nowMins);
+  const isPast = (mins) => selected < today() || (selected === today() && mins + SLOT_MIN <= nowMins);
 
-  // Merge consecutive slots of the same booking into one block; free slots stay
-  // individual so any start time is bookable.
-  const rows = [];
-  for (let i = 0; i < slots.length; ) {
-    const res = dayMap[slots[i].rowKey];
-    if (!res) { rows.push({ kind: "free", slot: slots[i], idx: i }); i += 1; continue; }
-    let j = i + 1;
-    while (j < slots.length && dayMap[slots[j].rowKey] && dayMap[slots[j].rowKey].bookingId === res.bookingId) j += 1;
-    rows.push({ kind: "res", res, count: j - i });
-    i = j;
-  }
+  const hours = [];
+  slots.forEach((s, idx) => {
+    const h = Math.floor(s.mins / 60);
+    let g = hours.length ? hours[hours.length - 1] : null;
+    if (!g || g.h !== h) { g = { h, cells: [] }; hours.push(g); }
+    g.cells.push({ ...s, idx });
+  });
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, pb: 2 }}>
-      {rows.map((row) => {
-        if (row.kind === "free") {
-          return (
-            <FreeRow key={row.slot.rowKey} label={`${row.slot.label} – ${row.slot.endLabel}`}
-              canBook={canBook} past={isPast(row.slot.mins)} onBook={() => onBook(row.slot, row.idx)} />
-          );
-        }
-        const { res, count } = row;
-        return (
-          <BookingRow key={res.bookingId} res={res} count={count} own={res.ownerUserId === myUserId}
-            onEdit={() => onEditOwn(res)} onRelease={() => onRelease({ date: selected, bookingId: res.bookingId })} />
-        );
-      })}
+    <Box sx={{ pb: 2 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: "42px repeat(4, 1fr)", columnGap: "4px", rowGap: "4px", alignItems: "center" }}>
+        <Box />
+        {["00", "15", "30", "45"].map((c) => (
+          <Box key={c} sx={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--gz-text-tertiary)" }}>{c}</Box>
+        ))}
+        {hours.map((g) => (
+          <React.Fragment key={g.h}>
+            <Box sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{pad2(g.h)}:00</Box>
+            {g.cells.map((s) => {
+              const res = dayMap[s.rowKey];
+              const own = res && res.ownerUserId === myUserId;
+              const other = res && !own;
+              const past = isPast(s.mins);
+              const bookable = !res && canBook && !past;
+              const clickable = own || bookable;
+              const onClick = own ? () => onEditOwn(res) : bookable ? () => onBook(s, s.idx) : undefined;
+              const bg = own ? "var(--color-primary)" : other ? "rgba(255,255,255,0.05)" : past ? "rgba(46,125,50,0.35)" : FREE_BG;
+              return (
+                <Box
+                  key={s.rowKey}
+                  component={clickable ? "button" : "div"}
+                  type={clickable ? "button" : undefined}
+                  onClick={onClick}
+                  aria-label={`${s.label} ${own ? "oma varaus" : other ? "varattu" : "vapaa"}`}
+                  sx={{
+                    height: 34, borderRadius: "7px", border: "none", p: 0, fontFamily: "inherit",
+                    bgcolor: bg, cursor: clickable ? "pointer" : "default",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    WebkitTapHighlightColor: "transparent",
+                    "&:hover": clickable ? { bgcolor: own ? "var(--color-primary)" : FREE_HOVER, filter: "brightness(1.08)" } : {},
+                  }}
+                >
+                  {other && <LuLock size={13} style={{ color: "var(--gz-text-muted)" }} />}
+                </Box>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </Box>
     </Box>
   );
 }
 
-function FreeRow({ label, canBook, past, onBook }) {
+function InfoDialog({ open, onClose }) {
   return (
-    <Box sx={{ ...rowBase, minHeight: 44 }}>
-      <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", minWidth: 108 }}>{label}</Typography>
-      <Box sx={{ flex: 1 }} />
-      {canBook && !past
-        ? <Button size="small" variant="contained" onClick={onBook} sx={varaaBtnSx}>Varaa</Button>
-        : <Typography sx={{ fontSize: 12, color: "var(--gz-text-muted)" }}>{past ? "" : "Vapaa"}</Typography>}
-    </Box>
-  );
-}
-
-// A whole booking as ONE block; height grows with the number of 30-min slots.
-function BookingRow({ res, count, own, onEdit, onRelease }) {
-  const label = `${res.startSlot} – ${res.endSlot}`;
-  const minHeight = 44 + (count - 1) * 22;
-  if (own) {
-    return (
-      <Box sx={{ ...rowBase, minHeight, alignItems: "stretch", borderColor: "rgba(var(--color-primary-rgb),0.5)", bgcolor: "rgba(var(--color-primary-rgb),0.10)", cursor: "pointer" }}
-        role="button" tabIndex={0} onClick={onEdit}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEdit(); } }}>
-        <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{label}</Typography>
-          <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main" }} noWrap>
-            Oma varaus{res.description ? ` · ${res.description}` : ""}
-          </Typography>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs" PaperProps={{ sx: { bgcolor: "background.paper", backgroundImage: "none" } }}>
+      <DialogTitle sx={{ fontWeight: 800 }}>Näin varaat</DialogTitle>
+      <DialogContent>
+        <Box component="ul" sx={{ m: 0, pl: 2.5, display: "flex", flexDirection: "column", gap: 1, color: "var(--gz-text-secondary)", fontSize: 14, lineHeight: 1.5 }}>
+          <li>Napauta <b>vihreää</b> ruutua → valitse kesto (oletus 1 h) ja tallenna. Varaus tehdään oletusjoukkueellasi.</li>
+          <li><b>Oranssi</b> = oma varaus. Napauta muokataksesi kuvausta / joukkuetta tai vapauttaaksesi koko varauksen.</li>
+          <li><b>Harmaa lukko</b> = jonkun muun varaus.</li>
+          <li>Vaihda päivää nuolista tai kalenterista; pyyhkäise "Omat varaukset" -välilehdelle.</li>
         </Box>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <Button size="small" variant="contained" color="primary" onClick={(e) => { e.stopPropagation(); onRelease(); }} sx={{ minWidth: 0, px: 1.5, fontWeight: 800 }}>Vapauta</Button>
-        </Box>
-      </Box>
-    );
-  }
-  return (
-    <Box sx={{ ...rowBase, minHeight, alignItems: "stretch", opacity: 0.7 }}>
-      <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--gz-text-secondary)" }}>{label}</Typography>
-        <Typography sx={{ fontSize: 12, color: "var(--gz-text-muted)" }} noWrap>{res.teamName || "Varattu"}</Typography>
-      </Box>
-      <Box sx={{ display: "flex", alignItems: "center" }}>
-        <LuLock aria-label="Varattu" style={{ color: "var(--gz-text-muted)", flexShrink: 0 }} />
-      </Box>
-    </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button variant="contained" onClick={onClose}>Selvä</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -411,7 +432,7 @@ const Note = ({ children }) => (
 function BookingDialog({ dialog, myTeams, isAdmin, saving, err, onChange, onClose, onSave, onRelease, selected }) {
   const open = !!dialog;
   const isCreate = dialog && dialog.mode === "create";
-  const durations = isCreate ? DURATIONS.filter((d) => d <= (dialog.maxDur || 0)) : [];
+  const durations = isCreate ? durationOptions(dialog.maxDur) : [];
   const teamOptions = isAdmin ? ["", ...myTeams] : myTeams;
 
   return (

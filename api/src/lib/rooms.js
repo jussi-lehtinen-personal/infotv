@@ -1,7 +1,7 @@
 // Bookable club rooms (MVP: one auxiliary space). Extensible — add rows here and
 // mirror in src/data/rooms.js. `startHour`..`endHour` define the daily window;
 // slots are 30 minutes. Keep this in sync with the frontend copy.
-const SLOT_MIN = 30;
+const SLOT_MIN = 15;
 const MAX_DURATION_MIN = 180; // 3 h
 
 const ROOMS = [
@@ -30,6 +30,8 @@ const minutesToRowKey = (mins) => `${pad2(Math.floor(mins / 60))}${pad2(mins % 6
 // doesn't align to the grid / overflows the room's closing hour.
 function bookingSlots(room, startMinutes, durationMin) {
   if (startMinutes == null) return null;
+  // Duration is a multiple of 15 min, from 15 min up to 3 h, and must fit the
+  // room's closing hour.
   if (durationMin % SLOT_MIN !== 0 || durationMin < SLOT_MIN || durationMin > MAX_DURATION_MIN) return null;
   if (startMinutes % SLOT_MIN !== 0) return null;
   const open = room.startHour * 60;
@@ -42,7 +44,6 @@ function bookingSlots(room, startMinutes, durationMin) {
 
 module.exports = {
   SLOT_MIN,
-  MAX_DURATION_MIN,
   ROOMS,
   getRoom,
   slotToMinutes,

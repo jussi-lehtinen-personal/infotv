@@ -1,7 +1,8 @@
 // Bookable club rooms — mirror of api/src/lib/rooms.js. MVP: one auxiliary
 // space; add rows here (and in the api copy) to offer more.
-export const SLOT_MIN = 30;
+export const SLOT_MIN = 15;
 export const MAX_DURATION_MIN = 180; // 3 h
+export const DEFAULT_DURATION_MIN = 60; // usually a 1 h booking
 
 export const ROOMS = [
   { id: "oheistila", name: "Oheistila", startHour: 8, endHour: 22 },
@@ -10,10 +11,10 @@ export const ROOMS = [
 export const getRoom = (id) => ROOMS.find((r) => r.id === id) || ROOMS[0];
 
 const pad2 = (n) => String(n).padStart(2, "0");
-export const minsToLabel = (m) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`; // "08:00"
-export const minsToRowKey = (m) => `${pad2(Math.floor(m / 60))}${pad2(m % 60)}`; // "0800"
+export const minsToLabel = (m) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`; // "08:15"
+export const minsToRowKey = (m) => `${pad2(Math.floor(m / 60))}${pad2(m % 60)}`; // "0815"
 
-// All 30-min slot starts for a room's day, e.g. 08:00 … 21:30 for 8–22.
+// All 15-min slot starts for a room's day, e.g. 08:00 … 21:45 for 8–22.
 export const daySlots = (room) => {
   const out = [];
   for (let m = room.startHour * 60; m < room.endHour * 60; m += SLOT_MIN) {
@@ -22,7 +23,18 @@ export const daySlots = (room) => {
   return out;
 };
 
-// Duration choices for the booking dialog (30 min … 3 h), default 60.
-export const DURATIONS = [30, 60, 90, 120, 150, 180];
-export const durationLabel = (min) =>
-  min % 60 === 0 ? `${min / 60} h` : `${Math.floor(min / 60) ? Math.floor(min / 60) + " h " : ""}${min % 60} min`;
+// Duration choices (15 min steps) up to `maxMin` (capped at 3 h), for the dialog.
+export const durationOptions = (maxMin) => {
+  const cap = Math.min(maxMin || MAX_DURATION_MIN, MAX_DURATION_MIN);
+  const out = [];
+  for (let d = SLOT_MIN; d <= cap; d += SLOT_MIN) out.push(d);
+  return out;
+};
+
+export const durationLabel = (min) => {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h && m) return `${h} h ${m} min`;
+  if (h) return `${h} h`;
+  return `${m} min`;
+};
