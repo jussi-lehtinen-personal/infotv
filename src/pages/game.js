@@ -3,7 +3,8 @@ import { useParams, useLocation } from "react-router-dom";
 import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink, LuFlag } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
-import { Box, Typography, Tabs, Tab, IconButton, Button, CircularProgress } from "@mui/material";
+import { Box, Typography, IconButton, Button, CircularProgress } from "@mui/material";
+import { SwipeableTabs } from "../components/ui/SwipeableTabs";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
@@ -116,22 +117,21 @@ const BoxScore = () => {
           {report === null && <Note>Ottelupöytäkirjaa ei ole saatavilla tälle ottelulle.</Note>}
           {report && (
             <>
-              <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="fullWidth" textColor="primary" indicatorColor="primary"
-                sx={{ mt: 0.25, mb: 1.75, minHeight: 0, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, fontSize: 14, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}>
-                <Tab value="events" label="Tapahtumat" />
-                <Tab value="stats" label="Tilastot" />
-                <Tab value="rosters" label="Kokoonpanot" />
-              </Tabs>
-              {tab === "events" && (
-                <>
+              <SwipeableTabs
+                tabs={[{ value: "events", label: "Tapahtumat" }, { value: "stats", label: "Tilastot" }, { value: "rosters", label: "Kokoonpanot" }]}
+                value={tab}
+                onChange={setTab}
+                tabsSx={{ mt: 0.25, mb: 1.75, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, fontSize: 14, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}
+              >
+                <Box>
                   <Timeline report={report} />
                   <WinningShots shots={report.winningShots} game={game} />
                   <Goalies goalies={report.goalies} game={game} />
                   <Footer report={report} game={game} />
-                </>
-              )}
-              {tab === "stats" && <Stats report={report} game={game} />}
-              {tab === "rosters" && <Rosters rosters={report.rosters} game={game} />}
+                </Box>
+                <Stats report={report} game={game} />
+                <Rosters rosters={report.rosters} game={game} />
+              </SwipeableTabs>
             </>
           )}
         </Box>

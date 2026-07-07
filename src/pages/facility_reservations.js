@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDrag } from "@use-gesture/react";
 import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock } from "react-icons/lu";
 import {
-  Box, Typography, IconButton, Button, Select, MenuItem, Tabs, Tab,
+  Box, Typography, IconButton, Button, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
 } from "@mui/material";
+import { SwipeableTabs } from "../components/ui/SwipeableTabs";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -55,11 +55,12 @@ const FacilityReservations = () => {
   const [byDate, setByDate] = useState({}); // dateStr -> reservations[]
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Keep the calendar month in sync with the selected day (e.g. after a swipe).
-  useEffect(() => {
-    const m = selected.slice(0, 7);
-    if (m !== monthKey) setMonthKey(m);
-  }, [selected, monthKey]);
+  // Pick a day: select it AND bring the calendar to its month. The month arrows
+  // change monthKey alone (free browsing) without touching the selected day.
+  const selectDate = useCallback((dateStr) => {
+    setSelected(dateStr);
+    setMonthKey(dateStr.slice(0, 7));
+  }, []);
 
   // Load the visible month's reservations (dots + day slots).
   useEffect(() => {
@@ -153,7 +154,7 @@ const FacilityReservations = () => {
         <IconButton onClick={goBack} aria-label="Takaisin" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}><LuArrowLeft /></IconButton>
         <Typography component="div" sx={{ flex: 1, ...titleSx }}>Tilan varaus</Typography>
         <IconButton onClick={openPicker} aria-label="Valitse päivä" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}><LuCalendarDays /></IconButton>
-        <Box component="input" ref={dateInputRef} type="date" value={selected} onChange={(e) => e.target.value && setSelected(e.target.value)} aria-hidden="true" tabIndex={-1}
+        <Box component="input" ref={dateInputRef} type="date" value={selected} onChange={(e) => e.target.value && selectDate(e.target.value)} aria-hidden="true" tabIndex={-1}
           sx={{ position: "fixed", right: 12, top: 52, width: "1px", height: "1px", opacity: 0, pointerEvents: "none", border: 0, p: 0, m: 0 }} />
       </Box>
 
@@ -168,42 +169,41 @@ const FacilityReservations = () => {
           {ROOMS.map((r) => <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>)}
         </Select>
 
-        {/* Tabs */}
-        <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="fullWidth" textColor="primary" indicatorColor="primary"
-          sx={{ mb: 1, minHeight: 0, "& .MuiTab-root": { minHeight: 0, py: 1, fontWeight: 700, textTransform: "none" } }}>
-          <Tab value="day" label="Päivä" />
-          <Tab value="mine" label="Omat varaukset" />
-        </Tabs>
-
-        {tab === "day" ? (
-          <>
+        <SwipeableTabs
+          tabs={[{ value: "day", label: "Päivä" }, { value: "mine", label: "Omat varaukset" }]}
+          value={tab}
+          onChange={setTab}
+          tabsSx={{ mb: 1 }}
+        >
+          {/* Päivä */}
+          <Box>
             <MonthCalendar
               monthKey={monthKey}
               selected={selected}
-              onSelect={setSelected}
+              onSelect={selectDate}
               onMonth={(delta) => setMonthKey(moment(monthKey + "-01").add(delta, "month").format("YYYY-MM"))}
               byDate={byDate}
               myUserId={myUserId}
             />
-            <DayPanel
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
+              <IconButton size="small" aria-label="Edellinen päivä" onClick={() => selectDate(moment(selected).add(-1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronLeft /></IconButton>
+              <Typography sx={{ fontWeight: 700, textTransform: "capitalize" }}>{capitalize(moment(selected).format("dddd D.M.YYYY"))}</Typography>
+              <IconButton size="small" aria-label="Seuraava päivä" onClick={() => selectDate(moment(selected).add(1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronRight /></IconButton>
+            </Box>
+            <SlotList
+              slots={daySlotsForRoom}
+              dayMap={dayMap}
               selected={selected}
-              onSwipe={(delta) => setSelected(moment(selected).add(delta, "day").format(FMT))}
-            >
-              <SlotList
-                slots={daySlotsForRoom}
-                dayMap={dayMap}
-                selected={selected}
-                canBook={canBook}
-                myUserId={myUserId}
-                onBook={openCreate}
-                onEditOwn={openEdit}
-                onRelease={doRelease}
-              />
-            </DayPanel>
-          </>
-        ) : (
-          <MineTab user={user} roomId={roomId} reloadKey={reloadKey} onRelease={doRelease} />
-        )}
+              canBook={canBook}
+              myUserId={myUserId}
+              onBook={openCreate}
+              onEditOwn={openEdit}
+              onRelease={doRelease}
+            />
+          </Box>
+          {/* Omat varaukset */}
+          <MineTab user={user} reloadKey={reloadKey} onRelease={doRelease} />
+        </SwipeableTabs>
       </Box>
 
       {/* Booking dialog */}
@@ -280,32 +280,14 @@ function MonthCalendar({ monthKey, selected, onSelect, onMonth, byDate, myUserId
   );
 }
 
-/* ===================== DAY PANEL (swipe) + SLOT LIST ===================== */
-
-function DayPanel({ selected, onSwipe, children }) {
-  const bind = useDrag(
-    ({ last, movement: [mx], velocity: [vx], tap }) => {
-      if (tap) return;
-      if (last && (Math.abs(mx) > 60 || Math.abs(vx) > 0.4)) onSwipe(mx < 0 ? 1 : -1);
-    },
-    { axis: "x", filterTaps: true, pointer: { touch: true } }
-  );
-  return (
-    <Box>
-      <Typography sx={{ fontWeight: 700, mb: 0.75, textTransform: "capitalize" }}>
-        {capitalize(moment(selected).format("dddd D.M.YYYY"))}
-      </Typography>
-      <Box {...bind()} sx={{ touchAction: "pan-y" }}>{children}</Box>
-    </Box>
-  );
-}
+/* ============================= SLOT LIST ============================= */
 
 const rowBase = {
   display: "flex", alignItems: "center", gap: 1, p: "8px 12px",
   borderRadius: "var(--radius-small)", border: "1px solid var(--color-surface-border)",
   bgcolor: "var(--color-surface)",
 };
-const varaaBtnSx = { minWidth: 0, px: 1.75, fontWeight: 800, bgcolor: "var(--color-win)", color: "#04240f", "&:hover": { bgcolor: "#1eb257" } };
+const varaaBtnSx = { minWidth: 0, px: 1.75, fontWeight: 800, bgcolor: "#16a34a", color: "#fff", "&:hover": { bgcolor: "#128a3e" } };
 
 function SlotList({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn, onRelease }) {
   const nowMins = moment().hours() * 60 + moment().minutes();
@@ -390,7 +372,7 @@ function BookingRow({ res, count, own, onEdit, onRelease }) {
 
 /* ============================= MINE TAB ============================= */
 
-function MineTab({ user, roomId, reloadKey, onRelease }) {
+function MineTab({ user, reloadKey, onRelease }) {
   const [bookings, setBookings] = useState(null);
   useEffect(() => {
     if (!user) { setBookings([]); return undefined; }
