@@ -469,7 +469,7 @@ const Note = ({ children }) => (
 function BookingDialog({ dialog, myTeams, isAdmin, saving, err, onChange, onClose, onSave, onRelease, selected }) {
   const open = !!dialog;
   const isCreate = dialog && dialog.mode === "create";
-  const durations = durationOptions(dialog.maxDur);
+  const durations = dialog ? durationOptions(dialog.maxDur) : [];
   const teamOptions = isAdmin ? ["", ...myTeams] : myTeams;
 
   return (
