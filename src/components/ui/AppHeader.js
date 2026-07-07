@@ -35,7 +35,7 @@ export const AppHeader = ({
 
     <div className="ui-app-header-right">
       {/* Profiili: ikoni + (kirjautuneena) nimimerkki, max-width katkaistuna. */}
-      <Link to={profileTo} className="ui-app-header-profile" aria-label="Minä">
+      <Link to={profileTo} className="ui-app-header-profile" aria-label="Tili">
         {user && user.avatar ? (
           <img className="ui-app-header-avatar-img" src={user.avatar} alt="" aria-hidden="true" />
         ) : user && user.nickname ? (

@@ -214,7 +214,7 @@ const Account = () => {
               <Stack direction="row" alignItems="center" sx={{ px: 1.5, pt: "calc(env(safe-area-inset-top) + 10px)" }}>
                 <IconButton onClick={goBack} aria-label="Takaisin" sx={{ color: "#fff", bgcolor: "rgba(0,0,0,.38)", backdropFilter: "blur(6px)", "&:hover": { bgcolor: "rgba(0,0,0,.5)" } }}><LuArrowLeft /></IconButton>
                 <Box sx={{ flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>Minä</Typography>
+                  <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>Tili</Typography>
                 </Box>
                 <Box sx={{ width: 40, flexShrink: 0 }} />
               </Stack>
@@ -301,7 +301,7 @@ const Account = () => {
       ) : (
         // ===== Loading / signed-out view =====
         <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
-          <MuiHeader title="Minä" onBack={goBack} />
+          <MuiHeader title="Tili" onBack={goBack} />
 
           <Box sx={{ maxWidth: 460, mx: "auto", px: 2 }}>
             {!supported && <ErrorBox>Laitteesi tai selaimesi ei tue passkey-kirjautumista.</ErrorBox>}
@@ -338,7 +338,7 @@ const Account = () => {
             <TextField fullWidth size="small" autoFocus label="Nimimerkki" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="esim. Uusi käyttäjä" inputProps={{ maxLength: 40, autoComplete: "off" }} sx={{ mb: 1.5 }} />
             <Button type="submit" fullWidth disabled={busy || nickname.trim().length < 1} startIcon={<LuKeyRound size={18} />} sx={primaryBtnSx}>Luo tili</Button>
           </Box>
-          <Typography variant="body2" sx={{ color: "text.secondary", mt: 1.5 }}>Jos haluat käyttää samaa tiliä useammalta laitteelta, yhdistä Google-tili käyttäjääsi myöhemmin Minä-sivulta.</Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 1.5 }}>Jos haluat käyttää samaa tiliä useammalta laitteelta, yhdistä Google-tili käyttäjääsi myöhemmin Tili-sivulta.</Typography>
           {error && <Box sx={{ mt: 1.5 }}><ErrorBox>{error}</ErrorBox></Box>}
           <Button onClick={() => setShowCreate(false)} disabled={busy} sx={{ mt: 1, color: "text.secondary", textTransform: "none" }}>Peruuta</Button>
         </Box>

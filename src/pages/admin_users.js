@@ -209,7 +209,7 @@ const AdminUsers = () => {
 
       <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5 }}>
         {status === "loading" && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
-        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Minä</Box>).</Status>}
+        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Tili</Box>).</Status>}
         {status === "forbidden" && <Status>Tällä tilillä ei ole admin-oikeuksia.</Status>}
         {status === "error" && <Status error>Lataus epäonnistui. {state.error}</Status>}
 

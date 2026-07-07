@@ -13,27 +13,39 @@ import {
   LuAward,
   LuMessageSquare,
   LuUser,
+  LuUserCircle,
   LuShieldCheck,
   LuX,
 } from "react-icons/lu";
 import { getCachedUser, getMe } from "../../auth/authClient";
 
 // Full navigation, in display order. `external` rows open in a new tab.
+// Section 1 mirrors the bottom bar (BottomNav) exactly; the rest are grouped by
+// theme, each rendered as its own divided section.
 const NAV_SECTIONS = [
+  // Alapalkin päänavigaatio (sama järjestys + ikonit kuin BottomNav).
   [
     { to: "/", label: "Etusivu", Icon: LuHome },
     { to: "/gamezone?includeAway=1&options=1", label: "Ottelut", Icon: LuTrophy },
     { to: "/gamezone/schedule", label: "Jäävuorot", Icon: LuCalendarDays },
     { to: "/teams", label: "Joukkueet", Icon: LuUsers },
-    { to: "/ads", label: "Mainokset", Icon: LuMegaphone },
-    { to: "/next_home_game", label: "Edustus", Icon: LuShield },
-    { to: "/news", label: "Uutiset", Icon: LuNewspaper },
+    { to: "/feed", label: "Minä", Icon: LuUser },
   ],
+  // Seura & sisältö
   [
-    { to: "/account", label: "Minä", Icon: LuUser },
+    { to: "/news", label: "Uutiset", Icon: LuNewspaper },
+    { to: "/next_home_game", label: "Edustus", Icon: LuShield },
+    { to: "/ads", label: "Mainokset", Icon: LuMegaphone },
+  ],
+  // Yhteystiedot & tuki
+  [
     { to: "/organization", label: "Yhteystiedot", Icon: LuMail },
-    { to: "/supporters", label: "Kannattajajäsenet", Icon: LuHeart },
     { to: "/partners", label: "Yhteistyökumppanit", Icon: LuAward },
+    { to: "/supporters", label: "Kannattajajäsenet", Icon: LuHeart },
+  ],
+  // Oma
+  [
+    { to: "/account", label: "Tili", Icon: LuUserCircle },
     {
       href: "https://forms.office.com/pages/responsepage.aspx?id=lnGL4VX2Lku9oA4GU2KdCUogyNsQep9AiquFHORrgR1UN1ZONVk2VTEzSDJHS0QwN0EyQzlWTFNJMy4u&route=shorturl",
       label: "Palaute",

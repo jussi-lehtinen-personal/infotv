@@ -67,7 +67,7 @@ const Stats = () => {
 
       <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5 }}>
         {status === "loading" && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
-        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Minä</Box>) ja palaa tänne.</Status>}
+        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Tili</Box>) ja palaa tänne.</Status>}
         {status === "error" && <Status error>Tilastojen haku epäonnistui. {state.error}</Status>}
 
         {status === "forbidden" && (
