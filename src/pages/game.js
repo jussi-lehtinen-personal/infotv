@@ -3,7 +3,7 @@ import { useParams, useLocation } from "react-router-dom";
 import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink, LuFlag } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
-import { Box, Typography, Tabs, Tab, IconButton, CircularProgress } from "@mui/material";
+import { Box, Typography, Tabs, Tab, IconButton, Button, CircularProgress } from "@mui/material";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
@@ -100,7 +100,10 @@ const BoxScore = () => {
         <IconButton onClick={goBack} aria-label="Takaisin" sx={topBtnSx}><LuArrowLeft size={20} /></IconButton>
         <Typography sx={{ flex: 1, fontSize: 15, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--color-primary)" }}>Ottelu</Typography>
         {tpUrl && (
-          <IconButton component="a" href={tpUrl} target="_blank" rel="noopener noreferrer" aria-label="Avaa tulospalvelussa" sx={topBtnSx}><LuExternalLink size={18} /></IconButton>
+          <Button component="a" href={tpUrl} target="_blank" rel="noopener noreferrer" aria-label="Avaa tulospalvelussa" startIcon={<LuExternalLink size={16} />}
+            sx={{ flexShrink: 0, px: 1.25, py: 0.75, borderRadius: 2, fontSize: 12.5, fontWeight: 700, textTransform: "none", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", "&, &:hover, &:focus, &:visited": { color: "var(--gz-text-secondary)" }, "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } }}>
+            Tulospalvelu
+          </Button>
         )}
       </Box>
 

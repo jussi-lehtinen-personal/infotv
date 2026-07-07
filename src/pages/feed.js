@@ -92,8 +92,8 @@ const MiniChip = ({ children, sx }) => (
 
 const Detail = ({ icon, children }) => (
   <Stack direction="row" alignItems="center" spacing={1} sx={{ fontSize: 14, color: "text.secondary" }}>
-    <Box sx={{ display: "flex", flexShrink: 0, opacity: 0.7 }}>{icon}</Box>
-    <span>{children}</span>
+    <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.7, mt: "-1px" }}>{icon}</Box>
+    <Box component="span" sx={{ lineHeight: 1.2 }}>{children}</Box>
   </Stack>
 );
 
