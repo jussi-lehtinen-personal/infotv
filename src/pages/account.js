@@ -220,7 +220,9 @@ const Account = () => {
               {/* textAlign center + inline-block children centre reliably (flex
                   alignItems was leaving these stretched/left). */}
               <Box sx={{ px: 2, pt: 2, textAlign: "center" }}>
-                <Box sx={{ position: "relative", width: 96, height: 96, display: "inline-block" }}>
+                {/* block + mx:auto → own line, centred (inline-block would put the
+                    avatar and name side by side) */}
+                <Box sx={{ position: "relative", width: 96, height: 96, mx: "auto" }}>
                   <Avatar src={user.avatar || undefined} sx={{ width: 96, height: 96, fontSize: 30, fontWeight: 800, bgcolor: "rgba(var(--color-primary-rgb),0.25)", color: "primary.main", border: "3px solid rgba(255,255,255,0.15)" }}>{initials(user.nickname)}</Avatar>
                   <IconButton onClick={handleAvatarPick} disabled={busy} aria-label="Vaihda kuva" sx={{ position: "absolute", right: -4, bottom: -4, width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", "&:hover": { bgcolor: "primary.main", filter: "brightness(1.05)" } }}><LuPencil size={16} /></IconButton>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarFile} style={{ display: "none" }} />

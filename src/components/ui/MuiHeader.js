@@ -10,7 +10,7 @@ export const MuiHeader = ({ title, subtitle, onBack }) => (
       <LuArrowLeft />
     </IconButton>
     <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".02em", fontSize: 20, lineHeight: 1.15 }}>{title}</Typography>
+      <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".02em", fontSize: 20, lineHeight: 1 }}>{title}</Typography>
       {subtitle && <Typography variant="body2" sx={{ color: "text.secondary" }}>{subtitle}</Typography>}
     </Box>
   </Stack>

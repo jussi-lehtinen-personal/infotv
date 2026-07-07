@@ -16,7 +16,7 @@ const InfoRow = ({ label, value }) => (
 const LinkRow = ({ to, icon, label }) => (
   <Stack component={Link} to={to} direction="row" alignItems="center" spacing={1.75} sx={{ px: 2, py: 1.75, WebkitTapHighlightColor: "transparent", "&, &:hover, &:focus, &:active, &:visited": { color: "text.primary", textDecoration: "none" }, "&:hover": { bgcolor: "var(--color-surface)" } }}>
     <Box sx={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "rgba(var(--color-primary-rgb),0.13)", border: "1px solid rgba(var(--color-primary-rgb),0.35)", color: "primary.main" }}>{icon}</Box>
-    <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, color: "text.primary", textTransform: "uppercase", letterSpacing: ".02em", lineHeight: 1.2 }}>{label}</Typography>
+    <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}>{label}</Typography>
     <LuChevronRight style={{ flexShrink: 0, opacity: 0.4 }} />
   </Stack>
 );
