@@ -100,10 +100,10 @@ const Index = () => {
           justifyContent: "space-between",
           gap: "14px",
           // Bottom padding clears the BottomNav + iOS home indicator + a small gap.
-          padding: "10px 7px var(--ui-bottom-nav-clearance, 80px) 7px",
+          padding: "calc(env(safe-area-inset-top) + 10px) 7px var(--ui-bottom-nav-clearance, 80px) 7px",
           background: "var(--bg-gradient)",
           fontFamily: "var(--font-family-base)",
-          "@media (min-width:768px)": { padding: "26px 26px 28px 26px", gap: "18px" },
+          "@media (min-width:768px)": { padding: "calc(env(safe-area-inset-top) + 26px) 26px 28px 26px", gap: "18px" },
         }}
       >
         <AppHeader onMenuClick={() => setDrawerOpen(true)} user={authUser} />
