@@ -7,7 +7,7 @@ import { useDrag } from "@use-gesture/react";
 // tab (same order). `value`/`onChange` are controlled by the parent. The viewport
 // height follows the active panel so shorter tabs don't reserve the tallest one's
 // space. Drop-in for a MUI <Tabs> + conditional-content pair.
-export function SwipeableTabs({ tabs, value, onChange, children, tabsSx }) {
+export function SwipeableTabs({ tabs, value, onChange, children, tabsSx, minHeight = "58vh" }) {
   const items = React.Children.toArray(children);
   const n = tabs.length;
   const pct = 100 / n;
@@ -73,8 +73,11 @@ export function SwipeableTabs({ tabs, value, onChange, children, tabsSx }) {
         sx={{ minHeight: 0, "& .MuiTab-root": { minHeight: 0, py: 1, fontWeight: 800 }, ...tabsSx }}>
         {tabs.map((t) => <Tab key={t.value} value={t.value} label={t.label} />)}
       </Tabs>
-      <Box ref={viewportRef} sx={{ overflow: "hidden", width: "100%", height, transition: "height 240ms ease" }}>
-        <Box ref={trackRef} {...bind()} sx={{ display: "flex", alignItems: "flex-start", width: `${n * 100}%`, touchAction: "pan-y" }}>
+      {/* Drag lives on the viewport (not the track) so the whole area — including
+          empty space below a short panel — is swipeable; minHeight guarantees that
+          area even when the active panel's content is short. */}
+      <Box ref={viewportRef} {...bind()} sx={{ overflow: "hidden", width: "100%", minHeight, height, transition: "height 240ms ease", touchAction: "pan-y" }}>
+        <Box ref={trackRef} sx={{ display: "flex", alignItems: "flex-start", width: `${n * 100}%` }}>
           {items.map((child, i) => (
             <Box key={tabs[i] ? tabs[i].value : i} ref={(el) => { panelRefs.current[i] = el; }} sx={{ flex: `0 0 ${pct}%`, minWidth: 0 }}>
               {child}
