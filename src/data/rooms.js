@@ -13,6 +13,7 @@ export const getRoom = (id) => ROOMS.find((r) => r.id === id) || ROOMS[0];
 const pad2 = (n) => String(n).padStart(2, "0");
 export const minsToLabel = (m) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`; // "08:15"
 export const minsToRowKey = (m) => `${pad2(Math.floor(m / 60))}${pad2(m % 60)}`; // "0815"
+export const labelToMins = (label) => { const [h, m] = String(label).split(":").map(Number); return h * 60 + m; }; // "08:15" -> 495
 
 // All 15-min slot starts for a room's day, e.g. 08:00 … 21:45 for 8–22.
 export const daySlots = (room) => {

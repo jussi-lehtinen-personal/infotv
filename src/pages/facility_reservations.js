@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuInfo, LuPlus } from "react-icons/lu";
+import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuPlusCircle } from "react-icons/lu";
 import {
   Box, Typography, IconButton, Button, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
@@ -10,7 +10,7 @@ import "moment/locale/fi";
 
 import { useGoBack } from "../hooks/useGoBack";
 import { getCachedUser, getMe } from "../auth/authClient";
-import { ROOMS, getRoom, daySlots, durationOptions, durationLabel, SLOT_MIN, MAX_DURATION_MIN, DEFAULT_DURATION_MIN } from "../data/rooms";
+import { ROOMS, getRoom, daySlots, durationOptions, durationLabel, labelToMins, SLOT_MIN, MAX_DURATION_MIN, DEFAULT_DURATION_MIN } from "../data/rooms";
 import {
   fetchReservations, createReservation, releaseReservation, updateReservation,
   fetchMyReservations, coachTeamsOf,
@@ -122,8 +122,20 @@ const FacilityReservations = () => {
     setDialog({ mode: "create", slot, maxDur, durationMin, teamKey: myTeams[0] || "", description: "" });
   };
   const openEdit = (res) => {
+    // Max resize = consecutive slots from this booking's start that are free or
+    // belong to this same booking (cap 3 h) — so the duration can grow/shrink.
+    const startMins = labelToMins(res.startSlot);
+    const startIdx = daySlotsForRoom.findIndex((s) => s.mins === startMins);
+    let n = 0;
+    for (let i = startIdx; i >= 0 && i < daySlotsForRoom.length; i += 1) {
+      const r = dayMap[daySlotsForRoom[i].rowKey];
+      if (r && r.bookingId !== res.bookingId) break;
+      n += 1;
+      if (n * SLOT_MIN >= MAX_DURATION_MIN) break;
+    }
+    const maxDur = startIdx < 0 ? res.durationMin : n * SLOT_MIN;
     setErr("");
-    setDialog({ mode: "edit", bookingId: res.bookingId, date: res.date, startSlot: res.startSlot, endSlot: res.endSlot, teamKey: res.teamKey, teamName: res.teamName, description: res.description || "" });
+    setDialog({ mode: "edit", bookingId: res.bookingId, date: res.date, startSlot: res.startSlot, endSlot: res.endSlot, maxDur, durationMin: res.durationMin, teamKey: res.teamKey, teamName: res.teamName, description: res.description || "" });
   };
 
   const saveDialog = async () => {
@@ -133,7 +145,7 @@ const FacilityReservations = () => {
       if (dialog.mode === "create") {
         await createReservation({ room: roomId, date: selected, slot: dialog.slot.label, durationMin: dialog.durationMin, teamKey: dialog.teamKey, description: dialog.description });
       } else {
-        await updateReservation({ room: roomId, date: dialog.date, bookingId: dialog.bookingId, description: dialog.description, teamKey: dialog.teamKey });
+        await updateReservation({ room: roomId, date: dialog.date, bookingId: dialog.bookingId, durationMin: dialog.durationMin, teamKey: dialog.teamKey, description: dialog.description });
       }
       setDialog(null);
       refresh();
@@ -201,9 +213,9 @@ const FacilityReservations = () => {
               <Typography sx={{ fontWeight: 700, textTransform: "capitalize" }}>{capitalize(moment(selected).format("dddd D.M.YYYY"))}</Typography>
               <IconButton size="small" aria-label="Seuraava päivä" onClick={() => selectDate(moment(selected).add(1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronRight /></IconButton>
             </Box>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
+            <Box sx={{ position: "relative", display: "flex", justifyContent: "center", mb: 0.75 }}>
               <Legend />
-              <IconButton size="small" aria-label="Ohjeet" onClick={() => setInfoOpen(true)} sx={{ color: "text.secondary" }}><LuInfo /></IconButton>
+              <Button size="small" onClick={() => setInfoOpen(true)} sx={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", minWidth: 0, px: 0.75, color: "text.secondary", fontWeight: 700 }}>Ohje</Button>
             </Box>
             <DayGrid
               slots={daySlotsForRoom}
@@ -364,24 +376,27 @@ function DayGrid({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn
                       component={bookable ? "button" : "div"} type={bookable ? "button" : undefined}
                       onClick={bookable ? () => onBook(s, s.idx) : undefined}
                       aria-label={`${s.label} vapaa`}
-                      sx={{ ...cellBase, gridColumn: "span 1", bgcolor: past ? "rgba(46,160,67,0.30)" : FREE_BG, cursor: bookable ? "pointer" : "default", "&:hover": bookable ? { bgcolor: FREE_HOVER } : {} }}>
-                      {bookable && <LuPlus size={15} style={{ color: "rgba(255,255,255,0.85)" }} strokeWidth={2.5} />}
+                      sx={{ ...cellBase, gridColumn: "span 1", bgcolor: FREE_BG, opacity: past ? 0.35 : 1, cursor: bookable ? "pointer" : "default", "&:hover": bookable ? { bgcolor: FREE_HOVER } : {} }}>
+                      {bookable && <LuPlusCircle size={16} style={{ color: "rgba(255,255,255,0.9)" }} strokeWidth={2.4} />}
                     </Box>
                   );
                 }
-                const { res, span } = run;
+                const { res, span, startMins } = run;
                 const own = res.ownerUserId === myUserId;
+                const past = isPast(startMins + (span - 1) * SLOT_MIN); // whole run in the past
+                const clickable = own && !past;
+                const label = own ? (res.description || res.teamName || "Oma varaus") : (res.teamName || "Varattu");
                 return (
                   <Box key={res.bookingId + "-" + ri}
-                    component={own ? "button" : "div"} type={own ? "button" : undefined}
-                    onClick={own ? () => onEditOwn(res) : undefined}
+                    component={clickable ? "button" : "div"} type={clickable ? "button" : undefined}
+                    onClick={clickable ? () => onEditOwn(res) : undefined}
                     aria-label={`${res.startSlot}–${res.endSlot} ${own ? "oma varaus" : "varattu"} ${res.teamName || ""}`}
-                    sx={{ ...cellBase, gridColumn: `span ${span}`, justifyContent: "flex-start", gap: 0.5, px: 0.75, overflow: "hidden",
-                      bgcolor: own ? "var(--color-primary)" : "rgba(255,255,255,0.06)", cursor: own ? "pointer" : "default",
-                      "&:hover": own ? { filter: "brightness(1.08)" } : {} }}>
+                    sx={{ ...cellBase, gridColumn: `span ${span}`, gap: 0.4, px: 0.75, overflow: "hidden",
+                      bgcolor: own ? "var(--color-primary)" : "rgba(255,255,255,0.06)", opacity: past ? 0.4 : 1,
+                      cursor: clickable ? "pointer" : "default", "&:hover": clickable ? { filter: "brightness(1.08)" } : {} }}>
                     {!own && <LuLock size={12} style={{ color: "var(--gz-text-muted)", flexShrink: 0 }} />}
-                    <Typography noWrap sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".02em", color: own ? "#fff" : "var(--gz-text-secondary)" }}>
-                      {res.teamName || (own ? "Oma varaus" : "Varattu")}
+                    <Typography noWrap sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".02em", textTransform: "uppercase", color: own ? "#fff" : "var(--gz-text-secondary)" }}>
+                      {label}
                     </Typography>
                   </Box>
                 );
@@ -454,7 +469,7 @@ const Note = ({ children }) => (
 function BookingDialog({ dialog, myTeams, isAdmin, saving, err, onChange, onClose, onSave, onRelease, selected }) {
   const open = !!dialog;
   const isCreate = dialog && dialog.mode === "create";
-  const durations = isCreate ? durationOptions(dialog.maxDur) : [];
+  const durations = durationOptions(dialog.maxDur);
   const teamOptions = isAdmin ? ["", ...myTeams] : myTeams;
 
   return (
@@ -462,24 +477,20 @@ function BookingDialog({ dialog, myTeams, isAdmin, saving, err, onChange, onClos
       {dialog && (
         <>
           <DialogTitle sx={{ fontWeight: 800 }}>
-            {isCreate
-              ? `Varaa ${dialog.slot.label} alkaen`
-              : `Oma varaus ${dialog.startSlot}–${dialog.endSlot}`}
+            {isCreate ? `Varaa ${dialog.slot.label} alkaen` : "Muokkaa varausta"}
           </DialogTitle>
           <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
             <Typography sx={{ fontSize: 13, color: "var(--gz-text-secondary)" }}>
               {capitalize(moment((isCreate ? selected : dialog.date)).format("dddd D.M.YYYY"))}
             </Typography>
 
-            {/* Duration (create only) */}
-            {isCreate && (
-              <Box>
-                <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mb: 0.5 }}>Kesto</Typography>
-                <Select fullWidth size="small" value={dialog.durationMin} onChange={(e) => onChange({ durationMin: e.target.value })}>
-                  {durations.map((d) => <MenuItem key={d} value={d}>{durationLabel(d)}</MenuItem>)}
-                </Select>
-              </Box>
-            )}
+            {/* Duration */}
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mb: 0.5 }}>Kesto</Typography>
+              <Select fullWidth size="small" value={dialog.durationMin} onChange={(e) => onChange({ durationMin: e.target.value })}>
+                {durations.map((d) => <MenuItem key={d} value={d}>{durationLabel(d)}</MenuItem>)}
+              </Select>
+            </Box>
             {/* Team — a picker when there's a choice (multi-team / admin), else just
                 shown for context on an existing booking. */}
             {teamOptions.length > 1 ? (
