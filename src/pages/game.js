@@ -3,9 +3,7 @@ import { useParams, useLocation } from "react-router-dom";
 import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink, LuFlag } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
-
-import { themeCSS } from "../theme";
-import { Spinner } from "../components/ui/Spinner";
+import { Box, Typography, Tabs, Tab, IconButton, CircularProgress } from "@mui/material";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
@@ -25,11 +23,21 @@ const toSecs = (t) => {
   return (m || 0) * 60 + (s || 0);
 };
 
+// ---- shared sx ----
+const surfaceCardSx = { borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)" };
+const logoSx = (size, pad) => ({ width: size, height: size, boxSizing: "border-box", borderRadius: 1.75, bgcolor: "#fff", objectFit: "contain", p: pad, boxShadow: "0 4px 12px rgba(0,0,0,0.35)", flexShrink: 0 });
+const sectionTitleSx = { fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-primary)", mb: 1, pl: 0.25 };
+const Center = ({ text }) => (
+  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5, py: 5 }}>
+    <CircularProgress color="primary" />
+    {text && <Typography variant="body2" sx={{ color: "text.secondary" }}>{text}</Typography>}
+  </Box>
+);
+const Note = ({ children }) => <Box sx={{ textAlign: "center", py: 3.5, px: 2, color: "var(--gz-text-tertiary)", fontSize: 14 }}>{children}</Box>;
 
-// The box-score page (Flashscore-style layout, AHMA dark/amber theme). The clicked
-// game object is passed via nav state for an instant paint; on a direct URL /
-// refresh we look it up in the season cache by its ext id. Then /api/getGameReport
-// (worker resolves the real getgames id + fetches the report) fills the events.
+// The box-score page (Flashscore-style layout). The clicked game is passed via nav
+// state for an instant paint; on a direct URL / refresh we look it up in the
+// season cache by its ext id. /api/getGameReport fills the events.
 const BoxScore = () => {
   const { id } = useParams();
   const { state } = useLocation();
@@ -39,7 +47,7 @@ const BoxScore = () => {
     () => (state && state.game) || peekSeasonGames().find((g) => String(g.id) === String(id)) || null
   );
   const [report, setReport] = useState(undefined); // undefined=loading, null=none, obj
-  const [tab, setTab] = useState("events"); // "events" | "rosters"
+  const [tab, setTab] = useState("events");
 
   useEffect(() => {
     if (game) return;
@@ -54,12 +62,7 @@ const BoxScore = () => {
     if (!game) return;
     let cancelled = false;
     setReport(undefined);
-    const params = new URLSearchParams({
-      date: game.date,
-      home: String(game.homeTeamId),
-      away: String(game.awayTeamId),
-      extId: String(game.id),
-    });
+    const params = new URLSearchParams({ date: game.date, home: String(game.homeTeamId), away: String(game.awayTeamId), extId: String(game.id) });
     fetch(`/api/getGameReport?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => { if (!cancelled) setReport(d && d.resolved ? d : null); })
@@ -67,18 +70,12 @@ const BoxScore = () => {
     return () => { cancelled = true; };
   }, [game]);
 
-  // Live: while the open game is in progress, re-poll its report every 30 s
-  // (foreground only). Stops once it finishes / unmounts / the game changes.
+  // Live: while the open game is in progress, re-poll every 30 s (foreground only).
   const live = !!(report && report.started && !report.finished);
   useEffect(() => {
     if (!game || !live) return;
     let cancelled = false;
-    const params = new URLSearchParams({
-      date: game.date,
-      home: String(game.homeTeamId),
-      away: String(game.awayTeamId),
-      extId: String(game.id),
-    });
+    const params = new URLSearchParams({ date: game.date, home: String(game.homeTeamId), away: String(game.awayTeamId), extId: String(game.id) });
     const poll = () => {
       if (document.visibilityState !== "visible") return;
       fetch(`/api/getGameReport?${params.toString()}`)
@@ -90,82 +87,53 @@ const BoxScore = () => {
     return () => { cancelled = true; clearInterval(iv); };
   }, [game, live]);
 
-  // Link to the game on tulospalvelu (needs the resolved real id) — shown in the
-  // top bar next to the "Ottelu" title.
   const tpUrl =
     game && report && report.realId
       ? `https://tulospalvelu.leijonat.fi/game?season=${seasonOf(game.date)}&gameid=${report.realId}&lang=fi`
       : null;
 
-  return (
-    <>
-      <style>{css}</style>
-      <div className="bx-root">
-        <div className="bx-topbar">
-          <button className="bx-back" onClick={goBack} aria-label="Takaisin">
-            <LuArrowLeft aria-hidden="true" />
-          </button>
-          <div className="bx-topbar-title">Ottelu</div>
-          {tpUrl && (
-            <a
-              className="bx-topbar-link"
-              href={tpUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Avaa tulospalvelussa"
-            >
-              <LuExternalLink aria-hidden="true" />
-            </a>
-          )}
-        </div>
+  const topBtnSx = { width: 38, height: 38, borderRadius: 2.5, flexShrink: 0, bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", color: "var(--gz-text-secondary)", "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } };
 
-        {!game ? (
-          <div className="bx-center"><Spinner text="Ladataan…" /></div>
-        ) : (
-          <div className="bx-body">
-            <GameHeader game={game} report={report} />
-            {report === undefined && (
-              <div className="bx-center"><Spinner text="Ladataan pöytäkirjaa…" /></div>
-            )}
-            {report === null && (
-              <div className="bx-note">Ottelupöytäkirjaa ei ole saatavilla tälle ottelulle.</div>
-            )}
-            {report && (
-              <>
-                <div className="bx-tabs" role="tablist">
-                  {[
-                    ["events", "Tapahtumat"],
-                    ["stats", "Tilastot"],
-                    ["rosters", "Kokoonpanot"],
-                  ].map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`bx-tab${tab === key ? " is-active" : ""}`}
-                      role="tab"
-                      aria-selected={tab === key}
-                      onClick={() => setTab(key)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {tab === "events" && (
-                  <>
-                    <Timeline report={report} />
-                    <WinningShots shots={report.winningShots} game={game} />
-                    <Goalies goalies={report.goalies} game={game} />
-                    <Footer report={report} game={game} />
-                  </>
-                )}
-                {tab === "stats" && <Stats report={report} game={game} />}
-                {tab === "rosters" && <Rosters rosters={report.rosters} game={game} />}
-              </>
-            )}
-          </div>
+  return (
+    <Box sx={{ minHeight: "100dvh", bgcolor: "var(--color-bg)", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      <Box sx={{ position: "sticky", top: 0, zIndex: 5, display: "flex", alignItems: "center", gap: 1.25, px: 1.75, pt: "calc(env(safe-area-inset-top) + 12px)", pb: 1.5, bgcolor: "var(--color-bg)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <IconButton onClick={goBack} aria-label="Takaisin" sx={topBtnSx}><LuArrowLeft size={20} /></IconButton>
+        <Typography sx={{ flex: 1, fontSize: 15, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--color-primary)" }}>Ottelu</Typography>
+        {tpUrl && (
+          <IconButton component="a" href={tpUrl} target="_blank" rel="noopener noreferrer" aria-label="Avaa tulospalvelussa" sx={topBtnSx}><LuExternalLink size={18} /></IconButton>
         )}
-      </div>
-    </>
+      </Box>
+
+      {!game ? (
+        <Center text="Ladataan…" />
+      ) : (
+        <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, pt: 1.5 }}>
+          <GameHeader game={game} report={report} />
+          {report === undefined && <Center text="Ladataan pöytäkirjaa…" />}
+          {report === null && <Note>Ottelupöytäkirjaa ei ole saatavilla tälle ottelulle.</Note>}
+          {report && (
+            <>
+              <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="fullWidth" textColor="primary" indicatorColor="primary"
+                sx={{ mt: 0.25, mb: 1.75, minHeight: 0, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, fontSize: 14, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}>
+                <Tab value="events" label="Tapahtumat" />
+                <Tab value="stats" label="Tilastot" />
+                <Tab value="rosters" label="Kokoonpanot" />
+              </Tabs>
+              {tab === "events" && (
+                <>
+                  <Timeline report={report} />
+                  <WinningShots shots={report.winningShots} game={game} />
+                  <Goalies goalies={report.goalies} game={game} />
+                  <Footer report={report} game={game} />
+                </>
+              )}
+              {tab === "stats" && <Stats report={report} game={game} />}
+              {tab === "rosters" && <Rosters rosters={report.rosters} game={game} />}
+            </>
+          )}
+        </Box>
+      )}
+    </Box>
   );
 };
 
@@ -176,38 +144,33 @@ const GameHeader = ({ game, report }) => {
   const d = mdate(game.date);
   const finType = report ? report.finishedType : Number(game.finished) || 0;
   const status = finished
-    ? finType === 3
-      ? "Päättynyt (VL)"
-      : finType === 2
-      ? "Päättynyt (JA)"
-      : "Päättynyt"
-    : started
-    ? "Käynnissä"
-    : d.format("dd D.M.");
+    ? finType === 3 ? "Päättynyt (VL)" : finType === 2 ? "Päättynyt (JA)" : "Päättynyt"
+    : started ? "Käynnissä" : d.format("dd D.M.");
 
+  const teamSx = { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 };
   return (
-    <div className="bx-header">
-      <div className="bx-hd-date">{d.format("D.M.YYYY [·] HH.mm")}</div>
-      {game.level && <div className="bx-hd-level">{game.level.trim()}</div>}
-      <div className="bx-hd-row">
-        <div className="bx-hd-team">
-          <img className="bx-hd-logo" src={game.home_logo} alt="" />
-          <div className="bx-hd-name">{splitTeamName(game.home || "").main}</div>
-        </div>
-        <div className="bx-hd-mid">
+    <Box sx={{ ...surfaceCardSx, p: "14px 12px 12px", mb: 1.75, textAlign: "center" }}>
+      <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)" }}>{d.format("D.M.YYYY [·] HH.mm")}</Typography>
+      {game.level && <Typography sx={{ fontSize: 12, fontWeight: 800, color: "var(--color-primary)", textTransform: "uppercase", letterSpacing: ".04em", mt: 0.375 }}>{game.level.trim()}</Typography>}
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.75, mt: 1.25 }}>
+        <Box sx={teamSx}>
+          <Box component="img" src={game.home_logo} alt="" sx={logoSx(60, "6px")} />
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)", lineHeight: 1.2 }}>{splitTeamName(game.home || "").main}</Typography>
+        </Box>
+        <Box sx={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5, pt: 0.5, px: 0.75 }}>
           {started ? (
-            <div className="bx-hd-score">{score.home ?? 0}<span className="bx-hd-dash">–</span>{score.away ?? 0}</div>
+            <Typography sx={{ fontSize: 40, fontWeight: 800, color: "#fff", lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{score.home ?? 0}<Box component="span" sx={{ color: "var(--gz-text-tertiary)", mx: 0.75, fontWeight: 700 }}>–</Box>{score.away ?? 0}</Typography>
           ) : (
-            <div className="bx-hd-time">{d.format("HH.mm")}</div>
+            <Typography sx={{ fontSize: 26, fontWeight: 800, color: "var(--gz-text-secondary)", lineHeight: 1 }}>{d.format("HH.mm")}</Typography>
           )}
-          <div className={`bx-hd-status${started && !finished ? " bx-hd-status--live" : ""}`}>{status}</div>
-        </div>
-        <div className="bx-hd-team">
-          <img className="bx-hd-logo" src={game.away_logo} alt="" />
-          <div className="bx-hd-name">{splitTeamName(game.away || "").main}</div>
-        </div>
-      </div>
-    </div>
+          <Typography sx={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em", lineHeight: 1.2, color: started && !finished ? "var(--color-live)" : "var(--gz-text-tertiary)" }}>{status}</Typography>
+        </Box>
+        <Box sx={teamSx}>
+          <Box component="img" src={game.away_logo} alt="" sx={logoSx(60, "6px")} />
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)", lineHeight: 1.2 }}>{splitTeamName(game.away || "").main}</Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 };
 
@@ -218,7 +181,7 @@ const Timeline = ({ report }) => {
     const evs = [
       ...(report.goals || []).map((g) => ({ ...g, kind: "goal" })),
       ...(report.penalties || []).map((p) => ({ ...p, kind: "penalty" })),
-      ...(report.extras || []), // goalie changes (MV) + timeouts (AL), kind set already
+      ...(report.extras || []),
     ].sort((a, b) => a.period - b.period || toSecs(a.time) - toSecs(b.time));
     const map = new Map();
     for (const e of evs) {
@@ -231,70 +194,49 @@ const Timeline = ({ report }) => {
   const periods = report.periods || [];
   const finType = report.finishedType || 0;
   const maxEvPeriod = byPeriod.size ? Math.max(...byPeriod.keys()) : 0;
-  // Regular periods = the PeriodGoals minus the total, capped at 3.
   const regCount = Math.max(0, periods.length - 1) ? Math.min(3, periods.length - 1) : Math.min(3, maxEvPeriod);
 
   const blocks = [];
   for (let n = 1; n <= regCount; n++) {
-    blocks.push({
-      label: `${n}. erä`,
-      score: periods[n - 1] ? periods[n - 1].replace("-", " – ") : null,
-      events: byPeriod.get(n) || [],
-    });
+    blocks.push({ label: `${n}. erä`, score: periods[n - 1] ? periods[n - 1].replace("-", " – ") : null, events: byPeriod.get(n) || [] });
   }
-
-  // Overtime: tulospalvelu logs the OT/shootout decider in a period BEYOND the 3
-  // regulars (the PeriodGoals "0-0" OT cell is an unreliable placeholder). Gather
-  // every event past period 3 into a "jatkoerä". For a shootout (finType 3) the
-  // decider is a goal that belongs to the Voittomaalikilpailu section → drop it;
-  // for OT (finType 2) the OT winner stays. Derive the OT score from its goals.
   if (finType >= 2 || maxEvPeriod > 3) {
     let ot = [];
     for (const [p, evs] of byPeriod) if (p > 3) ot = ot.concat(evs);
     if (finType === 3) ot = ot.filter((e) => e.kind !== "goal");
     ot.sort((a, b) => toSecs(a.time) - toSecs(b.time));
-    let oh = 0;
-    let oa = 0;
+    let oh = 0, oa = 0;
     for (const e of ot) if (e.kind === "goal") e.side === "home" ? (oh += 1) : (oa += 1);
     blocks.push({ label: "Jatkoaika", score: `${oh} – ${oa}`, events: ot });
   }
-
   if (blocks.length === 0) return null;
 
   return (
-    <div className="bx-timeline">
+    <Box sx={{ mb: 2 }}>
       {blocks.map((b, i) => (
-        <div className="bx-per" key={i}>
-          <div className="bx-per-head">
+        <Box key={i} sx={{ mb: 0.75 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 1.5, py: 0.75, borderRadius: "var(--radius-small)", bgcolor: "rgba(255,255,255,0.05)", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--gz-text-secondary)" }}>
             <span>{b.label}</span>
-            {b.score && <span className="bx-per-score">{b.score}</span>}
-          </div>
-          <div className="bx-per-evs">
-            {b.events.map((e, j) => (
-              <EventRow key={j} e={e} />
-            ))}
-          </div>
-        </div>
+            {b.score && <Box component="span" sx={{ color: "var(--gz-text-primary)", fontVariantNumeric: "tabular-nums" }}>{b.score}</Box>}
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: "column" }}>
+            {b.events.map((e, j) => <EventRow key={j} e={e} />)}
+          </Box>
+        </Box>
       ))}
-    </div>
+    </Box>
   );
 };
 
-// One event = exactly 2 rows.
-//  Row 1: [fixed-width time] [pill] [name (+strength)]. The pill ALWAYS starts
-//         with an icon (goal → puck + score; penalty → the minutes number IS the
-//         icon). Time is fixed-width and the pill follows it, so the icons line
-//         up in a column. Mirrored per side (icon on the clock side).
-//  Row 2: assists (goal) or reason (penalty) — ONE line, truncated with … (never
-//         a third row).
+// One event = time (fixed-width outer edge) + content (pill + name over a sub
+// line), mirrored per side (home left, away right).
 const EventRow = ({ e }) => {
   const isGoal = e.kind === "goal";
   const isPen = e.kind === "penalty";
-  // other kinds: "gk" (MV) / "timeout" (AL)
+  const away = e.side === "away";
 
   const rawName = isGoal ? e.scorer.name || "" : isPen ? e.player.name || "" : "";
-  let name;
-  let sub;
+  let name, sub;
   if (isGoal) {
     name = fullName(rawName);
     sub = e.assists && e.assists.length ? e.assists.map(fullName).join(" + ") : "";
@@ -303,55 +245,51 @@ const EventRow = ({ e }) => {
     sub = e.reason || "";
   } else if (e.kind === "gk") {
     const gk = fullName(e.name);
-    name = gk || e.sub; // the goalie's name, or the action itself when no name is given
+    name = gk || e.sub;
     sub = gk ? e.sub : "";
   } else {
-    name = e.name; // timeout → "Aikalisä"
+    name = e.name;
     sub = "";
   }
   const strength = isGoal && e.strength === "YV" ? "Ylivoima" : isGoal && e.strength === "AV" ? "Alivoima" : null;
-
-  const badge = isGoal ? "MAALI" : isPen ? "JÄÄHY" : e.badge; // MV / AL
-  const badgeMod = isGoal ? "goal" : isPen ? "pen" : "extra";
+  const badge = isGoal ? "MAALI" : isPen ? "JÄÄHY" : e.badge;
   const value = isGoal ? e.running.replace("-", " – ") : isPen ? `${e.minutes} min` : null;
+  const badgeSx = isGoal
+    ? { bgcolor: "var(--color-primary)", color: "var(--color-on-primary)" }
+    : isPen ? { bgcolor: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)" }
+      : { bgcolor: "transparent", color: "var(--gz-text-tertiary)", border: "1px solid rgba(255,255,255,0.20)" };
 
   return (
-    <div className={`bx-ev bx-ev--${e.side}`}>
-      <div className="bx-ev-time">{e.time}</div>
-      <div className="bx-ev-content">
-        <div className="bx-ev-line">
-          <div className="bx-ev-pill">
-            <span className={`bx-ev-badge bx-ev-badge--${badgeMod}`}>{badge}</span>
-            {value != null && <span className={`bx-ev-val${isPen ? " bx-ev-val--pen" : ""}`}>{value}</span>}
-          </div>
-          <div className="bx-ev-name">
-            {/* strength mirrors: right of the name for home, left for away */}
-            {strength && e.side === "away" && <span className="bx-ev-str">({strength}) </span>}
+    <Box sx={{ display: "flex", alignItems: "flex-start", gap: "9px", py: "9px", px: "6px", borderBottom: "1px solid rgba(255,255,255,0.05)", width: "92%", ...(away ? { ml: "auto", flexDirection: "row-reverse" } : { mr: "auto" }) }}>
+      <Box sx={{ flex: "0 0 40px", width: 40, pt: "4px", fontSize: 12, color: "var(--gz-text-tertiary)", fontVariantNumeric: "tabular-nums", textAlign: away ? "right" : "left" }}>{e.time}</Box>
+      <Box sx={{ flex: "1 1 auto", minWidth: 0, display: "flex", flexDirection: "column", gap: "2px", alignItems: away ? "flex-end" : "flex-start" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, maxWidth: "100%", minWidth: 0, flexDirection: away ? "row-reverse" : "row" }}>
+          <Box sx={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "6px", fontSize: 12, fontWeight: 800, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexDirection: away ? "row-reverse" : "row" }}>
+            <Box component="span" sx={{ flexShrink: 0, borderRadius: "5px", display: "inline-flex", alignItems: "center", justifyContent: "center", px: "6px", py: "2px", fontSize: 10, fontWeight: 800, letterSpacing: ".03em", textTransform: "uppercase", lineHeight: 1.3, ...badgeSx }}>{badge}</Box>
+            {value != null && <Box component="span" sx={{ color: "var(--color-primary)" }}>{value}</Box>}
+          </Box>
+          <Box sx={{ flex: "0 1 auto", minWidth: 0, fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {strength && away && <Box component="span" sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-tertiary)" }}>({strength}) </Box>}
             {name}
-            {strength && e.side !== "away" && <span className="bx-ev-str"> ({strength})</span>}
-          </div>
-        </div>
-        {sub && <div className="bx-ev-sub">{sub}</div>}
-      </div>
-    </div>
+            {strength && !away && <Box component="span" sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-tertiary)" }}> ({strength})</Box>}
+          </Box>
+        </Box>
+        {sub && <Box sx={{ maxWidth: "100%", fontSize: 12, color: "var(--gz-text-tertiary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</Box>}
+      </Box>
+    </Box>
   );
 };
 
-// Goalie: full name, title-cased ("SIREN Elmeri" → "Siren Elmeri").
 const goalieName = (raw) =>
-  String(raw || "")
-    .split(/\s+/)
-    .map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w))
-    .join(" ")
-    .trim();
+  String(raw || "").split(/\s+/).map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w)).join(" ").trim();
 
 const Goalies = ({ goalies, game }) => {
   if (!goalies || goalies.length === 0) return null;
   const ordered = [...goalies].sort((a, b) => (a.side === "home" ? 0 : 1) - (b.side === "home" ? 0 : 1));
   return (
-    <div className="bx-section">
-      <div className="bx-section-title">Maalivahdit</div>
-      <div className="bx-goalies">
+    <Box sx={{ mb: 2 }}>
+      <Box sx={sectionTitleSx}>Maalivahdit</Box>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {ordered.map((t, i) =>
           (t.keepers || []).map((k, j) => {
             const logo = t.side === "home" ? game.home_logo : t.side === "away" ? game.away_logo : null;
@@ -361,32 +299,24 @@ const Goalies = ({ goalies, game }) => {
             const breakdown = per.map((s) => s.saves).join(" + ");
             const out = (k.out || []).filter(Boolean);
             return (
-              <div className="bx-goalie" key={`${i}-${j}`}>
-                <img className="bx-goalie-logo" src={logo || ""} alt="" />
-                <div className="bx-goalie-main">
-                  <div className="bx-goalie-name">{goalieName(k.name)}</div>
-                  <div className="bx-goalie-saves">{breakdown ? `${breakdown} = ${total}` : `${total} torjuntaa`}</div>
-                  {out.length > 0 && (
-                    <div className="bx-goalie-out">(Poissa maalilta: {out.join(", ")})</div>
-                  )}
-                </div>
-              </div>
+              <Box key={`${i}-${j}`} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 0.25, py: 0.5 }}>
+                <Box component="img" src={logo || ""} alt="" sx={logoSx(34, "3px")} />
+                <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)" }}>{goalieName(k.name)}</Typography>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", mt: "1px" }}>{breakdown ? `${breakdown} = ${total}` : `${total} torjuntaa`}</Typography>
+                  {out.length > 0 && <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mt: "1px" }}>(Poissa maalilta: {out.join(", ")})</Typography>}
+                </Box>
+              </Box>
             );
           })
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
-// Roster (Kokoonpanot) players: surname in ALL CAPS, given name as-is — matches
-// the tulospalvelu lineup style (LastName arrives upper-cased already; force it
-// to be safe).
-const rosterName = (last, first) =>
-  `${String(last || "").toLocaleUpperCase("fi")} ${first || ""}`.trim();
+const rosterName = (last, first) => `${String(last || "").toLocaleUpperCase("fi")} ${first || ""}`.trim();
 
-// Full name from a tulospalvelu "SURNAME Given" string: surname ALL CAPS + the
-// WHOLE given name (no initial). Used for scorers / assists / referees.
 const fullName = (raw) => {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -404,64 +334,51 @@ const fullName = (raw) => {
 
 const WinningShots = ({ shots, game }) => {
   if (!shots || shots.length === 0) return null;
-  // Running shootout score: a goal shows the tally after it, a miss a grey dash.
-  let soHome = 0;
-  let soAway = 0;
+  let soHome = 0, soAway = 0;
   const rows = shots.map((w) => {
-    if (w.scored) {
-      if (w.side === "home") soHome += 1;
-      else soAway += 1;
-    }
+    if (w.scored) { if (w.side === "home") soHome += 1; else soAway += 1; }
     return { ...w, tally: `${soHome}–${soAway}` };
   });
   return (
-    <div className="bx-section">
-      <div className="bx-section-title">Voittomaalikilpailu</div>
-      <div className="bx-ws">
+    <Box sx={{ mb: 2 }}>
+      <Box sx={sectionTitleSx}>Voittomaalikilpailu</Box>
+      <Box sx={{ display: "flex", flexDirection: "column" }}>
         {rows.map((w, i) => (
-          <div className={`bx-ws-row${w.winner ? " is-win" : ""}`} key={i}>
-            <img className="bx-ws-logo" src={w.side === "home" ? game.home_logo : game.away_logo} alt="" />
-            {w.jersey ? <span className="bx-ws-num">{w.jersey}</span> : null}
-            <span className="bx-ws-name">{rosterName(w.last, w.first)}</span>
-            <span className={`bx-ws-mark${w.scored ? " is-goal" : ""}`}>{w.scored ? w.tally : "–"}</span>
-          </div>
+          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.75, py: "7px", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.05)", ...(w.winner && { bgcolor: "rgba(var(--color-primary-rgb),0.10)", borderRadius: "var(--radius-small)", borderBottomColor: "transparent" }) }}>
+            <Box component="img" src={w.side === "home" ? game.home_logo : game.away_logo} alt="" sx={{ ...logoSx(24, "2px"), boxShadow: "none" }} />
+            {w.jersey ? <Box component="span" sx={{ flexShrink: 0, fontWeight: 800, color: "var(--gz-text-tertiary)", fontVariantNumeric: "tabular-nums" }}>{w.jersey}</Box> : null}
+            <Box component="span" sx={{ flex: "1 1 auto", minWidth: 0, color: "var(--gz-text-primary)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rosterName(w.last, w.first)}</Box>
+            <Box component="span" sx={{ flexShrink: 0, minWidth: 34, textAlign: "right", fontSize: 13, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: w.scored ? "var(--color-primary)" : "var(--gz-text-tertiary)" }}>{w.scored ? w.tally : "–"}</Box>
+          </Box>
         ))}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
-// Two half-bars meeting at a centre gap; each fill ∝ value/max; the BETTER side
-// (higher, or lower for penalty minutes) is amber, the other grey.
+// Two half-bars meeting at a centre gap; each fill ∝ value/max; the BETTER side is amber.
 const StatBar = ({ home, away, lowerBetter }) => {
   const h = Number(home) || 0;
   const a = Number(away) || 0;
   const max = Math.max(h, a) || 1;
   const homeHi = lowerBetter ? h < a : h > a;
   const awayHi = lowerBetter ? a < h : a > h;
+  const halfSx = { flex: "1 1 0", height: "100%", display: "flex", overflow: "hidden", borderRadius: "3px", bgcolor: "rgba(255,255,255,0.07)" };
+  const fill = (hi, w) => ({ height: "100%", width: `${w}%`, bgcolor: hi ? "var(--color-primary)" : "rgba(255,255,255,0.30)" });
   return (
-    <div className="bx-stat-bar">
-      <div className="bx-stat-half bx-stat-half--home">
-        <div className={`bx-stat-fill${homeHi ? " is-hi" : ""}`} style={{ width: `${(h / max) * 100}%` }} />
-      </div>
-      <div className="bx-stat-gap" />
-      <div className="bx-stat-half bx-stat-half--away">
-        <div className={`bx-stat-fill${awayHi ? " is-hi" : ""}`} style={{ width: `${(a / max) * 100}%` }} />
-      </div>
-    </div>
+    <Box sx={{ display: "flex", alignItems: "center", height: 6 }}>
+      <Box sx={{ ...halfSx, justifyContent: "flex-end" }}><Box sx={fill(homeHi, (h / max) * 100)} /></Box>
+      <Box sx={{ flex: "0 0 10px" }} />
+      <Box sx={{ ...halfSx, justifyContent: "flex-start" }}><Box sx={fill(awayHi, (a / max) * 100)} /></Box>
+    </Box>
   );
 };
 
-// Flashscore-style team comparison from the period-summary totals (AHMA theme).
-// Shots on goal = the OTHER goalie's saves + this team's goals. PP%/PK% ≈ from
-// penalty counts (a team's PP chances ≈ the opponent's penalties; it kills its
-// own) — approximate (ignores coincidental/major nuances).
 const Stats = ({ report }) => {
   const s = report.stats;
-  if (!s) return <div className="bx-note">Tilastoja ei ole saatavilla tälle ottelulle.</div>;
+  if (!s) return <Note>Tilastoja ei ole saatavilla tälle ottelulle.</Note>;
   const score = report.score || {};
   const num = (v) => (v == null || v === "" ? 0 : Number(v) || 0);
-  // Penalty count + minutes summed straight from the events (given minutes).
   const pen = { home: 0, away: 0 };
   const penMin = { home: 0, away: 0 };
   for (const p of report.penalties || []) {
@@ -495,23 +412,24 @@ const Stats = ({ report }) => {
     const v = side === "home" ? r.home : r.away;
     return r.pct ? (v == null ? "–" : `${v} %`) : v;
   };
+  const valSx = { flex: "0 0 52px", fontSize: 15, fontWeight: 800, color: "var(--gz-text-primary)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
   return (
-    <div className="bx-stats">
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.875, pt: 0.5 }}>
       {rows.map((r, i) => (
-        <div className="bx-stat" key={i}>
-          <div className="bx-stat-top">
-            <span className="bx-stat-val">{disp(r, "home")}</span>
-            <span className="bx-stat-label">{r.label}</span>
-            <span className="bx-stat-val">{disp(r, "away")}</span>
-          </div>
+        <Box key={i} sx={{ display: "flex", flexDirection: "column", gap: 0.625 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box component="span" sx={valSx}>{disp(r, "home")}</Box>
+            <Box component="span" sx={{ flex: "1 1 auto", textAlign: "center", fontSize: 12, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--gz-text-tertiary)", fontWeight: 700 }}>{r.label}</Box>
+            <Box component="span" sx={{ ...valSx, textAlign: "right" }}>{disp(r, "away")}</Box>
+          </Box>
           <StatBar home={r.home ?? 0} away={r.away ?? 0} lowerBetter={r.lowerBetter} />
-        </div>
+        </Box>
       ))}
-    </div>
+    </Box>
   );
 };
 
-const RosterTeam = ({ side, logo, name }) => {
+const RosterTeam = ({ side, logo, name, first }) => {
   const players = [...((side && side.players) || [])].sort((a, b) => {
     const ga = a.role === "MV" ? 0 : 1;
     const gb = b.role === "MV" ? 0 : 1;
@@ -519,55 +437,59 @@ const RosterTeam = ({ side, logo, name }) => {
     return (Number(a.number) || 99) - (Number(b.number) || 99);
   });
   const staff = (side && side.staff) || [];
+  const subSx = { fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-primary)", m: "12px 0 4px", pl: 0.25 };
   return (
-    <div className="bx-rteam">
-      <div className="bx-rteam-head">
-        <img className="bx-rteam-logo" src={logo} alt="" />
-        <span className="bx-rteam-name">{splitTeamName(name || "").main}</span>
-      </div>
+    <Box sx={first ? {} : { mt: 2.75, pt: 2.75, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.375, mb: 1.5 }}>
+        <Box component="img" src={logo} alt="" sx={logoSx(36, "3px")} />
+        <Typography sx={{ fontSize: 18, fontWeight: 800, color: "var(--gz-text-primary)" }}>{splitTeamName(name || "").main}</Typography>
+      </Box>
       {players.length > 0 && (
         <>
-          <div className="bx-rsub">Pelaajat</div>
-          <div className="bx-rlist">
+          <Box sx={subSx}>Pelaajat</Box>
+          <Box sx={{ display: "flex", flexDirection: "column" }}>
             {players.map((p, i) => (
-              <div className="bx-rplayer" key={i}>
-                <span className="bx-rnum">{p.number}</span>
-                <span className="bx-rname">{rosterName(p.last, p.first)}</span>
-                {p.role === "MV" && <span className="bx-rtag">MV</span>}
-                {p.captain && <span className="bx-rtag bx-rtag--c">{p.captain}</span>}
-              </div>
+              <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.5, py: 0.75, borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 13 }}>
+                <Box component="span" sx={{ flex: "0 0 26px", textAlign: "center", fontWeight: 800, color: "var(--gz-text-tertiary)", fontVariantNumeric: "tabular-nums" }}>{p.number}</Box>
+                <Box component="span" sx={{ flex: "1 1 auto", minWidth: 0, color: "var(--gz-text-primary)", fontWeight: 600 }}>{rosterName(p.last, p.first)}</Box>
+                {p.role === "MV" && <RTag>MV</RTag>}
+                {p.captain && <RTag c>{p.captain}</RTag>}
+              </Box>
             ))}
-          </div>
+          </Box>
         </>
       )}
       {staff.length > 0 && (
         <>
-          <div className="bx-rsub">Toimihenkilöt</div>
-          <div className="bx-rstaff">
+          <Box sx={subSx}>Toimihenkilöt</Box>
+          <Box sx={{ display: "flex", flexDirection: "column" }}>
             {staff.map((s, i) => (
-              <div className="bx-rstaff-row" key={i}>
+              <Box key={i} sx={{ display: "flex", justifyContent: "space-between", gap: 1.25, px: 0.5, py: 0.75, borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 13, color: "var(--gz-text-secondary)" }}>
                 <span>{rosterName(s.last, s.first)}</span>
-                <span className="bx-rstaff-role">{s.role}</span>
-              </div>
+                <Box component="span" sx={{ flexShrink: 0, color: "var(--gz-text-tertiary)", fontSize: 12, alignSelf: "center" }}>{s.role}</Box>
+              </Box>
             ))}
-          </div>
+          </Box>
         </>
       )}
-    </div>
+    </Box>
   );
 };
 
+const RTag = ({ c, children }) => (
+  <Box component="span" sx={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: ".03em", px: "5px", py: "1px", borderRadius: "4px", ...(c
+    ? { color: "var(--color-primary)", bgcolor: "rgba(var(--color-primary-rgb),0.12)", border: "1px solid rgba(var(--color-primary-rgb),0.30)" }
+    : { color: "var(--gz-text-tertiary)", bgcolor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }) }}>{children}</Box>
+);
+
 const Rosters = ({ rosters, game }) => {
-  const empty =
-    !rosters || (!(rosters.home && rosters.home.players.length) && !(rosters.away && rosters.away.players.length));
-  if (empty) {
-    return <div className="bx-note">Kokoonpanoja ei ole saatavilla tälle ottelulle.</div>;
-  }
+  const empty = !rosters || (!(rosters.home && rosters.home.players.length) && !(rosters.away && rosters.away.players.length));
+  if (empty) return <Note>Kokoonpanoja ei ole saatavilla tälle ottelulle.</Note>;
   return (
-    <div className="bx-rosters">
-      <RosterTeam side={rosters.home} logo={game.home_logo} name={game.home} />
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
+      <RosterTeam first side={rosters.home} logo={game.home_logo} name={game.home} />
       <RosterTeam side={rosters.away} logo={game.away_logo} name={game.away} />
-    </div>
+    </Box>
   );
 };
 
@@ -575,336 +497,23 @@ const Footer = ({ report, game }) => {
   const refs = (report.referees || []).map((r) => fullName(r.name)).filter(Boolean);
   const venue = report.arena || game.rink;
   const hasInfo = refs.length > 0 || venue || report.spectators != null;
+  if (!hasInfo) return null;
+  const InfoRow = ({ icon, label, value }) => (
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, py: "7px", borderTop: "1px solid rgba(255,255,255,0.05)", "&:first-of-type": { borderTop: "none" } }}>
+      <Box component="span" sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--gz-text-tertiary)" }}>{icon} {label}</Box>
+      <Box component="span" sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)", textAlign: "right", minWidth: 0 }}>{value}</Box>
+    </Box>
+  );
   return (
-    <div className="bx-footer">
-      {hasInfo && (
-        <div className="bx-section">
-          <div className="bx-section-title">Ottelun lisätiedot</div>
-          <div className="bx-info">
-          {refs.map((r, i) => (
-            <div className="bx-info-row" key={`ref-${i}`}>
-              <span className="bx-info-label"><LuFlag aria-hidden="true" /> Tuomari</span>
-              <span className="bx-info-val">{r}</span>
-            </div>
-          ))}
-          {venue && (
-            <div className="bx-info-row">
-              <span className="bx-info-label"><LuMapPin aria-hidden="true" /> Pelipaikka</span>
-              <span className="bx-info-val">{venue}</span>
-            </div>
-          )}
-          {report.spectators != null && (
-            <div className="bx-info-row">
-              <span className="bx-info-label"><LuUsers aria-hidden="true" /> Katsojia</span>
-              <span className="bx-info-val">{Number(report.spectators).toLocaleString("fi-FI")}</span>
-            </div>
-          )}
-          </div>
-        </div>
-      )}
-    </div>
+    <Box sx={{ pt: 0.75, pb: 3 }}>
+      <Box sx={sectionTitleSx}>Ottelun lisätiedot</Box>
+      <Box sx={{ ...surfaceCardSx, bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.08)", p: "12px 14px" }}>
+        {refs.map((r, i) => <InfoRow key={`ref-${i}`} icon={<LuFlag size={15} />} label="Tuomari" value={r} />)}
+        {venue && <InfoRow icon={<LuMapPin size={15} />} label="Pelipaikka" value={venue} />}
+        {report.spectators != null && <InfoRow icon={<LuUsers size={15} />} label="Katsojia" value={Number(report.spectators).toLocaleString("fi-FI")} />}
+      </Box>
+    </Box>
   );
 };
 
 export default BoxScore;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root { height: 100%; background: var(--color-bg); }
-body { margin: 0; }
-
-.bx-root {
-  min-height: 100dvh;
-  background: var(--color-bg);
-  font-family: var(--font-family-base);
-  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
-}
-
-.bx-topbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: calc(env(safe-area-inset-top) + 12px) 14px 12px;
-  position: sticky; top: 0; z-index: 5;
-  background: var(--color-bg);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-.bx-back {
-  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
-  color: var(--gz-text-secondary); cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.bx-back svg { width: 20px; height: 20px; }
-.bx-topbar-title {
-  flex: 1 1 auto;
-  font-size: 15px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-primary);
-}
-.bx-topbar-link {
-  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
-  color: var(--gz-text-secondary); text-decoration: none; -webkit-tap-highlight-color: transparent;
-}
-.bx-topbar-link svg { width: 18px; height: 18px; }
-
-.bx-body { width: 100%; max-width: 640px; margin: 0 auto; padding: 12px 12px 0; }
-.bx-center { display: flex; justify-content: center; padding: 40px 0; }
-.bx-note { text-align: center; padding: 28px 16px; color: var(--gz-text-tertiary); font-size: var(--gz-fs-sm); }
-
-/* HEADER — Flashscore-style 3-col: teams flank a big centred score */
-.bx-header {
-  border-radius: var(--radius-card);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.10);
-  padding: 14px 12px 12px; margin-bottom: 14px;
-  text-align: center;
-}
-.bx-hd-date { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); }
-.bx-hd-level {
-  font-size: var(--gz-fs-xs); font-weight: 800; color: var(--color-primary);
-  text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px;
-}
-.bx-hd-row { display: flex; align-items: flex-start; gap: 6px; margin-top: 10px; }
-.bx-hd-team { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.bx-hd-logo {
-  width: 60px; height: 60px; box-sizing: border-box; border-radius: 14px;
-  background: #fff; object-fit: contain; padding: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-}
-.bx-hd-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); line-height: 1.2; }
-.bx-hd-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 6px 0; }
-.bx-hd-score {
-  font-size: 40px; font-weight: 800; color: #fff; line-height: 1;
-  font-variant-numeric: tabular-nums; letter-spacing: 1px; white-space: nowrap;
-}
-.bx-hd-dash { color: var(--gz-text-tertiary); margin: 0 6px; font-weight: 700; }
-.bx-hd-time { font-size: 26px; font-weight: 800; color: var(--gz-text-secondary); line-height: 1; }
-.bx-hd-status {
-  font-size: var(--gz-fs-xs); font-weight: 800; color: var(--gz-text-tertiary);
-  text-transform: uppercase; letter-spacing: 0.04em; text-align: center; line-height: 1.2;
-}
-.bx-hd-status--live { color: var(--color-live); }
-.bx-hd-rink {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  margin-top: 12px; font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
-}
-.bx-hd-rink svg { width: 14px; height: 14px; }
-
-/* TIMELINE — periods with a header bar, events mirrored by side */
-.bx-timeline { margin-bottom: 16px; }
-.bx-per { margin-bottom: 6px; }
-.bx-per-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px; border-radius: var(--radius-small);
-  background: rgba(255,255,255,0.05);
-  font-size: var(--gz-fs-xs); font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--gz-text-secondary);
-}
-.bx-per-score { color: var(--gz-text-primary); font-variant-numeric: tabular-nums; }
-.bx-per-evs { display: flex; flex-direction: column; }
-
-.bx-ev {
-  display: flex; align-items: flex-start; gap: 9px;
-  padding: 9px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  width: 92%;
-}
-.bx-ev--home { margin-right: auto; }
-.bx-ev--away { margin-left: auto; flex-direction: row-reverse; }
-
-/* fixed-width time on the outer edge → the pill starts at a fixed x → pills line
-   up in a column; both rows of content sit AFTER the time (no extra indent) */
-.bx-ev-time {
-  flex: 0 0 40px; width: 40px; padding-top: 4px;
-  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); font-variant-numeric: tabular-nums;
-}
-.bx-ev--home .bx-ev-time { text-align: left; }
-.bx-ev--away .bx-ev-time { text-align: right; }
-
-/* content = row 1 (pill + name, vertically centred) over row 2 (assists/reason);
-   both start at the same (pill) edge, so no indent under the name */
-.bx-ev-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
-.bx-ev--away .bx-ev-content { align-items: flex-end; }
-.bx-ev-line { display: flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
-.bx-ev--away .bx-ev-line { flex-direction: row-reverse; }
-
-/* pill = a letter badge (M = maali / J = jäähy) + the value beside it; the badge
-   sits on the clock side. Goal: amber badge (black M) + light score. Penalty:
-   amber-outline badge (amber J) + amber minutes. Keeps text readable on dark. */
-.bx-ev-pill {
-  flex: 0 0 auto;
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: var(--gz-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.bx-ev--away .bx-ev-pill { flex-direction: row-reverse; }
-.bx-ev-badge {
-  flex: 0 0 auto; border-radius: 5px; box-sizing: border-box;
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 2px 6px; font-size: 10px; font-weight: 800;
-  letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.3;
-}
-.bx-ev-badge--goal { background: var(--color-primary); color: var(--color-on-primary); }
-.bx-ev-badge--pen  { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
-.bx-ev-badge--extra { background: transparent; color: var(--gz-text-tertiary); border: 1px solid rgba(255,255,255,0.20); }
-.bx-ev-val, .bx-ev-val--pen { color: var(--color-primary); }
-
-.bx-ev-name {
-  flex: 0 1 auto; min-width: 0;
-  font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.bx-ev-str { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-tertiary); }
-.bx-ev-sub {
-  max-width: 100%;
-  font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-/* TABS */
-.bx-tabs { display: flex; gap: 4px; margin: 2px 0 14px; border-bottom: 1px solid rgba(255,255,255,0.10); }
-.bx-tab {
-  flex: 1 1 auto; padding: 10px 8px; background: none; border: none; cursor: pointer;
-  font-size: var(--gz-fs-sm); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--gz-text-tertiary); border-bottom: 2px solid transparent; margin-bottom: -1px;
-  -webkit-tap-highlight-color: transparent;
-}
-.bx-tab.is-active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-
-/* ROSTERS (Kokoonpanot) */
-.bx-rosters { display: flex; flex-direction: column; }
-.bx-rteam + .bx-rteam { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.12); }
-.bx-rteam-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
-.bx-rteam-logo {
-  width: 36px; height: 36px; box-sizing: border-box; border-radius: 8px;
-  background: #fff; object-fit: contain; padding: 3px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-}
-.bx-rteam-name { font-size: var(--gz-fs-lg, 18px); font-weight: 800; color: var(--gz-text-primary); }
-.bx-rsub {
-  font-size: var(--gz-fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--color-primary); margin: 12px 0 4px; padding-left: 2px;
-}
-.bx-rlist { display: flex; flex-direction: column; }
-.bx-rplayer {
-  display: flex; align-items: center; gap: 10px;
-  padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
-  font-size: var(--gz-fs-sm);
-}
-.bx-rnum {
-  flex: 0 0 26px; text-align: center; font-weight: 800; color: var(--gz-text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-.bx-rname { flex: 1 1 auto; min-width: 0; color: var(--gz-text-primary); font-weight: 600; }
-.bx-rtag {
-  flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
-  padding: 1px 5px; border-radius: 4px;
-  color: var(--gz-text-tertiary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
-}
-.bx-rtag--c { color: var(--color-primary); background: rgba(var(--color-primary-rgb),0.12); border-color: rgba(var(--color-primary-rgb),0.30); }
-.bx-rstaff { display: flex; flex-direction: column; }
-.bx-rstaff-row {
-  display: flex; justify-content: space-between; gap: 10px;
-  padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05);
-  font-size: var(--gz-fs-sm); color: var(--gz-text-secondary);
-}
-.bx-rstaff-role { flex: 0 0 auto; color: var(--gz-text-tertiary); font-size: var(--gz-fs-xs); align-self: center; }
-.bx-rstaff-role { flex: 0 0 auto; }
-
-/* GOALIES */
-.bx-section { margin-bottom: 16px; }
-.bx-section-title {
-  font-size: var(--gz-fs-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--color-primary); margin-bottom: 8px; padding-left: 2px;
-}
-.bx-goalies { display: flex; flex-direction: column; gap: 8px; }
-.bx-goalie { display: flex; align-items: center; gap: 12px; padding: 4px 2px; }
-/* fixed logo column → both goalie logos line up */
-.bx-goalie-logo {
-  flex: 0 0 auto; width: 34px; height: 34px; box-sizing: border-box; border-radius: 8px;
-  background: #fff; object-fit: contain; padding: 3px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-}
-.bx-goalie-main { flex: 1 1 auto; min-width: 0; }
-.bx-goalie-name { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); }
-.bx-gk-num { color: var(--gz-text-tertiary); font-weight: 800; margin-right: 3px; }
-.bx-goalie-saves { font-size: var(--gz-fs-xs); font-weight: 700; color: var(--gz-text-secondary); font-variant-numeric: tabular-nums; margin-top: 1px; }
-.bx-goalie-out { font-size: var(--gz-fs-xs); color: var(--gz-text-tertiary); margin-top: 1px; }
-
-/* SHOOTOUT (Voittomaalikilpailu) */
-.bx-ws { display: flex; flex-direction: column; }
-.bx-ws-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);
-  font-size: var(--gz-fs-sm);
-}
-.bx-ws-row.is-win { background: rgba(var(--color-primary-rgb),0.10); border-radius: var(--radius-small); border-bottom-color: transparent; }
-.bx-ws-logo {
-  flex: 0 0 auto; width: 24px; height: 24px; box-sizing: border-box; border-radius: 6px;
-  background: #fff; object-fit: contain; padding: 2px;
-}
-.bx-ws-num { flex: 0 0 auto; font-weight: 800; color: var(--gz-text-tertiary); font-variant-numeric: tabular-nums; }
-.bx-ws-name {
-  flex: 1 1 auto; min-width: 0; color: var(--gz-text-primary); font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.bx-ws-mark {
-  flex: 0 0 auto; min-width: 34px; text-align: right;
-  font-size: var(--gz-fs-sm); font-weight: 800; color: var(--gz-text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-.bx-ws-mark.is-goal { color: var(--color-primary); }
-
-/* STATS (Tilastot) — Flashscore-style comparison, amber = home, grey = away */
-.bx-stats { display: flex; flex-direction: column; gap: 15px; padding-top: 4px; }
-.bx-stat { display: flex; flex-direction: column; gap: 5px; }
-.bx-stat-top { display: flex; align-items: center; gap: 12px; }
-.bx-stat-val {
-  flex: 0 0 52px; font-size: var(--gz-fs-md); font-weight: 800;
-  color: var(--gz-text-primary); font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.bx-stat-top .bx-stat-val:last-child { text-align: right; }
-.bx-stat-label {
-  flex: 1 1 auto; text-align: center;
-  font-size: var(--gz-fs-xs); text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--gz-text-tertiary); font-weight: 700;
-}
-.bx-stat-bar { display: flex; align-items: center; height: 6px; }
-.bx-stat-half {
-  flex: 1 1 0; height: 100%; display: flex; overflow: hidden;
-  border-radius: 3px; background: rgba(255,255,255,0.07);
-}
-.bx-stat-half--home { justify-content: flex-end; }
-.bx-stat-half--away { justify-content: flex-start; }
-.bx-stat-gap { flex: 0 0 10px; }
-.bx-stat-fill { height: 100%; background: rgba(255,255,255,0.30); }
-.bx-stat-fill.is-hi { background: var(--color-primary); }
-
-/* MATCH INFO (Ottelun lisätiedot) */
-.bx-info {
-  border-radius: var(--radius-card); background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; margin-bottom: 10px;
-}
-.bx-info-title {
-  font-size: var(--gz-fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--gz-text-tertiary); margin-bottom: 6px;
-}
-.bx-info-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.05);
-}
-.bx-info-row:first-child { border-top: none; }
-.bx-info-label {
-  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
-  font-size: var(--gz-fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--gz-text-tertiary);
-}
-.bx-info-label svg { width: 15px; height: 15px; }
-.bx-info-val { font-size: var(--gz-fs-sm); font-weight: 700; color: var(--gz-text-primary); text-align: right; min-width: 0; }
-
-/* FOOTER */
-.bx-footer { padding: 6px 2px 24px; display: flex; flex-direction: column; gap: 8px; }
-.bx-footer-link {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
-  font-size: var(--gz-fs-sm); font-weight: 700; color: var(--color-primary); text-decoration: none;
-}
-.bx-footer-link svg { width: 15px; height: 15px; }
-`;
