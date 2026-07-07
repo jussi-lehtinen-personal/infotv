@@ -59,7 +59,3 @@ export const gamePassesSubGroups = (game, selected) => {
 // Title-case for display ("musta" → "Musta").
 export const displaySub = (label) =>
   label ? label.charAt(0).toLocaleUpperCase("fi") + label.slice(1) : label;
-
-// A small CSS-class suffix for the known colours (else "" = neutral chip).
-const KNOWN = new Set(["musta", "valkoinen", "oranssi", "sininen", "punainen", "keltainen", "harmaa"]);
-export const subColorClass = (label) => (KNOWN.has(String(label || "").toLowerCase()) ? String(label).toLowerCase() : "");

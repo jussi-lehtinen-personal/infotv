@@ -1,69 +1,8 @@
-import {Container, Row, Ratio } from 'react-bootstrap';
-import { toJpeg } from 'html-to-image';
-
 var moment = require('moment');
 moment.locale('fi')
 
 // Enable this in order to use mock-data and request images directly from external services.
 var dev = false //true
-
-export const styles = {
-    font: {
-        fontFamily: 'Bebas Neue',
-        color: '#EEEEEE'
-    },
-    
-    textShadow: {
-        textShadow: '0 1px 1px #000000'
-    },
-
-    textHighlight: {
-        textShadow: '0 1px 1px #000000'
-    },
-
-    boxShadow: {
-        boxShadow: '0px 1px 1px #000000'
-    },
-
-    flex: {
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-    },
-}
-export const componentStyles = {
-    logoContainer: Object.assign({}, 
-        { 
-            aspectRatio: 1.0, 
-            backgroundColor: 'white', 
-            padding: '0px', 
-            height: '100%',
-            overflow: 'hidden', 
-            objectFit: 'contain' 
-        }
-    ),
-
-    roundLogoContainer: Object.assign({}, 
-        { 
-            aspectRatio: 1.0, 
-            backgroundColor: 'white', 
-            padding: '10px', 
-            borderRadius: '50%',
-            height: '100%',
-            overflow: 'hidden', 
-            objectFit: 'contain' 
-        }
-    ),
-
-    logo: Object.assign({}, 
-        { 
-            aspectRatio: 1.0, 
-            padding: '10%', 
-            height: '100%', 
-            objectFit: 'contain' 
-        }
-    ),
-}
 
 export const getMatchLink = (index, data) => {
     // tulospalvelu's public game page needs the game's actual season number —
@@ -74,26 +13,6 @@ export const getMatchLink = (index, data) => {
     const season = d.isValid() ? (d.month() >= 6 ? d.year() + 1 : d.year()) : 0
     return `https://tulospalvelu.leijonat.fi/game?season=${season}&gameid=${data.id}&lang=fi`
 }
-
-export const getAdsUri = (index, data) => {
-    console.log("Navigate to " + index)
-    var formattedDate = moment(data.date).format('YYYY-MM-DD')
-    return "/ads/" + formattedDate + "/" + index;
-}
-
-export const htmlToImageConvert = (exp) => {
-    toJpeg(exp, { cacheBust: false })
-      .then((dataUrl) => {
-        const link = document.createElement("a");
-        link.download = "kiekko-ahma-ad.jpg";
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  };
-
 
 const replaceAll = function(str, strReplace, strWith) {
     // See http://stackoverflow.com/a/3561711/556609
@@ -129,7 +48,7 @@ const logoProxy = (url) => {
 
 export const processIncomingDataEvents = (events) => {
     var dataItems = []
-    events.map((data) => 
+    events.map((data) =>
     {
         if (!dev) {
             data.home_logo = logoProxy(data.home_logo);
@@ -137,29 +56,17 @@ export const processIncomingDataEvents = (events) => {
         }
         data.level = simplifyLevel(data.level)
         data.level = replaceAll(data.level, 'suomi-sarja', 'SS')
-        //data.level = replaceAll(data.level, 'Sininen/A', '')
-        //data.level = replaceAll(data.level, 'Valkoinen/B', '')
-        //data.level = replaceAll(data.level, 'Keltainen/C', '')
-        //data.level = replaceAll(data.level, 'Sininen', '')
-        //data.level = replaceAll(data.level, 'Valkoinen', '')
-        //data.level = replaceAll(data.level, 'Keltainen', '')
-        //data.level = replaceAll(data.level, 'U11 sarja', 'U11')
-        //data.level = replaceAll(data.level, 'U12 sarja', 'U12')
         data.level = replaceAll(data.level, 'Harjoitusottelut', 'Harj.')
         data.level = replaceAll(data.level, 'Divisioona', 'Div')
         data.isFree = data.level !== 'II-divisioona'
-        return dataItems.push(data) 
+        return dataItems.push(data)
     })
-
-    //if (dataItems.length > 6) {
-    //    dataItems = dataItems.slice(0, 5)
-    //}
     return dataItems
 };
 
 export const processIncomingDataEventsDoNotStrip = (events) => {
     var dataItems = []
-    events.map((data) => 
+    events.map((data) =>
     {
         if (!dev) {
             data.home_logo = logoProxy(data.home_logo);
@@ -167,7 +74,7 @@ export const processIncomingDataEventsDoNotStrip = (events) => {
         }
 
         data.isFree = data.level !== 'II-divisioona'
-        return dataItems.push(data) 
+        return dataItems.push(data)
     })
     return dataItems
 };
@@ -178,7 +85,7 @@ export const getMockGameData = () => {
     if (dev) {
         data = [{"date":"2024-09-25 19:00","league":"II-divisioona, lohko 2","periods":{"PlayedPeriods":3,"PeriodGoals":{"Home":[1,0,3],"Away":[2,2,2]}},"home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114407.png","home_goals":"4","away":"Pyry Team","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114711.png","away_goals":"6","period":"2","finished":"1","rink":"Valkeakoski","level":"II-divisioona"},{"date":"2024-09-28 14:00","league":"U11 lohko 2b syksy","periods":{"PlayedPeriods":3,"PeriodGoals":{"Home":[1,4,1],"Away":[2,1,4]}},"home":"Kiekko-Ahma Oranssi","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114407.png","home_goals":"6","away":"HPK White","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114740.png","away_goals":"7","period":"2","finished":"1","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-09-28 16:00","league":"U16 Suomi-sarja, alkusarja, lohko 2","periods":{"PlayedPeriods":3,"PeriodGoals":{"Home":[1,1,0],"Away":[1,3,2]}},"home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114407.png","home_goals":"2","away":"KOOVEE","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114669.png","away_goals":"6","period":"2","finished":"1","rink":"Valkeakoski","level":"U16 Suomi-sarja"},{"date":"2024-09-28 18:45","league":"U18 II-divisioona, alkusarja, lohko 2","periods":{"PlayedPeriods":3,"PeriodGoals":{"Home":[0,3,3],"Away":[1,0,0]}},"home":"Kiekko-Ahma","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114407.png","home_goals":"6","away":"HPK Team","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114740.png","away_goals":"1","period":"2","finished":"1","rink":"Valkeakoski","level":"U18 II-divisioona"},{"date":"2024-09-29 14:00","league":"U11 lohko 2a syksy","periods":{"PlayedPeriods":3,"PeriodGoals":{"Home":[1,0,5],"Away":[3,4,3]}},"home":"Kiekko-Ahma Musta","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114407.png","home_goals":"6","away":"HPK Orange","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114740.png","away_goals":"10","period":"2","finished":"1","rink":"Valkeakoski","level":"U11 sarja"},{"date":"2024-09-29 15:30","league":"U12 lohko 2b syksy","periods":{"PlayedPeriods":0,"PeriodGoals":{"Home":[],"Away":[]}},"home":"Kiekko-Ahma valkoinen","home_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/10114407.png","home_goals":"0","away":"Kisa-Eagles SININEN","away_logo":"https://tulospalvelu.leijonat.fi/images/associations/weblogos/200x200/2025/50003291.png","away_goals":"6","period":"2","finished":"1","rink":"Valkeakoski","level":"U12 sarja"}]
     }
-    return data    
+    return data
 }
 
 export const getMonday = (d) => {
@@ -238,126 +145,6 @@ const VARIANT_WORDS = new Set([
 // Priority 1: last word is a known color/variant → always split.
 // Priority 2: name is too long → split on last space.
 // Returns { main: string, sub: string | null }
-// Käyttäjän merkkaamat suosikkijoukkueet säilyvät localStoragessa.
-// Avain ja muoto jaetaan /teams-sivun ja kaikkien kuluttajien (esim. hero-
-// kortin valintalogiikka, "minun joukkueeni" -banneri) välillä.
-export const FAVOURITE_TEAMS_STORAGE_KEY = "ahma_favourite_teams";
-
-// Lukee suosikit array-muodossa (Array<{teamKey, shortName, levelGroups}>).
-// Palauttaa tyhjän taulukon jos varastoa ei ole tai data on epäkelvollista.
-// /teams-sivu konvertoi tämän paikallisesti Mapiksi has/delete-operaatioita
-// varten; gamezone-sivu (suosikit-suodatin) ja hero-kortin valintalogiikka
-// iteroivat suoraan taulukkoa.
-export const loadFavouriteTeams = () => {
-  try {
-    const raw = localStorage.getItem(FAVOURITE_TEAMS_STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return arr.filter(
-      (t) =>
-        t && typeof t === "object" && t.teamKey && Array.isArray(t.levelGroups)
-    );
-  } catch {
-    return [];
-  }
-};
-
-// Vastaako annettu peli yhtäkään suosikkijoukkuetta? Match: shortName löytyy
-// home/away-nimestä JA (levelId, statGroupId) on yksi joukkueen
-// levelGroups-merkinnöistä. Käytössä /gamezone-sivun favourites-suodatin ja
-// hero-kortin valintalogiikka.
-export const isGameForFavouriteTeam = (game, favouriteTeams) => {
-  for (const team of favouriteTeams) {
-    const shortNameLower = team.shortName.toLowerCase();
-    const nameMatch =
-      (game.home && game.home.toLowerCase().includes(shortNameLower)) ||
-      (game.away && game.away.toLowerCase().includes(shortNameLower));
-    if (!nameMatch) continue;
-    const groupMatch = team.levelGroups.some(
-      (g) => g.levelId === game.levelId && g.statGroupId === game.statGroupId
-    );
-    if (groupMatch) return true;
-  }
-  return false;
-};
-
-export const saveFavouriteTeams = (teams) => {
-  localStorage.setItem(
-    FAVOURITE_TEAMS_STORAGE_KEY,
-    JSON.stringify(Array.isArray(teams) ? teams : Array.from(teams.values()))
-  );
-};
-
-// Rakentaa suosikkitietueen /teams-sivun Jopox-joukkueesta. `subsiteId` ajaa
-// Minä-feediä (julkinen Jopox-tapahtuma-API). `levelGroups` jää tyhjäksi:
-// pelikohtainen tulospalvelu-mäppäys (levelId/statGroupId) tulee myöhemmin,
-// siihen asti isGameForFavouriteTeam ei matchaa näitä (tyhjä ryhmälista) eikä
-// gamezonen suodatin hajoa. `teamKey` erottaa nämä tulospalvelu-pohjaisista.
-export const makeJopoxFavourite = (team) => ({
-  teamKey: `jopox-${team.subsiteId}`,
-  subsiteId: team.subsiteId,
-  name: team.name,
-  shortName: team.name,
-  levelGroups: [],
-});
-
-// Onko annettu Jopox-subsite suosikeissa?
-export const isFavouriteSubsite = (favourites, subsiteId) =>
-  favourites.some((t) => String(t.subsiteId) === String(subsiteId));
-
-// Ratkaisee Jopox-suosikin tulospalvelu-identiteetit ({shortName, levelGroups})
-// annetusta getTeams-listasta NIMEN perusteella, jotta se kestää kausivaihdokset
-// (ikäluokat + värivariantit muuttuvat vuosittain) — ei kovakoodattuja
-// levelId:itä. Matchaus: Jopox "U15" -> kaikki tulospalvelun U15-tiimit
-// (myös "U15 Musta"), "Edustus" -> "Miehet", "Edustus naiset" -> "Naiset",
-// "Leijona-Kiekkokoulu" -> ei osumia (ei kilpapelejä). Käytössä gamezonen
-// suosikkisuodattimessa yhdessä isGameForFavouriteTeam:n kanssa.
-const normTeamKey = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-
-export const resolveFavouriteTpTeams = (favourite, tpTeams) => {
-  if (!favourite || !Array.isArray(tpTeams)) return [];
-  const name = String(favourite.name || favourite.teamKey || "");
-  const ageM = name.match(/U\s*(\d+)/i);
-
-  let matches;
-  if (ageM) {
-    // Ikänumero: "U15" osuu teamKeyihin "U15", "U15 Musta", myös yhdistelmä "U13/14".
-    const n = ageM[1];
-    const re = new RegExp(`^U0*${n}\\b|/0*${n}\\b`, "i");
-    matches = tpTeams.filter((t) => re.test(String(t.teamKey)));
-  } else if (/naiset/i.test(name)) {
-    matches = tpTeams.filter((t) => normTeamKey(t.teamKey).includes("naiset"));
-  } else if (/edustus|miehet/i.test(name)) {
-    matches = tpTeams.filter((t) => {
-      const k = normTeamKey(t.teamKey);
-      return (k.includes("miehet") || k.includes("edustus")) && !k.includes("naiset");
-    });
-  } else {
-    matches = []; // esim. Leijona-Kiekkokoulu — ei kilpapelejä tulospalvelussa
-  }
-
-  return matches.map((t) => ({
-    shortName: t.shortName,
-    levelGroups: Array.isArray(t.levelGroups) ? t.levelGroups : [],
-  }));
-};
-
-// Muuntaa käyttäjän suosikit peleihin matchattaviksi {shortName, levelGroups}
-// -entryiksi. Jopox-pohjaiset (subsiteId, tyhjä levelGroups) ratkaistaan
-// getTeams-listasta; mahdolliset vanhat tulospalvelu-natiivit (levelGroups jo
-// täynnä) käytetään sellaisenaan.
-export const resolveFavouriteMatchers = (favourites, tpTeams) => {
-  const out = [];
-  for (const fav of favourites || []) {
-    if (Array.isArray(fav.levelGroups) && fav.levelGroups.length > 0) {
-      out.push({ shortName: fav.shortName, levelGroups: fav.levelGroups });
-    } else if (fav.subsiteId != null) {
-      out.push(...resolveFavouriteTpTeams(fav, tpTeams));
-    }
-  }
-  return out;
-};
-
 export const splitTeamName = (name) => {
   if (!name) return { main: "", sub: null };
 
@@ -377,28 +164,44 @@ export const splitTeamName = (name) => {
   return { main: name, sub: null };
 };
 
-export const DateBox = ({date}) => {
-    const dateBoxStyle = Object.assign({}, {
-        alignContent: 'center',
-        justifyItems: 'center',
-        alignSelf: 'center',
-        aspectRatio: 1.0,
-        height: '100%',
-        borderRadius: '0px',
-        background: "white",
-        justifyContent: 'center', 
-        alignItems: 'center'
-    })
 
-    const dayStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '0px -10px 0px -10px', color: 'black', fontSize: '30px' })        
-    const timeStyle = Object.assign({}, styles.flex, styles.textShadow, { margin: '-0px 0px 0px 0px', color: 'orange', fontSize: '25px'})
+/* ============================= */
+/*        FAVOURITE TEAMS        */
+/* ============================= */
 
-    return (
-        <Ratio style={dateBoxStyle}>
-            <Container>
-                <Row style={dayStyle}>{moment(date).format('dd D.M')}</Row>
-                <Row style={timeStyle}>{moment(date).format('HH:mm')}</Row>
-            </Container>
-        </Ratio>
+// Käyttäjän merkkaamat suosikkijoukkueet säilyvät localStoragessa. Avain ja
+// muoto jaetaan /teams-sivun ja kaikkien kuluttajien (hero-kortin
+// valintalogiikka, "minun joukkueeni" -banneri) välillä.
+export const FAVOURITE_TEAMS_STORAGE_KEY = "ahma_favourite_teams";
+
+// Lukee suosikit array-muodossa (Array<{teamKey, shortName, levelGroups}>).
+// Palauttaa tyhjän taulukon jos varastoa ei ole tai data on epäkelvollista.
+export const loadFavouriteTeams = () => {
+  try {
+    const raw = localStorage.getItem(FAVOURITE_TEAMS_STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return arr.filter(
+      (t) =>
+        t && typeof t === "object" && t.teamKey && Array.isArray(t.levelGroups)
     );
-}
+  } catch {
+    return [];
+  }
+};
+
+// Rakentaa suosikkitietueen /teams-sivun Jopox-joukkueesta. `subsiteId` ajaa
+// Minä-feediä (julkinen Jopox-tapahtuma-API). `levelGroups` jää tyhjäksi:
+// pelikohtainen tulospalvelu-mäppäys (levelId/statGroupId) tulee myöhemmin.
+// `teamKey` erottaa nämä tulospalvelu-pohjaisista.
+export const makeJopoxFavourite = (team) => ({
+  teamKey: `jopox-${team.subsiteId}`,
+  subsiteId: team.subsiteId,
+  name: team.name,
+  shortName: team.name,
+  levelGroups: [],
+});
+
+// Onko annettu Jopox-subsite suosikeissa?
+export const isFavouriteSubsite = (favourites, subsiteId) =>
+  favourites.some((t) => String(t.subsiteId) === String(subsiteId));
