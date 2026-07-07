@@ -8,9 +8,10 @@ import {
   LuAward,
   LuMail,
   LuHeart,
+  LuMapPin,
 } from "react-icons/lu";
 import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
-import { themeCSS } from "../../theme";
+import { Box, Divider, GlobalStyles } from "@mui/material";
 import { splitTeamName } from "../../Util";
 import { AppHeader } from "../ui/AppHeader";
 import { NavDrawer } from "../ui/NavDrawer";
@@ -21,6 +22,33 @@ import {
   parseMatchDate,
 } from "../../hooks/useHeroMatches";
 import { getCachedUser, getMe } from "../../auth/authClient";
+
+// Small uppercase group label (PIKATOIMINNOT, SHOP, SEURAA MEITÄ, ...).
+const sectionHeadingSx = {
+  pl: "2px",
+  fontSize: 11,
+  fontWeight: "var(--gz-fw-medium)",
+  letterSpacing: "var(--gz-ls-wide)",
+  textTransform: "uppercase",
+  color: "var(--gz-text-primary)",
+};
+
+const dividerSx = { width: "100%", borderColor: "rgba(255,255,255,0.10)", my: "4px" };
+
+// Global page background + the LIVE pulse keyframe (referenced by name below).
+const globalStyles = (
+  <GlobalStyles
+    styles={{
+      "html, body, #root": { height: "100%", background: "var(--color-bg)" },
+      body: { margin: 0 },
+      "@keyframes ahmaHeroLivePulse": {
+        "0%": { boxShadow: "0 0 0 0 rgba(239,68,68,0.55)" },
+        "70%": { boxShadow: "0 0 0 8px rgba(239,68,68,0)" },
+        "100%": { boxShadow: "0 0 0 0 rgba(239,68,68,0)" },
+      },
+    }}
+  />
+);
 
 const Index = () => {
   const [news, setNews] = useState([]);
@@ -56,119 +84,238 @@ const Index = () => {
 
   return (
     <>
-      <style>{styles}</style>
+      {globalStyles}
 
       <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      <div className="ahma-root">
+      <Box
+        sx={{
+          position: "relative",
+          overflow: "hidden",
+          minHeight: "100dvh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          // AppHeader ylös ja menu alas — natiivi flex-jako, ei margin-trickkejä.
+          justifyContent: "space-between",
+          gap: "14px",
+          // Bottom padding clears the BottomNav + iOS home indicator + a small gap.
+          padding: "10px 7px var(--ui-bottom-nav-clearance, 80px) 7px",
+          background: "var(--bg-gradient)",
+          fontFamily: "var(--font-family-base)",
+          "@media (min-width:768px)": { padding: "26px 26px 28px 26px", gap: "18px" },
+        }}
+      >
         <AppHeader onMenuClick={() => setDrawerOpen(true)} user={authUser} />
 
-        <div className="ahma-menu">
+        <Box
+          sx={{
+            width: "100%",
+            maxWidth: 520,
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+            "@media (min-width:768px)": { maxWidth: 980, gap: "12px" },
+          }}
+        >
           <HeroCarousel matches={heroMatches} loading={heroLoading} />
 
-          <div className="ahma-section-heading">Pikatoiminnot</div>
-          <div className="ahma-quick">
-            <QuickTile
-              to="/partners"
-              icon={<LuAward />}
-              label="Kumppanit"
-            />
-            <QuickTile
-              to="/organization"
-              icon={<LuMail />}
-              label="Yhteystiedot"
-            />
-            <QuickTile
-              to="/supporters"
-              icon={<LuHeart />}
-              label="Kannattajat"
-            />
-          </div>
+          <Box sx={sectionHeadingSx}>Pikatoiminnot</Box>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 1,
+              justifyItems: "center",
+              "@media (min-width:768px)": { gap: "12px" },
+            }}
+          >
+            <QuickTile to="/partners" icon={<LuAward />} label="Kumppanit" />
+            <QuickTile to="/organization" icon={<LuMail />} label="Yhteystiedot" />
+            <QuickTile to="/supporters" icon={<LuHeart />} label="Kannattajat" />
+          </Box>
 
           {news.length > 0 && (
             <>
-              <hr className="ahma-divider" />
+              <Divider sx={dividerSx} />
               <NewsSection news={news} />
             </>
           )}
 
-          <hr className="ahma-divider" />
+          <Divider sx={dividerSx} />
 
-          <div className="ahma-shop-section">
-            <div className="ahma-section-heading">Shop</div>
-            <a
-              href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ahma-merch"
-            >
-              <LuShoppingBag className="ahma-merch-icon" aria-hidden="true" />
-              <div className="ahma-merch-text">
-                <div className="ahma-merch-title">AHMA FANITUOTTEET</div>
-                <div className="ahma-merch-subtitle">
-                  <span>Näytä koko valikoima</span>
-                  <LuChevronRight className="ahma-merch-arrow" aria-hidden="true" />
-                </div>
-              </div>
-              <img
-                className="ahma-merch-image"
-                src="/fanituotteet.png"
-                alt=""
-                aria-hidden="true"
-              />
-            </a>
-          </div>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <Box sx={sectionHeadingSx}>Shop</Box>
+            <MerchBanner />
+          </Box>
 
-          <hr className="ahma-divider" />
+          <Divider sx={dividerSx} />
 
-          <div className="ahma-social-section">
-            <div className="ahma-section-heading">Seuraa meitä</div>
-            <div className="ahma-social">
-              <SocialBtn
-                href="https://www.instagram.com/kiekkoahmaofficial/"
-                label="Instagram"
-                icon={<SiInstagram />}
-              />
-              <SocialBtn
-                href="https://www.facebook.com/kiekkoahma/"
-                label="Facebook"
-                icon={<SiFacebook />}
-              />
-              <SocialBtn
-                href="https://www.youtube.com/channel/UC9EPzx8chEerImpJhjl9JVw"
-                label="YouTube"
-                icon={<SiYoutube />}
-              />
-              <SocialBtn
-                href="https://kiekko-ahma.fi"
-                label="Kotisivut"
-                icon={<LuGlobe />}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "10px" }}>
+            <Box sx={sectionHeadingSx}>Seuraa meitä</Box>
+            <Box sx={{ display: "flex", flexDirection: "row" }}>
+              <SocialBtn href="https://www.instagram.com/kiekkoahmaofficial/" label="Instagram" icon={<SiInstagram />} />
+              <SocialBtn href="https://www.facebook.com/kiekkoahma/" label="Facebook" icon={<SiFacebook />} />
+              <SocialBtn href="https://www.youtube.com/channel/UC9EPzx8chEerImpJhjl9JVw" label="YouTube" icon={<SiYoutube />} />
+              <SocialBtn href="https://kiekko-ahma.fi" label="Kotisivut" icon={<LuGlobe />} />
+            </Box>
+          </Box>
+        </Box>
+      </Box>
     </>
   );
 };
 
 const SocialBtn = ({ href, label, icon }) => (
-  <a
+  <Box
+    component="a"
     href={href}
     target="_blank"
     rel="noopener noreferrer"
     aria-label={label}
-    className="ahma-social-btn"
+    sx={{
+      flex: "1 1 0",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      py: "4px",
+      textDecoration: "none",
+      WebkitTapHighlightColor: "transparent",
+      "&, &:hover, &:visited, &:focus, &:active": { color: "#fff", textDecoration: "none" },
+      "&:hover .sc": { background: "rgba(255,255,255,0.12)" },
+      "&:active .sc": { transform: "scale(0.94)" },
+    }}
   >
-    <span className="ahma-social-btn-circle">{icon}</span>
-  </a>
+    <Box
+      className="sc"
+      component="span"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 36,
+        height: 36,
+        borderRadius: "50%",
+        background: "rgba(255,255,255,0.06)",
+        transition: "transform 0.15s ease, background-color 0.15s ease",
+        "& svg": { width: 16, height: 16, color: "#fff" },
+      }}
+    >
+      {icon}
+    </Box>
+  </Box>
 );
 
 const QuickTile = ({ to, icon, label }) => (
-  <Link to={to} className="ahma-quick-tile">
-    <span className="ahma-quick-circle" aria-hidden="true">{icon}</span>
-    <span className="ahma-quick-label">{label}</span>
-  </Link>
+  <Box
+    component={Link}
+    to={to}
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 1,
+      textDecoration: "none",
+      WebkitTapHighlightColor: "transparent",
+      "&, &:hover, &:visited, &:focus": { textDecoration: "none", color: "var(--gz-text-primary)" },
+      "&:hover .qc": { boxShadow: "var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18)" },
+      "&:active .qc": { transform: "scale(0.95)", boxShadow: "var(--shadow-item), 0 0 0 1px rgba(var(--color-primary-rgb),0.45)" },
+    }}
+  >
+    <Box
+      className="qc"
+      aria-hidden="true"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 64,
+        height: 64,
+        borderRadius: "50%",
+        background:
+          "linear-gradient(rgba(20,22,26,0.55), rgba(20,22,26,0.55)) padding-box, linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) border-box",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        border: "1px solid transparent",
+        boxShadow: "var(--shadow-item)",
+        color: "var(--color-primary)",
+        transition: "box-shadow 0.15s ease, transform 0.1s ease",
+        "& svg": { width: 26, height: 26, strokeWidth: 1.75 },
+        "@media (min-width:768px)": { width: 70, height: 70 },
+      }}
+    >
+      {icon}
+    </Box>
+    <Box
+      component="span"
+      sx={{
+        fontSize: "var(--gz-fs-2xs)",
+        fontWeight: "var(--gz-fw-medium)",
+        letterSpacing: "var(--gz-ls-wide)",
+        textTransform: "uppercase",
+        color: "var(--gz-text-secondary)",
+        textAlign: "center",
+      }}
+    >
+      {label}
+    </Box>
+  </Box>
+);
+
+const MerchBanner = () => (
+  <Box
+    component="a"
+    href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
+    target="_blank"
+    rel="noopener noreferrer"
+    sx={{
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      gap: "14px",
+      width: "100%",
+      minHeight: 80,
+      padding: "14px 18px",
+      borderRadius: "var(--radius-item)",
+      background: "rgba(20,22,26,0.55)",
+      backdropFilter: "blur(14px)",
+      WebkitBackdropFilter: "blur(14px)",
+      border: "1px solid rgba(var(--color-primary-rgb),0.4)",
+      boxShadow: "var(--shadow-item), 0 0 18px rgba(var(--color-primary-rgb),0.08)",
+      overflow: "hidden",
+      textDecoration: "none",
+      WebkitTapHighlightColor: "transparent",
+      "&, &:hover, &:focus, &:visited, &:active": { textDecoration: "none", color: "var(--gz-text-primary)" },
+      "&:active": { background: "rgba(var(--color-primary-rgb),0.08)" },
+    }}
+  >
+    <LuShoppingBag aria-hidden="true" size={22} style={{ position: "relative", zIndex: 1, color: "var(--color-primary)", flexShrink: 0 }} />
+    <Box sx={{ position: "relative", zIndex: 1, flex: "1 1 auto", minWidth: 0 }}>
+      <Box sx={{ fontSize: 14, fontWeight: "var(--gz-fw-bold)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", color: "var(--color-primary)" }}>
+        AHMA FANITUOTTEET
+      </Box>
+      <Box sx={{ display: "inline-flex", alignItems: "center", gap: "4px", mt: "2px", fontSize: "var(--gz-fs-2xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", color: "var(--gz-text-secondary)" }}>
+        <span>Näytä koko valikoima</span>
+        <LuChevronRight aria-hidden="true" size={14} style={{ flexShrink: 0 }} />
+      </Box>
+    </Box>
+    <Box
+      component="img"
+      src="/fanituotteet.png"
+      alt=""
+      aria-hidden="true"
+      sx={{
+        position: "absolute",
+        bottom: "-50px",
+        right: "-80px",
+        height: "350%",
+        width: "auto",
+        pointerEvents: "none",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%)",
+        maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%)",
+      }}
+    />
+  </Box>
 );
 
 // Hero-korttikarusellin etusivun yläosassa. useHeroMatches palauttaa 0-3
@@ -201,7 +348,7 @@ const HERO_BACKGROUNDS = ["/hero_1.webp", "/hero_2.webp", "/hero_3.webp"];
 const HERO_EASE = "transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)";
 // Pieni väli korttien välissä (näkyy swipessä); huomioidaan translatessa niin
 // että lepotilassa kortti on silti täysleveä.
-const HERO_GAP = 12; // px, must match .ahma-hero-track gap
+const HERO_GAP = 12; // px, must match hero track gap
 const heroTrackX = (i) => `translate3d(calc(${-i * 100}% - ${i * HERO_GAP}px), 0, 0)`;
 const HeroCarousel = ({ matches, loading }) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -242,40 +389,61 @@ const HeroCarousel = ({ matches, loading }) => {
   );
 
   return (
-    <div className="ahma-hero-carousel">
-      <div
-        className="ahma-hero-track"
+    <Box sx={{ position: "relative", overflow: "hidden", borderRadius: "var(--radius-item)" }}>
+      <Box
         ref={trackRef}
         {...(swipeable ? bind() : {})}
         style={swipeable ? { touchAction: "pan-y" } : undefined}
+        sx={{ display: "flex", gap: "12px", willChange: "transform" }}
       >
         {cards.map((card, i) => (
-          <div className="ahma-hero-slide" key={i}>
+          <Box key={i} sx={{ flex: "0 0 100%", minWidth: 0 }}>
             <HeroMatchCard
               match={card}
               loading={loading}
               backgroundImage={HERO_BACKGROUNDS[i % HERO_BACKGROUNDS.length]}
             />
-          </div>
+          </Box>
         ))}
-      </div>
+      </Box>
       {cards.length > 1 && (
-        <div className="ahma-hero-dots">
-          {cards.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`ahma-hero-dot${
-                i === safeIndex ? " ahma-hero-dot--active" : ""
-              }`}
-              onClick={() => setActiveIndex(i)}
-              aria-label={`Kortti ${i + 1}/${cards.length}`}
-            />
-          ))}
-        </div>
+        <Box sx={{ display: "flex", justifyContent: "center", gap: "6px", mt: "8px" }}>
+          {cards.map((_, i) => {
+            const active = i === safeIndex;
+            return (
+              <Box
+                key={i}
+                component="button"
+                type="button"
+                onClick={() => setActiveIndex(i)}
+                aria-label={`Kortti ${i + 1}/${cards.length}`}
+                sx={{
+                  width: active ? 20 : 7,
+                  height: 7,
+                  p: 0,
+                  border: "none",
+                  borderRadius: active ? "4px" : "50%",
+                  background: active ? "var(--color-primary)" : "rgba(255,255,255,0.28)",
+                  cursor: "pointer",
+                  transition: "width 0.2s, background-color 0.2s",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              />
+            );
+          })}
+        </Box>
       )}
-    </div>
+    </Box>
   );
+};
+
+const heroMetaSx = {
+  fontSize: "var(--gz-fs-xs)",
+  color: "rgba(255,255,255,0.85)",
+  lineHeight: 1.35,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
 };
 
 const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp" }) => {
@@ -303,8 +471,6 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
     ? "LIVE"
     : "SEURAAVA OTTELU";
 
-  // Ottelun/tapahtuman klikkaus on toistaiseksi pois — kortti on aina staattinen
-  // (ei ulkoista tulospalvelu-linkkiä, joka avautui väärällä id:llä).
   const homeTeam = !empty && !isEvent ? splitTeamName(match.home || "").main : "";
   const awayTeam = !empty && !isEvent ? splitTeamName(match.away || "").main : "";
   // Tag-suffiksi: ottelulle sarjataso, tapahtumalle suosikkijoukkueen nimi.
@@ -312,9 +478,7 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
   const place = !empty ? (isEvent ? match.place : match.rink) : null;
 
   return (
-    <div
-      className="ahma-hero"
-      style={{ backgroundImage: `url(${bgImage})`, ...(openGame ? { cursor: "pointer" } : {}) }}
+    <Box
       {...(openGame
         ? {
             role: "button",
@@ -323,721 +487,109 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
             onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGame(); } },
           }
         : {})}
+      sx={{
+        position: "relative",
+        display: "block",
+        width: "100%",
+        height: 220,
+        borderRadius: "var(--radius-item)",
+        overflow: "hidden",
+        border: "1px solid rgba(255,255,255,0.10)",
+        boxShadow: "var(--shadow-item)",
+        color: "var(--gz-text-primary)",
+        WebkitTapHighlightColor: "transparent",
+        // Tausta kuvasta; fallback-väri jos kuva ei lataudu. padding-box estää
+        // 1px-reunan piirtymisen taustakuvan päälle.
+        backgroundColor: "#0e1118",
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundClip: "padding-box",
+        ...(openGame ? { cursor: "pointer" } : {}),
+      }}
     >
-      <div className="ahma-hero-overlay" />
-      <div className="ahma-hero-content">
-        <div className="ahma-hero-tag">
-          {live && <span className="ahma-hero-live-dot" aria-hidden="true" />}
+      <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.20) 30%, rgba(0,0,0,0.85) 100%)", zIndex: 1 }} />
+      <Box sx={{ position: "relative", zIndex: 2, height: "100%", padding: "14px 16px 30px 16px", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px" }}>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-bold)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", color: "var(--color-primary)", mb: "4px" }}>
+          {live && (
+            <Box component="span" aria-hidden="true" sx={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--color-loss)", boxShadow: "0 0 0 0 rgba(239,68,68,0.6)", animation: "ahmaHeroLivePulse 1.6s ease-in-out infinite" }} />
+          )}
           <span>{tagLabel}</span>
-          {tagSuffix && <span className="ahma-hero-tag-league"> · {tagSuffix}</span>}
-        </div>
+          {tagSuffix && <Box component="span" sx={{ color: "rgba(255,255,255,0.7)", fontWeight: "var(--gz-fw-medium)" }}>{" · "}{tagSuffix}</Box>}
+        </Box>
         {empty ? (
-          <div className="ahma-hero-title ahma-hero-title--empty">
+          <Box sx={{ fontSize: 18, fontWeight: "var(--gz-fw-medium)", lineHeight: 1.15, color: "#fff", opacity: 0.85, mb: "6px" }}>
             {loading ? "Haetaan tulevia tapahtumia…" : "Ei tulevia tapahtumia"}
-          </div>
+          </Box>
         ) : (
           <>
-            <div className="ahma-hero-title">
+            <Box sx={{ fontSize: 22, fontWeight: "var(--gz-fw-black)", lineHeight: 1.15, color: "#fff", mb: "6px" }}>
               {isEvent ? (
                 match.title
               ) : (
                 <>
                   {homeTeam}{" "}
                   {live ? (
-                    <span className="ahma-hero-score">
+                    <Box component="span" sx={{ fontWeight: "var(--gz-fw-black)", color: "var(--color-primary)", mx: "4px" }}>
                       {match.home_goals}–{match.away_goals}
-                    </span>
+                    </Box>
                   ) : (
                     "vs."
                   )}{" "}
                   {awayTeam}
                 </>
               )}
-            </div>
-            <div className="ahma-hero-meta">{formatMatchDate(match)}</div>
+            </Box>
+            <Box sx={heroMetaSx}>{formatMatchDate(match)}</Box>
             {place && (
-              <div className="ahma-hero-meta">
-                <span
-                  className="material-symbols-rounded ahma-hero-loc-icon"
-                  aria-hidden="true"
-                >
-                  &#xE0C8;
-                </span>
+              <Box sx={heroMetaSx}>
+                <LuMapPin size={14} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
                 {place}
-              </div>
+              </Box>
             )}
           </>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
 // Tiivis vertikaalinen uutislista — pikkukuva vasemmalla, otsikko + päivä
-// oikealla. Näyttää vain ensimmäiset 3 uutista; loput "Näytä kaikki" -linkin
-// takana (toteutetaan vaiheessa C).
+// oikealla. Näyttää vain ensimmäiset 2 uutista; loput "Näytä kaikki" -linkin
+// takana.
 const NEWS_PREVIEW_COUNT = 2;
 
 const NewsSection = ({ news }) => (
-  <section className="ahma-news">
-    <div className="ahma-news-header">
-      <div className="ahma-section-heading">Ajankohtaista</div>
-      <Link to="/news" className="ahma-news-show-all">
+  <Box component="section" sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.25 }}>
+      <Box sx={sectionHeadingSx}>Ajankohtaista</Box>
+      <Box
+        component={Link}
+        to="/news"
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "2px",
+          fontSize: "var(--gz-fs-2xs)",
+          fontWeight: "var(--gz-fw-medium)",
+          letterSpacing: "var(--gz-ls-wide)",
+          textTransform: "uppercase",
+          textDecoration: "none",
+          WebkitTapHighlightColor: "transparent",
+          "&, &:hover, &:visited, &:focus, &:active": { color: "var(--color-primary)", textDecoration: "none" },
+          "& svg": { width: 12, height: 12 },
+        }}
+      >
         Näytä kaikki <LuChevronRight aria-hidden="true" />
-      </Link>
-    </div>
-    <div className="ahma-news-list">
+      </Box>
+    </Box>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       {news.slice(0, NEWS_PREVIEW_COUNT).map((item) => (
         <NewsCard key={item.id || item.url} item={item} />
       ))}
-    </div>
-  </section>
+    </Box>
+  </Box>
 );
 
 export default Index;
-
-/* ================== THEME ================== */
-
-const styles = `${themeCSS}
-
-.ahma-item,
-.ahma-item:visited,
-.ahma-item:hover,
-.ahma-item:active{
-  color: var(--color-secondary);
-  text-decoration: none;
-}
-
-html, body, #root {
-  height: 100%;
-  background: var(--color-bg);
-}
-body { margin: 0; }
-
-.ahma-root{
-  position: relative;
-  overflow: hidden;
-
-  min-height: 100dvh;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  /* AppHeader ylös ja .ahma-menu alas — natiivi flex-jako, ei margin-trickkejä
-     jotka voivat ylivenyttää sivua iOS:n viewport-quirkeissä. */
-  justify-content:space-between;
-  gap: 14px;
-
-  /* Bottom padding clears the BottomNav (GamezoneLayout) + iOS home indicator + a small gap. */
-  padding: 10px 7px var(--ui-bottom-nav-clearance, 80px) 7px;
-
-  background: var(--bg-gradient);
-  font-family: var(--font-family-base);
-}
-
-/* MENU LIST — wrapper that constrains width and stacks items.
-   Bottom-anchoring tehdään .ahma-rootin justify-content: space-between
-   -säädöllä, ei margin-top: auto -trickillä. */
-.ahma-menu{
-  width: 100%;
-  max-width: 520px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* HERO MATCH CARD — etusivun ylin elementti, näyttää tämän/seuraavan
-   pelin: tag (TÄNÄÄN/HUOMENNA) + otsikko (joukkueet) + päivä/aika +
-   paikka + CTA-nappi. Tausta on kuva (jos annettu), muuten tumma
-   gradientti. Carousel-pisteet pohjassa visuaalisena indikaattorina —
-   itse swipe-toiminta tulee vaiheessa E kun datakin on aitoa. */
-.ahma-hero{
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 220px;
-  border-radius: var(--radius-item);
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: var(--shadow-item);
-  text-decoration: none;
-  color: var(--gz-text-primary);
-  -webkit-tap-highlight-color: transparent;
-  /* Tausta tulee inline-stylestä (HeroMatchCard prop). Fallback-väri jos
-     kuva ei lataudu. background-clip: padding-box estää sen, että 1px
-     reuna piirtyisi taustakuvan päälle ja luisi visual-glitchejä
-     reunoihin. */
-  background-color: #0e1118;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-clip: padding-box;
-}
-.ahma-hero:hover,
-.ahma-hero:visited,
-.ahma-hero:focus,
-.ahma-hero:active{
-  text-decoration: none;
-  color: var(--gz-text-primary);
-}
-
-/* Dark gradient overlay tekstin luettavuuden takia */
-.ahma-hero-overlay{
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.20) 30%, rgba(0,0,0,0.85) 100%);
-  z-index: 1;
-}
-
-.ahma-hero-content{
-  position: relative;
-  z-index: 2;
-  height: 100%;
-  padding: 14px 16px 30px 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 2px;
-}
-
-.ahma-hero-tag{
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--gz-fs-xs);
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--color-primary);
-  margin-bottom: 4px;
-}
-
-/* Sarja-suffiksi tagissa "SEURAAVA OTTELU · U11 AA" — heikompi väri jotta
-   ensisijainen tagi (LIVE/SEURAAVA OTTELU) erottuu. */
-.ahma-hero-tag-league{
-  color: rgba(255,255,255,0.7);
-  font-weight: var(--gz-fw-medium);
-}
-
-/* Punainen pulssipiste LIVE-tilaisuudessa — pulse-animaatio alla. */
-.ahma-hero-live-dot{
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
-  animation: ahma-hero-live-pulse 1.6s ease-in-out infinite;
-}
-@keyframes ahma-hero-live-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
-  70%  { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-/* LIVE-tilan score otsikon keskellä — isompi numero kuin tavallinen text. */
-.ahma-hero-score{
-  font-weight: var(--gz-fw-black);
-  color: var(--color-primary);
-  margin: 0 4px;
-}
-
-.ahma-hero-title{
-  font-size: 22px;
-  font-weight: var(--gz-fw-black);
-  line-height: 1.15;
-  color: #fff;
-  margin-bottom: 6px;
-}
-
-.ahma-hero-meta{
-  font-size: var(--gz-fs-xs);
-  color: rgba(255,255,255,0.85);
-  line-height: 1.35;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* Location pin -ikoni meta-rivin alussa — sama Material Symbols glyph
-   (place, U+E0C8) jota gamezone-sivu käyttää match-korteissa. */
-.ahma-hero-loc-icon{
-  font-size: 16px;
-  line-height: 1;
-  color: var(--color-primary);
-}
-
-/* Empty-tilan otsikko (kun ei tulevia otteluita) — kevyempi, ei tarvitse
-   lihavointia vasta lopulliselle hero-tiedolle. */
-.ahma-hero-title--empty{
-  font-weight: var(--gz-fw-medium);
-  font-size: 18px;
-  opacity: 0.85;
-}
-
-.ahma-hero-cta{
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  margin-top: 10px;
-  padding: 7px 12px;
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 8px;
-  font-size: var(--gz-fs-2xs);
-  font-weight: var(--gz-fw-medium);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: #fff;
-}
-.ahma-hero-cta svg{
-  width: 12px;
-  height: 12px;
-}
-
-/* Carousel-wrapper — sisältää kortin + dots-rivin alla */
-.ahma-hero-carousel{
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-item);
-}
-
-/* Liukuva track: kaikki kortit vierekkäin, translateX vaihtaa näkyvän. */
-.ahma-hero-track{
-  display: flex;
-  gap: 12px;
-  will-change: transform;
-}
-.ahma-hero-slide{
-  flex: 0 0 100%;
-  min-width: 0;
-}
-
-/* Carousel-pisteet — kortin alla erillisenä rivinä, klikattavissa.
-   Aktiivinen oranssi pylpyrä. */
-.ahma-hero-dots{
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.ahma-hero-dot{
-  width: 7px;
-  height: 7px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.28);
-  cursor: pointer;
-  transition: width 0.2s, background-color 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ahma-hero-dot--active{
-  background: var(--color-primary);
-  width: 20px;
-  border-radius: 4px;
-}
-
-/* PIKATOIMINNOT — 3 pyöreää nappia (ikoni ympyrässä + label alla) niille
-   toiminnoille joita bottom nav ei kata: Uutiset, Yhteystiedot,
-   Kannattajat. Ympyrä on frosted-glass + gradient-border kuten muutkin
-   napit, oranssi ikoni keskellä. */
-.ahma-quick{
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  justify-items: center;
-}
-
-.ahma-quick-tile{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  color: var(--gz-text-primary);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ahma-quick-tile:hover,
-.ahma-quick-tile:visited,
-.ahma-quick-tile:focus{
-  text-decoration: none;
-  color: var(--gz-text-primary);
-}
-
-/* Pyöreä nappi — frosted-glass + gradient-border. Hover/active eivät voi
-   muuttaa background-shorthandia (rikkoisi gradient-borderin multi-bg
-   setupin), joten käytetään box-shadow-rinkiä ja transformia. */
-.ahma-quick-circle{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background:
-    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) border-box;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-item);
-  color: var(--color-primary);
-  transition: box-shadow 0.15s ease, transform 0.1s ease;
-}
-
-.ahma-quick-tile:hover .ahma-quick-circle{
-  box-shadow: var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18);
-}
-
-.ahma-quick-tile:active .ahma-quick-circle{
-  transform: scale(0.95);
-  box-shadow: var(--shadow-item), 0 0 0 1px rgba(249, 115, 22, 0.45);
-}
-
-.ahma-quick-circle svg{
-  width: 26px;
-  height: 26px;
-  stroke-width: 1.75;
-}
-
-.ahma-quick-label{
-  font-size: var(--gz-fs-2xs);
-  font-weight: var(--gz-fw-medium);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--gz-text-secondary);
-  text-align: center;
-}
-
-/* Erotin sektioiden välissä (hero / pikatoiminnot / ajankohtaista / shop /
-   some) — pitää osiot selvästi erillään. */
-.ahma-divider{
-  width: 100%;
-  height: 0;
-  margin: 4px 0;
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
-}
-
-/* MENU ITEM */
-.ahma-item{
-  position: relative;
-  overflow: hidden;
-
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap: 12px;
-
-  text-decoration:none;
-  color: var(--gz-text-primary);
-
-  border-radius: var(--radius-item);
-  padding: 14px 16px;
-
-  /* Sama frosted-glass + gradient-border -tyyli kuin pikatoiminnot-tileissä. */
-  background:
-    linear-gradient(rgba(20, 22, 26, 0.55), rgba(20, 22, 26, 0.55)) padding-box,
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) border-box;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-item);
-
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Sama hover/active -treatment kuin pikatoiminnot-tileissä — box-shadow
-   ei riko gradient-border-multi-bg-setuppia kuten background-shorthand. */
-.ahma-item:hover{
-  box-shadow: var(--shadow-item), 0 0 0 1px rgba(255,255,255,0.18);
-  color: var(--gz-text-primary);
-}
-
-.ahma-item:active{
-  transform: scale(0.99);
-  box-shadow: var(--shadow-item), 0 0 0 1px rgba(249, 115, 22, 0.45);
-}
-
-.ahma-title{
-  font-size: 14px;
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  color: var(--gz-text-primary);
-}
-
-.ahma-sub{
-  font-size: var(--gz-fs-2xs);
-  font-weight: var(--gz-fw-regular);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--gz-text-tertiary);
-  margin-top: 2px;
-}
-
-.ahma-arrow{
-  font-size: 22px;
-  opacity: 0.55;
-  line-height: 1;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.ahma-item:hover .ahma-arrow{
-  transform: scale(1.2);
-  opacity: 0.85;
-}
-
-/* AHMA FANITUOTTEET banner — external link to the merch shop. Shopping
-   bag icon + title/subtitle on the left, product image bleeding off the
-   right edge (cropped top/bottom on purpose so the products read big),
-   faded into the dark row background via mask-image. */
-.ahma-merch{
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  min-height: 80px;
-  padding: 14px 18px;
-  border-radius: var(--radius-item);
-  background: rgba(20, 22, 26, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(249, 115, 22, 0.4);
-  box-shadow: var(--shadow-item), 0 0 18px rgba(249, 115, 22, 0.08);
-  overflow: hidden;
-  text-decoration: none;
-  color: var(--gz-text-primary);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ahma-merch:hover,
-.ahma-merch:focus,
-.ahma-merch:visited,
-.ahma-merch:active{
-  text-decoration: none;
-  color: var(--gz-text-primary);
-}
-
-.ahma-merch:active{
-  background: rgba(249, 115, 22, 0.08);
-}
-
-.ahma-merch-icon{
-  position: relative;
-  z-index: 1;
-  width: 22px;
-  height: 22px;
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.ahma-merch-text{
-  position: relative;
-  z-index: 1;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.ahma-merch-title{
-  font-size: 14px;
-  font-weight: var(--gz-fw-bold);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--color-primary);
-}
-
-.ahma-merch-subtitle{
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 2px;
-  font-size: var(--gz-fs-2xs);
-  font-weight: var(--gz-fw-regular);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--gz-text-secondary);
-}
-
-.ahma-merch-arrow{
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.ahma-merch-image{
-  position: absolute;
-  bottom: -50px;
-  right: -80px;
-  height: 350%;
-  width: auto;
-  pointer-events: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%);
-  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%);
-}
-
-/* AJANKOHTAISTA — vertikaalinen lista, jokainen rivi: pikkukuva vasemmalla
-   + otsikko ja päivä oikealla. Datalähde: public/gamezone-news.json.
-   Klikkaus avaa ulkoisen URL:n uuteen välilehteen. */
-.ahma-news{
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* Heading-rivi: section-otsikko vasemmalla + "Näytä kaikki" -linkki
-   oranssina oikealla. */
-.ahma-news-header{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.ahma-news-show-all{
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--gz-fs-2xs);
-  font-weight: var(--gz-fw-medium);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--color-primary);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.ahma-news-show-all:hover,
-.ahma-news-show-all:visited,
-.ahma-news-show-all:focus,
-.ahma-news-show-all:active{
-  color: var(--color-primary);
-  text-decoration: none;
-}
-.ahma-news-show-all svg{
-  width: 12px;
-  height: 12px;
-}
-
-.ahma-news-list{
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* SOSIAALISET LINKIT — pyöreät dark glass -napit brand-värisillä
-   ikoneilla, jokainen avaa seuran tilin uuteen välilehteen. Sijaitsee
-   fanituote-bannerin alla otsikon kanssa, kaikki vasempaan reunaan
-   linjattuna. */
-.ahma-social-section{
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-}
-
-/* SHOP — fanituote-bannerin osio omalla otsakkeellaan (sama tyyli kuin
-   Ajankohtaista / Seuraa meitä). */
-.ahma-shop-section{
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* Pieni section-heading: PIKATOIMINNOT, SEURAA MEITÄ, jne.
-   Käytetään home-sivun ryhmittelevien rivinopastien yli. */
-.ahma-section-heading{
-  padding-left: 2px;
-  font-size: 11px;
-  font-weight: var(--gz-fw-medium);
-  letter-spacing: var(--gz-ls-wide);
-  text-transform: uppercase;
-  color: var(--gz-text-primary);
-}
-
-/* Some-napit — flex 4 yhtä leveää slottia. Kukin slotin keskellä
-   pyöreä tumma 36×36 nappi valkoisella ikonilla. Slottin koko alue on
-   klikattava. Yhteneväinen tumma sävy, ei brand-värejä. */
-.ahma-social{
-  display: flex;
-  flex-direction: row;
-}
-
-.ahma-social-btn{
-  flex: 1 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 0;
-  color: #fff;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ahma-social-btn:hover,
-.ahma-social-btn:visited,
-.ahma-social-btn:focus,
-.ahma-social-btn:active{
-  color: #fff;
-  text-decoration: none;
-}
-
-.ahma-social-btn-circle{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  transition: transform 0.15s ease, background-color 0.15s ease;
-}
-
-.ahma-social-btn:hover .ahma-social-btn-circle{
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.ahma-social-btn:active .ahma-social-btn-circle{
-  transform: scale(0.94);
-}
-
-.ahma-social-btn svg{
-  width: 16px;
-  height: 16px;
-  color: #fff;
-}
-
-/* ============ TABLET / iPAD ============ */
-@media (min-width: 768px){
-  .ahma-root{
-    padding: 26px 26px 28px 26px;
-    gap: 18px;
-  }
-
-  .ahma-menu{
-    max-width: 980px;
-    gap: 12px;
-  }
-
-  .ahma-item{
-    padding: 14px 16px;
-  }
-
-  .ahma-quick{
-    gap: 12px;
-  }
-
-  .ahma-quick-circle{
-    width: 70px;
-    height: 70px;
-  }
-}
-
-/* ============ VERY SMALL ============ */
-@media (max-width: 380px){
-  .ahma-item{ padding: 11px 12px; }
-}
-`;
