@@ -213,7 +213,9 @@ const Account = () => {
             <Box sx={{ position: "relative" }}>
               <Stack direction="row" alignItems="center" sx={{ px: 1.5, pt: "calc(env(safe-area-inset-top) + 10px)" }}>
                 <IconButton onClick={goBack} aria-label="Takaisin" sx={{ color: "#fff", bgcolor: "rgba(0,0,0,.38)", backdropFilter: "blur(6px)", "&:hover": { bgcolor: "rgba(0,0,0,.5)" } }}><LuArrowLeft /></IconButton>
-                <Typography sx={{ flex: 1, textAlign: "center", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>Minä</Typography>
+                <Box sx={{ flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>Minä</Typography>
+                </Box>
                 <Box sx={{ width: 40, flexShrink: 0 }} />
               </Stack>
 
@@ -252,14 +254,14 @@ const Account = () => {
           <Box sx={{ maxWidth: 480, mx: "auto", px: 1.5, pt: 2 }}>
             <Stack spacing={1.5}>
               {user.googleLinked ? (
-                <Stack spacing={0.5} sx={{ textAlign: "center" }}>
-                  <Stack direction="row" justifyContent="center" alignItems="center" spacing={1} sx={{ color: "var(--color-live)", fontSize: 13 }}>
-                    <LuCheck style={{ flexShrink: 0 }} /><span>Google yhdistetty — kirjautuminen toimii kaikilla laitteilla</span>
-                  </Stack>
+                <Box sx={{ textAlign: "center" }}>
+                  <Typography variant="body2" sx={{ color: "var(--color-live)" }}>
+                    <LuCheck style={{ verticalAlign: "-2px", marginRight: 4 }} />Google yhdistetty — kirjautuminen toimii kaikilla laitteilla
+                  </Typography>
                   {user.hasPasskey && (
-                    <Button onClick={handleUnlinkGoogle} disabled={busy} sx={{ alignSelf: "center", p: 0.5, minWidth: 0, color: "primary.main", fontWeight: 700, textTransform: "none", "&:hover": { bgcolor: "transparent", textDecoration: "underline" } }}>Poista Google-yhteys</Button>
+                    <Button onClick={handleUnlinkGoogle} disabled={busy} sx={{ mt: 0.5, p: 0.5, minWidth: 0, color: "primary.main", fontWeight: 700, textTransform: "none", "&:hover": { bgcolor: "transparent", textDecoration: "underline" } }}>Poista Google-yhteys</Button>
                   )}
-                </Stack>
+                </Box>
               ) : clientId ? (
                 <Stack spacing={1} alignItems="center">
                   <Typography variant="body2" sx={{ color: "text.secondary" }}>Yhdistä Google monilaitekäyttöön</Typography>

@@ -9,8 +9,10 @@ export const MuiHeader = ({ title, subtitle, onBack }) => (
     <IconButton onClick={onBack} aria-label="Takaisin" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}>
       <LuArrowLeft />
     </IconButton>
-    <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".02em", fontSize: 20, lineHeight: 1 }}>{title}</Typography>
+    {/* min-height + flex-centre so a single-line title sits in the middle (not at
+        the top, where the first of two lines would be). */}
+    <Box sx={{ minWidth: 0, minHeight: 40, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".02em", fontSize: 20, lineHeight: 1.2 }}>{title}</Typography>
       {subtitle && <Typography variant="body2" sx={{ color: "text.secondary" }}>{subtitle}</Typography>}
     </Box>
   </Stack>
