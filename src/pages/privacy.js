@@ -19,7 +19,7 @@ const LinkRow = ({ to, icon, label }) => (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 40, display: "flex", alignItems: "center" }}>
       <Typography sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}>{label}</Typography>
     </Box>
-    <LuChevronRight style={{ flexShrink: 0, opacity: 0.4 }} />
+    <Box sx={{ alignSelf: "stretch", display: "flex", alignItems: "center", flexShrink: 0 }}><LuChevronRight style={{ opacity: 0.4 }} /></Box>
   </Stack>
 );
 

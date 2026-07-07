@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { themeCSS } from "../theme";
-import { Spinner } from "../components/ui/Spinner";
+import { Link } from "react-router-dom";
+import { Box, Typography, Card, Stack, CircularProgress } from "@mui/material";
+import { MuiHeader } from "../components/ui/MuiHeader";
+import { useGoBack } from "../hooks/useGoBack";
 import { getStats } from "../auth/authClient";
 
 // Unlisted admin stats page (/stats) — registered-user metrics from Table
-// Storage. Not in any menu. Requires login + membership in ADMIN_USER_IDS.
-// Complements Cloudflare Web Analytics (traffic). Opened directly at /stats.
+// Storage. Requires login + membership in ADMIN_USER_IDS. Reached from /admin.
 
 const fmtDateTime = (iso) => {
   const d = new Date(iso);
@@ -17,14 +18,28 @@ const fmtDateTime = (iso) => {
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
 const Stat = ({ label, value, sub }) => (
-  <div className="st-card ui-surface">
-    <div className="st-value">{value}</div>
-    <div className="st-label">{label}</div>
-    {sub != null && <div className="st-sub">{sub}</div>}
-  </div>
+  <Card variant="outlined" sx={{ p: 2, textAlign: "center", bgcolor: "background.paper", borderColor: "divider" }}>
+    <Typography sx={{ fontSize: 30, fontWeight: 800, color: "primary.main", lineHeight: 1.1 }}>{value}</Typography>
+    <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.5 }}>{label}</Typography>
+    {sub != null && <Typography sx={{ fontSize: 12, color: "text.secondary", opacity: 0.7, mt: 0.25 }}>{sub}</Typography>}
+  </Card>
+);
+
+const MethodBadge = ({ method }) => {
+  const primary = method.split("+")[0];
+  const c = primary === "passkey"
+    ? { bg: "rgba(var(--color-primary-rgb),0.16)", fg: "var(--color-primary)" }
+    : primary === "google" ? { bg: "rgba(96,165,250,0.16)", fg: "#93c5fd" }
+    : { bg: "var(--color-surface-divider)", fg: "text.secondary" };
+  return <Box sx={{ flexShrink: 0, fontSize: 11, fontWeight: 700, px: 0.875, py: 0.25, borderRadius: 999, bgcolor: c.bg, color: c.fg }}>{method}</Box>;
+};
+
+const Status = ({ error, children }) => (
+  <Box sx={{ textAlign: "center", py: 5, color: error ? "var(--color-loss)" : "text.secondary" }}>{children}</Box>
 );
 
 const Stats = () => {
+  const goBack = useGoBack("/admin");
   const [state, setState] = useState({ status: "loading" });
   const [copied, setCopied] = useState(false);
 
@@ -33,9 +48,7 @@ const Stats = () => {
     getStats()
       .then((r) => !cancelled && setState(r))
       .catch((e) => !cancelled && setState({ status: "error", error: e.message }));
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const copyId = (id) => {
@@ -43,173 +56,62 @@ const Stats = () => {
       navigator.clipboard?.writeText(id);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   const { status } = state;
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="st-root">
-        <header className="st-head">
-          <h1 className="st-title">TILASTOT</h1>
-          <p className="st-subtitle">Rekisteröityneet käyttäjät</p>
-        </header>
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "60px" }}>
+      <MuiHeader title="Tilastot" subtitle="Rekisteröityneet käyttäjät" onBack={goBack} />
 
-        {status === "loading" && (
-          <div className="st-status"><Spinner /></div>
-        )}
-
-        {status === "unauthorized" && (
-          <div className="st-status">
-            Kirjaudu ensin sisään (<a className="st-link" href="/account">Minä</a>) ja palaa
-            tänne.
-          </div>
-        )}
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5 }}>
+        {status === "loading" && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
+        {status === "unauthorized" && <Status>Kirjaudu ensin sisään (<Box component={Link} to="/account" sx={{ color: "primary.main" }}>Minä</Box>) ja palaa tänne.</Status>}
+        {status === "error" && <Status error>Tilastojen haku epäonnistui. {state.error}</Status>}
 
         {status === "forbidden" && (
-          <div className="st-status st-forbidden">
-            <p>Tällä tilillä ei ole admin-oikeuksia.</p>
-            <p className="st-muted">
-              Lisää oma userId:si SWA App settings → <code>ADMIN_USER_IDS</code> (pilkulla
-              erotettu) ja päivitä sivu.
-            </p>
-            <button type="button" className="st-id" onClick={() => copyId(state.youAre)}>
-              <code>{state.youAre}</code>
-              <span className="st-copy">{copied ? "Kopioitu ✓" : "Kopioi"}</span>
-            </button>
-          </div>
-        )}
-
-        {status === "error" && (
-          <div className="st-status st-error">Tilastojen haku epäonnistui. {state.error}</div>
+          <Box sx={{ py: 4, color: "text.secondary" }}>
+            <Typography sx={{ mb: 1 }}>Tällä tilillä ei ole admin-oikeuksia.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>Lisää oma userId:si SWA App settings → <Box component="code" sx={{ bgcolor: "var(--color-surface-divider)", px: 0.75, py: 0.25, borderRadius: 1 }}>ADMIN_USER_IDS</Box> (pilkulla erotettu) ja päivitä sivu.</Typography>
+            <Box component="button" type="button" onClick={() => copyId(state.youAre)} sx={{ display: "inline-flex", alignItems: "center", gap: 1.25, mt: 1, px: 1.5, py: 1, cursor: "pointer", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", borderRadius: 2, color: "text.primary", fontFamily: "inherit" }}>
+              <Box component="code" sx={{ fontSize: 13 }}>{state.youAre}</Box>
+              <Box component="span" sx={{ fontSize: 12, color: "primary.main", fontWeight: 700 }}>{copied ? "Kopioitu ✓" : "Kopioi"}</Box>
+            </Box>
+          </Box>
         )}
 
         {status === "ok" && (
-          <div className="st-body">
-            <div className="st-grid">
+          <>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)" }, gap: 1.25 }}>
               <Stat label="Käyttäjiä yhteensä" value={state.data.totalUsers} />
-              <Stat
-                label="Passkey"
-                value={state.data.withPasskey}
-                sub={`${pct(state.data.withPasskey, state.data.totalUsers)} %`}
-              />
-              <Stat
-                label="Google linkattu"
-                value={state.data.googleLinked}
-                sub={`${pct(state.data.googleLinked, state.data.totalUsers)} %`}
-              />
+              <Stat label="Passkey" value={state.data.withPasskey} sub={`${pct(state.data.withPasskey, state.data.totalUsers)} %`} />
+              <Stat label="Google linkattu" value={state.data.googleLinked} sub={`${pct(state.data.googleLinked, state.data.totalUsers)} %`} />
               <Stat label="Uusia (7 pv)" value={state.data.new7} />
               <Stat label="Uusia (30 pv)" value={state.data.new30} />
               <Stat label="Profiilikuva" value={state.data.withAvatar} />
-            </div>
+            </Box>
 
-            <h2 className="st-h2">Viimeisimmät rekisteröitymiset</h2>
-            <div className="st-recent ui-surface">
-              {state.data.recent.length === 0 && (
-                <div className="st-empty">Ei vielä rekisteröitymisiä.</div>
-              )}
+            <Typography sx={{ fontWeight: 700, mt: 3, mb: 1.25 }}>Viimeisimmät rekisteröitymiset</Typography>
+            <Card variant="outlined" sx={{ bgcolor: "background.paper", borderColor: "divider", overflow: "hidden" }}>
+              {state.data.recent.length === 0 && <Box sx={{ p: 2, textAlign: "center", color: "text.secondary" }}>Ei vielä rekisteröitymisiä.</Box>}
               {state.data.recent.map((r, i) => (
-                <div className="st-row" key={i}>
-                  <span className="st-nick">{r.nickname}</span>
-                  <span className={`st-method st-method--${r.method.split("+")[0]}`}>
-                    {r.method}
-                  </span>
-                  <span className="st-date">{fmtDateTime(r.createdAt)}</span>
-                </div>
+                <Stack key={i} direction="row" alignItems="center" spacing={1.25} sx={{ px: 1.75, py: 1.25, fontSize: 14, borderTop: i > 0 ? "1px solid var(--color-surface-divider)" : "none" }}>
+                  <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.nickname}</Typography>
+                  <MethodBadge method={r.method} />
+                  <Typography sx={{ fontSize: 12, color: "text.secondary", whiteSpace: "nowrap", flexShrink: 0 }}>{fmtDateTime(r.createdAt)}</Typography>
+                </Stack>
               ))}
-            </div>
+            </Card>
 
-            <p className="st-foot">
+            <Typography variant="body2" sx={{ mt: 2, textAlign: "center", color: "text.secondary", opacity: 0.7 }}>
               Päivitetty {fmtDateTime(state.data.generatedAt)} · välimuisti 5 min
-            </p>
-          </div>
+            </Typography>
+          </>
         )}
-      </div>
-    </>
+      </Box>
+    </Box>
   );
 };
 
 export default Stats;
-
-/* ================== STYLES ================== */
-
-const css = `${themeCSS}
-
-html, body, #root { height: 100%; background: var(--color-bg); }
-body { margin: 0; }
-
-.st-root {
-  min-height: 100dvh;
-  padding: 22px 14px 60px;
-  max-width: 640px;
-  margin: 0 auto;
-  background: var(--bg-gradient);
-  font-family: var(--font-family-base);
-  color: var(--color-secondary);
-}
-.st-head { margin-bottom: 18px; }
-.st-title {
-  font-family: var(--font-family-display, var(--font-family-base));
-  font-size: 28px; font-weight: 800; letter-spacing: 0.06em;
-  margin: 0; color: var(--color-secondary);
-}
-.st-subtitle { margin: 2px 0 0; color: var(--color-accent); font-size: 14px; }
-
-.st-status { text-align: center; padding: 40px 0; color: var(--color-accent); }
-.st-error { color: var(--color-loss); }
-.st-link { color: var(--color-primary); }
-
-.st-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-@media (max-width: 460px) { .st-grid { grid-template-columns: repeat(2, 1fr); } }
-
-.st-card {
-  padding: 16px 12px;
-  border-radius: var(--radius-item);
-  text-align: center;
-}
-.st-value { font-size: 30px; font-weight: 800; color: var(--color-primary); line-height: 1.1; }
-.st-label { font-size: 12px; color: var(--color-accent); margin-top: 4px; }
-.st-sub { font-size: 12px; color: var(--color-secondary); opacity: 0.7; margin-top: 2px; }
-
-.st-h2 { font-size: 15px; font-weight: 700; margin: 24px 0 10px; color: var(--color-secondary); }
-.st-recent { border-radius: var(--radius-card); overflow: hidden; }
-.st-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  font-size: 14px;
-}
-.st-row:last-child { border-bottom: none; }
-.st-nick { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-method {
-  font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
-  background: rgba(255,255,255,0.08); color: var(--color-accent);
-}
-.st-method--passkey { background: rgba(var(--color-primary-rgb),0.16); color: var(--color-primary); }
-.st-method--google { background: rgba(96,165,250,0.16); color: #93c5fd; }
-.st-date { font-size: 12px; color: var(--color-accent); white-space: nowrap; }
-.st-empty { padding: 16px; text-align: center; color: var(--color-accent); }
-.st-foot { margin-top: 14px; font-size: 12px; color: var(--color-accent); opacity: 0.7; text-align: center; }
-
-.st-forbidden p { margin: 0 0 8px; }
-.st-muted { color: var(--color-accent); font-size: 13px; }
-.st-muted code, .st-forbidden code { background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 6px; }
-.st-id {
-  display: inline-flex; align-items: center; gap: 10px;
-  margin-top: 8px; padding: 8px 12px; cursor: pointer;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 10px; color: var(--color-secondary); font-family: inherit;
-}
-.st-copy { font-size: 12px; color: var(--color-primary); font-weight: 700; }
-`;
