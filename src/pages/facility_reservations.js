@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuPlusCircle } from "react-icons/lu";
+import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuPlus } from "react-icons/lu";
 import {
   Box, Typography, IconButton, Button, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
@@ -213,9 +213,9 @@ const FacilityReservations = () => {
               <Typography sx={{ fontWeight: 700, textTransform: "capitalize" }}>{capitalize(moment(selected).format("dddd D.M.YYYY"))}</Typography>
               <IconButton size="small" aria-label="Seuraava päivä" onClick={() => selectDate(moment(selected).add(1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronRight /></IconButton>
             </Box>
-            <Box sx={{ position: "relative", display: "flex", justifyContent: "center", mb: 0.75 }}>
-              <Legend />
-              <Button size="small" onClick={() => setInfoOpen(true)} sx={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", minWidth: 0, px: 0.75, color: "text.secondary", fontWeight: 700 }}>Ohje</Button>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 0.5 }}>
+              <Button size="small" onClick={() => setInfoOpen(true)} endIcon={<LuChevronRight size={16} />}
+                sx={{ minWidth: 0, px: 0.75, color: "primary.main", fontWeight: 800 }}>Ohje</Button>
             </Box>
             <DayGrid
               slots={daySlotsForRoom}
@@ -226,6 +226,9 @@ const FacilityReservations = () => {
               onBook={openCreate}
               onEditOwn={openEdit}
             />
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 1.25 }}>
+              <Legend />
+            </Box>
           </Box>
           {/* Omat varaukset */}
           <MineTab user={user} reloadKey={reloadKey} onRelease={doRelease} />
@@ -377,7 +380,7 @@ function DayGrid({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn
                       onClick={bookable ? () => onBook(s, s.idx) : undefined}
                       aria-label={`${s.label} vapaa`}
                       sx={{ ...cellBase, gridColumn: "span 1", bgcolor: FREE_BG, opacity: past ? 0.35 : 1, cursor: bookable ? "pointer" : "default", "&:hover": bookable ? { bgcolor: FREE_HOVER } : {} }}>
-                      {bookable && <LuPlusCircle size={16} style={{ color: "rgba(255,255,255,0.9)" }} strokeWidth={2.4} />}
+                      {bookable && <LuPlus size={17} style={{ color: "rgba(255,255,255,0.92)" }} strokeWidth={3.5} />}
                     </Box>
                   );
                 }
