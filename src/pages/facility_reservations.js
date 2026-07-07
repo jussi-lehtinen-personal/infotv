@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuInfo } from "react-icons/lu";
+import { LuArrowLeft, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLock, LuInfo, LuPlus } from "react-icons/lu";
 import {
   Box, Typography, IconButton, Button, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
@@ -24,8 +24,12 @@ const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const pad2 = (n) => String(n).padStart(2, "0");
 
 // Grid cell colours (green free / orange own / grey reserved).
-const FREE_BG = "#2e7d32";
-const FREE_HOVER = "#388e3c";
+const FREE_BG = "#2ea043";
+const FREE_HOVER = "#33b34c";
+const cellBase = {
+  height: 34, borderRadius: "7px", border: "none", p: 0, m: 0, minWidth: 0, fontFamily: "inherit",
+  display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent",
+};
 
 // Bebas title, matching the other headers (tracking + optical shift tokens).
 const titleSx = {
@@ -129,7 +133,7 @@ const FacilityReservations = () => {
       if (dialog.mode === "create") {
         await createReservation({ room: roomId, date: selected, slot: dialog.slot.label, durationMin: dialog.durationMin, teamKey: dialog.teamKey, description: dialog.description });
       } else {
-        await updateReservation({ room: roomId, date: dialog.date, bookingId: dialog.bookingId, description: dialog.description });
+        await updateReservation({ room: roomId, date: dialog.date, bookingId: dialog.bookingId, description: dialog.description, teamKey: dialog.teamKey });
       }
       setDialog(null);
       refresh();
@@ -334,39 +338,57 @@ function DayGrid({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn
         {["00", "15", "30", "45"].map((c) => (
           <Box key={c} sx={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--gz-text-tertiary)" }}>{c}</Box>
         ))}
-        {hours.map((g) => (
-          <React.Fragment key={g.h}>
-            <Box sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{pad2(g.h)}:00</Box>
-            {g.cells.map((s) => {
-              const res = dayMap[s.rowKey];
-              const own = res && res.ownerUserId === myUserId;
-              const other = res && !own;
-              const past = isPast(s.mins);
-              const bookable = !res && canBook && !past;
-              const clickable = own || bookable;
-              const onClick = own ? () => onEditOwn(res) : bookable ? () => onBook(s, s.idx) : undefined;
-              const bg = own ? "var(--color-primary)" : other ? "rgba(255,255,255,0.05)" : past ? "rgba(46,125,50,0.35)" : FREE_BG;
-              return (
-                <Box
-                  key={s.rowKey}
-                  component={clickable ? "button" : "div"}
-                  type={clickable ? "button" : undefined}
-                  onClick={onClick}
-                  aria-label={`${s.label} ${own ? "oma varaus" : other ? "varattu" : "vapaa"}`}
-                  sx={{
-                    height: 34, borderRadius: "7px", border: "none", p: 0, fontFamily: "inherit",
-                    bgcolor: bg, cursor: clickable ? "pointer" : "default",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    WebkitTapHighlightColor: "transparent",
-                    "&:hover": clickable ? { bgcolor: own ? "var(--color-primary)" : FREE_HOVER, filter: "brightness(1.08)" } : {},
-                  }}
-                >
-                  {other && <LuLock size={13} style={{ color: "var(--gz-text-muted)" }} />}
-                </Box>
-              );
-            })}
-          </React.Fragment>
-        ))}
+        {hours.map((g) => {
+          // Merge consecutive same-booking cells within this row into one cell
+          // that spans the columns and shows the team.
+          const runs = [];
+          for (let i = 0; i < g.cells.length; ) {
+            const s = g.cells[i];
+            const res = dayMap[s.rowKey];
+            if (!res) { runs.push({ kind: "free", slot: s }); i += 1; continue; }
+            let j = i + 1;
+            while (j < g.cells.length && dayMap[g.cells[j].rowKey] && dayMap[g.cells[j].rowKey].bookingId === res.bookingId) j += 1;
+            runs.push({ kind: "res", res, span: j - i });
+            i = j;
+          }
+          return (
+            <React.Fragment key={g.h}>
+              <Box sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{pad2(g.h)}:00</Box>
+              {runs.map((run, ri) => {
+                if (run.kind === "free") {
+                  const s = run.slot;
+                  const past = isPast(s.mins);
+                  const bookable = canBook && !past;
+                  return (
+                    <Box key={s.rowKey}
+                      component={bookable ? "button" : "div"} type={bookable ? "button" : undefined}
+                      onClick={bookable ? () => onBook(s, s.idx) : undefined}
+                      aria-label={`${s.label} vapaa`}
+                      sx={{ ...cellBase, gridColumn: "span 1", bgcolor: past ? "rgba(46,160,67,0.30)" : FREE_BG, cursor: bookable ? "pointer" : "default", "&:hover": bookable ? { bgcolor: FREE_HOVER } : {} }}>
+                      {bookable && <LuPlus size={15} style={{ color: "rgba(255,255,255,0.85)" }} strokeWidth={2.5} />}
+                    </Box>
+                  );
+                }
+                const { res, span } = run;
+                const own = res.ownerUserId === myUserId;
+                return (
+                  <Box key={res.bookingId + "-" + ri}
+                    component={own ? "button" : "div"} type={own ? "button" : undefined}
+                    onClick={own ? () => onEditOwn(res) : undefined}
+                    aria-label={`${res.startSlot}–${res.endSlot} ${own ? "oma varaus" : "varattu"} ${res.teamName || ""}`}
+                    sx={{ ...cellBase, gridColumn: `span ${span}`, justifyContent: "flex-start", gap: 0.5, px: 0.75, overflow: "hidden",
+                      bgcolor: own ? "var(--color-primary)" : "rgba(255,255,255,0.06)", cursor: own ? "pointer" : "default",
+                      "&:hover": own ? { filter: "brightness(1.08)" } : {} }}>
+                    {!own && <LuLock size={12} style={{ color: "var(--gz-text-muted)", flexShrink: 0 }} />}
+                    <Typography noWrap sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".02em", color: own ? "#fff" : "var(--gz-text-secondary)" }}>
+                      {res.teamName || (own ? "Oma varaus" : "Varattu")}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
       </Box>
     </Box>
   );
@@ -449,28 +471,27 @@ function BookingDialog({ dialog, myTeams, isAdmin, saving, err, onChange, onClos
               {capitalize(moment((isCreate ? selected : dialog.date)).format("dddd D.M.YYYY"))}
             </Typography>
 
-            {isCreate ? (
-              <>
-                {/* Duration */}
-                <Box>
-                  <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mb: 0.5 }}>Kesto</Typography>
-                  <Select fullWidth size="small" value={dialog.durationMin} onChange={(e) => onChange({ durationMin: e.target.value })}>
-                    {durations.map((d) => <MenuItem key={d} value={d}>{durationLabel(d)}</MenuItem>)}
-                  </Select>
-                </Box>
-                {/* Team */}
-                {teamOptions.length > 0 && (
-                  <Box>
-                    <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mb: 0.5 }}>Joukkue</Typography>
-                    <Select fullWidth size="small" value={dialog.teamKey} onChange={(e) => onChange({ teamKey: e.target.value })} displayEmpty>
-                      {teamOptions.map((t) => <MenuItem key={t || "_"} value={t}>{t || "(ei joukkuetta)"}</MenuItem>)}
-                    </Select>
-                  </Box>
-                )}
-              </>
-            ) : (
-              dialog.teamName ? <Typography sx={{ fontSize: 13 }}>Joukkue: <b>{dialog.teamName}</b></Typography> : null
+            {/* Duration (create only) */}
+            {isCreate && (
+              <Box>
+                <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mb: 0.5 }}>Kesto</Typography>
+                <Select fullWidth size="small" value={dialog.durationMin} onChange={(e) => onChange({ durationMin: e.target.value })}>
+                  {durations.map((d) => <MenuItem key={d} value={d}>{durationLabel(d)}</MenuItem>)}
+                </Select>
+              </Box>
             )}
+            {/* Team — a picker when there's a choice (multi-team / admin), else just
+                shown for context on an existing booking. */}
+            {teamOptions.length > 1 ? (
+              <Box>
+                <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mb: 0.5 }}>Joukkue</Typography>
+                <Select fullWidth size="small" value={dialog.teamKey} onChange={(e) => onChange({ teamKey: e.target.value })} displayEmpty>
+                  {teamOptions.map((t) => <MenuItem key={t || "_"} value={t}>{t || "(ei joukkuetta)"}</MenuItem>)}
+                </Select>
+              </Box>
+            ) : (!isCreate && dialog.teamName ? (
+              <Typography sx={{ fontSize: 13 }}>Joukkue: <b>{dialog.teamName}</b></Typography>
+            ) : null)}
 
             {/* Description */}
             <TextField
