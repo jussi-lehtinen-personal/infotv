@@ -86,9 +86,18 @@ const FacilityReservations = () => {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [monthKey, roomId, reloadKey]);
+    // `selected` is included so navigating days re-fetches the month → other
+    // people's bookings show up without a manual reload.
+  }, [monthKey, roomId, reloadKey, selected]);
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  // Refresh when the tab regains focus (catch changes made elsewhere meanwhile).
+  useEffect(() => {
+    const onFocus = () => setReloadKey((k) => k + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // ---- Booking dialog ----
   const [dialog, setDialog] = useState(null); // { mode:'create'|'edit', ... }
@@ -222,6 +231,7 @@ const FacilityReservations = () => {
               dayMap={dayMap}
               selected={selected}
               canBook={canBook}
+              isAdmin={isAdmin}
               myUserId={myUserId}
               onBook={openCreate}
               onEditOwn={openEdit}
@@ -334,7 +344,7 @@ function Legend() {
 // Hour rows × 15-min columns (00/15/30/45). Tap a green cell to book, an orange
 // (own) cell to edit/release. Consecutive booked cells read as one block by
 // colour; the booking spans them via a shared bookingId.
-function DayGrid({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn }) {
+function DayGrid({ slots, dayMap, selected, canBook, isAdmin, myUserId, onBook, onEditOwn }) {
   const nowMins = moment().hours() * 60 + moment().minutes();
   const isPast = (mins) => selected < today() || (selected === today() && mins + SLOT_MIN <= nowMins);
 
@@ -387,7 +397,7 @@ function DayGrid({ slots, dayMap, selected, canBook, myUserId, onBook, onEditOwn
                 const { res, span, startMins } = run;
                 const own = res.ownerUserId === myUserId;
                 const past = isPast(startMins + (span - 1) * SLOT_MIN); // whole run in the past
-                const clickable = own && !past;
+                const clickable = (own || isAdmin) && !past; // admin may edit anyone's booking
                 const label = own ? (res.description || res.teamName || "Oma varaus") : (res.teamName || "Varattu");
                 return (
                   <Box key={res.bookingId + "-" + ri}
@@ -473,7 +483,10 @@ function BookingDialog({ dialog, myTeams, isAdmin, saving, err, onChange, onClos
   const open = !!dialog;
   const isCreate = dialog && dialog.mode === "create";
   const durations = dialog ? durationOptions(dialog.maxDur) : [];
-  const teamOptions = isAdmin ? ["", ...myTeams] : myTeams;
+  // Team choices; include the booking's current team so it always displays (e.g.
+  // an admin editing someone else's booking whose team isn't one of theirs).
+  const base = isAdmin ? ["", ...myTeams] : myTeams;
+  const teamOptions = dialog && dialog.teamKey && !base.includes(dialog.teamKey) ? [...base, dialog.teamKey] : base;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs" PaperProps={{ sx: { bgcolor: "background.paper", backgroundImage: "none" } }}>
