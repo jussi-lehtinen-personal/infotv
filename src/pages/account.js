@@ -214,7 +214,7 @@ const Account = () => {
               <Stack direction="row" alignItems="center" sx={{ px: 1.5, pt: "calc(env(safe-area-inset-top) + 10px)" }}>
                 <IconButton onClick={goBack} aria-label="Takaisin" sx={{ color: "#fff", bgcolor: "rgba(0,0,0,.38)", backdropFilter: "blur(6px)", "&:hover": { bgcolor: "rgba(0,0,0,.5)" } }}><LuArrowLeft /></IconButton>
                 <Box sx={{ flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>Tili</Typography>
+                  <Typography sx={{ fontFamily: "var(--font-family-display)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "var(--font-display-tracking)", fontSize: 22, textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>Tili</Typography>
                 </Box>
                 <Box sx={{ width: 40, flexShrink: 0 }} />
               </Stack>

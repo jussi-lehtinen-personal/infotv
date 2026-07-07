@@ -467,7 +467,7 @@ const Team = () => {
           <LuArrowLeft />
         </IconButton>
         <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 12, px: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25, textAlign: "center" }}>
-          <Typography sx={{ fontWeight: 800, textTransform: "uppercase", color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,.6)", fontSize: "clamp(26px,7vw,34px)", lineHeight: 1.05 }}>{heroTitle}</Typography>
+          <Typography sx={{ fontFamily: "var(--font-family-display)", fontWeight: 800, textTransform: "uppercase", color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,.6)", fontSize: "clamp(30px,8vw,40px)", lineHeight: 1.05, letterSpacing: "var(--font-display-tracking)" }}>{heroTitle}</Typography>
           <Typography sx={{ color: "rgba(255,255,255,.72)", fontWeight: 700, letterSpacing: ".08em", fontSize: 13 }}>{seasonLabel()}</Typography>
           <ToggleButtonGroup
             value={mode}

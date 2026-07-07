@@ -414,7 +414,7 @@ const Gamezone = () => {
             <Box component="button" onClick={goBack} aria-label="Takaisin" sx={iconBtnSx}>
               <LuArrowLeft aria-hidden="true" />
             </Box>
-            <Typography component="div" sx={{ flex: "1 1 auto", textAlign: "center", fontSize: "clamp(18px, 5.2vw, 24px)", fontWeight: 800, letterSpacing: "0.02em", textTransform: "uppercase", color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <Typography component="div" sx={{ flex: "1 1 auto", textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: "clamp(20px, 5.8vw, 27px)", fontWeight: 800, letterSpacing: "var(--font-display-tracking)", textTransform: "uppercase", color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transform: "translateY(var(--font-display-shift))" }}>
               {title}
             </Typography>
             <Box component="button" onClick={openPicker} aria-label="Valitse päivä" sx={iconBtnSx}>

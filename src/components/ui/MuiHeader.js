@@ -12,7 +12,7 @@ export const MuiHeader = ({ title, subtitle, onBack }) => (
     {/* min-height + flex-centre so a single-line title sits in the middle (not at
         the top, where the first of two lines would be). */}
     <Box sx={{ minWidth: 0, minHeight: 40, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-      <Typography sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".02em", fontSize: 20, lineHeight: 1.2 }}>{title}</Typography>
+      <Typography sx={{ fontFamily: "var(--font-family-display)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1.2, transform: "translateY(var(--font-display-shift))" }}>{title}</Typography>
       {subtitle && <Typography variant="body2" sx={{ color: "text.secondary" }}>{subtitle}</Typography>}
     </Box>
   </Stack>

@@ -113,9 +113,8 @@ export const NavDrawer = ({ open, onClose }) => {
       <div className="ui-drawer-backdrop" onClick={onClose} />
       <aside className="ui-drawer" role="dialog" aria-modal="true" aria-label="Valikko">
         <div className="ui-drawer-head">
-          <div className="ui-drawer-wordmark" aria-label="Ahma Gamezone">
-            <span className="ui-drawer-wordmark-top">AHMA</span>
-            <span className="ui-drawer-wordmark-bottom">GAMEZONE</span>
+          <div className="ui-drawer-wordmark">
+            <img className="ui-drawer-wordmark-img" src="/ahma_gamezone_logo.webp" alt="Ahma Gamezone" />
           </div>
           <button
             type="button"

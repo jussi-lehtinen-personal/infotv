@@ -17,7 +17,10 @@ export const muiTheme = createTheme({
   // readability. Use Typography VARIANTS (not hardcoded fontSize) so the whole
   // MUI UI is consistent and tunable from here. Weights: 500/700/800.
   typography: {
-    fontFamily: "Outfit, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    // Points at the CSS var so the body font lives in exactly one place
+    // (index.css :root --font-family-base). Big titles override to the display
+    // font (--font-family-display) per-component; see MuiHeader + page heroes.
+    fontFamily: "var(--font-family-base)",
     fontWeightRegular: 500,
     fontWeightMedium: 600,
     fontWeightBold: 700,

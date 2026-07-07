@@ -98,7 +98,7 @@ const BoxScore = () => {
     <Box sx={{ minHeight: "100dvh", bgcolor: "var(--color-bg)", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
       <Box sx={{ position: "sticky", top: 0, zIndex: 5, display: "flex", alignItems: "center", gap: 1.25, px: 1.75, pt: "calc(env(safe-area-inset-top) + 12px)", pb: 1.5, bgcolor: "var(--color-bg)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <IconButton onClick={goBack} aria-label="Takaisin" sx={topBtnSx}><LuArrowLeft size={20} /></IconButton>
-        <Typography sx={{ flex: 1, fontSize: 15, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--color-primary)" }}>Ottelu</Typography>
+        <Typography sx={{ flex: 1, fontFamily: "var(--font-family-display)", fontSize: 18, fontWeight: 800, letterSpacing: "var(--font-display-tracking)", textTransform: "uppercase", color: "var(--color-primary)", transform: "translateY(var(--font-display-shift))" }}>Ottelu</Typography>
         {tpUrl && (
           <Button component="a" href={tpUrl} target="_blank" rel="noopener noreferrer" aria-label="Avaa tulospalvelussa" startIcon={<LuExternalLink size={16} />}
             sx={{ flexShrink: 0, px: 1.25, py: 0.75, borderRadius: 2, fontSize: 12.5, fontWeight: 700, textTransform: "none", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", "&, &:hover, &:focus, &:visited": { color: "var(--gz-text-secondary)" }, "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } }}>

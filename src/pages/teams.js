@@ -85,7 +85,7 @@ const Teams = () => {
           <LuArrowLeft />
         </IconButton>
         <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 14, px: 2, textAlign: "center" }}>
-          <Typography sx={{ fontWeight: 800, textTransform: "uppercase", color: "primary.main", textShadow: "0 2px 12px rgba(0,0,0,.6)", fontSize: "clamp(26px,7vw,34px)", lineHeight: 1.05, letterSpacing: ".02em" }}>Joukkueet</Typography>
+          <Typography sx={{ fontFamily: "var(--font-family-display)", fontWeight: 800, textTransform: "uppercase", color: "primary.main", textShadow: "0 2px 12px rgba(0,0,0,.6)", fontSize: "clamp(30px,8vw,40px)", lineHeight: 1.05, letterSpacing: "var(--font-display-tracking)" }}>Joukkueet</Typography>
           <Typography sx={{ color: "rgba(255,255,255,.78)", fontWeight: 700, fontSize: 14, mt: 0.25 }}>Valitse joukkue</Typography>
         </Box>
       </Box>

@@ -35,13 +35,22 @@
   --size-heading-md:  clamp(16px, 1.4vw, 22px);  /* Aliotsikko */
   --size-heading-sm:  clamp(12px, 1.2vw, 16px);  /* Label / pieni otsikko */
   --size-body:        clamp(12px, 1.2vw, 14px);  /* Leipäteksti */
-  /* Outfit — UI/leipäteksti: napit, kortit, selitteet, scoret.
-     Moderni, hieman Interia kapeampi ja pehmeämpi muodoltaan. */
-  --font-family-base: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-  /* Archivo — display/otsikkofontti: wordmark, section headers, korttien
-     ALL-CAPS otsikot. Modern block-bold, leveät kirjaimet, variable
-     wght 100..900 jolloin paksu/ohut -kontrasti onnistuu. */
-  --font-family-display: 'Archivo', 'Saira', Impact, sans-serif;
+  /* Barlow — Brand Core body/UI: napit, kortit, selitteet, scoret, listat.
+     Groteski, monta painoa (400..800). MUI viittaa tähän muuttujaan. */
+  --font-family-base: 'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Bebas Neue — Brand Core display: wordmark + isot sivu-/hero-otsikot.
+     Kapea versaali, yksi paino. (Fontin vaihto: nämä 2 muuttujaa + index.html.) */
+  --font-family-display: 'Bebas Neue', 'Arial Narrow', Impact, sans-serif;
+  /* Bebas on kapea (condensed) versaali → suuraakkoset istuvat oletuksena
+     liian lähellä toisiaan isossa koossa. Brand Core -sääntö: Bebas-OTSIKOT
+     0.04em (avaa kirjainvälin sopivasti), pienet numerot/eyebrow-labelit 0.1em.
+     Barlow-leipätekstiin EI trackingia. Säädä otsikot tästä yhdestä paikasta. */
+  --font-display-tracking: 0.04em;
+  --font-display-tracking-eyebrow: 0.1em;
+  /* Bebas-versaalit istuvat korkealla line-boxissa → yksirivinen otsikko
+     näyttää olevan takaisin-nuolen keskilinjan yläpuolella. Nudge topbar-
+     otsikot (nuolen vieressä) alas tällä. Skaalaa fonttikoon mukaan (em). */
+  --font-display-shift: 0.06em;
 
   /* === TYPOGRAFIA — GAMEZONE (mobiili) ===
      Atominen typografia­scale jota käytetään home-menun, ottelulistan,
@@ -350,26 +359,12 @@ code {
   gap: 3px;
   pointer-events: none;
 }
-.ui-app-header-wordmark-top,
-.ui-app-header-wordmark-bottom {
-  font-family: var(--font-family-display);
-}
-.ui-app-header-wordmark-top {
-  font-size: 28px;
-  font-weight: 900;
-  letter-spacing: 0;
-  line-height: 0.9;
-  color: var(--color-primary);
-}
-
-.ui-app-header-wordmark-bottom {
-  font-size: 11px;
-  font-weight: 300;
-  /* Levitetään 8 kirjainta saman levyiseksi kuin 4-kirjaiminen AHMA. */
-  letter-spacing: 0.34em;
-  padding-left: 0.34em;
-  color: var(--gz-text-primary);
-  opacity: 0.85;
+.ui-app-header-wordmark-img {
+  height: 30px;
+  width: auto;
+  max-width: 56vw;
+  object-fit: contain;
+  display: block;
 }
 .ui-app-header-badge {
   position: absolute;
@@ -447,21 +442,12 @@ code {
   line-height: 1;
   gap: 3px;
 }
-.ui-drawer-wordmark-top {
-  font-family: var(--font-family-display);
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 0.9;
-  color: var(--color-primary);
-}
-.ui-drawer-wordmark-bottom {
-  font-family: var(--font-family-display);
-  font-size: 10px;
-  font-weight: 300;
-  letter-spacing: 0.32em;
-  padding-left: 0.32em;
-  color: var(--gz-text-primary);
-  opacity: 0.85;
+.ui-drawer-wordmark-img {
+  height: 30px;
+  width: auto;
+  max-width: 190px;
+  object-fit: contain;
+  display: block;
 }
 .ui-drawer-close {
   display: inline-flex;

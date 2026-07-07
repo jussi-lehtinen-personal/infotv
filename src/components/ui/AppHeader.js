@@ -28,9 +28,8 @@ export const AppHeader = ({
 
     {/* Wordmark on absoluuttisesti keskitetty, joten oikean reunan
         vaihteleva leveys (nick) ei siirrä sitä. */}
-    <div className="ui-app-header-wordmark" aria-label="Ahma Gamezone">
-      <span className="ui-app-header-wordmark-top">AHMA</span>
-      <span className="ui-app-header-wordmark-bottom">GAMEZONE</span>
+    <div className="ui-app-header-wordmark">
+      <img className="ui-app-header-wordmark-img" src="/ahma_gamezone_logo.webp" alt="Ahma Gamezone" />
     </div>
 
     <div className="ui-app-header-right">
