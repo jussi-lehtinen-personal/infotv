@@ -106,10 +106,10 @@ const Teams = () => {
                 sx={{ bgcolor: "background.paper", borderColor: hasSubs ? "rgba(var(--color-primary-rgb),0.28)" : "divider", "&:hover": { borderColor: "rgba(var(--color-primary-rgb),0.35)" } }}
               >
                 <Stack direction="row" alignItems="center" sx={{ pl: 1.75, pr: 0.5 }}>
-                  <Box component={Link} to={`/teams/${team.subsiteId}`} sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 1.5, py: 1.4, textDecoration: "none", color: "inherit" }}>
+                  <Box component={Link} to={`/teams/${team.subsiteId}`} sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 1.5, py: 1.4, WebkitTapHighlightColor: "transparent", "&, &:hover, &:focus, &:active, &:visited": { color: "text.primary", textDecoration: "none" } }}>
                     <Box component="img" src={team.subsiteId === 10272 ? "/lkk_logo.png" : "/ahma_logo.png"} alt="" aria-hidden="true" sx={{ width: 54, height: 54, objectFit: "contain", flexShrink: 0 }} />
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: ".02em", lineHeight: 1.2 }}>{team.name}</Typography>
+                      <Typography sx={{ fontWeight: 700, color: "text.primary", textTransform: "uppercase", letterSpacing: ".02em", lineHeight: 1.2 }}>{team.name}</Typography>
                       {team.sub && <Typography variant="body2" sx={{ color: "text.secondary" }}>{team.sub}</Typography>}
                     </Box>
                   </Box>

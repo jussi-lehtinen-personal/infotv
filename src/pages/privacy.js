@@ -7,16 +7,16 @@ import { useGoBack } from "../hooks/useGoBack";
 import { getMe, getCachedUser, deleteAccount } from "../auth/authClient";
 
 const InfoRow = ({ label, value }) => (
-  <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} sx={{ px: 2, py: 1.5 }}>
-    <Typography variant="body2" sx={{ color: "text.secondary" }}>{label}</Typography>
-    <Typography sx={{ fontWeight: 700, maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</Typography>
+  <Stack direction="row" alignItems="center" spacing={1.5} sx={{ px: 2, py: 1.5 }}>
+    <Typography variant="body2" sx={{ color: "text.secondary", flexShrink: 0 }}>{label}</Typography>
+    <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</Typography>
   </Stack>
 );
 
 const LinkRow = ({ to, icon, label }) => (
-  <Stack component={Link} to={to} direction="row" alignItems="center" spacing={1.75} sx={{ px: 2, py: 1.75, textDecoration: "none", color: "text.primary", "&:hover": { bgcolor: "var(--color-surface)" } }}>
+  <Stack component={Link} to={to} direction="row" alignItems="center" spacing={1.75} sx={{ px: 2, py: 1.75, WebkitTapHighlightColor: "transparent", "&, &:hover, &:focus, &:active, &:visited": { color: "text.primary", textDecoration: "none" }, "&:hover": { bgcolor: "var(--color-surface)" } }}>
     <Box sx={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "rgba(var(--color-primary-rgb),0.13)", border: "1px solid rgba(var(--color-primary-rgb),0.35)", color: "primary.main" }}>{icon}</Box>
-    <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}</Typography>
+    <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, color: "text.primary", textTransform: "uppercase", letterSpacing: ".02em", lineHeight: 1.2 }}>{label}</Typography>
     <LuChevronRight style={{ flexShrink: 0, opacity: 0.4 }} />
   </Stack>
 );

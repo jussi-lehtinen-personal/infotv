@@ -57,7 +57,8 @@ const MENU = [
   { key: "tietosuoja", Icon: LuShield, title: "Tietosuoja", sub: "Tietosuoja ja käyttöehdot", to: "/account/privacy" },
 ];
 
-const secondaryBtnSx = { py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", color: "text.primary", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", "&:hover": { bgcolor: "var(--color-surface-divider)" } };
+// Auth buttons match Google's rendered button (280px pill) so the login stack is consistent.
+const authBtnSx = { width: 280, maxWidth: "100%", py: 1.25, borderRadius: 999, fontWeight: 700, textTransform: "none", color: "text.primary", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", "&:hover": { bgcolor: "var(--color-surface-divider)" } };
 const primaryBtnSx = { py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", color: "primary.contrastText", bgcolor: "primary.main", "&:hover": { bgcolor: "primary.main", filter: "brightness(1.05)" } };
 const ghostBtnSx = { py: 1.5, borderRadius: 2, fontWeight: 700, textTransform: "none", color: "text.secondary", border: "1px solid var(--color-surface-border)", "&:hover": { bgcolor: "var(--color-surface)" } };
 
@@ -216,17 +217,21 @@ const Account = () => {
                 <Box sx={{ width: 40, flexShrink: 0 }} />
               </Stack>
 
-              <Stack alignItems="center" sx={{ px: 2, pt: 2, textAlign: "center" }}>
-                <Box sx={{ position: "relative" }}>
+              {/* textAlign center + inline-block children centre reliably (flex
+                  alignItems was leaving these stretched/left). */}
+              <Box sx={{ px: 2, pt: 2, textAlign: "center" }}>
+                <Box sx={{ position: "relative", width: 96, height: 96, display: "inline-block" }}>
                   <Avatar src={user.avatar || undefined} sx={{ width: 96, height: 96, fontSize: 30, fontWeight: 800, bgcolor: "rgba(var(--color-primary-rgb),0.25)", color: "primary.main", border: "3px solid rgba(255,255,255,0.15)" }}>{initials(user.nickname)}</Avatar>
                   <IconButton onClick={handleAvatarPick} disabled={busy} aria-label="Vaihda kuva" sx={{ position: "absolute", right: -4, bottom: -4, width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", "&:hover": { bgcolor: "primary.main", filter: "brightness(1.05)" } }}><LuPencil size={16} /></IconButton>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarFile} style={{ display: "none" }} />
                 </Box>
 
-                <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1.5 }}>
+                {/* name centred on the avatar; the pencil floats to its right without shifting it */}
+                <Box sx={{ position: "relative", display: "inline-block", mt: 1.5 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: 22, textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>{user.nickname || "Käyttäjä"}</Typography>
-                  <IconButton size="small" onClick={() => { setRenameValue(user.nickname || ""); setError(""); setShowRename(true); }} disabled={busy} aria-label="Muokkaa nimimerkkiä" sx={{ color: "rgba(255,255,255,0.7)" }}><LuPencil size={15} /></IconButton>
-                </Stack>
+                  <IconButton size="small" onClick={() => { setRenameValue(user.nickname || ""); setError(""); setShowRename(true); }} disabled={busy} aria-label="Muokkaa nimimerkkiä" sx={{ position: "absolute", left: "100%", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.7)" }}><LuPencil size={15} /></IconButton>
+                </Box>
+
                 <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.75)" }}>Kirjautunut</Typography>
                 {user.email && <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.6)" }}>{user.email}</Typography>}
                 {user.roles && user.roles.length > 0 && (
@@ -237,7 +242,7 @@ const Account = () => {
                     })}
                   </Box>
                 )}
-              </Stack>
+              </Box>
             </Box>
           </Box>
 
@@ -245,29 +250,29 @@ const Account = () => {
           <Box sx={{ maxWidth: 480, mx: "auto", px: 1.5, pt: 2 }}>
             <Stack spacing={1.5}>
               {user.googleLinked ? (
-                <Stack spacing={1}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ color: "var(--color-live)", fontSize: 13 }}>
-                    <LuCheck /> <span>Google yhdistetty — kirjautuminen toimii kaikilla laitteilla</span>
+                <Stack spacing={0.5} sx={{ textAlign: "center" }}>
+                  <Stack direction="row" justifyContent="center" alignItems="center" spacing={1} sx={{ color: "var(--color-live)", fontSize: 13 }}>
+                    <LuCheck style={{ flexShrink: 0 }} /><span>Google yhdistetty — kirjautuminen toimii kaikilla laitteilla</span>
                   </Stack>
                   {user.hasPasskey && (
-                    <Button onClick={handleUnlinkGoogle} disabled={busy} sx={{ alignSelf: "flex-start", p: 0, minWidth: 0, color: "primary.main", fontWeight: 700, textTransform: "none", "&:hover": { bgcolor: "transparent", textDecoration: "underline" } }}>Poista Google-yhteys</Button>
+                    <Button onClick={handleUnlinkGoogle} disabled={busy} sx={{ alignSelf: "center", p: 0.5, minWidth: 0, color: "primary.main", fontWeight: 700, textTransform: "none", "&:hover": { bgcolor: "transparent", textDecoration: "underline" } }}>Poista Google-yhteys</Button>
                   )}
                 </Stack>
               ) : clientId ? (
-                <Stack spacing={1}>
+                <Stack spacing={1} alignItems="center">
                   <Typography variant="body2" sx={{ color: "text.secondary" }}>Yhdistä Google monilaitekäyttöön</Typography>
-                  <GoogleButton clientId={clientId} onCredential={handleLinkGoogle} text="continue_with" />
+                  <Box sx={{ display: "flex", justifyContent: "center", width: "100%" }}><GoogleButton clientId={clientId} onCredential={handleLinkGoogle} text="continue_with" /></Box>
                 </Stack>
               ) : null}
 
               <Card variant="outlined" sx={{ bgcolor: "background.paper", borderColor: "divider" }}>
                 {MENU.map(({ key, Icon, title, sub, to }, i) => {
-                  const rowSx = { display: "flex", alignItems: "center", gap: 1.75, px: 2, py: 1.75, width: "100%", textDecoration: "none", color: "text.primary", textAlign: "left", cursor: "pointer", bgcolor: "transparent", border: 0, fontFamily: "inherit", "&:hover": { bgcolor: "var(--color-surface)" } };
+                  const rowSx = { display: "flex", alignItems: "center", gap: 1.75, px: 2, py: 1.75, width: "100%", textAlign: "left", cursor: "pointer", bgcolor: "transparent", border: 0, fontFamily: "inherit", WebkitTapHighlightColor: "transparent", "&, &:hover, &:focus, &:active, &:visited": { color: "text.primary", textDecoration: "none" }, "&:hover": { bgcolor: "var(--color-surface)" } };
                   const inner = (
                     <>
                       <Box sx={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "rgba(var(--color-primary-rgb),0.14)", color: "primary.main" }}><Icon size={20} /></Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 700 }}>{title}</Typography>
+                        <Typography sx={{ fontWeight: 700, color: "text.primary" }}>{title}</Typography>
                         <Typography variant="body2" sx={{ color: "text.secondary" }}>{sub}</Typography>
                       </Box>
                       <LuChevronRight style={{ flexShrink: 0, opacity: 0.5 }} />
@@ -300,23 +305,19 @@ const Account = () => {
             {supported && loading && <Box sx={{ textAlign: "center", py: 5 }}><CircularProgress color="primary" /></Box>}
 
             {supported && !loading && !user && (
-              <Stack spacing={2}>
-                <Stack spacing={1.25}>
-                  <Typography sx={{ fontWeight: 800, fontSize: 18 }}>Kirjaudu</Typography>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>Onko sinulla jo tili? Kirjaudu sisään</Typography>
-                  {clientId && <GoogleButton clientId={clientId} onCredential={handleLoginGoogle} text="signin_with" />}
-                  <Button onClick={handleLogin} disabled={busy} sx={secondaryBtnSx}>Kirjaudu passkeyllä</Button>
-                </Stack>
+              <Box sx={{ textAlign: "center" }}>
+                <Typography sx={{ fontWeight: 800, fontSize: 18 }}>Kirjaudu</Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, mb: 1.5 }}>Onko sinulla jo tili? Kirjaudu sisään</Typography>
+                {clientId && <Box sx={{ display: "flex", justifyContent: "center", mb: 1.25 }}><GoogleButton clientId={clientId} onCredential={handleLoginGoogle} text="signin_with" /></Box>}
+                <Button onClick={handleLogin} disabled={busy} sx={authBtnSx}>Kirjaudu passkeyllä</Button>
 
-                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ color: "text.secondary", fontSize: 12 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ color: "text.secondary", fontSize: 12, my: 2 }}>
                   <Divider sx={{ flex: 1, borderColor: "var(--color-surface-divider)" }} /><span>tai</span><Divider sx={{ flex: 1, borderColor: "var(--color-surface-divider)" }} />
                 </Stack>
 
-                <Stack spacing={1.25}>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>Uusi täällä? Luo oma Gamezone-tili</Typography>
-                  <Button onClick={() => { setError(""); setShowCreate(true); }} disabled={busy} sx={secondaryBtnSx}>Luo uusi tili</Button>
-                </Stack>
-              </Stack>
+                <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.25 }}>Uusi täällä? Luo oma Gamezone-tili</Typography>
+                <Button onClick={() => { setError(""); setShowCreate(true); }} disabled={busy} sx={authBtnSx}>Luo uusi tili</Button>
+              </Box>
             )}
 
             {notice && <Box sx={{ mt: 2 }}><Notice>{notice}</Notice></Box>}

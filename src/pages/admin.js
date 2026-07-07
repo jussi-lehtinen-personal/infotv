@@ -32,10 +32,10 @@ const CopyId = ({ id }) => {
 };
 
 const NavCard = ({ to, icon, title, sub }) => (
-  <Card component={Link} to={to} variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.75, p: 2, textDecoration: "none", color: "text.primary", bgcolor: "background.paper", borderColor: "divider", "&:hover": { borderColor: "rgba(var(--color-primary-rgb),0.35)" } }}>
+  <Card component={Link} to={to} variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.75, p: 2, bgcolor: "background.paper", borderColor: "divider", WebkitTapHighlightColor: "transparent", "&, &:hover, &:focus, &:active, &:visited": { color: "text.primary", textDecoration: "none" }, "&:hover": { borderColor: "rgba(var(--color-primary-rgb),0.35)" } }}>
     <Box sx={{ width: 42, height: 42, borderRadius: 1.5, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, bgcolor: "rgba(var(--color-primary-rgb),0.16)", color: "primary.main" }}>{icon}</Box>
     <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography sx={{ fontWeight: 700 }}>{title}</Typography>
+      <Typography sx={{ fontWeight: 700, color: "text.primary" }}>{title}</Typography>
       <Typography variant="body2" sx={{ color: "text.secondary" }}>{sub}</Typography>
     </Box>
     <LuChevronRight style={{ flexShrink: 0, opacity: 0.6 }} />
