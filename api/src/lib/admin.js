@@ -34,6 +34,14 @@ function hasRole(roles, role) {
   return roles.some((r) => r.role === role);
 }
 
+// Teams (tulospalvelu teamKeys) this user may book for: the `team` of every
+// valmentaja/toimihenkilo role entry. Empty = not attached to any team.
+function coachTeams(roles) {
+  return roles
+    .filter((r) => (r.role === 'valmentaja' || r.role === 'toimihenkilo') && r.team)
+    .map((r) => r.team);
+}
+
 // Is this userId an admin? In the env allowlist (bootstrap) OR carries a data
 // `admin` role. Pass the already-loaded profile to avoid a second table read.
 async function isAdmin(userId, user) {
@@ -43,4 +51,4 @@ async function isAdmin(userId, user) {
   return hasRole(parseRoles(u), 'admin');
 }
 
-module.exports = { ROLES, TEAM_SCOPED, envAdminIds, parseRoles, hasRole, isAdmin };
+module.exports = { ROLES, TEAM_SCOPED, envAdminIds, parseRoles, hasRole, coachTeams, isAdmin };

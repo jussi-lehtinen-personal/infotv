@@ -6,7 +6,7 @@ const { TableClient } = require('@azure/data-tables');
 // the SDK talk to Azurite over http; it's a no-op for the cloud https endpoint.
 const CONN = process.env.TABLES_CONNECTION_STRING;
 
-const TABLE_NAMES = ['Users', 'Credentials', 'GoogleIndex', 'Usernames'];
+const TABLE_NAMES = ['Users', 'Credentials', 'GoogleIndex', 'Usernames', 'Reservations'];
 const clients = {};
 let ensured = false;
 
@@ -89,4 +89,12 @@ async function listEntities(table, filter) {
   return out;
 }
 
-module.exports = { TABLE_NAMES, ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities };
+// Atomic multi-entity write within ONE partition. `actions` is an array like
+// [['create', entity], ['delete', entity], ['merge', entity]]. All-or-nothing:
+// if any create hits an existing rowKey the whole batch throws 409. Used to book
+// or release a multi-slot reservation (all slots share PartitionKey room|date).
+async function transact(table, actions) {
+  return client(table).submitTransaction(actions);
+}
+
+module.exports = { TABLE_NAMES, ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities, transact };

@@ -14,6 +14,7 @@ import {
   LuMessageSquare,
   LuUser,
   LuUserCircle,
+  LuCalendarClock,
   LuShieldCheck,
   LuX,
 } from "react-icons/lu";
@@ -30,6 +31,10 @@ const NAV_SECTIONS = [
     { to: "/gamezone/schedule", label: "Jäävuorot", Icon: LuCalendarDays },
     { to: "/teams", label: "Joukkueet", Icon: LuUsers },
     { to: "/feed", label: "Minä", Icon: LuUser },
+  ],
+  // Tilavaraukset (oheistilat)
+  [
+    { to: "/facilities", label: "Tilavaraukset", Icon: LuCalendarClock },
   ],
   // Seura & sisältö
   [
