@@ -217,14 +217,14 @@ const FacilityReservations = () => {
               byDate={byDate}
               myUserId={myUserId}
             />
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 0.5 }}>
+              <Button size="small" onClick={() => setInfoOpen(true)} endIcon={<LuChevronRight size={16} />}
+                sx={{ minWidth: 0, px: 0.75, color: "primary.main", fontWeight: 800 }}>Ohje</Button>
+            </Box>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
               <IconButton size="small" aria-label="Edellinen päivä" onClick={() => selectDate(moment(selected).add(-1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronLeft /></IconButton>
               <Typography sx={{ fontWeight: 700, textTransform: "capitalize" }}>{capitalize(moment(selected).format("dddd D.M.YYYY"))}</Typography>
               <IconButton size="small" aria-label="Seuraava päivä" onClick={() => selectDate(moment(selected).add(1, "day").format(FMT))} sx={{ color: "text.secondary" }}><LuChevronRight /></IconButton>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 0.5 }}>
-              <Button size="small" onClick={() => setInfoOpen(true)} endIcon={<LuChevronRight size={16} />}
-                sx={{ minWidth: 0, px: 0.75, color: "primary.main", fontWeight: 800 }}>Ohje</Button>
             </Box>
             <DayGrid
               slots={daySlotsForRoom}
