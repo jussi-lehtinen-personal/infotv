@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuChevronRight, LuClock, LuPlane } from "react-icons/lu";
+import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuChevronRight, LuClock, LuPlane, LuDoorClosed } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { Box, Typography, Card, Stack, Avatar, IconButton, Button, CircularProgress, Collapse, Link as MuiLink } from "@mui/material";
@@ -8,7 +8,9 @@ import { loadFavouriteTeams } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
 import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
-import { isGameForFavourite } from "../lib/teamMatch";
+import { isGameForFavourite, isReservationForAnyFavourite } from "../lib/teamMatch";
+import { fetchReservations } from "../lib/reservationsClient";
+import { ROOMS, getRoom } from "../data/rooms";
 import { gamePassesSubGroups, displaySub, SUBGROUPS_ENABLED } from "../lib/subGroups";
 
 moment.locale("fi");
@@ -99,6 +101,7 @@ const Detail = ({ icon, children }) => (
 
 const EventRow = ({ e, expanded, onToggle }) => {
   const isGame = e.type === "game";
+  const isReservation = e.type === "reservation";
   const range = timeRange(e);
   const tp = e.tp;
   const oppLogo = opponentLogo(tp);
@@ -139,7 +142,7 @@ const EventRow = ({ e, expanded, onToggle }) => {
           <Box component="img" src={oppLogo} alt="" sx={{ width: 38, height: 38, flexShrink: 0, boxSizing: "border-box", borderRadius: 1, bgcolor: "#fff", objectFit: "contain", p: "3px", boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
         ) : (
           <Box sx={{ width: 38, height: 38, flexShrink: 0, borderRadius: 1.25, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: isGame ? "rgba(var(--color-primary-rgb),0.15)" : "var(--color-surface-divider)", color: isGame ? "primary.main" : "text.secondary" }}>
-            {isGame ? <LuTrophy size={20} /> : <LuCalendarDays size={20} />}
+            {isGame ? <LuTrophy size={20} /> : isReservation ? <LuDoorClosed size={20} /> : <LuCalendarDays size={20} />}
           </Box>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -168,7 +171,7 @@ const EventRow = ({ e, expanded, onToggle }) => {
           {e.place && <Detail icon={<LuMapPin size={15} />}>{e.place}</Detail>}
           {isGame && e.league && <Detail icon={<LuTrophy size={15} />}>{e.league}</Detail>}
           {isGame && e.home != null && <Detail icon={<LuPlane size={15} />}>{e.home ? "Kotipeli" : "Vieraspeli"}</Detail>}
-          {desc && <Typography variant="body2" sx={{ whiteSpace: "pre-line", mt: 0.5, pt: 1, borderTop: "1px solid var(--color-surface-divider)", color: "text.secondary", lineHeight: 1.5 }}>{desc}</Typography>}
+          {(desc || e.description) && <Typography variant="body2" sx={{ whiteSpace: "pre-line", mt: 0.5, pt: 1, borderTop: "1px solid var(--color-surface-divider)", color: "text.secondary", lineHeight: 1.5 }}>{desc || e.description}</Typography>}
           {isGame && tp && (
             <MuiLink component={Link} to={`/gamezone/game/${tp.id}`} state={{ game: tp }} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 1, fontWeight: 700, color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
               Näytä ottelu <LuChevronRight size={16} />
@@ -240,6 +243,7 @@ const Feed = () => {
   const teamsKey = teams.map((t) => t.subsiteId).join(",");
 
   const jopoxRef = useRef([]);
+  const reservationsRef = useRef([]);
   useEffect(() => {
     if (!user || teams.length === 0) {
       setEvents(null);
@@ -258,6 +262,23 @@ const Feed = () => {
         );
         all.push(...buildTeamAgenda(jopox, tp, t.name, t.subsiteId));
       });
+      // Facility reservations of the favourite teams (by age group) — shown as
+      // their own "Tila varattu" items, NOT merged with practices.
+      for (const r of reservationsRef.current) {
+        if (!isReservationForAnyFavourite(r, teams)) continue;
+        const room = getRoom(r.room);
+        all.push({
+          key: `res-${r.bookingId}`,
+          type: "reservation",
+          date: `${r.date} ${r.startSlot}`,
+          uiTime: r.startSlot,
+          subtitle: `${r.startSlot} - ${r.endSlot}`,
+          title: `${room.name} varattu`,
+          place: room.name,
+          teamName: r.teamName || null,
+          description: r.description || null,
+        });
+      }
       const upcoming = all
         .filter((e) => String(e.date || "").slice(0, 10) >= todayStr)
         .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
@@ -295,6 +316,18 @@ const Feed = () => {
       setEvents(merged);
       setEventsError(anyError && merged.length === 0);
     });
+
+    // Reservations of favourite teams (all rooms, upcoming ~8 weeks), grouped
+    // back into one item per booking; rebuild the feed once loaded.
+    const resTo = moment().add(8, "weeks").format("YYYY-MM-DD");
+    Promise.all(ROOMS.map((room) => fetchReservations(room.id, todayStr, resTo).catch(() => [])))
+      .then((lists) => {
+        if (cancelled) return;
+        const byBooking = new Map();
+        for (const s of lists.flat()) if (!byBooking.has(s.bookingId)) byBooking.set(s.bookingId, s);
+        reservationsRef.current = Array.from(byBooking.values());
+        rebuild();
+      });
 
     return () => { cancelled = true; unsub(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

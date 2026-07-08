@@ -27,3 +27,13 @@ export function isGameForFavourite(game, fav) {
 // Does this game belong to ANY of the favourites (for the gamezone filter)?
 export const isGameForAnyFavourite = (game, favourites) =>
   Array.isArray(favourites) && favourites.some((f) => isGameForFavourite(game, f));
+
+// Age-group of a facility reservation (from its stored teamKey, e.g. "U13 Musta").
+export const reservationAgeKey = (res) => ageKey(res && res.teamKey);
+
+// Does a reservation belong to ANY favourite (by age group)? Blank-team (admin)
+// reservations have no age key → not shown for anyone's team feed.
+export const isReservationForAnyFavourite = (res, favourites) => {
+  const a = reservationAgeKey(res);
+  return a != null && Array.isArray(favourites) && favourites.some((f) => favouriteAgeKey(f) === a);
+};
