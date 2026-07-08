@@ -4,11 +4,11 @@ import { LuStar, LuCalendarDays, LuTrophy, LuMapPin, LuLogIn, LuChevronDown, LuC
 import moment from "moment";
 import "moment/locale/fi";
 import { Box, Typography, Card, Stack, Avatar, IconButton, Button, CircularProgress, Collapse, Link as MuiLink } from "@mui/material";
-import { loadFavouriteTeams } from "../Util";
+import { loadFavouriteTeams, splitTeamName } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
 import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
-import { isGameForFavourite, isReservationForAnyFavourite } from "../lib/teamMatch";
+import { isGameForFavourite, isReservationForAnyFavourite, favouriteAgeKey, reservationAgeKey } from "../lib/teamMatch";
 import { fetchReservations } from "../lib/reservationsClient";
 import { ROOMS, getRoom } from "../data/rooms";
 import { gamePassesSubGroups, displaySub, SUBGROUPS_ENABLED } from "../lib/subGroups";
@@ -90,6 +90,21 @@ const dayLabel = (key) => {
 
 const MiniChip = ({ children, sx }) => (
   <Box component="span" sx={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em", px: 0.75, py: "1px", borderRadius: 999, whiteSpace: "nowrap", ...sx }}>{children}</Box>
+);
+
+// Feed scope filter (favourite team, or team + sub-group). Persisted so the
+// choice sticks across visits; reset to "all" if the stored scope no longer exists.
+const SCOPE_KEY = "ahma_feed_scope";
+const FilterChip = ({ active, onClick, children }) => (
+  <Box component="button" type="button" onClick={onClick}
+    sx={{
+      flexShrink: 0, px: 1.5, py: 0.5, borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer",
+      fontFamily: "inherit", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent",
+      border: "1px solid", borderColor: active ? "primary.main" : "var(--color-surface-border)",
+      bgcolor: active ? "primary.main" : "var(--color-surface)", color: active ? "primary.contrastText" : "text.secondary",
+    }}>
+    {children}
+  </Box>
 );
 
 const Detail = ({ icon, children }) => (
@@ -267,6 +282,7 @@ const Feed = () => {
       for (const r of reservationsRef.current) {
         if (!isReservationForAnyFavourite(r, teams)) continue;
         const room = getRoom(r.room);
+        const rsSub = (() => { const s = splitTeamName(r.teamKey || "").sub; return s ? s.toLocaleLowerCase("fi") : null; })();
         all.push({
           key: `res-${r.bookingId}`,
           type: "reservation",
@@ -277,6 +293,9 @@ const Feed = () => {
           place: room.name,
           teamName: r.teamName || null,
           description: r.description || null,
+          subsiteId: null,           // reservations have no Jopox subsite → matched by age
+          resAge: reservationAgeKey(r),
+          resSub: rsSub,
         });
       }
       const upcoming = all
@@ -333,31 +352,79 @@ const Feed = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId, teamsKey]);
 
-  const days = useMemo(() => {
-    if (!events) return [];
-    const map = new Map();
+  // ---- Scope filter (favourite team, or team + sub-group) ----
+  const [scopeFilter, setScopeFilter] = useState(() => { try { return localStorage.getItem(SCOPE_KEY) || "all"; } catch { return "all"; } });
+  const setScope = useCallback((k) => { setScopeFilter(k); try { localStorage.setItem(SCOPE_KEY, k); } catch { /* ignore */ } }, []);
+
+  // Chips derived from the loaded events: one per favourite team, split into its
+  // sub-groups when the team's GAMES expose ≥2 (Musta/Valkoinen). Games +
+  // reservations filter by sub-group; practices can't be sub-grouped yet (Phase B).
+  const scopes = useMemo(() => {
+    if (!events || teams.length === 0) return [];
+    const multi = teams.length > 1;
+    const subsBySubsite = new Map();
     for (const e of events) {
+      if (e.type === "game" && e.subsiteId != null && Array.isArray(e.subGroups) && e.subGroups.length) {
+        const k = String(e.subsiteId);
+        if (!subsBySubsite.has(k)) subsBySubsite.set(k, new Set());
+        e.subGroups.forEach((s) => subsBySubsite.get(k).add(s));
+      }
+    }
+    const list = [];
+    for (const t of teams) {
+      const subs = [...(subsBySubsite.get(String(t.subsiteId)) || [])].sort((a, b) => a.localeCompare(b, "fi"));
+      if (subs.length >= 2) {
+        for (const sub of subs) list.push({ key: `${t.subsiteId}:${sub}`, label: (multi ? `${t.name} ` : "") + displaySub(sub), subsiteId: t.subsiteId, age: favouriteAgeKey(t), sub });
+      } else {
+        list.push({ key: String(t.subsiteId), label: t.name, subsiteId: t.subsiteId, age: favouriteAgeKey(t), sub: null });
+      }
+    }
+    return list;
+  }, [events, teams]);
+
+  useEffect(() => {
+    if (scopeFilter !== "all" && scopes.length && !scopes.some((s) => s.key === scopeFilter)) setScope("all");
+  }, [scopes, scopeFilter, setScope]);
+
+  const filteredEvents = useMemo(() => {
+    if (!events || scopeFilter === "all") return events;
+    const scope = scopes.find((s) => s.key === scopeFilter);
+    if (!scope) return events;
+    return events.filter((e) => {
+      if (e.type === "reservation") { if (e.resAge !== scope.age) return false; }
+      else if (String(e.subsiteId) !== String(scope.subsiteId)) return false;
+      if (!scope.sub) return true; // team-level scope
+      if (e.type === "game") { const gs = e.subGroups || []; return gs.length === 0 || gs.includes(scope.sub); }
+      if (e.type === "reservation") { return !e.resSub || e.resSub === scope.sub; }
+      return true; // practices/other events shown under any sub-group scope (Phase A)
+    });
+  }, [events, scopeFilter, scopes]);
+
+  const days = useMemo(() => {
+    if (!filteredEvents) return [];
+    const map = new Map();
+    for (const e of filteredEvents) {
       const key = String(e.date || "").slice(0, 10);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(e);
     }
     return Array.from(map.keys()).sort().map((key) => ({ key, label: dayLabel(key), items: map.get(key) }));
-  }, [events]);
+  }, [filteredEvents]);
 
   const defaultExpanded = useMemo(() => {
     const seenTeam = new Set();
     const ids = new Set();
-    for (const e of events || []) {
+    for (const e of filteredEvents || []) {
       const tn = String(e.teamName);
       if (!seenTeam.has(tn)) { seenTeam.add(tn); ids.add(e.key); }
     }
     return ids;
-  }, [events]);
+  }, [filteredEvents]);
 
   // Incremental render: grow the visible day-groups as the user scrolls near the bottom.
   const DAY_CHUNK = 4;
   const [visibleDays, setVisibleDays] = useState(DAY_CHUNK);
-  useEffect(() => { setVisibleDays(DAY_CHUNK); }, [events]);
+  useEffect(() => { setVisibleDays(DAY_CHUNK); }, [filteredEvents]);
   const sentinelRef = useRef(null);
   useEffect(() => {
     const el = sentinelRef.current;
@@ -405,11 +472,19 @@ const Feed = () => {
           <>
             {events === null && !eventsError && <Loading text="Ladataan tapahtumia…" />}
             {eventsError && <Box sx={{ textAlign: "center", py: 4, color: "var(--color-loss)" }}>Tapahtumia ei saatu haettua. Yritä myöhemmin uudelleen.</Box>}
-            {events && events.length === 0 && !eventsError && (
+
+            {scopes.length >= 2 && (
+              <Box sx={{ display: "flex", gap: 0.75, overflowX: "auto", pb: 1.25, mb: 0.25, scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}>
+                <FilterChip active={scopeFilter === "all"} onClick={() => setScope("all")}>Kaikki</FilterChip>
+                {scopes.map((s) => <FilterChip key={s.key} active={scopeFilter === s.key} onClick={() => setScope(s.key)}>{s.label}</FilterChip>)}
+              </Box>
+            )}
+
+            {filteredEvents && filteredEvents.length === 0 && !eventsError && (
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1, pt: 5, pb: 3, px: 2.75, maxWidth: 360, mx: "auto" }}>
                 <Box sx={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", color: "text.secondary" }}><LuCalendarDays size={26} /></Box>
-                <Typography sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>Ei tulevia tapahtumia</Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>Harjoitukset ja pelit ilmestyvät tähän, kun niitä on kalenterissa.</Typography>
+                <Typography sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>{scopeFilter === "all" ? "Ei tulevia tapahtumia" : "Ei tapahtumia"}</Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>{scopeFilter === "all" ? "Harjoitukset ja pelit ilmestyvät tähän, kun niitä on kalenterissa." : "Tällä suodattimella ei ole tulevia tapahtumia."}</Typography>
               </Box>
             )}
             {days.slice(0, visibleDays).map((d) => (
@@ -424,7 +499,7 @@ const Feed = () => {
                 </Stack>
               </Box>
             ))}
-            {events && visibleDays < days.length && <Box ref={sentinelRef} sx={{ height: 1 }} aria-hidden="true" />}
+            {filteredEvents && visibleDays < days.length && <Box ref={sentinelRef} sx={{ height: 1 }} aria-hidden="true" />}
           </>
         )}
       </Box>
