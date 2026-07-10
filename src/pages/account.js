@@ -40,7 +40,7 @@ const initials = (name) => {
 };
 
 // Role tags (see project_admin_roles). Team-scoped roles append the team.
-const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Valmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
+const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Vastuuvalmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
 const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
 const roleTag = (r) => (TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role] || r.role} · ${r.team}` : ROLE_LABELS[r.role] || r.role);
 const ROLE_CHIP = {

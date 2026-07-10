@@ -102,7 +102,7 @@ Worker: KV-binding `GAME_IDS` (id-resolvoinnin cache) + `PROXY_KEY` (secret).
 ## Admin
 
 `/admin` (näkyy NavDrawerissa vain admineille; gate = `ADMIN_USER_IDS` **tai** datarooli `admin`):
-- **Käyttäjät & roolit** (`/admin/users`) — merkitse käyttäjiä: pelaaja/valmentaja/toimihenkilö (joukkuesidotut) · media · admin.
+- **Käyttäjät & roolit** (`/admin/users`) — merkitse käyttäjiä: pelaaja/vastuuvalmentaja/toimihenkilö (joukkuesidotut) · media · admin. (Roolin tallennusavain on yhä `valmentaja`; vain näyttönimi on "Vastuuvalmentaja".)
 - **Tilastot** (`/stats`) — rekisteröityneiden käyttäjien metriikat.
 - **Varmuuskopiot** (`/admin/backups`) — ks. alla.
 

@@ -15,7 +15,7 @@ import { JOPOX_TEAMS } from "../data/jopoxTeams";
 // team-scoped valmentaja, from the year-round Jopox team list). See memory:
 // project_admin_roles + reference_data_map (teams = Jopox, NOT tulospalvelu).
 
-const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Valmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
+const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Vastuuvalmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
 const ROLE_ORDER = ["pelaaja", "valmentaja", "toimihenkilo", "media", "admin"];
 const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
 // Distinct per-role colours (role identity, not brand) so chips are scannable.

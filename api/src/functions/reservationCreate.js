@@ -27,7 +27,7 @@ app.http('reservationCreate', {
       const admin = await isAdmin(callerId, profile);
       const teams = coachTeams(roles);
       if (!admin && teams.length === 0) {
-        return { status: 403, jsonBody: { error: 'Vain valmentajat ja toimihenkilöt voivat varata aikoja.' } };
+        return { status: 403, jsonBody: { error: 'Vain vastuuvalmentajat ja toimihenkilöt voivat varata aikoja.' } };
       }
 
       const body = await request.json().catch(() => ({}));

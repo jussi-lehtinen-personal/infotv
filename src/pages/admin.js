@@ -90,7 +90,7 @@ const Admin = () => {
 
         {status === "ok" && (
           <Stack spacing={1.5}>
-            <NavCard to="/admin/users" icon={<LuUsers />} title="Käyttäjät & roolit" sub="Merkitse käyttäjiä valmentajiksi, toimittajiksi tai admineiksi" />
+            <NavCard to="/admin/users" icon={<LuUsers />} title="Käyttäjät & roolit" sub="Merkitse käyttäjiä vastuuvalmentajiksi, toimittajiksi tai admineiksi" />
             <NavCard to="/stats" icon={<LuBarChart3 />} title="Tilastot" sub="Rekisteröityneet käyttäjät" />
             <NavCard to="/admin/backups" icon={<LuDatabase />} title="Varmuuskopiot" sub="Käyttäjä- ja asetusdatan varmuuskopioiden tila" />
           </Stack>
