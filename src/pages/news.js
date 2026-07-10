@@ -15,7 +15,7 @@ const News = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch("/gamezone-news.json")
+    fetch("/api/getNews")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {

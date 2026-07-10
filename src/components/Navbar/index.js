@@ -65,13 +65,11 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    fetch('/gamezone-news.json')
+    fetch('/api/getNews')
       .then((r) => r.json())
       .then((data) => {
         if (!Array.isArray(data)) return;
-        // Lajitellaan päivämäärän mukaan uusin ensin — JSON-tiedoston
-        // järjestyksellä ei ole väliä, ylläpitäjä voi lisätä mihin kohtaan
-        // tahansa.
+        // getNews already returns newest-first, but sort defensively.
         const sorted = [...data].sort(
           (a, b) => new Date(b.date) - new Date(a.date)
         );

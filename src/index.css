@@ -581,10 +581,13 @@ code {
   font-weight: var(--gz-fw-regular);
   line-height: 1.4;
   color: var(--gz-text-secondary);
-  /* Säilyttää JSON:in \n-rivinvaihdot (✅-listarivit), kuten alkuperäisessä
-     mainoskuvassa. */
-  white-space: pre-line;
   margin: 2px 0;
+  /* Dynamic excerpts (getNews) — clamp to 2 lines so cards stay a tidy height. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ui-news-date {
