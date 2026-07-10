@@ -1,18 +1,11 @@
-// Team SUB-GROUPS (peliryhmät), e.g. U13 "Musta" vs "Valkoinen". The sub-group
-// lives ONLY in the tulospalvelu team NAME ("Kiekko-Ahma Musta"); Jopox doesn't
-// know it. We reuse the canonical name splitter (splitTeamName in Util.js — it
-// "knows everything": colour VARIANT_WORDS, case-insensitive). Labels are stored
-// normalised (lowercase) and Title-cased only for display. See memory:
-// project_feed_subgroups + reference_data_map.
+// Team SUB-GROUPS (peliryhmät), e.g. U13 "Musta" / "Valkoinen" / "Oranssi". For
+// games the sub-group lives in the tulospalvelu team NAME ("Kiekko-Ahma Musta");
+// we reuse the canonical name splitter (splitTeamName in Util.js — it knows the
+// colour VARIANT_WORDS, case-insensitive). Practices get the SAME normalised keys
+// from the Jopox members API (api/src/lib/jopox.js). Labels are stored lowercase
+// and Title-cased only for display. The feed's scope-filter chips consume these.
+// See memory: project_feed_subgroups + reference_data_map.
 import { splitTeamName } from "../Util";
-import { gameAgeKey, favouriteAgeKey } from "./teamMatch";
-
-// Master switch for the whole peliryhmä (sub-group) UI: sub-stars on /teams, the
-// feed filtering, and the feed chip. HIDDEN for now — the underlying Jopox data
-// is inconsistent (practices are mostly unlabelled "Harjoitukset"), so the real
-// solution is the T2 Jopox-linked participant data. Flip back to true after the
-// club aligns on how they label events. See memory: project_feed_subgroups.
-export const SUBGROUPS_ENABLED = false;
 
 // Normalised sub-group label of ONE team name (only for Ahma sides), or "".
 const nameSub = (name) => {
@@ -30,30 +23,6 @@ export const ahmaSubGroups = (game) => {
   if (a) out.add(a);
   if (b) out.add(b);
   return [...out];
-};
-
-// Distinct sub-group labels present for an age group, derived from games.
-const subGroupsForAge = (ageKey, games) => {
-  if (!ageKey) return [];
-  const out = new Set();
-  for (const g of games || []) {
-    if (gameAgeKey(g) !== ageKey) continue;
-    for (const s of ahmaSubGroups(g)) out.add(s);
-  }
-  return [...out].sort((x, y) => x.localeCompare(y, "fi"));
-};
-
-// Distinct sub-groups a favourite's age group has (from games).
-export const subGroupsForFavourite = (fav, games) =>
-  subGroupsForAge(favouriteAgeKey(fav), games);
-
-// Does a game pass a favourite's sub-group selection? Empty selection = follow
-// all. A game with no sub-group (ambiguous) is never hidden.
-export const gamePassesSubGroups = (game, selected) => {
-  if (!Array.isArray(selected) || selected.length === 0) return true;
-  const gs = ahmaSubGroups(game);
-  if (gs.length === 0) return true;
-  return gs.some((s) => selected.includes(s));
 };
 
 // Title-case for display ("musta" → "Musta").

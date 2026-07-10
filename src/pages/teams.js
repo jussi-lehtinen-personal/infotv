@@ -10,8 +10,6 @@ import {
   isFavouriteSubsite,
 } from "../Util";
 import { getCachedUser, getMe, saveFavourites } from "../auth/authClient";
-import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
-import { subGroupsForFavourite, displaySub, SUBGROUPS_ENABLED } from "../lib/subGroups";
 
 // Hero image. Swap to the real teams hero shot when provided.
 const HERO = "/teams_hero.webp";
@@ -25,8 +23,6 @@ const Teams = () => {
   const goBack = useGoBack("/");
   const [user, setUser] = useState(getCachedUser);
   const [favourites, setFavourites] = useState(loadFavouriteTeams);
-  // Season games drive the dynamic sub-group (peliryhmä) list per age group.
-  const [games, setGames] = useState(peekSeasonGames);
 
   // Hydrate auth + account favourites (getMe mirrors them to localStorage).
   useEffect(() => {
@@ -41,36 +37,12 @@ const Teams = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Ensure the season games are loaded so we know which sub-groups each age
-  // group actually fields (Musta/Valkoinen/…) — Jopox can't tell us.
-  useEffect(() => {
-    let cancelled = false;
-    if (isSeasonLoaded()) setGames(peekSeasonGames());
-    else fetchSeasonGames().catch(() => {}).finally(() => { if (!cancelled) setGames(peekSeasonGames()); });
-    return () => { cancelled = true; };
-  }, []);
-
   const toggleFavourite = useCallback((team) => {
     setFavourites((prev) => {
       const next = isFavouriteSubsite(prev, team.subsiteId)
         ? prev.filter((t) => String(t.subsiteId) !== String(team.subsiteId))
         : [...prev, makeJopoxFavourite(team)];
       // Persist to the account (mirrors to localStorage). Revert on failure.
-      saveFavourites(next).catch(() => setFavourites(prev));
-      return next;
-    });
-  }, []);
-
-  // Toggle a followed sub-group (peliryhmä) on a favourited team. Empty set =
-  // follow all. Syncs to the account like the main star.
-  const toggleSubGroup = useCallback((team, label) => {
-    setFavourites((prev) => {
-      const next = prev.map((f) => {
-        if (String(f.subsiteId) !== String(team.subsiteId)) return f;
-        const cur = Array.isArray(f.subGroups) ? f.subGroups : [];
-        const subGroups = cur.includes(label) ? cur.filter((x) => x !== label) : [...cur, label];
-        return { ...f, subGroups };
-      });
       saveFavourites(next).catch(() => setFavourites(prev));
       return next;
     });
@@ -95,15 +67,11 @@ const Teams = () => {
         <Stack spacing={1}>
           {JOPOX_TEAMS.map((team) => {
             const isFav = isFavouriteSubsite(favourites, team.subsiteId);
-            const favEntry = favourites.find((f) => String(f.subsiteId) === String(team.subsiteId));
-            const selected = favEntry && Array.isArray(favEntry.subGroups) ? favEntry.subGroups : [];
-            const subs = SUBGROUPS_ENABLED && isFav ? subGroupsForFavourite(team, games) : [];
-            const hasSubs = SUBGROUPS_ENABLED && user && isFav && subs.length > 1;
             return (
               <Card
                 key={team.subsiteId}
                 variant="outlined"
-                sx={{ bgcolor: "background.paper", borderColor: hasSubs ? "rgba(var(--color-primary-rgb),0.28)" : "divider", "&:hover": { borderColor: "rgba(var(--color-primary-rgb),0.35)" } }}
+                sx={{ bgcolor: "background.paper", borderColor: "divider", "&:hover": { borderColor: "rgba(var(--color-primary-rgb),0.35)" } }}
               >
                 <Stack direction="row" alignItems="center" sx={{ pl: 1.75, pr: 0.5 }}>
                   <Box component={Link} to={`/teams/${team.subsiteId}`} sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 1.5, py: 1.4, WebkitTapHighlightColor: "transparent", "&, &:hover, &:focus, &:active, &:visited": { color: "text.primary", textDecoration: "none" } }}>
@@ -124,36 +92,6 @@ const Teams = () => {
                     </IconButton>
                   )}
                 </Stack>
-
-                {hasSubs && (
-                  <Box sx={{ mx: 1.25, mb: 1.25, pt: 1.25, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: ".04em", mb: 0.75, ml: 0.25 }}>Peliryhmät</Typography>
-                    <Stack spacing={0.75}>
-                      {subs.map((s) => {
-                        const on = selected.includes(s);
-                        return (
-                          <Box
-                            key={s}
-                            component="button"
-                            type="button"
-                            onClick={() => toggleSubGroup(team, s)}
-                            aria-pressed={on}
-                            sx={{
-                              display: "flex", alignItems: "center", gap: 1, width: "100%", p: "11px 12px",
-                              borderRadius: "14px", cursor: "pointer", textAlign: "left", fontWeight: 700, fontSize: 14, fontFamily: "inherit",
-                              border: on ? "1px solid rgba(var(--color-primary-rgb),0.55)" : "1px solid var(--color-surface-border)",
-                              bgcolor: on ? "rgba(var(--color-primary-rgb),0.10)" : "var(--color-surface)",
-                              color: on ? "primary.main" : "text.secondary",
-                            }}
-                          >
-                            <LuStar size={18} fill={on ? "currentColor" : "none"} style={{ flexShrink: 0 }} />
-                            <Box component="span" sx={{ flex: 1 }}>{displaySub(s)}</Box>
-                          </Box>
-                        );
-                      })}
-                    </Stack>
-                  </Box>
-                )}
               </Card>
             );
           })}

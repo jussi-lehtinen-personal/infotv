@@ -11,7 +11,7 @@ import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from 
 import { isGameForFavourite, isReservationForAnyFavourite, favouriteAgeKey, reservationAgeKey } from "../lib/teamMatch";
 import { fetchReservations } from "../lib/reservationsClient";
 import { ROOMS, getRoom } from "../data/rooms";
-import { gamePassesSubGroups, displaySub, SUBGROUPS_ENABLED } from "../lib/subGroups";
+import { displaySub } from "../lib/subGroups";
 
 moment.locale("fi");
 
@@ -166,9 +166,6 @@ const EventRow = ({ e, expanded, onToggle }) => {
               <Typography component="span" sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main" }}>{e.teamName}</Typography>
               {isGame && e.home != null && <MiniChip sx={{ color: "text.secondary", bgcolor: "var(--color-surface-divider)", border: "1px solid var(--color-surface-border)" }}>{e.home ? "koti" : "vieras"}</MiniChip>}
               {isGame && e.source && <MiniChip sx={{ color: SOURCE_CHIP[e.source].fg, bgcolor: SOURCE_CHIP[e.source].bg, border: `1px solid ${SOURCE_CHIP[e.source].bd}` }}>{SOURCE_LABEL[e.source]}</MiniChip>}
-              {SUBGROUPS_ENABLED && isGame && Array.isArray(e.subGroups) && e.subGroups.map((s) => (
-                <MiniChip key={s} sx={{ color: "rgba(255,255,255,0.85)", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.28)" }}>{displaySub(s)}</MiniChip>
-              ))}
             </Box>
           )}
           <Typography sx={{ fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{heading}</Typography>
@@ -272,9 +269,7 @@ const Feed = () => {
       const all = [];
       teams.forEach((t, i) => {
         const jopox = jopoxRef.current[i] || [];
-        const tp = peekSeasonGames().filter(
-          (g) => isGameForFavourite(g, t) && (!SUBGROUPS_ENABLED || gamePassesSubGroups(g, t.subGroups))
-        );
+        const tp = peekSeasonGames().filter((g) => isGameForFavourite(g, t));
         all.push(...buildTeamAgenda(jopox, tp, t.name, t.subsiteId));
       });
       // Facility reservations of the favourite teams (by age group) — shown as
