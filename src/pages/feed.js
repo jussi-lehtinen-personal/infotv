@@ -8,10 +8,10 @@ import { loadFavouriteTeams, splitTeamName } from "../Util";
 import { getMe, getCachedUser } from "../auth/authClient";
 import { buildTeamAgenda, opponentLogo, opponentName } from "../lib/agenda";
 import { peekSeasonGames, fetchSeasonGames, subscribe as subscribeSeason } from "../lib/seasonGamesCache";
-import { isGameForFavourite, isReservationForAnyFavourite, favouriteAgeKey, reservationAgeKey } from "../lib/teamMatch";
+import { isGameForFavourite, isReservationForAnyFavourite, favouriteAgeKey, gameAgeKey, reservationAgeKey } from "../lib/teamMatch";
 import { fetchReservations } from "../lib/reservationsClient";
 import { ROOMS, getRoom } from "../data/rooms";
-import { displaySub } from "../lib/subGroups";
+import { displaySub, ahmaSubGroups } from "../lib/subGroups";
 
 moment.locale("fi");
 
@@ -356,23 +356,33 @@ const Feed = () => {
   // tulospalvelu) AND practices (from the members API, Phase B) both carry
   // subGroups; reservations filter by sub-group too.
   const scopes = useMemo(() => {
-    if (!events || teams.length === 0) return [];
+    if (teams.length === 0) return [];
     const multi = teams.length > 1;
+    // A team's peliryhmä SET is a stable property, so derive it from the WHOLE
+    // season's games (every Ahma sub-team plays) — NOT just upcoming events, which
+    // in summer may expose only one group. Also fold in any practice sub-groups
+    // seen in the loaded events (a group might have practices but no season games).
+    const add = (map, key, s) => { if (!map.has(key)) map.set(key, new Set()); map.get(key).add(s); };
+    const subsByAge = new Map();
+    for (const g of peekSeasonGames()) {
+      const age = gameAgeKey(g);
+      if (age) ahmaSubGroups(g).forEach((s) => add(subsByAge, age, s));
+    }
     const subsBySubsite = new Map();
-    for (const e of events) {
-      if ((e.type === "game" || e.type === "event") && e.subsiteId != null && Array.isArray(e.subGroups) && e.subGroups.length) {
-        const k = String(e.subsiteId);
-        if (!subsBySubsite.has(k)) subsBySubsite.set(k, new Set());
-        e.subGroups.forEach((s) => subsBySubsite.get(k).add(s));
+    for (const e of events || []) {
+      if (e.type === "event" && e.subsiteId != null && Array.isArray(e.subGroups) && e.subGroups.length) {
+        e.subGroups.forEach((s) => add(subsBySubsite, String(e.subsiteId), s));
       }
     }
     const list = [];
     for (const t of teams) {
-      const subs = [...(subsBySubsite.get(String(t.subsiteId)) || [])].sort((a, b) => a.localeCompare(b, "fi"));
+      const age = favouriteAgeKey(t);
+      const set = new Set([...(subsByAge.get(age) || []), ...(subsBySubsite.get(String(t.subsiteId)) || [])]);
+      const subs = [...set].sort((a, b) => a.localeCompare(b, "fi"));
       if (subs.length >= 2) {
-        for (const sub of subs) list.push({ key: `${t.subsiteId}:${sub}`, label: (multi ? `${t.name} ` : "") + displaySub(sub), subsiteId: t.subsiteId, age: favouriteAgeKey(t), sub });
+        for (const sub of subs) list.push({ key: `${t.subsiteId}:${sub}`, label: (multi ? `${t.name} ` : "") + displaySub(sub), subsiteId: t.subsiteId, age, sub });
       } else {
-        list.push({ key: String(t.subsiteId), label: t.name, subsiteId: t.subsiteId, age: favouriteAgeKey(t), sub: null });
+        list.push({ key: String(t.subsiteId), label: t.name, subsiteId: t.subsiteId, age, sub: null });
       }
     }
     return list;
