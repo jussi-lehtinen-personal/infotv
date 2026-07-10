@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
+const { fetchMemberSubGroups } = require('../lib/jopox');
 
 // Upcoming events (harjoitukset + games) for a Jopox team, aggregated from the
 // club site's PUBLIC calendar API (no login). The `/upcoming` endpoint is
@@ -141,6 +142,20 @@ app.http('getTeamEvents', {
             }
 
             const events = await collectEvents(subsiteId);
+
+            // Enrich each event with its peliryhmä (sub-group) from the members
+            // API (service account). eventId matches the public one. Optional +
+            // best-effort: any failure leaves events untagged (subGroups: []).
+            try {
+                const groupMap = await fetchMemberSubGroups(subsiteId);
+                for (const ev of events) {
+                    ev.subGroups = (ev.eventId != null && groupMap[ev.eventId]) || [];
+                }
+            } catch (e) {
+                context.log('getTeamEvents sub-group enrich skipped: ' + (e && e.message));
+                for (const ev of events) ev.subGroups = [];
+            }
+
             const data = { subsiteId: Number(subsiteId), events };
             cache.set(subsiteId, { data, timestamp: Date.now() });
             return { jsonBody: data };

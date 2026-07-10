@@ -46,6 +46,9 @@ function fromJopox(e, teamName, subsiteId) {
     home: e.awayGame == null ? null : !e.awayGame,
     eventId: e.eventId, // for the Jopox description (getEventDetail)
     subsiteId: e.subsiteId ?? subsiteId ?? null,
+    // peliryhmä(t) from the members API: [] = joint/untagged (shown under all),
+    // [x] = that sub-group, [x,y] = joint among those. See project_feed_subgroups.
+    subGroups: Array.isArray(e.subGroups) ? e.subGroups : [],
   };
 }
 

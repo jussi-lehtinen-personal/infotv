@@ -357,14 +357,15 @@ const Feed = () => {
   const setScope = useCallback((k) => { setScopeFilter(k); try { localStorage.setItem(SCOPE_KEY, k); } catch { /* ignore */ } }, []);
 
   // Chips derived from the loaded events: one per favourite team, split into its
-  // sub-groups when the team's GAMES expose ≥2 (Musta/Valkoinen). Games +
-  // reservations filter by sub-group; practices can't be sub-grouped yet (Phase B).
+  // sub-groups when the team exposes ≥2 (Musta/Valkoinen/Oranssi). Games (from
+  // tulospalvelu) AND practices (from the members API, Phase B) both carry
+  // subGroups; reservations filter by sub-group too.
   const scopes = useMemo(() => {
     if (!events || teams.length === 0) return [];
     const multi = teams.length > 1;
     const subsBySubsite = new Map();
     for (const e of events) {
-      if (e.type === "game" && e.subsiteId != null && Array.isArray(e.subGroups) && e.subGroups.length) {
+      if ((e.type === "game" || e.type === "event") && e.subsiteId != null && Array.isArray(e.subGroups) && e.subGroups.length) {
         const k = String(e.subsiteId);
         if (!subsBySubsite.has(k)) subsBySubsite.set(k, new Set());
         e.subGroups.forEach((s) => subsBySubsite.get(k).add(s));
@@ -394,9 +395,10 @@ const Feed = () => {
       if (e.type === "reservation") { if (e.resAge !== scope.age) return false; }
       else if (String(e.subsiteId) !== String(scope.subsiteId)) return false;
       if (!scope.sub) return true; // team-level scope
-      if (e.type === "game") { const gs = e.subGroups || []; return gs.length === 0 || gs.includes(scope.sub); }
+      // games + practices/events carry peliryhmä(s); [] = joint/untagged → shown under all.
+      if (e.type === "game" || e.type === "event") { const gs = e.subGroups || []; return gs.length === 0 || gs.includes(scope.sub); }
       if (e.type === "reservation") { return !e.resSub || e.resSub === scope.sub; }
-      return true; // practices/other events shown under any sub-group scope (Phase A)
+      return true;
     });
   }, [events, scopeFilter, scopes]);
 

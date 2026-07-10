@@ -21,3 +21,10 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local secrets / captured sessions (Jopox probe etc.) — NEVER commit
+*.local
+*.har
+.jopox_cookie*
+worker/.dev.vars
+tools/data/
