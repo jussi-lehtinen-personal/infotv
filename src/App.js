@@ -38,6 +38,7 @@ import AdminUsers from "./pages/admin_users";
 import AdminBackups from "./pages/admin_backups";
 import NextHomeGame from "./pages/next_home_game";
 import FacilityReservations from "./pages/facility_reservations";
+import Ahmaliiga from "./pages/ahmaliiga";
 
 function App() {
   return (
@@ -75,6 +76,7 @@ function App() {
                 <Route path="/gamezone/game/:id" element={<BoxScore />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/facilities" element={<FacilityReservations />} />
+                <Route path="/ahmaliiga" element={<Ahmaliiga />} />
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/organization" element={<Organisation />} />
