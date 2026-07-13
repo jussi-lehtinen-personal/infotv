@@ -1,5 +1,17 @@
-// Client for the Ahmaliiga backend (M0: read-only). Endpoints are public;
-// per-user + write endpoints (squad, prediction) arrive in M1+.
+// Client for the Ahmaliiga backend. Read endpoints are public; squad/join require
+// the app auth token (X-Ahma-Auth), same as the rest of the app.
+import { getToken } from "../auth/authClient";
+
+function authHeaders(extra) {
+  const token = getToken();
+  return { ...(extra || {}), ...(token ? { "X-Ahma-Auth": token } : {}) };
+}
+
+async function asJson(r) {
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Virhe (${r.status})`);
+  return data;
+}
 
 export async function getAhmaliigaState() {
   const r = await fetch("/api/ahmaliiga/state");
@@ -12,4 +24,25 @@ export async function getAhmaliigaCards(filter) {
   const r = await fetch(`/api/ahmaliiga/cards${q}`);
   if (!r.ok) throw new Error(`cards ${r.status}`);
   return r.json(); // { season, cards: [{ id, kind, name, sub, band, price, ownerCount, lastPts }] }
+}
+
+// The signed-in manager's squad (resolved cards + bank), or { squad: null }.
+export async function getMySquad() {
+  const r = await fetch("/api/ahmaliiga/squad", { headers: authHeaders() });
+  return asJson(r); // { squad, budget, bank, spent } | { squad: null, budget }
+}
+
+// Save the squad. Throws with the server's Finnish validation message on 400.
+export async function saveMySquad(cardIds, captainId) {
+  const r = await fetch("/api/ahmaliiga/squad", {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ cardIds, captainId }),
+  });
+  return asJson(r);
+}
+
+export async function joinAhmaliiga() {
+  const r = await fetch("/api/ahmaliiga/join", { method: "POST", headers: authHeaders() });
+  return asJson(r);
 }

@@ -45,8 +45,9 @@ import LiigaTeam from "./pages/liiga/team";
 import LiigaMarket from "./pages/liiga/market";
 import LiigaPredict from "./pages/liiga/predict";
 import LiigaRanking from "./pages/liiga/ranking";
+import LiigaEdit from "./pages/liiga/edit";
 import { LiigaStub } from "./pages/liiga/stub";
-import { LuPencil, LuLayoutGrid, LuUser, LuAward, LuClipboardList, LuBell } from "react-icons/lu";
+import { LuLayoutGrid, LuUser, LuAward, LuClipboardList, LuBell } from "react-icons/lu";
 
 function App() {
   return (
@@ -113,7 +114,7 @@ function App() {
             <Route path="/ahmaliiga" element={<AhmaliigaLayout />}>
                 <Route index element={<LiigaHome />} />
                 <Route path="joukkue" element={<LiigaTeam />} />
-                <Route path="joukkue/muokkaa" element={<LiigaStub icon={LuPencil} title="Muokkaa joukkuetta" desc="Vaihda tai poista kortti ja valitse kapteeni. Budjetti ja korttien hinnat päivittyvät valintojen mukaan." />} />
+                <Route path="joukkue/muokkaa" element={<LiigaEdit />} />
                 <Route path="markkina" element={<LiigaMarket />} />
                 <Route path="kortti/:id" element={<LiigaStub icon={LuLayoutGrid} title="Kortin tiedot" desc="Kuva, pistehistoria, tulevat pelit, hintakehitys ja viimeisimmät tulokset." />} />
                 <Route path="veikkaus" element={<LiigaPredict />} />

@@ -1,4 +1,4 @@
-const { upsertEntity, listByPartition, transact } = require('./tables');
+const { getEntity, upsertEntity, listByPartition, transact } = require('./tables');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/jaksot/cards +
@@ -8,6 +8,7 @@ const ECON = {
   budget: 120,
   squadSize: 5,
   maxPlayers: 2,
+  transfersPerJakso: 2,
   band: { kallis: 30, keski: 20, halpa: 10 },
   playerBand: { kallis: 50, keski: 40, halpa: 30 },
 };
@@ -17,7 +18,12 @@ const T = {
   jaksot: 'AhmaliigaJaksot',
   cards: 'AhmaliigaCards',
   cardHistory: 'AhmaliigaCardHistory',
+  managers: 'AhmaliigaManagers',
+  squads: 'AhmaliigaSquads',
 };
+
+// A 400-class error the endpoints surface as a user-facing validation message.
+function badRequest(msg) { return Object.assign(new Error(msg), { code: 400 }); }
 
 // The active season row (PK='season', one row per seasonId, `active` flag).
 async function getActiveSeason() {
@@ -102,4 +108,104 @@ async function seedSeason(seed) {
   return { seasonId, jaksot: (seed.jaksot || []).length, cards: cards.length };
 }
 
-module.exports = { ECON, T, getActiveSeason, getCards, getJaksot, currentJaksoNo, seedSeason };
+// --- M1: managers + squads ---
+
+async function getManager(userId) {
+  return getEntity(T.managers, userId, 'profile');
+}
+
+// Create the manager row on first join / first squad save. Fills a nickname the
+// first time one is known (from the Users profile).
+async function ensureManager(userId, nickname) {
+  const existing = await getManager(userId);
+  if (!existing) {
+    await upsertEntity(T.managers, {
+      partitionKey: userId, rowKey: 'profile',
+      nickname: nickname || '', joinedAt: new Date().toISOString(),
+    });
+    return;
+  }
+  if (nickname && !existing.nickname) await upsertEntity(T.managers, { ...existing, nickname });
+}
+
+async function joinManager(userId, nickname) {
+  await ensureManager(userId, nickname);
+  return getManager(userId);
+}
+
+function parseSquad(row) {
+  if (!row) return null;
+  let cards = [];
+  try { cards = JSON.parse(row.cards || '[]'); } catch { cards = []; }
+  return {
+    cards, captainId: row.captainId || null,
+    seasonId: row.seasonId, jaksoNo: row.jaksoNo,
+    transfersUsedThisJakso: row.transfersUsedThisJakso || 0,
+    updatedAt: row.updatedAt,
+  };
+}
+
+async function getSquad(userId) {
+  return parseSquad(await getEntity(T.squads, userId, 'current'));
+}
+
+// Validate + persist a squad. Rules (LOCKED): exactly squadSize cards, ≤ maxPlayers
+// player/goalie cards, sum of prices ≤ budget, captain in the squad. Lock-in: kept
+// cards retain their buyPrice; new cards cost the current price. ≤ transfersPerJakso
+// card swaps per jakso (the first-ever build is free). Throws badRequest on any
+// violation. NOTE: the Lineups per-game freeze (rolling lock) is wired in M2 with
+// the settlement poller + game schedule; here we just store the current squad.
+async function saveSquad(userId, cardIds, captainId, nickname) {
+  const season = await getActiveSeason();
+  if (!season) throw badRequest('Kausi ei ole käynnissä.');
+  const budget = season.budget, squadSize = season.squadSize, maxPlayers = season.maxPlayers;
+
+  const cards = await getCards(season.rowKey);
+  const map = {};
+  for (const c of cards) map[c.rowKey] = c;
+
+  if (!Array.isArray(cardIds) || cardIds.length !== squadSize) throw badRequest(`Valitse tasan ${squadSize} korttia.`);
+  if (new Set(cardIds).size !== cardIds.length) throw badRequest('Sama kortti valittu kahdesti.');
+  for (const id of cardIds) if (!map[id]) throw badRequest('Tuntematon kortti kokoonpanossa.');
+  if (!cardIds.includes(captainId)) throw badRequest('Kapteenin on oltava kokoonpanossa.');
+  const playerCount = cardIds.filter((id) => map[id].kind !== 'team').length;
+  if (playerCount > maxPlayers) throw badRequest(`Enintään ${maxPlayers} pelaaja-/maalivahtikorttia.`);
+
+  const jaksot = await getJaksot(season.rowKey);
+  const curJakso = currentJaksoNo(jaksot);
+  const prev = await getSquad(userId);
+
+  // Lock-in buy prices: kept cards keep their price, new cards pay current.
+  const prevBuy = {};
+  if (prev) for (const c of prev.cards || []) prevBuy[c.id] = c.buyPrice;
+  const squadCards = cardIds.map((id) => ({ id, buyPrice: prevBuy[id] != null ? prevBuy[id] : map[id].price }));
+  const spent = squadCards.reduce((s, c) => s + c.buyPrice, 0);
+  if (spent > budget) throw badRequest(`Budjetti ylittyy: ${spent} / ${budget} 🪙.`);
+
+  // Transfers: count swaps vs the previous squad; first-ever build is free.
+  let transfersUsed = 0;
+  if (prev) {
+    const base = prev.jaksoNo === curJakso ? (prev.transfersUsedThisJakso || 0) : 0;
+    const changed = cardIds.filter((id) => !(prev.cards || []).some((c) => c.id === id)).length;
+    transfersUsed = base + changed;
+    if (changed > 0 && transfersUsed > ECON.transfersPerJakso) {
+      throw badRequest(`Liikaa siirtoja tällä jaksolla (enintään ${ECON.transfersPerJakso}).`);
+    }
+  }
+
+  await ensureManager(userId, nickname);
+  const row = {
+    partitionKey: userId, rowKey: 'current',
+    seasonId: season.rowKey, jaksoNo: curJakso,
+    cards: JSON.stringify(squadCards), captainId,
+    transfersUsedThisJakso: transfersUsed, updatedAt: new Date().toISOString(),
+  };
+  await upsertEntity(T.squads, row);
+  return { ...parseSquad(row), bank: budget - spent, spent };
+}
+
+module.exports = {
+  ECON, T, badRequest,
+  getActiveSeason, getCards, getJaksot, currentJaksoNo, seedSeason,
+  getManager, joinManager, getSquad, saveSquad,
+};
