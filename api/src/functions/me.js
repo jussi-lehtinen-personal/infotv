@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
 const { avatarUrl } = require('../lib/blob');
-const { parseRoles, isAdmin } = require('../lib/admin');
+const { parseRoles, isAdmin, envAdminIds } = require('../lib/admin');
 
 // GET /api/me — returns the current user's profile (requires Bearer token).
 app.http('me', {
@@ -35,6 +35,9 @@ app.http('me', {
           favourites,
           roles,
           isAdmin: await isAdmin(userId, user),
+          // In the ADMIN_USER_IDS env allowlist specifically (NOT a data admin
+          // role) — used to gate not-yet-public previews to the root operator only.
+          isEnvAdmin: envAdminIds().includes(userId),
         },
       };
     } catch (err) {

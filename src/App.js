@@ -39,6 +39,14 @@ import AdminBackups from "./pages/admin_backups";
 import NextHomeGame from "./pages/next_home_game";
 import FacilityReservations from "./pages/facility_reservations";
 import Ahmaliiga from "./pages/ahmaliiga";
+import { AhmaliigaLayout, RequireEnvAdmin } from "./components/AhmaliigaLayout";
+import LiigaHome from "./pages/liiga/home";
+import LiigaTeam from "./pages/liiga/team";
+import LiigaMarket from "./pages/liiga/market";
+import LiigaPredict from "./pages/liiga/predict";
+import LiigaRanking from "./pages/liiga/ranking";
+import { LiigaStub } from "./pages/liiga/stub";
+import { LuPencil, LuLayoutGrid, LuUser, LuAward, LuClipboardList, LuBell } from "react-icons/lu";
 
 function App() {
   return (
@@ -76,7 +84,6 @@ function App() {
                 <Route path="/gamezone/game/:id" element={<BoxScore />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/facilities" element={<FacilityReservations />} />
-                <Route path="/ahmaliiga" element={<Ahmaliiga />} />
                 <Route path="/teams/:subsiteId" element={<Team />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/organization" element={<Organisation />} />
@@ -100,6 +107,23 @@ function App() {
                     element={<GameAds />}
                 />
             </Route>
+
+            {/* Ahmaliiga (fantasy) — preview, own layout + bottom bar, gated to
+                the ADMIN_USER_IDS env allowlist only (RequireEnvAdmin/Gate). */}
+            <Route path="/ahmaliiga" element={<AhmaliigaLayout />}>
+                <Route index element={<LiigaHome />} />
+                <Route path="joukkue" element={<LiigaTeam />} />
+                <Route path="joukkue/muokkaa" element={<LiigaStub icon={LuPencil} title="Muokkaa joukkuetta" desc="Vaihda tai poista kortti ja valitse kapteeni. Budjetti ja korttien hinnat päivittyvät valintojen mukaan." />} />
+                <Route path="markkina" element={<LiigaMarket />} />
+                <Route path="kortti/:id" element={<LiigaStub icon={LuLayoutGrid} title="Kortin tiedot" desc="Kuva, pistehistoria, tulevat pelit, hintakehitys ja viimeisimmät tulokset." />} />
+                <Route path="veikkaus" element={<LiigaPredict />} />
+                <Route path="ranking" element={<LiigaRanking />} />
+                <Route path="jakso" element={<LiigaStub icon={LuClipboardList} title="Jakson yhteenveto" desc="Mistä pisteet kertyivät tällä jaksolla ja mikä kortti tuotti eniten." />} />
+                <Route path="profiili" element={<LiigaStub icon={LuUser} title="Profiili" desc="Fantasy-tilastosi: liittymispäivä, mestaruudet, paras ja keskimääräinen sijoitus, pelatut jaksot." />} />
+                <Route path="saavutukset" element={<LiigaStub icon={LuAward} title="Saavutukset" desc="Ansiomerkit: ensimmäinen voitto, jakson voittaja, 100 pistettä, 10 oikeaa veikkausta." />} />
+                <Route path="ilmoitukset" element={<LiigaStub icon={LuBell} title="Ilmoitukset" desc="Fantasy-notifikaatiot: kapteenisi teki maalin, joukkueesi voitti, veikkauksesi osui." />} />
+            </Route>
+            <Route path="/ahmaliiga/saannot" element={<RequireEnvAdmin><Ahmaliiga /></RequireEnvAdmin>} />
 
             <Route path="/report" element={<Report />} />
             <Route path="/stats" element={<Stats />} />

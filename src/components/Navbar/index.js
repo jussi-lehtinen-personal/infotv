@@ -121,6 +121,9 @@ const Index = () => {
         >
           <HeroCarousel matches={heroMatches} loading={heroLoading} />
 
+          {/* Ahmaliiga launch teaser — preview only, shown to ADMIN_USER_IDS. */}
+          {authUser?.isEnvAdmin && <AhmaliigaLaunchCard />}
+
           <Box sx={sectionHeadingSx}>Pikatoiminnot</Box>
           <Box
             sx={{
@@ -166,6 +169,45 @@ const Index = () => {
     </>
   );
 };
+
+// Home launch banner for the Ahmaliiga preview (env-admin only). Links into the
+// Ahmaliiga mode (its own layout takes over from there).
+const AhmaliigaLaunchCard = () => (
+  <Box
+    component={Link}
+    to="/ahmaliiga"
+    sx={{
+      position: "relative",
+      overflow: "hidden",
+      textDecoration: "none",
+      display: "flex",
+      alignItems: "center",
+      gap: 1.5,
+      p: 2,
+      borderRadius: "var(--radius-card)",
+      background: "linear-gradient(135deg, rgba(249,115,22,0.28), rgba(249,115,22,0.05))",
+      border: "1px solid rgba(249,115,22,0.55)",
+      boxShadow: "0 14px 34px rgba(249,115,22,0.18)",
+    }}
+  >
+    <Box component="img" src="/ahmaliiga_logo.png" alt=""
+         sx={{ width: 72, height: 72, objectFit: "contain", flexShrink: 0 }} />
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
+            color: "var(--color-primary)", textTransform: "uppercase" }}>
+        Uutta · Esikatselu
+      </Box>
+      <Box sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+            fontSize: 28, lineHeight: 1, color: "#fff", mt: 0.25 }}>
+        AHMALIIGA
+      </Box>
+      <Box sx={{ fontSize: 13, color: "rgba(255,255,255,0.7)", mt: 0.5 }}>
+        Kokoa unelmajoukkueesi Ahman korteista. Pelaa nyt →
+      </Box>
+    </Box>
+    <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "var(--color-primary)", fontSize: 22 }} />
+  </Box>
+);
 
 const SocialBtn = ({ href, label, icon }) => (
   <Box
