@@ -94,8 +94,11 @@ const Index = () => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          // AppHeader ylös ja menu alas — natiivi flex-jako, ei margin-trickkejä.
-          justifyContent: "space-between",
+          // Top-aligned: header + content flow from the top. (space-between pushed
+          // the content block to the bottom when it was shorter than the viewport,
+          // leaving a big gap under the header that "snapped" shut once the hero
+          // loaded — see the safe-area padding below; the gap was NOT that fix.)
+          justifyContent: "flex-start",
           gap: "14px",
           // Bottom padding clears the BottomNav + iOS home indicator + a small gap.
           padding: "calc(env(safe-area-inset-top) + 10px) 7px var(--ui-bottom-nav-clearance, 80px) 7px",
