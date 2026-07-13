@@ -25,6 +25,24 @@ const timeLeft = (d) => {
   return `${dd} pv ${hh} h ${mm} min`;
 };
 
+// Split a team name into base + peliryhmä colour; the Ahma side (no colour in
+// the name) falls back to the age from the level. e.g. "Pelicans Musta" →
+// {base:"Pelicans", sub:"Musta"}; "Kiekko-Ahma" + level "U14 Valkoinen" → sub "U14".
+const COLOURS = "Musta|Valkoinen|Oranssi|Keltainen|Sininen|Punainen|Vihreä|Harmaa";
+const ageOf = (level) => { const m = String(level || "").match(/U\s*\d+/i); return m ? m[0].replace(/\s+/g, "") : ""; };
+const splitTeam = (name, level, isAhma) => {
+  const m = String(name || "").match(new RegExp(`^(.*?)\\s+(${COLOURS})$`, "i"));
+  if (m) return { base: m[1], sub: m[2] };
+  return { base: name, sub: isAhma ? ageOf(level) : "" };
+};
+// Dropdown label: append the age to the Ahma side, e.g. "Kiekko-Ahma U14 – Pelicans Musta".
+const gameLabel = (g) => {
+  const age = ageOf(g.level);
+  const h = g.home + (g.ahmaHome && age ? ` ${age}` : "");
+  const a = g.away + (!g.ahmaHome && age ? ` ${age}` : "");
+  return `${h} – ${a}`;
+};
+
 const StepLabel = ({ children, sx }) => (
   <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", ...sx }}>
     {children}
@@ -44,6 +62,13 @@ const menuProps = {
     "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(249,115,22,0.2)" },
     "& .MuiMenuItem-root.Mui-selected:hover": { bgcolor: "rgba(249,115,22,0.28)" } } },
 };
+// Score number: big, centred horizontally AND vertically (symmetric padding so
+// the dropdown arrow doesn't push the digit off-centre).
+const scoreSelectSx = {
+  fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 30, color: "text.primary",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  py: 1.75, pl: "30px", pr: "30px !important", minHeight: "unset",
+};
 
 // White circular logo tile; crest/badge fallback.
 const TeamLogo = ({ name, logo, ahma, size }) =>
@@ -61,10 +86,18 @@ const TeamLogo = ({ name, logo, ahma, size }) =>
   );
 
 const nameSx = {
-  fontFamily: "var(--font-family-display)", fontSize: 16, lineHeight: 1.1, textAlign: "center",
+  fontFamily: "var(--font-family-display)", fontSize: 16, lineHeight: 1.15, textAlign: "center",
   letterSpacing: "var(--font-display-tracking)", color: "text.primary",
   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
 };
+
+// Club name on line 1, peliryhmä/age on line 2 in orange.
+const TeamName = ({ base, sub }) => (
+  <Box sx={{ minWidth: 0, textAlign: "center" }}>
+    <Box sx={nameSx}>{base}</Box>
+    {sub && <Box sx={{ ...nameSx, fontSize: 13, color: "primary.main" }}>{sub}</Box>}
+  </Box>
+);
 
 export default function LiigaPredict() {
   const [data, setData] = useState(undefined);
@@ -103,6 +136,8 @@ export default function LiigaPredict() {
   const game = games.find((g) => g.gameId === gameId) || games[0];
   const isSavedGame = savedId === game.gameId;
   const left = !settled && timeLeft(game.date);
+  const hs = splitTeam(game.home, game.level, game.ahmaHome);
+  const as = splitTeam(game.away, game.level, !game.ahmaHome);
 
   const selectGame = (id) => {
     setGameId(id); setError("");
@@ -143,7 +178,7 @@ export default function LiigaPredict() {
       <StepLabel sx={{ mb: 1 }}>1. Valitse ottelu</StepLabel>
       <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} sx={selectSx} MenuProps={menuProps}>
         {games.map((g) => (
-          <MenuItem key={g.gameId} value={g.gameId}>{g.home} – {g.away}</MenuItem>
+          <MenuItem key={g.gameId} value={g.gameId}>{gameLabel(g)}</MenuItem>
         ))}
       </Select>
 
@@ -155,8 +190,8 @@ export default function LiigaPredict() {
             {settled ? `${game.homeGoals}–${game.awayGoals}` : "VS"}
           </Box>
           <Box sx={{ gridColumn: 3, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} size={84} /></Box>
-          <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx }}>{game.home}</Box>
-          <Box sx={{ gridColumn: 3, gridRow: 2, ...nameSx }}>{game.away}</Box>
+          <Box sx={{ gridColumn: 1, gridRow: 2, minWidth: 0 }}><TeamName base={hs.base} sub={hs.sub} /></Box>
+          <Box sx={{ gridColumn: 3, gridRow: 2, minWidth: 0 }}><TeamName base={as.base} sub={as.sub} /></Box>
         </Box>
         <Typography variant="body2" sx={{ textAlign: "center", color: "text.secondary", mt: 1.5 }}>{shortDate(game.date)} · {game.level}</Typography>
       </Box>
@@ -175,17 +210,15 @@ export default function LiigaPredict() {
         </Box>
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.25, rowGap: 0.75 }}>
-          <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1,
-                "& .MuiSelect-select": { fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 30, py: 1, textAlign: "center" } }} MenuProps={menuProps}>
+          <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1, "& .MuiSelect-select": scoreSelectSx }} MenuProps={menuProps}>
             {GOALS.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
           </Select>
           <Box sx={{ gridColumn: 2, gridRow: 1, color: "text.disabled", fontSize: 26 }}>—</Box>
-          <Select value={away} onChange={(e) => setAway(e.target.value)} sx={{ ...selectSx, gridColumn: 3, gridRow: 1,
-                "& .MuiSelect-select": { fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 30, py: 1, textAlign: "center" } }} MenuProps={menuProps}>
+          <Select value={away} onChange={(e) => setAway(e.target.value)} sx={{ ...selectSx, gridColumn: 3, gridRow: 1, "& .MuiSelect-select": scoreSelectSx }} MenuProps={menuProps}>
             {GOALS.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
           </Select>
-          <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{game.home}</Box>
-          <Box sx={{ gridColumn: 3, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{game.away}</Box>
+          <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{hs.base}</Box>
+          <Box sx={{ gridColumn: 3, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{as.base}</Box>
         </Box>
       )}
 
