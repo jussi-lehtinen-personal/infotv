@@ -46,3 +46,19 @@ export async function joinAhmaliiga() {
   const r = await fetch("/api/ahmaliiga/join", { method: "POST", headers: authHeaders() });
   return asJson(r);
 }
+
+// Leaderboard. scope = "jakso" | "kausi". Rows: { rank, nickname, total, me }.
+export async function getAhmaliigaRanking(scope, jakso) {
+  const p = new URLSearchParams();
+  if (scope) p.set("scope", scope);
+  if (jakso != null) p.set("jakso", jakso);
+  const r = await fetch(`/api/ahmaliiga/ranking?${p.toString()}`, { headers: authHeaders() });
+  return asJson(r);
+}
+
+// The signed-in manager's jakso breakdown (cards + points, total, rank, best).
+export async function getAhmaliigaSummary(jakso) {
+  const q = jakso != null ? `?jakso=${jakso}` : "";
+  const r = await fetch(`/api/ahmaliiga/summary${q}`, { headers: authHeaders() });
+  return asJson(r);
+}

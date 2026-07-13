@@ -3,24 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuShieldCheck, LuGoal, LuMedal, LuClock, LuTrendingUp, LuChevronRight, LuCrown } from "react-icons/lu";
 import { Screen, Eyebrow } from "./_shared";
-import { getAhmaliigaState } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// Ahmaliiga Dashboard — the landing screen: current jakso status (rank, points,
-// time left), Top 5, latest point updates, and the three primary CTAs. Mock data.
-
-const TOP5 = [
-  { rank: 1, name: "Jääkiekko-Jaana", pts: 312 },
-  { rank: 2, name: "Ahma_Ville", pts: 305 },
-  { rank: 3, name: "Kiekko-Kalle", pts: 298 },
-  { rank: 4, name: "Sinä", pts: 291, me: true },
-  { rank: 5, name: "PuolustajaPena", pts: 287 },
-];
-
-const UPDATES = [
-  { icon: LuCrown, text: "Kapteeni U13 Valkoinen voitti", pts: "+6 ×2" },
-  { icon: LuGoal, text: "Olander teki maalin", pts: "+3" },
-  { icon: LuGoal, text: "Veskari syötti maalin", pts: "+2" },
-];
+// Ahmaliiga Dashboard — season status (rank, jakso points, season total), Top 5,
+// the manager's latest-jakso card points, and the three CTAs. Real backend data;
+// stats show "—" before the first jakso is settled.
 
 const CTAS = [
   { to: "/ahmaliiga/joukkue", label: "Oma joukkue", Icon: LuShieldCheck },
@@ -28,22 +15,6 @@ const CTAS = [
   { to: "/ahmaliiga/ranking", label: "Ranking", Icon: LuMedal },
 ];
 
-const StatBox = ({ label, value, accent }) => (
-  <Box sx={{ flex: 1, textAlign: "center", py: 1.25 }}>
-    <Typography
-      sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-            fontSize: 30, lineHeight: 1, color: accent ? "primary.main" : "text.primary" }}
-    >
-      {value}
-    </Typography>
-    <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
-          color: "text.disabled", mt: 0.5 }}>
-      {label}
-    </Typography>
-  </Box>
-);
-
-// Human "N pv M h jäljellä" until a jakso's end date (browser clock).
 function timeLeft(endDate) {
   if (!endDate) return "—";
   const ms = new Date(endDate + "T23:59:59") - new Date();
@@ -52,24 +23,38 @@ function timeLeft(endDate) {
   return d > 0 ? `${d} pv ${h} h jäljellä` : `${h} h jäljellä`;
 }
 
+const StatBox = ({ label, value, accent }) => (
+  <Box sx={{ flex: 1, textAlign: "center", py: 1.25 }}>
+    <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+          fontSize: 30, lineHeight: 1, color: accent ? "primary.main" : "text.primary" }}>
+      {value}
+    </Typography>
+    <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+          color: "text.disabled", mt: 0.5 }}>{label}</Typography>
+  </Box>
+);
+
 export default function LiigaHome() {
   const nav = useNavigate();
   const [state, setState] = useState(null);
+  const [top, setTop] = useState(null);
+  const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getAhmaliigaState()
-      .then((s) => { if (!cancelled) setState(s); })
-      .catch(() => { if (!cancelled) setState({ active: false }); });
+    getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
+    getAhmaliigaRanking("kausi").then((d) => { if (!cancelled) setTop((d.rows || []).slice(0, 5)); }).catch(() => {});
+    getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
   const jakso = state && state.active ? state.currentJakso : null;
+  const st = state && state.standing;
   const jaksoLabel = jakso ? `Jakso ${jakso.no + 1} / ${state.jaksoCount}` : "Esikatselu";
+  const dash = (v) => (v == null ? "—" : v);
 
   return (
     <Screen>
-      {/* launch hero */}
       <Box sx={{ textAlign: "center", pt: 1, pb: 2 }}>
         <Box component="img" src="/ahmaliiga_logo.png" alt="Ahmaliiga"
              sx={{ width: "min(60vw, 220px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
@@ -78,11 +63,9 @@ export default function LiigaHome() {
         </Typography>
       </Box>
 
-      {/* current jakso status */}
       <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
             border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between"
-               spacing={1} sx={{ width: "100%", px: 2, pt: 1.5 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ width: "100%", px: 2, pt: 1.5 }}>
           <Eyebrow>{jaksoLabel}</Eyebrow>
           {jakso && (
             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: "text.secondary", flexShrink: 0 }}>
@@ -92,69 +75,68 @@ export default function LiigaHome() {
           )}
         </Stack>
         <Stack direction="row" divider={<Box sx={{ width: "1px", bgcolor: "var(--color-surface-border)" }} />}>
-          <StatBox label="Sijoitus" value="4." accent />
-          <StatBox label="Pisteet" value="46" />
-          <StatBox label="Kausi yht." value="291" />
+          <StatBox label="Sijoitus" value={st && st.seasonRank != null ? `${st.seasonRank}.` : "—"} accent />
+          <StatBox label="Jakson pisteet" value={dash(st && st.jaksoPts)} />
+          <StatBox label="Kausi yht." value={dash(st && st.seasonPts)} />
         </Stack>
       </Box>
 
-      {/* CTAs */}
       <Stack direction="row" spacing={1} sx={{ mb: 2.5 }}>
         {CTAS.map((c) => (
-          <ButtonBase
-            key={c.to}
-            onClick={() => nav(c.to)}
+          <ButtonBase key={c.to} onClick={() => nav(c.to)}
             sx={{ flex: 1, flexDirection: "column", gap: 0.75, py: 1.5, borderRadius: "var(--radius-item)",
                   bgcolor: "rgba(255,255,255,0.04)", border: "1px solid var(--color-surface-border)",
-                  color: "text.primary", "&:hover": { borderColor: "primary.main" } }}
-          >
+                  color: "text.primary", "&:hover": { borderColor: "primary.main" } }}>
             <Box component={c.Icon} sx={{ fontSize: 22, color: "primary.main" }} />
             <Box component="span" sx={{ fontSize: 12, fontWeight: 700 }}>{c.label}</Box>
           </ButtonBase>
         ))}
       </Stack>
 
-      {/* Top 5 */}
-      <SectionHeader title="Top 5" onMore={() => nav("/ahmaliiga/ranking")} />
-      <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
-            border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2.5 }}>
-        {TOP5.map((r) => (
-          <Stack key={r.rank} direction="row" alignItems="center" spacing={1.5}
-                 sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)",
-                       "&:last-of-type": { borderBottom: 0 },
-                       bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
-            <Box sx={{ width: 22, textAlign: "center", fontFamily: "var(--font-family-display)",
-                  fontSize: 18, color: r.rank <= 3 ? "primary.main" : "text.disabled" }}>
-              {r.rank}
-            </Box>
-            <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14,
-                  color: r.me ? "primary.main" : "text.primary" }}>
-              {r.name}
-            </Typography>
-            <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 18,
-                  letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>
-              {r.pts}
-            </Box>
-          </Stack>
-        ))}
-      </Box>
+      {top && top.length > 0 && (
+        <>
+          <SectionHeader title="Top 5" onMore={() => nav("/ahmaliiga/ranking")} />
+          <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
+                border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2.5 }}>
+            {top.map((r) => (
+              <Stack key={r.userId} direction="row" alignItems="center" spacing={1.5}
+                     sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)",
+                           "&:last-of-type": { borderBottom: 0 }, bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
+                <Box sx={{ width: 22, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 18,
+                      color: r.rank <= 3 ? "primary.main" : "text.disabled" }}>{r.rank}</Box>
+                <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14, color: r.me ? "primary.main" : "text.primary" }}>
+                  {r.me ? "Sinä" : r.nickname}
+                </Typography>
+                <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 18,
+                      letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>{r.total}</Box>
+              </Stack>
+            ))}
+          </Box>
+        </>
+      )}
 
-      {/* latest point updates */}
-      <SectionHeader title="Viimeisimmät pisteet" />
-      <Stack spacing={1}>
-        {UPDATES.map((u, i) => (
-          <Stack key={i} direction="row" alignItems="center" spacing={1.5}
-                 sx={{ px: 1.5, py: 1.1, borderRadius: "var(--radius-item)",
-                       bgcolor: "rgba(255,255,255,0.03)", border: "1px solid var(--color-surface-border)" }}>
-            <Box component={u.icon} sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
-            <Typography sx={{ flex: 1, fontSize: 14, color: "text.secondary" }}>{u.text}</Typography>
-            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4,
-                  color: "var(--color-live)", fontWeight: 800, fontSize: 13 }}>
-              <LuTrendingUp size={14} /> {u.pts}
-            </Box>
+      {summary && summary.settled && summary.cards && summary.cards.length > 0 && (
+        <>
+          <SectionHeader title={`Jakson ${summary.jakso + 1} pisteet`} onMore={() => nav("/ahmaliiga/jakso")} />
+          <Stack spacing={1}>
+            {summary.cards.map((c) => (
+              <Stack key={c.id} direction="row" alignItems="center" spacing={1.5}
+                     sx={{ px: 1.5, py: 1.1, borderRadius: "var(--radius-item)",
+                           bgcolor: "rgba(255,255,255,0.03)", border: "1px solid var(--color-surface-border)" }}>
+                <Box component={c.isCaptain ? LuCrown : LuGoal} sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
+                <Typography sx={{ flex: 1, fontSize: 14, color: "text.secondary",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {c.name}{c.isCaptain ? " · kapteeni" : ""}
+                </Typography>
+                <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4,
+                      color: c.pts > 0 ? "var(--color-live)" : "text.disabled", fontWeight: 800, fontSize: 13 }}>
+                  <LuTrendingUp size={14} /> +{c.pts}
+                </Box>
+              </Stack>
+            ))}
           </Stack>
-        ))}
-      </Stack>
+        </>
+      )}
     </Screen>
   );
 }
@@ -162,9 +144,7 @@ export default function LiigaHome() {
 const SectionHeader = ({ title, onMore }) => (
   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ width: "100%", mb: 1, px: 0.5 }}>
     <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-          fontSize: 20, color: "text.primary" }}>
-      {title}
-    </Typography>
+          fontSize: 20, color: "text.primary" }}>{title}</Typography>
     {onMore && (
       <ButtonBase onClick={onMore} sx={{ color: "text.secondary", fontSize: 13, fontWeight: 600,
             display: "inline-flex", alignItems: "center", gap: 0.25 }}>

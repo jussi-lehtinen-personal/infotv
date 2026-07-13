@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason } = require('../lib/ahmaliiga');
+const { seedSeason, loadResults, settleJakso, seedBots, getActiveSeason, getJaksot, activeJaksoNo } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -28,6 +28,40 @@ app.http('manageAhmaliiga', {
         }
         const result = await seedSeason(body.seed);
         return { jsonBody: { ok: true, ...result } };
+      }
+
+      if (action === 'loadResults') {
+        if (!body.results || typeof body.results !== 'object') {
+          return { status: 400, jsonBody: { error: 'results puuttuu.' } };
+        }
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await loadResults(season.rowKey, body.results);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      if (action === 'seedBots') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await seedBots(season.rowKey);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      if (action === 'settleJakso' || action === 'settleAll') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const jaksot = await getJaksot(season.rowKey);
+        const last = jaksot.length - 1;
+        if (action === 'settleJakso') {
+          const j = body.jakso != null ? Number(body.jakso) : activeJaksoNo(season, jaksot);
+          const result = await settleJakso(season.rowKey, j);
+          return { jsonBody: { ok: true, ...result } };
+        }
+        // settleAll: from the current pointer to the last jakso
+        const from = activeJaksoNo(season, jaksot);
+        const settled = [];
+        for (let j = from; j <= last; j++) { const r = await settleJakso(season.rowKey, j); settled.push(r.jakso); }
+        return { jsonBody: { ok: true, settled } };
       }
 
       return { status: 400, jsonBody: { error: `Tuntematon action: ${action}` } };

@@ -12,6 +12,7 @@ const TABLE_NAMES = [
   'AhmaliigaSeason', 'AhmaliigaJaksot', 'AhmaliigaCards', 'AhmaliigaCardHistory',
   'AhmaliigaManagers', 'AhmaliigaSquads', 'AhmaliigaLineups',
   'AhmaliigaPredictions', 'AhmaliigaScores', 'AhmaliigaSeasonScores',
+  'AhmaliigaResults',
 ];
 const clients = {};
 let ensured = false;

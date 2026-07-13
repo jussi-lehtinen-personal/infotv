@@ -1,4 +1,4 @@
-const { getEntity, upsertEntity, listByPartition, transact } = require('./tables');
+const { getEntity, upsertEntity, listByPartition, listEntities, transact } = require('./tables');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/jaksot/cards +
@@ -20,6 +20,11 @@ const T = {
   cardHistory: 'AhmaliigaCardHistory',
   managers: 'AhmaliigaManagers',
   squads: 'AhmaliigaSquads',
+  lineups: 'AhmaliigaLineups',
+  predictions: 'AhmaliigaPredictions',
+  scores: 'AhmaliigaScores',
+  seasonScores: 'AhmaliigaSeasonScores',
+  results: 'AhmaliigaResults',
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -48,6 +53,12 @@ function currentJaksoNo(jaksot, now = new Date()) {
   if (inWindow) return Number(inWindow.rowKey);
   if (today < jaksot[0].startDate) return Number(jaksot[0].rowKey);
   return Number(jaksot[jaksot.length - 1].rowKey);
+}
+
+// The current jakso: the admin-advanced pointer (sim/replay), else by date.
+function activeJaksoNo(season, jaksot) {
+  if (season && season.currentJakso != null && season.currentJakso !== '') return Number(season.currentJakso);
+  return currentJaksoNo(jaksot);
 }
 
 // Upsert many same-partition entities in ≤100-row transactional batches.
@@ -80,6 +91,8 @@ async function seedSeason(seed) {
     name: `Kausi ${seasonId}`, pricedFrom: String(seed.pricedFrom || ''),
     budget: seed.budget ?? ECON.budget, squadSize: seed.squadSize ?? ECON.squadSize,
     maxPlayers: seed.maxPlayers ?? ECON.maxPlayers, bands: JSON.stringify(seed.bands || {}),
+    // Sim/replay: an admin-advanced jakso pointer (settlement moves it forward).
+    currentJakso: 0, simMode: true,
   });
 
   for (const j of seed.jaksot || []) {
@@ -172,7 +185,7 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   if (playerCount > maxPlayers) throw badRequest(`Enintään ${maxPlayers} pelaaja-/maalivahtikorttia.`);
 
   const jaksot = await getJaksot(season.rowKey);
-  const curJakso = currentJaksoNo(jaksot);
+  const curJakso = activeJaksoNo(season, jaksot);
   const prev = await getSquad(userId);
 
   // Lock-in buy prices: kept cards keep their price, new cards pay current.
@@ -204,8 +217,233 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   return { ...parseSquad(row), bank: budget - spent, spent };
 }
 
+// --- M2: results + settlement (replay a past season) ---
+
+async function loadResults(seasonId, resultsObj) {
+  const byJakso = {};
+  for (const [cardId, jm] of Object.entries(resultsObj || {})) {
+    for (const [j, pts] of Object.entries(jm)) {
+      (byJakso[j] = byJakso[j] || []).push({ partitionKey: `${seasonId}|${j}`, rowKey: cardId, pts: Number(pts) || 0 });
+    }
+  }
+  let rows = 0;
+  for (const arr of Object.values(byJakso)) { await upsertBatch(T.results, arr); rows += arr.length; }
+  return { jaksot: Object.keys(byJakso).length, rows };
+}
+
+async function getResults(seasonId, jakso) {
+  const rows = await listByPartition(T.results, `${seasonId}|${jakso}`);
+  const out = {};
+  for (const r of rows) out[r.rowKey] = Number(r.pts) || 0;
+  return out;
+}
+
+async function listManagers() {
+  const rows = await listEntities(T.managers, "RowKey eq 'profile'");
+  return rows.map((r) => ({ userId: r.partitionKey, nickname: r.nickname || '', isBot: !!r.isBot }));
+}
+
+// Cumulative avg points/jakso for every card up to (incl.) `jakso` — drives the reband.
+async function cumForm(seasonId, jakso) {
+  const sums = {}, counts = {};
+  for (let j = 0; j <= jakso; j++) {
+    const r = await getResults(seasonId, j);
+    for (const [id, pts] of Object.entries(r)) { sums[id] = (sums[id] || 0) + pts; counts[id] = (counts[id] || 0) + 1; }
+  }
+  const form = {};
+  for (const id of Object.keys(sums)) form[id] = counts[id] ? sums[id] / counts[id] : null;
+  return form;
+}
+
+// Band by ranking a pool on form: top third Kallis, mid Keski, bottom Halpa; no
+// form (not yet played) → Keski.
+function bandPricesFrom(pool, form, bands) {
+  const withForm = pool.filter((c) => form[c.rowKey] != null).sort((a, b) => form[b.rowKey] - form[a.rowKey]);
+  const n = withForm.length, out = {};
+  withForm.forEach((c, i) => { out[c.rowKey] = i < n / 3 ? bands.kallis : i < (2 * n) / 3 ? bands.keski : bands.halpa; });
+  for (const c of pool) if (form[c.rowKey] == null) out[c.rowKey] = bands.keski;
+  return out;
+}
+const bandNameOf = (price, bands) => (price === bands.kallis ? 'kallis' : price === bands.keski ? 'keski' : 'halpa');
+
+async function recomputeSeasonScores(seasonId, uptoJakso) {
+  const totals = {};
+  for (let j = 0; j <= uptoJakso; j++) {
+    const rows = await listByPartition(T.scores, `${seasonId}|${j}`);
+    for (const r of rows) totals[r.rowKey] = (totals[r.rowKey] || 0) + (Number(r.total) || 0);
+  }
+  const arr = Object.entries(totals).map(([userId, total]) => ({ userId, total: Math.round(total * 10) / 10 }));
+  arr.sort((a, b) => b.total - a.total);
+  arr.forEach((r, i) => { r.rank = i + 1; });
+  for (const r of arr) await upsertEntity(T.seasonScores, { partitionKey: seasonId, rowKey: r.userId, total: r.total, rank: r.rank });
+  return arr.length;
+}
+
+// Settle one jakso: freeze each manager's lineup (once), score from the historical
+// results, rank, recompute the season table, then reband card prices for the next
+// jakso and advance the pointer. Idempotent (re-running recomputes cleanly).
+async function settleJakso(seasonId, jakso) {
+  const seasonRow = await getEntity(T.season, 'season', seasonId);
+  if (!seasonRow) throw badRequest('Kausi puuttuu.');
+  const jaksot = await getJaksot(seasonId);
+  const resJ = await getResults(seasonId, jakso);
+  const cards = await getCards(seasonId);
+  const cardMap = {};
+  for (const c of cards) cardMap[c.rowKey] = c;
+  const managers = await listManagers();
+
+  const ownerCount = {};
+  const jaksoRows = [];
+  for (const m of managers) {
+    // reuse a previously frozen lineup so re-settle is stable
+    const existing = await getEntity(T.scores, `${seasonId}|${jakso}`, m.userId);
+    let ids, captainId;
+    if (existing && existing.cards) {
+      try { const p = JSON.parse(existing.cards); ids = p.ids; captainId = p.captainId; } catch { ids = null; }
+    }
+    if (!ids) {
+      const sq = await getSquad(m.userId);
+      if (!sq || !sq.cards.length) continue;
+      ids = sq.cards.map((c) => c.id); captainId = sq.captainId;
+    }
+    let total = 0; const breakdown = {};
+    for (const id of ids) {
+      const pts = resJ[id] || 0;
+      const eff = id === captainId ? pts * 2 : pts;
+      breakdown[id] = eff; total += eff;
+      ownerCount[id] = (ownerCount[id] || 0) + 1;
+    }
+    jaksoRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids, captainId, breakdown });
+  }
+  jaksoRows.sort((a, b) => b.total - a.total);
+  jaksoRows.forEach((r, i) => { r.rank = i + 1; });
+  for (const r of jaksoRows) {
+    await upsertEntity(T.scores, {
+      partitionKey: `${seasonId}|${jakso}`, rowKey: r.userId,
+      total: r.total, rank: r.rank, captainId: r.captainId || '',
+      cards: JSON.stringify({ ids: r.ids, captainId: r.captainId }),
+      breakdown: JSON.stringify(r.breakdown),
+    });
+  }
+
+  const jrow = jaksot.find((j) => Number(j.rowKey) === jakso);
+  if (jrow) await upsertEntity(T.jaksot, { ...jrow, status: 'settled' });
+  const nextJakso = Math.min(jakso + 1, jaksot.length - 1);
+  await upsertEntity(T.season, { ...seasonRow, currentJakso: nextJakso });
+
+  // recompute the WHOLE cumulative (0..last) so re-settling an earlier jakso stays correct
+  await recomputeSeasonScores(seasonId, jaksot.length - 1);
+
+  // reband for next jakso + snapshot this jakso's price/points/ownership
+  const form = await cumForm(seasonId, jakso);
+  const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
+  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand);
+  const newPrice = { ...priceT, ...priceP };
+  await upsertBatch(T.cards, cards.map((c) => {
+    const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
+    const price = newPrice[c.rowKey];
+    return {
+      partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
+      teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
+      band: bandNameOf(price, bands), price, ownerCount: ownerCount[c.rowKey] || 0,
+      lastPts: resJ[c.rowKey] || 0, priorForm: c.priorForm ?? null,
+    };
+  }));
+  await inChunks(cards, 25, (c) => upsertEntity(T.cardHistory, {
+    partitionKey: `${seasonId}|${c.rowKey}`, rowKey: String(jakso),
+    price: cardMap[c.rowKey].price, band: cardMap[c.rowKey].band,
+    pts: resJ[c.rowKey] || 0, ownerCount: ownerCount[c.rowKey] || 0,
+  }));
+
+  return { jakso, managers: jaksoRows.length, nextJakso };
+}
+
+// Greedy squad pick for bots (budget + slots + max players), matching backtest.
+function botSquad(cards, scoreFn) {
+  const build = (order) => {
+    const squad = []; let spent = 0, np = 0;
+    for (const c of order) {
+      if (squad.length >= ECON.squadSize) break;
+      if (c.kind !== 'team' && np >= ECON.maxPlayers) continue;
+      const reserve = (ECON.squadSize - squad.length - 1) * ECON.band.halpa;
+      if (c.price <= ECON.budget - spent - reserve) { squad.push(c); spent += c.price; if (c.kind !== 'team') np++; }
+    }
+    return squad;
+  };
+  const squad = build([...cards].sort((a, b) => scoreFn(b) - scoreFn(a)));
+  // If the strategy can't afford a legal 5 (e.g. two top stars), fall back to the
+  // cheapest feasible squad so no bot is ever skipped.
+  return squad.length === ECON.squadSize ? squad : build([...cards].sort((a, b) => a.price - b.price));
+}
+
+// Create a handful of bot managers (fixed squads) so the leaderboard is populated.
+async function seedBots(seasonId) {
+  const cards = (await getCards(seasonId)).map((c) => ({ ...c, f: c.priorForm == null ? 0 : Number(c.priorForm), price: Number(c.price) }));
+  // Deliberately distinct, feasible strategies so the leaderboard isn't a tie.
+  const BOTS = [
+    { id: 'bot-jaana', name: 'Jääkiekko-Jaana', pick: (c) => c.f },                              // chalk
+    { id: 'bot-ville', name: 'Ahma_Ville', pick: (c) => c.f + (c.kind !== 'team' && c.price <= 40 ? 3 : 0) - (c.kind !== 'team' && c.price >= 50 ? 6 : 0) }, // budget players
+    { id: 'bot-kalle', name: 'Kiekko-Kalle', pick: (c) => (c.kind === 'team' ? 100 : 0) + c.f },  // teams only
+    { id: 'bot-pena', name: 'PuolustajaPena', pick: (c) => c.f * (c.price <= 20 ? 1.6 : 0.6) },   // cheap value
+    { id: 'bot-salla', name: 'SyöttöSalla', pick: (c) => -Math.abs(c.f - 3) },                    // average cards
+  ];
+  let made = 0;
+  for (const b of BOTS) {
+    const squad = botSquad(cards, b.pick);
+    if (squad.length < ECON.squadSize) continue;
+    const captain = [...squad].sort((a, c) => c.f - a.f)[0];
+    await upsertEntity(T.managers, { partitionKey: b.id, rowKey: 'profile', nickname: b.name, isBot: true, joinedAt: new Date().toISOString() });
+    await upsertEntity(T.squads, {
+      partitionKey: b.id, rowKey: 'current', seasonId, jaksoNo: 0,
+      cards: JSON.stringify(squad.map((c) => ({ id: c.rowKey, buyPrice: c.price }))),
+      captainId: captain.rowKey, transfersUsedThisJakso: 0, updatedAt: new Date().toISOString(),
+    });
+    made++;
+  }
+  return { bots: made };
+}
+
+// Leaderboard (jakso or kausi) with nicknames.
+async function getLeaderboard(seasonId, scope, jakso) {
+  const rows = scope === 'kausi'
+    ? await listByPartition(T.seasonScores, seasonId)
+    : await listByPartition(T.scores, `${seasonId}|${jakso}`);
+  const managers = await listManagers();
+  const nick = {};
+  for (const m of managers) nick[m.userId] = m.nickname;
+  return rows
+    .map((r) => ({ userId: r.rowKey, nickname: nick[r.rowKey] || 'Pelaaja', total: Number(r.total) || 0, rank: Number(r.rank) || 0 }))
+    .sort((a, b) => a.rank - b.rank);
+}
+
+// A manager's standing: current-jakso points+rank + season total+rank.
+async function getStanding(seasonId, jakso, userId) {
+  const [jRow, sRow] = await Promise.all([
+    getEntity(T.scores, `${seasonId}|${jakso}`, userId),
+    getEntity(T.seasonScores, seasonId, userId),
+  ]);
+  return {
+    jaksoPts: jRow ? Number(jRow.total) : null,
+    jaksoRank: jRow ? Number(jRow.rank) : null,
+    seasonPts: sRow ? Number(sRow.total) : null,
+    seasonRank: sRow ? Number(sRow.rank) : null,
+  };
+}
+
+// A manager's per-jakso score row (total, rank, per-card breakdown, lineup).
+async function getJaksoScore(seasonId, jakso, userId) {
+  const row = await getEntity(T.scores, `${seasonId}|${jakso}`, userId);
+  if (!row) return null;
+  let breakdown = {}, ids = [], captainId = null;
+  try { breakdown = JSON.parse(row.breakdown || '{}'); } catch { breakdown = {}; }
+  try { const p = JSON.parse(row.cards || '{}'); ids = p.ids || []; captainId = p.captainId || null; } catch { ids = []; }
+  return { total: Number(row.total) || 0, rank: Number(row.rank) || 0, breakdown, ids, captainId };
+}
+
 module.exports = {
   ECON, T, badRequest,
-  getActiveSeason, getCards, getJaksot, currentJaksoNo, seedSeason,
+  getActiveSeason, getCards, getJaksot, currentJaksoNo, activeJaksoNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
+  loadResults, getResults, settleJakso, seedBots,
+  getLeaderboard, getStanding, getJaksoScore,
 };
