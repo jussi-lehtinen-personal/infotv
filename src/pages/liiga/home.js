@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuShieldCheck, LuGoal, LuMedal, LuClock, LuTrendingUp, LuChevronRight, LuCrown } from "react-icons/lu";
 import { Screen, Eyebrow } from "./_shared";
+import { getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — the landing screen: current jakso status (rank, points,
 // time left), Top 5, latest point updates, and the three primary CTAs. Mock data.
@@ -42,8 +43,32 @@ const StatBox = ({ label, value, accent }) => (
   </Box>
 );
 
+// Human "N pv M h jäljellä" until a jakso's end date (browser clock).
+function timeLeft(endDate) {
+  if (!endDate) return "—";
+  const ms = new Date(endDate + "T23:59:59") - new Date();
+  if (ms <= 0) return "jakso päättynyt";
+  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000);
+  return d > 0 ? `${d} pv ${h} h jäljellä` : `${h} h jäljellä`;
+}
+
 export default function LiigaHome() {
   const nav = useNavigate();
+  const [state, setState] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAhmaliigaState()
+      .then((s) => { if (!cancelled) setState(s); })
+      .catch(() => { if (!cancelled) setState({ active: false }); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const jakso = state && state.active ? state.currentJakso : null;
+  const jaksoLabel = jakso
+    ? `Jakso ${jakso.no + 1} / ${state.jaksoCount} käynnissä`
+    : "Esikatselu";
+
   return (
     <Screen>
       {/* launch hero */}
@@ -60,11 +85,13 @@ export default function LiigaHome() {
             border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between"
                sx={{ px: 2, pt: 1.5 }}>
-          <Eyebrow>Jakso 3 käynnissä</Eyebrow>
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: "text.secondary" }}>
-            <LuClock size={14} />
-            <Box component="span" sx={{ fontSize: 12, fontWeight: 600 }}>2 pv 4 h jäljellä</Box>
-          </Stack>
+          <Eyebrow>{jaksoLabel}</Eyebrow>
+          {jakso && (
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: "text.secondary" }}>
+              <LuClock size={14} />
+              <Box component="span" sx={{ fontSize: 12, fontWeight: 600 }}>{timeLeft(jakso.endDate)}</Box>
+            </Stack>
+          )}
         </Stack>
         <Stack direction="row" divider={<Box sx={{ width: "1px", bgcolor: "var(--color-surface-border)" }} />}>
           <StatBox label="Sijoitus" value="4." accent />
