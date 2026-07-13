@@ -1,29 +1,64 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Box, Typography, Stack, Button, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlus, LuMinus, LuGoal, LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import React, { useState, useEffect } from "react";
+import { Box, Typography, Stack, Button, Select, MenuItem, CircularProgress, Alert } from "@mui/material";
+import { LuGoal, LuTrophy, LuTarget, LuStar, LuClock } from "react-icons/lu";
 import { Screen, Title, Eyebrow, CardAvatar } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
-// Veikkaa ottelu — bonus tiers, a symmetric match carousel (VS dead centre,
-// mirrored logos, arrows flanking the card, dots below) and a score control with
-// a +/- stepper (plus above, minus below) under each team.
+// Veikkaa ottelu — bonus tiers, a match dropdown + match card, and two score
+// dropdowns. Bonus settles from the historical result.
 
 const BONUS = [
-  { label: "Oikea voittaja", pts: "+1 p" },
-  { label: "Oikea voittaja ja maaliero", pts: "+2 p" },
-  { label: "Tarkka tulos", pts: "+3 p" },
+  { icon: LuTrophy, label: "Oikea voittaja", pts: "+1p" },
+  { icon: LuTarget, label: "Oikea voittaja ja maaliero", pts: "+2p" },
+  { icon: LuStar, label: "Tarkka tulos", pts: "+3p" },
 ];
+const GOALS = Array.from({ length: 16 }, (_, i) => i); // 0..15
 
 const shortDate = (d) => {
   const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2}:\d{2})?/);
   return m ? `${Number(m[3])}.${Number(m[2])}.${m[4] ? " " + m[4] : ""}` : "";
 };
+const timeLeft = (d) => {
+  const t = new Date(String(d || "").replace(" ", "T")) - new Date();
+  if (!(t > 0)) return null;
+  const dd = Math.floor(t / 86400000), hh = Math.floor((t % 86400000) / 3600000), mm = Math.floor((t % 3600000) / 60000);
+  return `${dd} pv ${hh} h ${mm} min`;
+};
 
-const Label = ({ children, sx }) => (
-  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", ...sx }}>
+const StepLabel = ({ children, sx }) => (
+  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", ...sx }}>
     {children}
   </Typography>
 );
+
+const selectSx = {
+  bgcolor: "var(--color-surface)", borderRadius: "var(--radius-item)", color: "text.primary",
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-surface-border)" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "primary.main" },
+  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "primary.main" },
+  "& .MuiSvgIcon-root": { color: "text.secondary" },
+};
+const menuProps = {
+  PaperProps: { sx: { bgcolor: "#1b1b1b", border: "1px solid var(--color-surface-border)", maxHeight: 320,
+    "& .MuiMenuItem-root": { color: "text.primary", fontSize: 14 },
+    "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(249,115,22,0.2)" },
+    "& .MuiMenuItem-root.Mui-selected:hover": { bgcolor: "rgba(249,115,22,0.28)" } } },
+};
+
+// White circular logo tile; crest/badge fallback.
+const TeamLogo = ({ name, logo, ahma, size }) =>
+  logo ? (
+    <Box component="img" src={logo} alt="" sx={{ width: size, height: size, flexShrink: 0, objectFit: "contain",
+          background: "#fff", borderRadius: "50%", p: `${Math.round(size * 0.12)}px`, boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
+  ) : ahma ? (
+    <CardAvatar card={{ kind: "team", name }} size={size} />
+  ) : (
+    <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center",
+          justifyContent: "center", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)", border: "1px solid rgba(255,255,255,0.12)",
+          fontWeight: 800, fontSize: Math.round(size * (String(name).length <= 3 ? 0.3 : 0.22)), color: "text.primary" }}>
+      {name}
+    </Box>
+  );
 
 const nameSx = {
   fontFamily: "var(--font-family-display)", fontSize: 16, lineHeight: 1.1, textAlign: "center",
@@ -31,71 +66,22 @@ const nameSx = {
   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
 };
 
-// Uniform white logo tile (same look as the Ottelut page); crest/badge fallback.
-const TeamLogo = ({ name, logo, ahma, size }) =>
-  logo ? (
-    <Box component="img" src={logo} alt="" sx={{ width: size, height: size, flexShrink: 0, objectFit: "contain",
-          background: "#fff", borderRadius: `${Math.round(size * 0.16)}px`, p: `${Math.round(size * 0.1)}px`,
-          boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
-  ) : ahma ? (
-    <CardAvatar card={{ kind: "team", name }} size={size} />
-  ) : (
-    <Box sx={{ width: size, height: size, borderRadius: `${Math.round(size * 0.16)}px`, flexShrink: 0, display: "flex",
-          alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
-          border: "1px solid rgba(255,255,255,0.12)", fontWeight: 800,
-          fontSize: Math.round(size * (String(name).length <= 3 ? 0.3 : 0.22)), color: "text.primary" }}>
-      {name}
-    </Box>
-  );
-
-const ArrowBtn = ({ onClick, children }) => (
-  <ButtonBase onClick={onClick} sx={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-        bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", color: "text.secondary",
-        "&:hover": { color: "primary.main", borderColor: "primary.main" } }}>{children}</ButtonBase>
-);
-
-const Dots = ({ count, active, onDot }) => (
-  <Stack direction="row" justifyContent="center" alignItems="center" sx={{ mt: 1.25, gap: 0.75, flexWrap: "wrap" }}>
-    {Array.from({ length: count }).map((_, i) => (
-      <Box key={i} onClick={() => onDot(i)} sx={{ width: i === active ? 18 : 7, height: 7, borderRadius: 99,
-            cursor: "pointer", transition: "all .2s", bgcolor: i === active ? "primary.main" : "rgba(255,255,255,0.25)" }} />
-    ))}
-  </Stack>
-);
-
-const RoundBtn = ({ onClick, disabled, children }) => (
-  <ButtonBase onClick={onClick} disabled={disabled} sx={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
-        bgcolor: "rgba(255,255,255,0.06)", border: "1px solid var(--color-surface-border)", color: "text.primary",
-        "&.Mui-disabled": { opacity: 0.3 } }}>{children}</ButtonBase>
-);
-
-// Vertical stepper: + above, big number, - below.
-const VStepper = ({ value, set }) => (
-  <Stack alignItems="center" spacing={1.25}>
-    <RoundBtn onClick={() => set(Math.min(30, value + 1))}><LuPlus size={20} /></RoundBtn>
-    <Box sx={{ width: 60, textAlign: "center", fontFamily: "var(--font-family-base)", fontWeight: 800,
-          fontSize: 50, lineHeight: 1, color: "text.primary" }}>{value}</Box>
-    <RoundBtn onClick={() => set(Math.max(0, value - 1))} disabled={value <= 0}><LuMinus size={20} /></RoundBtn>
-  </Stack>
-);
-
 export default function LiigaPredict() {
   const [data, setData] = useState(undefined);
-  const [idx, setIdx] = useState(0);
+  const [gameId, setGameId] = useState("");
   const [home, setHome] = useState(0);
   const [away, setAway] = useState(0);
   const [savedId, setSavedId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const touchX = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaPrediction().then((d) => {
       if (cancelled) return;
       setData(d);
-      const start = d.myPrediction ? Math.max(0, d.games.findIndex((g) => g.gameId === d.myPrediction.gameId)) : 0;
-      setIdx(start);
+      const first = (d.myPrediction && d.myPrediction.gameId) || (d.games[0] && d.games[0].gameId) || "";
+      setGameId(first);
       if (d.myPrediction) { setHome(d.myPrediction.homeGoals); setAway(d.myPrediction.awayGoals); setSavedId(d.myPrediction.gameId); }
     }).catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
@@ -114,23 +100,14 @@ export default function LiigaPredict() {
   }
 
   const { settled, games } = data;
-  const game = games[Math.min(idx, games.length - 1)];
+  const game = games.find((g) => g.gameId === gameId) || games[0];
   const isSavedGame = savedId === game.gameId;
-  const multi = games.length > 1;
+  const left = !settled && timeLeft(game.date);
 
-  const gotoIndex = (i) => {
-    const n = (i + games.length) % games.length;
-    setIdx(n); setError("");
-    const g = games[n];
-    if (data.myPrediction && data.myPrediction.gameId === g.gameId) { setHome(data.myPrediction.homeGoals); setAway(data.myPrediction.awayGoals); }
+  const selectGame = (id) => {
+    setGameId(id); setError("");
+    if (data.myPrediction && data.myPrediction.gameId === id) { setHome(data.myPrediction.homeGoals); setAway(data.myPrediction.awayGoals); }
     else { setHome(0); setAway(0); }
-  };
-  const onTouchStart = (e) => { touchX.current = e.touches[0].clientX; };
-  const onTouchEnd = (e) => {
-    if (touchX.current == null || !multi) return;
-    const dx = e.changedTouches[0].clientX - touchX.current;
-    if (Math.abs(dx) > 40) gotoIndex(idx + (dx < 0 ? 1 : -1));
-    touchX.current = null;
   };
 
   const save = async () => {
@@ -153,39 +130,39 @@ export default function LiigaPredict() {
           <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>Bonuspisteet</Typography>
         </Stack>
         {BONUS.map((b, i) => (
-          <Stack key={i} direction="row" alignItems="center" spacing={1}
+          <Stack key={i} direction="row" alignItems="center" spacing={1.25}
                  sx={{ px: 2, py: 0.9, borderBottom: "1px solid rgba(249,115,22,0.12)", "&:last-of-type": { borderBottom: 0 } }}>
+            <Box component={b.icon} sx={{ color: "text.secondary", fontSize: 17, flexShrink: 0 }} />
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>{b.label}</Typography>
             <Box sx={{ flexShrink: 0, fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 15, color: "primary.main" }}>{b.pts}</Box>
           </Stack>
         ))}
       </Box>
 
-      {/* match carousel — arrows flank the card, dots below */}
-      <Label sx={{ mb: 1 }}>Valitse ottelu</Label>
-      <Stack direction="row" alignItems="center" spacing={1}>
-        {multi && <ArrowBtn onClick={() => gotoIndex(idx - 1)}><LuChevronLeft size={18} /></ArrowBtn>}
-        <Box onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-             sx={{ flex: 1, minWidth: 0, borderRadius: "var(--radius-card)", p: 2,
-                   bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-          <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.5, rowGap: 1 }}>
-            <Box sx={{ gridColumn: 1, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} size={72} /></Box>
-            <Box sx={{ gridColumn: 2, gridRow: "1 / 3", alignSelf: "center", fontFamily: "var(--font-family-display)",
-                  fontSize: settled ? 30 : 22, letterSpacing: "var(--font-display-tracking)", color: settled ? "primary.main" : "text.disabled" }}>
-              {settled ? `${game.homeGoals}–${game.awayGoals}` : "VS"}
-            </Box>
-            <Box sx={{ gridColumn: 3, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} size={72} /></Box>
-            <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx }}>{game.home}</Box>
-            <Box sx={{ gridColumn: 3, gridRow: 2, ...nameSx }}>{game.away}</Box>
-          </Box>
-          <Typography variant="body2" sx={{ textAlign: "center", color: "text.secondary", mt: 1.5 }}>{shortDate(game.date)} · {game.level}</Typography>
-        </Box>
-        {multi && <ArrowBtn onClick={() => gotoIndex(idx + 1)}><LuChevronRight size={18} /></ArrowBtn>}
-      </Stack>
-      {multi && <Dots count={games.length} active={idx} onDot={gotoIndex} />}
+      {/* 1. select match */}
+      <StepLabel sx={{ mb: 1 }}>1. Valitse ottelu</StepLabel>
+      <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} sx={selectSx} MenuProps={menuProps}>
+        {games.map((g) => (
+          <MenuItem key={g.gameId} value={g.gameId}>{g.home} – {g.away}</MenuItem>
+        ))}
+      </Select>
 
-      {/* score */}
-      <Label sx={{ mt: 2.5, mb: 1.5 }}>Arvaa tulos</Label>
+      <Box sx={{ mt: 2, mb: 2.5 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.5, rowGap: 1 }}>
+          <Box sx={{ gridColumn: 1, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} size={84} /></Box>
+          <Box sx={{ gridColumn: 2, gridRow: "1 / 3", alignSelf: "center", fontFamily: "var(--font-family-display)",
+                fontSize: settled ? 30 : 24, letterSpacing: "var(--font-display-tracking)", color: settled ? "primary.main" : "text.disabled" }}>
+            {settled ? `${game.homeGoals}–${game.awayGoals}` : "VS"}
+          </Box>
+          <Box sx={{ gridColumn: 3, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} size={84} /></Box>
+          <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx }}>{game.home}</Box>
+          <Box sx={{ gridColumn: 3, gridRow: 2, ...nameSx }}>{game.away}</Box>
+        </Box>
+        <Typography variant="body2" sx={{ textAlign: "center", color: "text.secondary", mt: 1.5 }}>{shortDate(game.date)} · {game.level}</Typography>
+      </Box>
+
+      {/* 2. score */}
+      <StepLabel sx={{ mb: 1.25 }}>2. Veikkaa lopputulos</StepLabel>
       {settled ? (
         <Box sx={{ textAlign: "center", py: 1 }}>
           {isSavedGame ? (
@@ -197,11 +174,19 @@ export default function LiigaPredict() {
           )}
         </Box>
       ) : (
-        <Stack direction="row" alignItems="center" justifyContent="center" spacing={3}>
-          <VStepper value={home} set={setHome} />
-          <Box component="span" sx={{ color: "text.disabled", fontSize: 34, fontWeight: 300 }}>–</Box>
-          <VStepper value={away} set={setAway} />
-        </Stack>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.25, rowGap: 0.75 }}>
+          <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1,
+                "& .MuiSelect-select": { fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 30, py: 1, textAlign: "center" } }} MenuProps={menuProps}>
+            {GOALS.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
+          </Select>
+          <Box sx={{ gridColumn: 2, gridRow: 1, color: "text.disabled", fontSize: 26 }}>—</Box>
+          <Select value={away} onChange={(e) => setAway(e.target.value)} sx={{ ...selectSx, gridColumn: 3, gridRow: 1,
+                "& .MuiSelect-select": { fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 30, py: 1, textAlign: "center" } }} MenuProps={menuProps}>
+            {GOALS.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
+          </Select>
+          <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{game.home}</Box>
+          <Box sx={{ gridColumn: 3, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{game.away}</Box>
+        </Box>
       )}
 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
@@ -210,6 +195,17 @@ export default function LiigaPredict() {
         <Button fullWidth variant="contained" disabled={saving} onClick={save} sx={{ py: 1.3, mt: 2.5 }}>
           {saving ? "Tallennetaan…" : isSavedGame ? "Veikkaus tallennettu — päivitä" : "Tallenna veikkaus"}
         </Button>
+      )}
+
+      {left && (
+        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mt: 2, px: 1.75, py: 1.25, borderRadius: "var(--radius-item)",
+              bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+          <Box component={LuClock} sx={{ color: "text.secondary", fontSize: 20, flexShrink: 0 }} />
+          <Box>
+            <Typography variant="caption" sx={{ color: "text.disabled", display: "block", lineHeight: 1.2 }}>Veikkausaikaa jäljellä</Typography>
+            <Typography sx={{ fontWeight: 700, color: "text.primary" }}>{left}</Typography>
+          </Box>
+        </Stack>
       )}
     </Screen>
   );
