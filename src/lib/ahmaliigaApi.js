@@ -62,3 +62,14 @@ export async function getAhmaliigaSummary(jakso) {
   const r = await fetch(`/api/ahmaliiga/summary${q}`, { headers: authHeaders() });
   return asJson(r);
 }
+
+// Admin ops (env-admin gated server-side): status | settleJakso | settleAll |
+// seedBots | resetSim. Drives the season replay from the in-app admin panel.
+export async function ahmaliigaAdmin(action, extra) {
+  const r = await fetch("/api/manageAhmaliiga", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ action, ...(extra || {}) }),
+  });
+  return asJson(r);
+}

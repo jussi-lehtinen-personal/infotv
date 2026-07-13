@@ -1,7 +1,7 @@
 import React from "react";
 import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles } from "@mui/material";
-import { LuArrowLeft, LuLogOut, LuInfo, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
+import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
 import { useEnvAdmin } from "../hooks/useEnvAdmin";
 
 // Ahmaliiga runs as its own "mode" inside Gamezone: own bottom bar, and a top bar
@@ -79,6 +79,9 @@ export const AhmaliigaLayout = () => {
                 transform: "translateY(var(--font-display-shift))", color: "text.primary" }}>
             AHMA<Box component="span" sx={{ color: "primary.main" }}>LIIGA</Box>
           </Typography>
+          <IconButton component={Link} to="/ahmaliiga/admin" aria-label="Admin" sx={topBtnSx}>
+            <LuSettings size={18} />
+          </IconButton>
           <IconButton component={Link} to="/ahmaliiga/saannot" aria-label="Säännöt" sx={topBtnSx}>
             <LuInfo size={18} />
           </IconButton>

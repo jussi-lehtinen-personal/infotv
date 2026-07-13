@@ -1,4 +1,4 @@
-const { getEntity, upsertEntity, listByPartition, listEntities, transact } = require('./tables');
+const { getEntity, upsertEntity, deleteEntity, listByPartition, listEntities, transact } = require('./tables');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/jaksot/cards +
@@ -110,6 +110,8 @@ async function seedSeason(seed) {
     teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
     band: c.band, price: c.price, ownerCount: 0, lastPts: 0,
     priorForm: c.priorForm ?? null,
+    // seed values so an admin "reset" can restore prices without re-uploading
+    seedPrice: c.price, seedBand: c.band,
   })));
 
   // jakso-0 snapshot so price/points history exists from the start.
@@ -440,10 +442,59 @@ async function getJaksoScore(seasonId, jakso, userId) {
   return { total: Number(row.total) || 0, rank: Number(row.rank) || 0, breakdown, ids, captainId };
 }
 
+async function clearPartition(table, pk) {
+  const rows = await listByPartition(table, pk);
+  await inChunks(rows, 25, (r) => deleteEntity(table, r.partitionKey, r.rowKey));
+  return rows.length;
+}
+
+// Reset the replay: pointer → jakso 0, jaksot → open, cards restored to seed
+// prices, all Scores/SeasonScores cleared. KEEPS results, bots, managers, squads
+// (so you can just settle again). Card ownership/lastPts zeroed.
+async function resetSim(seasonId) {
+  const seasonRow = await getEntity(T.season, 'season', seasonId);
+  if (!seasonRow) throw badRequest('Kausi puuttuu.');
+  await upsertEntity(T.season, { ...seasonRow, currentJakso: 0 });
+  const jaksot = await getJaksot(seasonId);
+  for (const j of jaksot) if (j.status && j.status !== 'open') await upsertEntity(T.jaksot, { ...j, status: 'open' });
+  const cards = await getCards(seasonId);
+  await upsertBatch(T.cards, cards.map((c) => {
+    const price = c.seedPrice != null ? Number(c.seedPrice) : Number(c.price);
+    const band = c.seedBand || c.band;
+    return {
+      partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
+      teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
+      band, price, ownerCount: 0, lastPts: 0, priorForm: c.priorForm ?? null,
+      seedPrice: price, seedBand: band,
+    };
+  }));
+  for (let j = 0; j < jaksot.length; j++) await clearPartition(T.scores, `${seasonId}|${j}`);
+  await clearPartition(T.seasonScores, seasonId);
+  return { reset: true, jaksot: jaksot.length };
+}
+
+// Status for the admin panel.
+async function getSimStatus(seasonId) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  const jaksot = await getJaksot(seasonId);
+  const managers = await listManagers();
+  const settled = jaksot.filter((j) => j.status === 'settled').length;
+  const resultsLoaded = (await listByPartition(T.results, `${seasonId}|0`)).length > 0;
+  return {
+    season: seasonId,
+    currentJakso: season && season.currentJakso != null ? Number(season.currentJakso) : 0,
+    jaksoCount: jaksot.length,
+    settled,
+    humans: managers.filter((m) => !m.isBot).length,
+    bots: managers.filter((m) => m.isBot).length,
+    resultsLoaded,
+  };
+}
+
 module.exports = {
   ECON, T, badRequest,
   getActiveSeason, getCards, getJaksot, currentJaksoNo, activeJaksoNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, settleJakso, seedBots,
+  loadResults, getResults, settleJakso, seedBots, resetSim, getSimStatus,
   getLeaderboard, getStanding, getJaksoScore,
 };
