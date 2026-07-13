@@ -170,42 +170,29 @@ const Index = () => {
   );
 };
 
-// Home launch banner for the Ahmaliiga preview (env-admin only). Links into the
-// Ahmaliiga mode (its own layout takes over from there).
+// Home launch banner for the Ahmaliiga preview (env-admin only). The banner
+// image bakes in the wordmark, tagline, feature icons and CTA — the whole card
+// is a link into the Ahmaliiga mode (its own layout takes over from there).
 const AhmaliigaLaunchCard = () => (
   <Box
     component={Link}
     to="/ahmaliiga"
+    aria-label="Siirry Ahmaliigaan"
     sx={{
-      position: "relative",
+      display: "block",
+      lineHeight: 0,
       overflow: "hidden",
-      textDecoration: "none",
-      display: "flex",
-      alignItems: "center",
-      gap: 1.5,
-      p: 2,
       borderRadius: "var(--radius-card)",
-      background: "linear-gradient(135deg, rgba(249,115,22,0.28), rgba(249,115,22,0.05))",
-      border: "1px solid rgba(249,115,22,0.55)",
+      border: "1px solid rgba(249,115,22,0.35)",
       boxShadow: "0 14px 34px rgba(249,115,22,0.18)",
     }}
   >
-    <Box component="img" src="/ahmaliiga_logo.png" alt=""
-         sx={{ width: 72, height: 72, objectFit: "contain", flexShrink: 0 }} />
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Box sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-            color: "var(--color-primary)", textTransform: "uppercase" }}>
-        Uutta · Esikatselu
-      </Box>
-      <Box sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-            fontSize: 28, lineHeight: 1, color: "#fff", mt: 0.25 }}>
-        AHMALIIGA
-      </Box>
-      <Box sx={{ fontSize: 13, color: "rgba(255,255,255,0.7)", mt: 0.5 }}>
-        Kokoa unelmajoukkueesi Ahman korteista. Pelaa nyt →
-      </Box>
-    </Box>
-    <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "var(--color-primary)", fontSize: 22 }} />
+    <Box
+      component="img"
+      src="/ahmaliiga_hero.png"
+      alt="Ahmaliiga — kokoa unelmajoukkueesi ja kerää pisteitä"
+      sx={{ width: "100%", height: "auto", display: "block" }}
+    />
   </Box>
 );
 
