@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography, Card, Stack, Chip } from "@mui/material";
+import { Box, Typography, Card, Stack } from "@mui/material";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 
@@ -25,21 +25,20 @@ const Rule = ({ label, value, dim }) => (
   <Stack
     direction="row"
     alignItems="center"
-    justifyContent="space-between"
-    spacing={1}
-    sx={{ py: 0.85, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}
+    spacing={1.5}
+    sx={{ py: 0.9, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}
   >
-    <Typography variant="body2" sx={{ color: "text.secondary", minWidth: 0 }}>{label}</Typography>
-    <Chip
-      label={value}
-      size="small"
+    <Typography variant="body2" sx={{ color: "text.secondary", flex: 1, minWidth: 0 }}>{label}</Typography>
+    <Box
       sx={{
-        flexShrink: 0, fontWeight: 800,
-        bgcolor: dim ? "var(--color-surface)" : "rgba(var(--color-primary-rgb),0.15)",
-        color: dim ? "text.secondary" : "primary.main",
-        border: `1px solid ${dim ? "var(--color-surface-border)" : "rgba(var(--color-primary-rgb),0.35)"}`,
+        flexShrink: 0, minWidth: 62, textAlign: "right",
+        fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+        fontSize: 22, lineHeight: 1,
+        color: dim ? "text.disabled" : "primary.main",
       }}
-    />
+    >
+      {value}
+    </Box>
   </Stack>
 );
 
@@ -93,7 +92,7 @@ const Ahmaliiga = () => {
             <Rule label="Tasapeli" value="1" />
             <Rule label="Tappio" value="0" dim />
             <Rule label="Nollapeli (ette päästä maalia)" value="+2" />
-            <Rule label="Iso voitto (monta maalia enemmän)" value="bonus (max +2)" />
+            <Rule label="Iso voitto (monta maalia enemmän)" value="+1–2" />
           </Box>
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti (pelaaja)</Typography>
           <Box sx={{ mt: 0.5 }}>
@@ -132,12 +131,19 @@ const Ahmaliiga = () => {
 
         <Section emoji="🥇" title="Miten voitan?">
           <Lead>Joka kierros teet kolme tärkeää valintaa:</Lead>
-          <Box sx={{ mt: 0.5 }}>
-            <Rule label="1. Ketkä otat kortistoosi?" value="ryhmä" dim />
-            <Rule label="2. Kenet valitset kapteeniksi?" value="2× pisteet" />
-            <Rule label="3. Minkä pelin veikkaat?" value="bonus" dim />
-          </Box>
-          <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.55, mt: 1.25 }}>
+          <Stack spacing={1.25} sx={{ mt: 0.5, mb: 1.25 }}>
+            {[
+              "Ketkä otat kortistoosi? (fiksusti budjetilla)",
+              "Kenet valitset kapteeniksi? (tuplapisteet)",
+              "Minkä pelin veikkaat? (bonuspisteet)",
+            ].map((t, i) => (
+              <Stack key={i} direction="row" alignItems="center" spacing={1.25}>
+                <Box sx={{ flexShrink: 0, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-family-display)", fontSize: 16, lineHeight: 1, color: "primary.main", bgcolor: "rgba(var(--color-primary-rgb),0.15)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>{i + 1}</Box>
+                <Typography variant="body2" sx={{ color: "text.primary" }}>{t}</Typography>
+              </Stack>
+            ))}
+          </Stack>
+          <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.55 }}>
             Tee nämä hyvin, seuraa miten Ahma-joukkueet pärjäävät — ja kiipeä
             tulostaulun kärkeen! 🐾🧡
           </Typography>
