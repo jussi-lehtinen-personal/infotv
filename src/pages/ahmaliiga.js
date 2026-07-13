@@ -46,6 +46,26 @@ const Lead = ({ children }) => (
   <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.55, mb: 1 }}>{children}</Typography>
 );
 
+// One worked example squad: rows (pick → points) + a total + a takeaway note.
+const Example = ({ badge, title, rows, total, note }) => (
+  <Box sx={{ borderRadius: "var(--radius-item)", border: "1px solid var(--color-surface-border)", bgcolor: "var(--color-surface)", p: 1.5 }}>
+    <Typography sx={{ fontWeight: 800, color: "text.primary", mb: 0.85 }}>{badge} {title}</Typography>
+    <Stack spacing={0.6}>
+      {rows.map((r, i) => (
+        <Stack key={i} direction="row" alignItems="center" spacing={1}>
+          <Typography variant="body2" sx={{ color: "text.secondary", flex: 1, minWidth: 0 }}>{r.label}</Typography>
+          <Box sx={{ flexShrink: 0, minWidth: 40, textAlign: "right", fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1, color: "primary.main" }}>{r.pts}</Box>
+        </Stack>
+      ))}
+    </Stack>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.85, pt: 0.85, borderTop: "1px solid var(--color-surface-divider)" }}>
+      <Typography variant="body2" sx={{ flex: 1, fontWeight: 800, color: "text.primary" }}>Yhteensä</Typography>
+      <Box sx={{ flexShrink: 0, fontFamily: "var(--font-family-display)", fontSize: 22, lineHeight: 1, color: "primary.main" }}>{total}</Box>
+    </Stack>
+    <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 0.75, lineHeight: 1.45 }}>{note}</Typography>
+  </Box>
+);
+
 const Ahmaliiga = () => {
   const goBack = useGoBack("/");
 
@@ -147,6 +167,52 @@ const Ahmaliiga = () => {
             Tee nämä hyvin, seuraa miten Ahma-joukkueet pärjäävät — ja kiipeä
             tulostaulun kärkeen! 🐾🧡
           </Typography>
+        </Section>
+
+        <Section emoji="🎮" title="Esimerkki: mitä voin valita?">
+          <Lead>
+            Sinulla on <b>budjetti</b> ja poimit esim. <b>5 korttia</b>. Joukkueet
+            ovat halvempia ja tasaisempia, tähtipelaajat kalliimpia ja boom/bust
+            (max ~2 pelaajakorttia). Yksi kortti <b>kapteeniksi</b> (2×). Voit eri
+            jaksoissa painottaa eri tavalla:
+          </Lead>
+          <Stack spacing={1.25} sx={{ mt: 0.5 }}>
+            <Example
+              badge="🅰️"
+              title="Enemmän joukkueita (turvallinen)"
+              rows={[
+                { label: "⭐ U13 Valkoinen — voitti 5–1 (kapteeni)", pts: "10" },
+                { label: "Naiset — voitti 3–0 (nollapeli)", pts: "5" },
+                { label: "U12 Musta — tasapeli", pts: "1" },
+                { label: "U14 — tappio", pts: "0" },
+                { label: "Tähti (U20) — 1 maali", pts: "3" },
+                { label: "Veikkaus — oikea voittaja", pts: "+1" },
+              ]}
+              total="≈ 20"
+              note="Vähän riskiä, tasaista tuottoa monelta kortilta."
+            />
+            <Example
+              badge="🅱️"
+              title="Enemmän pelaajia (rohkea)"
+              rows={[
+                { label: "⭐ Olander (Naiset) — 2 maalia + syöttö (kapteeni)", pts: "16" },
+                { label: "Mäkinen (U20) — 1 maali", pts: "3" },
+                { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "5" },
+                { label: "U13 Valkoinen — voitti 3–2", pts: "3" },
+                { label: "Edustus — tappio", pts: "0" },
+                { label: "Veikkaus — tarkka tulos", pts: "+3" },
+              ]}
+              total="≈ 30"
+              note="Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa."
+            />
+          </Stack>
+          <Box sx={{ mt: 1.25, p: 1.25, borderRadius: "var(--radius-item)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.25)" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>
+              💡 <b>Nyrkkisääntö:</b> enemmän joukkueita = tasaista ja turvallista;
+              enemmän pelaajia + tähti-kapteeni = korkea katto mutta boom/bust.
+              <b> Kapteeni ratkaisee eniten</b> — nosta se, jonka uskot räjäyttävän jakson.
+            </Typography>
+          </Box>
         </Section>
 
         <Typography variant="caption" sx={{ color: "text.disabled", textAlign: "center", mt: 0.5, mb: 1 }}>
