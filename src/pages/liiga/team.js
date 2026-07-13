@@ -68,9 +68,9 @@ export default function LiigaTeam() {
     <Screen>
       <Box sx={{ mb: 1.5 }}>
         <Eyebrow>Kokoonpano</Eyebrow>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ width: "100%", mt: 0.5 }}>
-          <Title sx={{ minWidth: 0 }}>Oma joukkue</Title>
-          <CoinPill value={data.bank} total={data.budget} />
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
+          <Title sx={{ flex: 1, minWidth: 0 }}>Oma joukkue</Title>
+          <Box sx={{ flexShrink: 0 }}><CoinPill value={data.bank} total={data.budget} /></Box>
         </Stack>
       </Box>
 

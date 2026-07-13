@@ -116,9 +116,9 @@ export default function LiigaEdit() {
 
   return (
     <Screen sx={{ overflowX: "hidden" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ width: "100%", mb: 1.5 }}>
-        <Title sx={{ minWidth: 0 }}>Muokkaa</Title>
-        <CoinPill value={bank} total={budget} />
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+        <Title sx={{ flex: 1, minWidth: 0 }}>Muokkaa</Title>
+        <Box sx={{ flexShrink: 0 }}><CoinPill value={bank} total={budget} /></Box>
       </Stack>
 
       <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}>

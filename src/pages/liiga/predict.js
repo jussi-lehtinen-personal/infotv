@@ -29,10 +29,10 @@ const RoundBtn = ({ onClick, disabled, children }) => (
 );
 
 const Stepper = ({ value, set }) => (
-  <Stack alignItems="center" spacing={0.75}>
+  <Stack alignItems="center" spacing={0.75} sx={{ width: 44 }}>
     <RoundBtn onClick={() => set(value + 1)}><LuPlus size={16} /></RoundBtn>
     <Box sx={{ fontFamily: "var(--font-family-display)", fontSize: 46, lineHeight: 1,
-          letterSpacing: "var(--font-display-tracking)", color: "text.primary", minWidth: 40, textAlign: "center" }}>
+          color: "text.primary", width: "100%", textAlign: "center" }}>
       {value}
     </Box>
     <RoundBtn onClick={() => set(Math.max(0, value - 1))} disabled={value <= 0}><LuMinus size={16} /></RoundBtn>
@@ -90,7 +90,7 @@ export default function LiigaPredict() {
           ) : (
             <Stack direction="row" alignItems="center" spacing={1}>
               <Stepper value={home} set={setHome} />
-              <Box component="span" sx={{ color: "text.disabled", fontSize: 26, pb: 0.5 }}>–</Box>
+              <Box component="span" sx={{ color: "text.disabled", fontSize: 26, lineHeight: 1 }}>–</Box>
               <Stepper value={away} set={setAway} />
             </Stack>
           )}
@@ -108,12 +108,12 @@ export default function LiigaPredict() {
                 letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>Bonuspisteet</Typography>
         </Stack>
         {BONUS.map((b, i) => (
-          <Stack key={i} direction="row" alignItems="center" justifyContent="space-between"
-                 sx={{ width: "100%", px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)",
+          <Stack key={i} direction="row" alignItems="center" spacing={1}
+                 sx={{ px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)",
                        "&:last-of-type": { borderBottom: 0 } }}>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>{b.label}</Typography>
-            <Box sx={{ minWidth: 40, textAlign: "right", fontFamily: "var(--font-family-display)", fontSize: 20,
-                  letterSpacing: "var(--font-display-tracking)", color: "primary.main" }}>{b.pts}</Box>
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>{b.label}</Typography>
+            <Box sx={{ width: 36, flexShrink: 0, textAlign: "left", fontFamily: "var(--font-family-display)",
+                  fontSize: 22, lineHeight: 1, color: "primary.main" }}>{b.pts}</Box>
           </Stack>
         ))}
       </Box>

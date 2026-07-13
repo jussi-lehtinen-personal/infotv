@@ -35,6 +35,7 @@ app.http('ahmaliigaState', {
           active: true,
           season: season.rowKey,
           name: season.name,
+          simMode: !!season.simMode,
           budget: season.budget,
           squadSize: season.squadSize,
           maxPlayers: season.maxPlayers,

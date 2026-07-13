@@ -9,13 +9,13 @@ import { LuCoins } from "react-icons/lu";
 export const AHMA_LOGO = "/ahma_logo.png";
 export const BUDGET = 120;
 
-// Initials from a "SUKUNIMI Etunimi" name → first letters of the first + last
-// word (e.g. "NELIMARKKA Lassi" → "NL"); single word → its first letter.
+// Initials from a "SUKUNIMI Etunimi" name, first name FIRST → e.g.
+// "BLOMBERG Niklas" → "NB", "NELIMARKKA Lassi" → "LN"; single word → its letter.
 export const initials = (name) => {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].charAt(0).toLocaleUpperCase("fi");
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toLocaleUpperCase("fi");
+  return (parts[parts.length - 1].charAt(0) + parts[0].charAt(0)).toLocaleUpperCase("fi");
 };
 
 // Team crest (logo) or player initials avatar. Uses the body font (not Bebas) so
