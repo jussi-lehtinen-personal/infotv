@@ -6,7 +6,13 @@ const { TableClient } = require('@azure/data-tables');
 // the SDK talk to Azurite over http; it's a no-op for the cloud https endpoint.
 const CONN = process.env.TABLES_CONNECTION_STRING;
 
-const TABLE_NAMES = ['Users', 'Credentials', 'GoogleIndex', 'Usernames', 'Reservations'];
+const TABLE_NAMES = [
+  'Users', 'Credentials', 'GoogleIndex', 'Usernames', 'Reservations',
+  // Ahmaliiga (fantasy game) — see docs/ahmaliiga-plan.md.
+  'AhmaliigaSeason', 'AhmaliigaJaksot', 'AhmaliigaCards', 'AhmaliigaCardHistory',
+  'AhmaliigaManagers', 'AhmaliigaSquads', 'AhmaliigaLineups',
+  'AhmaliigaPredictions', 'AhmaliigaScores', 'AhmaliigaSeasonScores',
+];
 const clients = {};
 let ensured = false;
 
