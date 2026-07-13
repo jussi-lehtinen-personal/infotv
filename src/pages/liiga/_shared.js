@@ -86,6 +86,27 @@ export const CoinPill = ({ value, total }) => (
   </Box>
 );
 
+// Price shown as a solid orange coin pill (card market / squad prices).
+export const PricePill = ({ value, size = 18, sx }) => (
+  <Box
+    sx={{
+      display: "inline-flex", alignItems: "center", gap: 0.6, px: 1.3, py: 0.6,
+      borderRadius: "var(--radius-item)", flexShrink: 0,
+      background: "linear-gradient(180deg, #f97316, #e4610f)",
+      boxShadow: "0 3px 10px rgba(249,115,22,0.35)",
+      ...sx,
+    }}
+  >
+    <Box component={LuCoins} sx={{ color: "rgba(255,255,255,0.95)", fontSize: size - 2, flexShrink: 0 }} />
+    <Box
+      component="span"
+      sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "0.02em", fontSize: size, lineHeight: 1, color: "#fff" }}
+    >
+      {value}
+    </Box>
+  </Box>
+);
+
 // Bebas display heading.
 export const Title = ({ children, sx }) => (
   <Typography

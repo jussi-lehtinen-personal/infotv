@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, InputBase } from "@mui/material";
-import { LuChevronRight, LuSearch } from "react-icons/lu";
-import { Screen, Title, Coins, CardAvatar } from "./_shared";
+import { LuSearch } from "react-icons/lu";
+import { Screen, Title, PricePill, CardAvatar } from "./_shared";
 import { getAhmaliigaCards } from "../../lib/ahmaliigaApi";
 
 // Korttimarkkina — the active season's card pool from /api/ahmaliiga/cards.
@@ -112,18 +112,16 @@ export default function LiigaMarket() {
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {c.name}
                   </Typography>
-                  {c.sub && (
-                    <Box component="span" sx={{ fontSize: 12, color: "text.disabled" }}>{c.sub}</Box>
-                  )}
+                  <Stack direction="row" spacing={1.25} sx={{ mt: 0.25 }}>
+                    {c.sub && <Box component="span" sx={{ fontSize: 12, color: "text.disabled" }}>{c.sub}</Box>}
+                    {c.lastPts > 0 && (
+                      <Box component="span" sx={{ fontSize: 12, color: "text.disabled" }}>
+                        Viime jakso <Box component="span" sx={{ color: "primary.main", fontWeight: 700 }}>{c.lastPts} p</Box>
+                      </Box>
+                    )}
+                  </Stack>
                 </Box>
-                {/* fixed-width right column keeps prices + chevron on one line */}
-                <Box sx={{ flexShrink: 0, minWidth: 52, textAlign: "right" }}>
-                  <Coins value={c.price} size={14} />
-                  {c.lastPts > 0 && (
-                    <Box sx={{ fontSize: 12, color: "primary.main", fontWeight: 800, mt: 0.25 }}>{c.lastPts} p</Box>
-                  )}
-                </Box>
-                <Box component={LuChevronRight} sx={{ color: "text.disabled", fontSize: 18, flexShrink: 0 }} />
+                <PricePill value={c.price} />
               </Stack>
             </ButtonBase>
           ))}
