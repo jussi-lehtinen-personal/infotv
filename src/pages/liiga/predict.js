@@ -28,22 +28,22 @@ const RoundBtn = ({ onClick, disabled, children }) => (
   </ButtonBase>
 );
 
-const Stepper = ({ value, set, readOnly }) => (
-  <Stack alignItems="center" spacing={0.75} sx={{ width: 44 }}>
-    {!readOnly && <RoundBtn onClick={() => set(value + 1)}><LuPlus size={16} /></RoundBtn>}
-    <Box sx={{ width: 44, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 44, lineHeight: 1,
-            color: "text.primary", transform: "translateY(var(--font-display-shift))" }}>{value}</Box>
-    </Box>
-    {!readOnly && <RoundBtn onClick={() => set(Math.max(0, value - 1))} disabled={value <= 0}><LuMinus size={16} /></RoundBtn>}
+const Stepper = ({ value, set }) => (
+  <Stack alignItems="center" spacing={1}>
+    <RoundBtn onClick={() => set(value + 1)}><LuPlus size={16} /></RoundBtn>
+    <Box sx={{ width: 44, textAlign: "center", fontFamily: "var(--font-family-base)", fontWeight: 800,
+          fontSize: 40, lineHeight: 1, color: "text.primary" }}>{value}</Box>
+    <RoundBtn onClick={() => set(Math.max(0, value - 1))} disabled={value <= 0}><LuMinus size={16} /></RoundBtn>
   </Stack>
 );
 
-// Real team logo (tulospalvelu), else the Ahma crest / an initials badge.
+// Uniform white logo tile (same look as the Ottelut page) with the real
+// tulospalvelu logo; falls back to the Ahma crest / an initials badge.
 const TeamLogo = ({ name, logo, ahma, size }) =>
   logo ? (
-    <Box component="img" src={logo} alt="" sx={{ width: size, height: size, objectFit: "contain", flexShrink: 0,
-          borderRadius: `${Math.round(size * 0.16)}px`, bgcolor: "rgba(255,255,255,0.05)", p: `${Math.round(size * 0.06)}px` }} />
+    <Box component="img" src={logo} alt="" sx={{ width: size, height: size, flexShrink: 0, objectFit: "contain",
+          background: "#fff", borderRadius: `${Math.round(size * 0.18)}px`, p: `${Math.round(size * 0.1)}px`,
+          boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
   ) : ahma ? (
     <CardAvatar card={{ kind: "team", name }} size={size} />
   ) : (
@@ -55,10 +55,11 @@ const TeamLogo = ({ name, logo, ahma, size }) =>
     </Box>
   );
 
-const TeamSide = ({ name, logo, ahma }) => (
-  <Stack alignItems="center" spacing={0.75} sx={{ minWidth: 0, width: 96 }}>
-    <TeamLogo name={name} logo={logo} ahma={ahma} size={54} />
-    <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1.05, textAlign: "center",
+// Team identity column: logo tile + name (used in the top row of the match card).
+const TeamId = ({ name, logo, ahma }) => (
+  <Stack alignItems="center" spacing={0.75} sx={{ width: 110, minWidth: 0 }}>
+    <TeamLogo name={name} logo={logo} ahma={ahma} size={52} />
+    <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1.1, textAlign: "center",
           letterSpacing: "var(--font-display-tracking)", color: "text.primary",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{name}</Typography>
   </Stack>
@@ -152,22 +153,25 @@ export default function LiigaPredict() {
 
       {/* selected game + score */}
       <Box sx={{ borderRadius: "var(--radius-card)", p: 2.5, mb: 2, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 1 }}>
-          <Box sx={{ justifySelf: "center" }}><TeamSide name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} /></Box>
+        {/* teams (own row) */}
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-around" spacing={1}>
+          <TeamId name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} />
+          <TeamId name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} />
+        </Stack>
+        {/* score (own row, centred) */}
+        <Stack direction="row" alignItems="center" justifyContent="center" spacing={2.5} sx={{ mt: 1.5 }}>
           {settled ? (
-            <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 44, lineHeight: 1,
-                  letterSpacing: "var(--font-display-tracking)", color: "primary.main", px: 1 }}>
-              {game.homeGoals}–{game.awayGoals}
-            </Typography>
+            <Box component="span" sx={{ fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 40, color: "primary.main" }}>
+              {game.homeGoals} – {game.awayGoals}
+            </Box>
           ) : (
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <>
               <Stepper value={home} set={setHome} />
-              <Box component="span" sx={{ color: "text.disabled", fontSize: 26, lineHeight: 1 }}>–</Box>
+              <Box component="span" sx={{ color: "text.disabled", fontSize: 30, fontWeight: 300 }}>–</Box>
               <Stepper value={away} set={setAway} />
-            </Stack>
+            </>
           )}
-          <Box sx={{ justifySelf: "center" }}><TeamSide name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} /></Box>
-        </Box>
+        </Stack>
 
         {settled && data.myPrediction && (
           <Box sx={{ mt: 2, textAlign: "center" }}>
