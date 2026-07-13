@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { Box, Typography, IconButton, Button, CircularProgress } from "@mui/material";
+import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles } from "@mui/material";
 import { LuArrowLeft, LuLogOut, LuInfo, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
 import { useEnvAdmin } from "../hooks/useEnvAdmin";
 
@@ -60,6 +60,9 @@ export const AhmaliigaLayout = () => {
 
   return (
     <Gate>
+      {/* Prevent the browser pull-to-refresh gesture from wiping in-progress
+          squad edits while dragging the card list (only while in Ahmaliiga). */}
+      <GlobalStyles styles={{ "html, body": { overscrollBehaviorY: "contain" } }} />
       <Box sx={{ minHeight: "100dvh", bgcolor: "var(--color-bg)", color: "text.primary",
             pb: "calc(84px + env(safe-area-inset-bottom))" }}>
         {/* top bar — matches the box-score header (game.js) */}

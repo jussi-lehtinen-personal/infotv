@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, Stack, ButtonBase, CircularProgress } from "@mui/material";
-import { LuChevronRight } from "react-icons/lu";
-import { Screen, Title, Coins, AHMA_LOGO } from "./_shared";
+import { Box, Typography, Stack, ButtonBase, CircularProgress, InputBase } from "@mui/material";
+import { LuChevronRight, LuSearch } from "react-icons/lu";
+import { Screen, Title, Coins, CardAvatar } from "./_shared";
 import { getAhmaliigaCards } from "../../lib/ahmaliigaApi";
 
 // Korttimarkkina — the active season's card pool from /api/ahmaliiga/cards.
-// Filter by type; tapping opens Kortin tiedot. (Ownership%/price-trend/🔥 land
-// once settlement + history are populated in M2.)
+// Filter by type + free-text search; tapping opens Kortin tiedot.
 
 const FILTERS = [
   { key: "all", label: "Kaikki" },
@@ -19,22 +18,10 @@ const FILTERS = [
 const KIND_LABEL = { team: "Joukkue", player: "Pelaaja", goalie: "Maalivahti" };
 const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
 
-const Emblem = ({ card }) =>
-  card.kind === "team" ? (
-    <Box component="img" src={AHMA_LOGO} alt=""
-         sx={{ width: 44, height: 44, objectFit: "contain", borderRadius: "50%",
-               bgcolor: "rgba(255,255,255,0.05)", p: 0.5, flexShrink: 0 }} />
-  ) : (
-    <Box sx={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
-               background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)", border: "1px solid rgba(255,255,255,0.12)",
-               fontFamily: "var(--font-family-display)", fontSize: 20, color: "text.primary" }}>
-      {card.name.charAt(0)}
-    </Box>
-  );
-
 export default function LiigaMarket() {
   const nav = useNavigate();
   const [filter, setFilter] = useState("all");
+  const [query, setQuery] = useState("");
   const [cards, setCards] = useState(null); // null = loading
 
   useEffect(() => {
@@ -45,12 +32,33 @@ export default function LiigaMarket() {
     return () => { cancelled = true; };
   }, []);
 
-  const list = cards == null ? [] : filter === "all" ? cards : cards.filter((c) => c.kind === filter);
+  const list = useMemo(() => {
+    if (cards == null) return [];
+    const q = query.trim().toLocaleLowerCase("fi");
+    return cards.filter((c) =>
+      (filter === "all" || c.kind === filter) &&
+      (!q || c.name.toLocaleLowerCase("fi").includes(q) || (c.sub || "").toLocaleLowerCase("fi").includes(q))
+    );
+  }, [cards, filter, query]);
 
   return (
     <Screen>
       <Title sx={{ mb: 1.5 }}>Korttimarkkina</Title>
 
+      {/* search */}
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5, px: 1.5, py: 0.75,
+            borderRadius: 999, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+        <Box component={LuSearch} sx={{ color: "text.disabled", fontSize: 18, flexShrink: 0 }} />
+        <InputBase value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae korttia…"
+          sx={{ flex: 1, color: "text.primary", fontSize: 14, "& input::placeholder": { color: "text.disabled", opacity: 1 } }} />
+        {query && (
+          <ButtonBase onClick={() => setQuery("")} sx={{ color: "text.disabled", fontSize: 12, fontWeight: 700, px: 0.5 }}>
+            Tyhjennä
+          </ButtonBase>
+        )}
+      </Stack>
+
+      {/* type filter */}
       <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5,
             "&::-webkit-scrollbar": { display: "none" } }}>
         {FILTERS.map((f) => {
@@ -74,7 +82,7 @@ export default function LiigaMarket() {
       ) : list.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
           <Typography variant="body2">
-            {cards.length === 0 ? "Kausi ei ole vielä käynnissä." : "Ei kortteja tässä kategoriassa."}
+            {cards.length === 0 ? "Kausi ei ole vielä käynnissä." : "Ei osumia."}
           </Typography>
         </Box>
       ) : (
@@ -88,7 +96,7 @@ export default function LiigaMarket() {
                     "&:hover": { borderColor: "primary.main" } }}
             >
               <Stack direction="row" alignItems="center" spacing={1.5} sx={{ p: 1.5 }}>
-                <Emblem card={c} />
+                <CardAvatar card={c} size={44} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Stack direction="row" alignItems="center" spacing={0.75}>
                     <Box component="span" sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
@@ -108,12 +116,13 @@ export default function LiigaMarket() {
                     <Box component="span" sx={{ fontSize: 12, color: "text.disabled" }}>{c.sub}</Box>
                   )}
                 </Box>
-                <Stack alignItems="flex-end" spacing={0.5} sx={{ flexShrink: 0 }}>
+                {/* fixed-width right column keeps prices + chevron on one line */}
+                <Box sx={{ flexShrink: 0, minWidth: 52, textAlign: "right" }}>
                   <Coins value={c.price} size={14} />
-                  <Box component="span" sx={{ fontSize: 12, color: "primary.main", fontWeight: 800 }}>
-                    {c.lastPts || 0} p
-                  </Box>
-                </Stack>
+                  {c.lastPts > 0 && (
+                    <Box sx={{ fontSize: 12, color: "primary.main", fontWeight: 800, mt: 0.25 }}>{c.lastPts} p</Box>
+                  )}
+                </Box>
                 <Box component={LuChevronRight} sx={{ color: "text.disabled", fontSize: 18, flexShrink: 0 }} />
               </Stack>
             </ButtonBase>

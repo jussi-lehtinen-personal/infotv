@@ -65,9 +65,7 @@ export default function LiigaHome() {
   }, []);
 
   const jakso = state && state.active ? state.currentJakso : null;
-  const jaksoLabel = jakso
-    ? `Jakso ${jakso.no + 1} / ${state.jaksoCount} käynnissä`
-    : "Esikatselu";
+  const jaksoLabel = jakso ? `Jakso ${jakso.no + 1} / ${state.jaksoCount}` : "Esikatselu";
 
   return (
     <Screen>
@@ -84,10 +82,10 @@ export default function LiigaHome() {
       <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
             border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between"
-               sx={{ px: 2, pt: 1.5 }}>
+               spacing={1} sx={{ width: "100%", px: 2, pt: 1.5 }}>
           <Eyebrow>{jaksoLabel}</Eyebrow>
           {jakso && (
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: "text.secondary" }}>
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: "text.secondary", flexShrink: 0 }}>
               <LuClock size={14} />
               <Box component="span" sx={{ fontSize: 12, fontWeight: 600 }}>{timeLeft(jakso.endDate)}</Box>
             </Stack>
@@ -162,7 +160,7 @@ export default function LiigaHome() {
 }
 
 const SectionHeader = ({ title, onMore }) => (
-  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1, px: 0.5 }}>
+  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ width: "100%", mb: 1, px: 0.5 }}>
     <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
           fontSize: 20, color: "text.primary" }}>
       {title}

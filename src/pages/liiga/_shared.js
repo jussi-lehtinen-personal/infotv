@@ -9,6 +9,32 @@ import { LuCoins } from "react-icons/lu";
 export const AHMA_LOGO = "/ahma_logo.png";
 export const BUDGET = 120;
 
+// Initials from a "SUKUNIMI Etunimi" name → first letters of the first + last
+// word (e.g. "NELIMARKKA Lassi" → "NL"); single word → its first letter.
+export const initials = (name) => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].charAt(0).toLocaleUpperCase("fi");
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toLocaleUpperCase("fi");
+};
+
+// Team crest (logo) or player initials avatar. Uses the body font (not Bebas) so
+// the initials sit optically centred in the circle.
+export const CardAvatar = ({ card, size }) =>
+  card && card.kind === "team" ? (
+    <Box component="img" src={AHMA_LOGO} alt=""
+         sx={{ width: size, height: size, objectFit: "contain", borderRadius: "50%",
+               bgcolor: "rgba(255,255,255,0.05)", p: `${Math.round(size * 0.09)}px`, flexShrink: 0 }} />
+  ) : (
+    <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0,
+               display: "flex", alignItems: "center", justifyContent: "center",
+               background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)", border: "1px solid rgba(255,255,255,0.12)",
+               fontWeight: 800, fontSize: Math.round(size * 0.36), letterSpacing: "0.02em",
+               lineHeight: 1, color: "text.primary" }}>
+      {initials(card && card.name)}
+    </Box>
+  );
+
 // Scroll container with consistent page padding + max width.
 export const Screen = ({ children, sx }) => (
   <Box sx={{ px: 2, py: 2, maxWidth: 640, mx: "auto", ...sx }}>{children}</Box>

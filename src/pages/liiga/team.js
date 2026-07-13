@@ -2,25 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, Button, CircularProgress } from "@mui/material";
 import { LuCrown, LuPencil, LuShieldCheck } from "react-icons/lu";
-import { Screen, CoinPill, Title, Eyebrow, Coins, AHMA_LOGO } from "./_shared";
+import { Screen, CoinPill, Title, Eyebrow, Coins, CardAvatar } from "./_shared";
 import { getMySquad } from "../../lib/ahmaliigaApi";
 
 // Oma joukkue — the signed-in manager's squad from /api/ahmaliiga/squad. Captain
 // hero (×2) + 2×2 grid. Empty state → build via "Kokoa joukkue". (Jakso points
 // fill in after settlement in M2.)
-
-const Emblem = ({ card, size }) =>
-  card.kind === "team" ? (
-    <Box component="img" src={AHMA_LOGO} alt=""
-         sx={{ width: size, height: size, objectFit: "contain", borderRadius: "50%",
-               bgcolor: "rgba(255,255,255,0.05)", p: 0.5, flexShrink: 0 }} />
-  ) : (
-    <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
-               background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)", border: "1px solid rgba(255,255,255,0.12)",
-               fontFamily: "var(--font-family-display)", fontSize: size * 0.44, color: "text.primary" }}>
-      {(card.name || "?").charAt(0)}
-    </Box>
-  );
 
 const KindTag = ({ kind }) => (
   <Box component="span" sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
@@ -79,13 +66,13 @@ export default function LiigaTeam() {
 
   return (
     <Screen>
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 1.5 }}>
-        <Box>
-          <Eyebrow>Kokoonpano</Eyebrow>
-          <Title sx={{ mt: 0.5 }}>Oma joukkue</Title>
-        </Box>
-        <CoinPill value={data.bank} total={data.budget} />
-      </Stack>
+      <Box sx={{ mb: 1.5 }}>
+        <Eyebrow>Kokoonpano</Eyebrow>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ width: "100%", mt: 0.5 }}>
+          <Title sx={{ minWidth: 0 }}>Oma joukkue</Title>
+          <CoinPill value={data.bank} total={data.budget} />
+        </Stack>
+      </Box>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
         <StatChip>{cards.length} / {data.budget != null ? 5 : cards.length} korttia</StatChip>
@@ -98,14 +85,14 @@ export default function LiigaTeam() {
               background: "linear-gradient(150deg, rgba(249,115,22,0.22), rgba(249,115,22,0.04))",
               border: "1px solid rgba(249,115,22,0.55)",
               boxShadow: "0 0 0 1px rgba(249,115,22,0.15), 0 18px 40px rgba(249,115,22,0.14)" }}>
-          <Stack direction="row" alignItems="center" spacing={0.6}
+          <Stack direction="row" alignItems="center" spacing={0.5}
                  sx={{ position: "absolute", top: 12, right: 12, color: "primary.main" }}>
-            <LuCrown size={16} />
-            <Box component="span" sx={{ fontFamily: "var(--font-family-display)",
-                  letterSpacing: "var(--font-display-tracking)", fontSize: 16 }}>Kapteeni ×2</Box>
+            <LuCrown size={15} />
+            <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.06em",
+                  textTransform: "uppercase", lineHeight: 1 }}>Kapteeni ×2</Box>
           </Stack>
           <Stack direction="row" alignItems="center" spacing={2}>
-            <Emblem card={captain} size={72} />
+            <CardAvatar card={captain} size={72} />
             <Box sx={{ minWidth: 0 }}>
               <KindTag kind={captain.kind} />
               <Typography sx={{ fontFamily: "var(--font-family-display)",
@@ -123,7 +110,7 @@ export default function LiigaTeam() {
           <Box key={c.id} sx={{ position: "relative", borderRadius: "var(--radius-item)", p: 1.5,
                 bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
             <Stack alignItems="center" spacing={1}>
-              <Emblem card={c} size={56} />
+              <CardAvatar card={c} size={56} />
               <Box sx={{ textAlign: "center", minWidth: 0, width: "100%" }}>
                 <KindTag kind={c.kind} />
                 <Typography sx={{ fontWeight: 700, fontSize: 15, color: "text.primary",
