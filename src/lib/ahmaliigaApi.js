@@ -63,6 +63,20 @@ export async function getAhmaliigaSummary(jakso) {
   return asJson(r);
 }
 
+// Veikkaus — current jakso's games + my prediction (results hidden until settled).
+export async function getAhmaliigaPrediction() {
+  const r = await fetch("/api/ahmaliiga/prediction", { headers: authHeaders() });
+  return asJson(r);
+}
+export async function saveAhmaliigaPrediction(gameId, homeGoals, awayGoals) {
+  const r = await fetch("/api/ahmaliiga/prediction", {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ gameId, homeGoals, awayGoals }),
+  });
+  return asJson(r);
+}
+
 // Admin ops (env-admin gated server-side): status | settleJakso | settleAll |
 // seedBots | resetSim. Drives the season replay from the in-app admin panel.
 export async function ahmaliigaAdmin(action, extra) {

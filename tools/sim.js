@@ -31,6 +31,8 @@ async function post(action, extra) {
   if (cmd === 'setup') {
     const results = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `results-${season}.json`), 'utf8')).results;
     await post('loadResults', { results });
+    const games = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `games-${season}.json`), 'utf8')).games;
+    await post('loadGames', { games });
     await post('seedBots', {});
   } else if (cmd === 'settle') {
     await post('settleJakso', {});

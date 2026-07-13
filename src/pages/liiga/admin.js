@@ -70,6 +70,7 @@ export default function LiigaAdmin() {
           <Row k="Ratkaistu" v={`${s.settled} / ${s.jaksoCount}`} />
           <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
           <Row k="Tulokset ladattu" v={s.resultsLoaded ? "kyllä" : "EI"} />
+          <Row k="Ottelut ladattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
         </Box>
       ) : (
         <Alert severity="warning" sx={{ mb: 2 }}>Kausi ei ole käynnissä. Aja ensin siemennys koneelta.</Alert>

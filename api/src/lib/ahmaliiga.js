@@ -11,6 +11,7 @@ const ECON = {
   transfersPerJakso: 2,
   band: { kallis: 30, keski: 20, halpa: 10 },
   playerBand: { kallis: 50, keski: 40, halpa: 30 },
+  predict: { winner: 1, margin: 2, exact: 3 }, // score-prediction bonus tiers
 };
 
 const T = {
@@ -25,6 +26,7 @@ const T = {
   scores: 'AhmaliigaScores',
   seasonScores: 'AhmaliigaSeasonScores',
   results: 'AhmaliigaResults',
+  games: 'AhmaliigaGames',
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -294,6 +296,14 @@ async function settleJakso(seasonId, jakso) {
   for (const c of cards) cardMap[c.rowKey] = c;
   const managers = await listManagers();
 
+  // prediction bonus inputs for this jakso
+  const games = await getJaksoGames(seasonId, jakso);
+  const gameMap = {};
+  for (const g of games) gameMap[g.gameId] = g;
+  const predRows = await listByPartition(T.predictions, `${seasonId}|${jakso}`);
+  const predMap = {};
+  for (const p of predRows) predMap[p.rowKey] = { gameId: p.gameId, homeGoals: p.homeGoals, awayGoals: p.awayGoals };
+
   const ownerCount = {};
   const jaksoRows = [];
   for (const m of managers) {
@@ -315,6 +325,9 @@ async function settleJakso(seasonId, jakso) {
       breakdown[id] = eff; total += eff;
       ownerCount[id] = (ownerCount[id] || 0) + 1;
     }
+    const pred = predMap[m.userId];
+    const pbonus = pred ? predictionBonus(pred, gameMap[pred.gameId]) : 0;
+    if (pbonus) { breakdown._predict = pbonus; total += pbonus; }
     jaksoRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids, captainId, breakdown });
   }
   jaksoRows.sort((a, b) => b.total - a.total);
@@ -432,6 +445,60 @@ async function getStanding(seasonId, jakso, userId) {
   };
 }
 
+// --- M3: games + predictions (Veikkaus) ---
+
+async function loadGames(seasonId, gamesByJakso) {
+  let rows = 0;
+  for (const [j, arr] of Object.entries(gamesByJakso || {})) {
+    const ents = (arr || []).map((g) => ({
+      partitionKey: `${seasonId}|${j}`, rowKey: String(g.gameId),
+      home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+      homeGoals: g.homeGoals, awayGoals: g.awayGoals, date: g.date || '', level: g.level || '',
+    }));
+    await upsertBatch(T.games, ents); rows += ents.length;
+  }
+  return { jaksot: Object.keys(gamesByJakso || {}).length, rows };
+}
+
+async function getJaksoGames(seasonId, jakso) {
+  const rows = await listByPartition(T.games, `${seasonId}|${jakso}`);
+  return rows.map((g) => ({
+    gameId: g.rowKey, home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+    homeGoals: g.homeGoals, awayGoals: g.awayGoals, date: g.date, level: g.level,
+  })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+async function getPrediction(seasonId, jakso, userId) {
+  const row = await getEntity(T.predictions, `${seasonId}|${jakso}`, userId);
+  return row ? { gameId: row.gameId, homeGoals: Number(row.homeGoals), awayGoals: Number(row.awayGoals) } : null;
+}
+
+async function savePrediction(seasonId, jakso, userId, gameId, homeGoals, awayGoals) {
+  const games = await getJaksoGames(seasonId, jakso);
+  if (!games.find((g) => g.gameId === String(gameId))) throw badRequest('Ottelu ei kuulu tähän jaksoon.');
+  const h = Number(homeGoals), a = Number(awayGoals);
+  if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0 || h > 30 || a > 30) throw badRequest('Virheellinen tulos.');
+  await upsertEntity(T.predictions, {
+    partitionKey: `${seasonId}|${jakso}`, rowKey: userId,
+    gameId: String(gameId), homeGoals: h, awayGoals: a, updatedAt: new Date().toISOString(),
+  });
+  return { gameId: String(gameId), homeGoals: h, awayGoals: a };
+}
+
+// Bonus for a score prediction vs the actual result: exact 3 / right winner+margin
+// 2 / right winner 1 / wrong 0.
+function predictionBonus(pred, game) {
+  if (!pred || !game) return 0;
+  const ph = Number(pred.homeGoals), pa = Number(pred.awayGoals);
+  const ah = Number(game.homeGoals), aa = Number(game.awayGoals);
+  if ([ph, pa, ah, aa].some((x) => !Number.isFinite(x))) return 0;
+  const sign = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
+  if (sign(ph - pa) !== sign(ah - aa)) return 0;
+  if (ph === ah && pa === aa) return ECON.predict.exact;
+  if (ph - pa === ah - aa) return ECON.predict.margin;
+  return ECON.predict.winner;
+}
+
 // A manager's per-jakso score row (total, rank, per-card breakdown, lineup).
 async function getJaksoScore(seasonId, jakso, userId) {
   const row = await getEntity(T.scores, `${seasonId}|${jakso}`, userId);
@@ -480,6 +547,7 @@ async function getSimStatus(seasonId) {
   const managers = await listManagers();
   const settled = jaksot.filter((j) => j.status === 'settled').length;
   const resultsLoaded = (await listByPartition(T.results, `${seasonId}|0`)).length > 0;
+  const gamesLoaded = (await listByPartition(T.games, `${seasonId}|0`)).length > 0;
   return {
     season: seasonId,
     currentJakso: season && season.currentJakso != null ? Number(season.currentJakso) : 0,
@@ -488,6 +556,7 @@ async function getSimStatus(seasonId) {
     humans: managers.filter((m) => !m.isBot).length,
     bots: managers.filter((m) => m.isBot).length,
     resultsLoaded,
+    gamesLoaded,
   };
 }
 
@@ -497,4 +566,5 @@ module.exports = {
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, settleJakso, seedBots, resetSim, getSimStatus,
   getLeaderboard, getStanding, getJaksoScore,
+  loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus,
 };
