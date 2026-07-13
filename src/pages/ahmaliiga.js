@@ -114,10 +114,17 @@ const Ahmaliiga = () => {
             <Rule label="Nollapeli (ette päästä maalia)" value="+2" />
             <Rule label="Iso voitto (monta maalia enemmän)" value="+1–2" />
           </Box>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti (pelaaja)</Typography>
-          <Box sx={{ mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti — kenttäpelaaja</Typography>
+          <Box sx={{ mb: 1.5, mt: 0.5 }}>
             <Rule label="Maali" value="3" />
             <Rule label="Syöttö" value="2" />
+          </Box>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti — maalivahti</Typography>
+          <Box sx={{ mt: 0.5 }}>
+            <Rule label="Voitto" value="3" />
+            <Rule label="Nollapeli (ei päästä maalia)" value="+2" />
+            <Rule label="Torjunta-% ≥ 92 %" value="+2" />
+            <Rule label="Torjunta-% ≥ 95 %" value="+3" />
           </Box>
         </Section>
 
@@ -185,10 +192,10 @@ const Ahmaliiga = () => {
                 { label: "Naiset — voitti 3–0 (nollapeli)", pts: "5" },
                 { label: "U12 Musta — tasapeli", pts: "1" },
                 { label: "U14 — tappio", pts: "0" },
-                { label: "Tähti (U20) — 1 maali", pts: "3" },
+                { label: "🥅 Veskari (Edustus) — voitto + 94 % torjunta", pts: "5" },
                 { label: "Veikkaus — oikea voittaja", pts: "+1" },
               ]}
-              total="≈ 20"
+              total="≈ 22"
               note="Vähän riskiä, tasaista tuottoa monelta kortilta."
             />
             <Example

@@ -34,12 +34,21 @@ enemmän, joten **et voi ostaa pelkkiä parhaita** — pitää valita fiksusti!
 | Nollapeli (ette päästä yhtään maalia) | **+2** |
 | Iso voitto (monta maalia enemmän) | pieni bonus (max **+2**) |
 
-**Tähtikortti (pelaaja)** saa pisteitä:
+**Tähtikortti — kenttäpelaaja** saa pisteitä:
 
 | Mitä pelaaja teki | Pisteet |
 |---|---|
 | Maali | **3** |
 | Syöttö | **2** |
+
+**Tähtikortti — maalivahti** saa pisteitä:
+
+| Mitä tapahtui | Pisteet |
+|---|---|
+| Voitto | **3** |
+| Nollapeli (ei päästä maalia) | **+2** |
+| Torjunta-% ≥ 92 % | **+2** |
+| Torjunta-% ≥ 95 % | **+3** |
 
 ---
 
@@ -102,9 +111,9 @@ painottaa eri tavalla:
 | Naiset — voitti 3–0 (nollapeli) | **5** |
 | U12 Musta — tasapeli | **1** |
 | U14 — tappio | 0 |
-| Tähti (U20) — 1 maali | **3** |
+| 🥅 Veskari (Edustus) — voitto + 94 % torjunta | **5** |
 | Veikkaus — oikea voittaja | **+1** |
-| **Yhteensä** | **≈ 20** |
+| **Yhteensä** | **≈ 22** |
 
 → Vähän riskiä, tasaista tuottoa monelta kortilta.
 
