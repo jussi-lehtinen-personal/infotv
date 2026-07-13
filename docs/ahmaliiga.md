@@ -14,8 +14,8 @@ Valitse itsellesi kortteja:
 - **Tähtikortit** — muutama aikuispelaaja. Nämä ovat "mausteita", joten niitä saa
   ottaa vain **1–2 kappaletta**.
 
-Sinulla on tietty määrä **rahaa** (budjetti). Parhaat kortit maksavat enemmän,
-joten **et voi ostaa pelkkiä parhaita** — pitää valita fiksusti! 💰
+Sinulla on tietty määrä **Ahma-coineja** 🪙 (budjetti). Parhaat kortit maksavat
+enemmän, joten **et voi ostaa pelkkiä parhaita** — pitää valita fiksusti!
 
 > 💡 Vinkki: hyvässä vireessä olevat joukkueet maksavat enemmän. Jos huomaat
 > joukkueen, joka on nousussa mutta vielä halpa — nappaa se ajoissa!
@@ -84,6 +84,47 @@ Joka kierros teet **kolme tärkeää valintaa**:
 
 Tee nämä hyvin, seuraa miten Ahma-joukkueet pärjäävät — ja kiipeä tulostaulun
 kärkeen! 🐾🧡
+
+---
+
+## Esimerkki: mitä voin valita? 🎮
+
+Sinulla on **budjetti** (esim. 10 **Ahma-coinia** 🪙) ja poimit esim. **5 korttia**.
+Joukkueet ovat halvempia ja tasaisempia, tähtipelaajat kalliimpia ja boom/bust
+(max ~2 pelaajakorttia). Yksi kortti **kapteeniksi** (2×). Voit eri jaksoissa
+painottaa eri tavalla:
+
+**🅰️ Enemmän joukkueita (turvallinen)**
+
+| Kortti | Pisteet |
+|---|---|
+| ⭐ U13 Valkoinen — voitti 5–1 (kapteeni) | **10** |
+| Naiset — voitti 3–0 (nollapeli) | **5** |
+| U12 Musta — tasapeli | **1** |
+| U14 — tappio | 0 |
+| Tähti (U20) — 1 maali | **3** |
+| Veikkaus — oikea voittaja | **+1** |
+| **Yhteensä** | **≈ 20** |
+
+→ Vähän riskiä, tasaista tuottoa monelta kortilta.
+
+**🅱️ Enemmän pelaajia (rohkea)**
+
+| Kortti | Pisteet |
+|---|---|
+| ⭐ Olander (Naiset) — 2 maalia + syöttö (kapteeni) | **16** |
+| Mäkinen (U20) — 1 maali | **3** |
+| U12 Musta — voitti 2–0 (nollapeli) | **5** |
+| U13 Valkoinen — voitti 3–2 | **3** |
+| Edustus — tappio | 0 |
+| Veikkaus — tarkka tulos | **+3** |
+| **Yhteensä** | **≈ 30** |
+
+→ Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa.
+
+> 💡 **Nyrkkisääntö:** enemmän joukkueita = tasaista ja turvallista; enemmän
+> pelaajia + tähti-kapteeni = korkea katto mutta boom/bust. **Kapteeni ratkaisee
+> eniten** — nosta se, jonka uskot räjäyttävän jakson.
 
 ---
 

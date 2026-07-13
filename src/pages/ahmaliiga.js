@@ -94,8 +94,8 @@ const Ahmaliiga = () => {
             saa ottaa vain 1–2.
           </Lead>
           <Lead>
-            Sinulla on tietty määrä <b>rahaa</b> (budjetti). Parhaat kortit maksavat
-            enemmän, joten et voi ostaa pelkkiä parhaita — pitää valita fiksusti! 💰
+            Sinulla on tietty määrä <b>Ahma-coineja</b> 🪙 (budjetti). Parhaat kortit
+            maksavat enemmän, joten et voi ostaa pelkkiä parhaita — pitää valita fiksusti!
           </Lead>
           <Box sx={{ mt: 1, p: 1.25, borderRadius: "var(--radius-item)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.25)" }}>
             <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>
@@ -171,8 +171,8 @@ const Ahmaliiga = () => {
 
         <Section emoji="🎮" title="Esimerkki: mitä voin valita?">
           <Lead>
-            Sinulla on <b>budjetti</b> ja poimit esim. <b>5 korttia</b>. Joukkueet
-            ovat halvempia ja tasaisempia, tähtipelaajat kalliimpia ja boom/bust
+            Sinulla on <b>budjetti</b> (esim. 10 <b>Ahma-coinia</b> 🪙) ja poimit esim.
+            <b> 5 korttia</b>. Joukkueet ovat halvempia ja tasaisempia, tähtipelaajat kalliimpia ja boom/bust
             (max ~2 pelaajakorttia). Yksi kortti <b>kapteeniksi</b> (2×). Voit eri
             jaksoissa painottaa eri tavalla:
           </Lead>
