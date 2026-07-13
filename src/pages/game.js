@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink, LuFlag } from "react-icons/lu";
+import { LuArrowLeft, LuMapPin, LuUsers, LuExternalLink, LuFlag, LuRefreshCw } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { Box, Typography, IconButton, Button, CircularProgress } from "@mui/material";
@@ -8,6 +8,7 @@ import { SwipeableTabs } from "../components/ui/SwipeableTabs";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
+import { getCachedUser, getMe } from "../auth/authClient";
 
 moment.locale("fi");
 
@@ -88,6 +89,22 @@ const BoxScore = () => {
     return () => { cancelled = true; clearInterval(iv); };
   }, [game, live]);
 
+  // Admin-only "refresh from tulospalvelu" — busts the durable report cache
+  // (?fresh=1) for the rare case a scorekeeper corrects a finished game's stats.
+  const [isAdmin, setIsAdmin] = useState(() => !!(getCachedUser() && getCachedUser().isAdmin));
+  useEffect(() => { getMe().then((u) => setIsAdmin(!!(u && u.isAdmin))).catch(() => {}); }, []);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(() => {
+    if (!game) return;
+    setRefreshing(true);
+    const params = new URLSearchParams({ date: game.date, home: String(game.homeTeamId), away: String(game.awayTeamId), extId: String(game.id), fresh: "1" });
+    fetch(`/api/getGameReport?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { if (d && d.resolved) setReport(d); })
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }, [game]);
+
   const tpUrl =
     game && report && report.realId
       ? `https://tulospalvelu.leijonat.fi/game?season=${seasonOf(game.date)}&gameid=${report.realId}&lang=fi`
@@ -105,6 +122,11 @@ const BoxScore = () => {
             sx={{ flexShrink: 0, px: 1.25, py: 0.75, borderRadius: 2, fontSize: 12.5, fontWeight: 700, textTransform: "none", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", "&, &:hover, &:focus, &:visited": { color: "var(--gz-text-secondary)" }, "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } }}>
             Tulospalvelu
           </Button>
+        )}
+        {isAdmin && game && (
+          <IconButton onClick={refresh} disabled={refreshing} aria-label="Päivitä pöytäkirja tulospalvelusta" sx={topBtnSx}>
+            {refreshing ? <CircularProgress size={16} sx={{ color: "var(--gz-text-secondary)" }} /> : <LuRefreshCw size={18} />}
+          </IconButton>
         )}
       </Box>
 

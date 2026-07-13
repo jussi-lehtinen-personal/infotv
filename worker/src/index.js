@@ -548,22 +548,32 @@ async function writeBackSeasonResult(url, extId, box) {
   }
 }
 
+// A finished game older than this settles → served from the durable KV cache
+// forever (fetched from tulospalvelu ONCE, ever). Younger finished games keep
+// re-fetching (edge-limited) so late score corrections are still picked up.
+const SETTLE_DAYS = 7;
+
 async function handleGetGameReport(url, env, ctx) {
   const date = url.searchParams.get("date");
   const homeTeamId = url.searchParams.get("home");
   const awayTeamId = url.searchParams.get("away");
   const extId = url.searchParams.get("extId") || `${date}|${homeTeamId}|${awayTeamId}`;
+  const fresh = url.searchParams.get("fresh") === "1"; // admin: bypass the durable cache
   if (!date || !homeTeamId || !awayTeamId) {
     return json({ error: "date, home, away required" }, 400);
   }
 
-  // Edge cache with a status-dependent TTL (decided after we see the report).
+  // Edge cache key WITHOUT `fresh`, so an admin re-fetch refreshes the SAME entry
+  // everyone reads (a correction propagates; no separate cache line for ?fresh=1).
   const cache = caches.default;
   const keyUrl = new URL(url.toString());
+  keyUrl.searchParams.delete("fresh");
   keyUrl.searchParams.set("__cv", CACHE_VERSION);
   const key = new Request(keyUrl.toString(), { method: "GET" });
-  const hit = await cache.match(key);
-  if (hit) return hit;
+  if (!fresh) {
+    const hit = await cache.match(key);
+    if (hit) return hit;
+  }
 
   const realId = await resolveRealId(env, extId, date, homeTeamId, awayTeamId);
   if (realId == null) {
@@ -574,12 +584,37 @@ async function handleGetGameReport(url, env, ctx) {
   }
 
   const season = seasonFromDate(date);
-  const [report, rostersRaw] = await Promise.all([
-    tpGet("gamereport/getgamereportdata", { season, gameid: realId }),
-    tpGet("game/helpers/getrosters", { gameid: realId, season }).catch(() => null),
-  ]);
-  const box = buildBoxScore(report, { realId, season });
-  box.rosters = rostersRaw ? buildRosters(rostersRaw) : null;
+
+  // Durable RAW report cache (rep:<realId>) — store the UNMODIFIED tulospalvelu
+  // responses (report + rosters) and transform only at serve time, so NOTHING is
+  // stripped and no field is ever lost (future features can read any raw field).
+  // Settled finished games are served from here without touching tulospalvelu.
+  const repKey = `rep:${realId}`;
+  const ageDays = (Date.now() - Date.parse(String(date).replace(" ", "T"))) / 86_400_000;
+  const settled = ageDays > SETTLE_DAYS;
+
+  let raw = null;
+  if (settled && !fresh && env && env.GAME_IDS) {
+    const cached = await env.GAME_IDS.get(repKey);
+    if (cached) { try { raw = JSON.parse(cached); } catch { raw = null; } }
+  }
+
+  if (!raw) {
+    const [report, rostersRaw] = await Promise.all([
+      tpGet("gamereport/getgamereportdata", { season, gameid: realId }),
+      tpGet("game/helpers/getrosters", { gameid: realId, season }).catch(() => null),
+    ]);
+    raw = { report, rosters: rostersRaw, cachedAt: Date.now() };
+    // Persist ONLY finished games (live/upcoming stay off the durable store).
+    const g0 = (report.GamesUpdate || [])[0] || {};
+    const finished = (Number(g0.FinishedType) || 0) > 0;
+    if (finished && env && env.GAME_IDS && ctx && ctx.waitUntil) {
+      ctx.waitUntil(env.GAME_IDS.put(repKey, JSON.stringify(raw)));
+    }
+  }
+
+  const box = buildBoxScore(raw.report, { realId, season });
+  box.rosters = raw.rosters ? buildRosters(raw.rosters) : null;
 
   // Write a final result back to the season list for non-polling clients.
   if (box.finished && ctx && ctx.waitUntil) {

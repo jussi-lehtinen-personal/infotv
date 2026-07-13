@@ -29,12 +29,14 @@ app.http('getGameReport', {
             const home = q?.get('home');
             const away = q?.get('away');
             const extId = q?.get('extId');
+            const fresh = q?.get('fresh'); // admin: bust the worker's durable report cache
             if (!date || !home || !away) {
                 return { status: 400, jsonBody: { error: 'date, home, away required' } };
             }
 
             const params = new URLSearchParams({ date, home, away });
             if (extId) params.set('extId', extId);
+            if (fresh) params.set('fresh', fresh);
             const cacheKey = params.toString();
 
             const cached = cache.get(cacheKey);
