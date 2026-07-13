@@ -59,7 +59,7 @@ const Ahmaliiga = () => {
           component="img"
           src="/ahmaliiga_logo.png"
           alt="Ahmaliiga"
-          sx={{ width: 168, height: 168, objectFit: "contain", alignSelf: "center", mt: 0.5, mb: 0.5, filter: "drop-shadow(0 8px 22px rgba(0,0,0,.45))" }}
+          sx={{ width: "min(82vw, 320px)", height: "auto", aspectRatio: "1 / 1", objectFit: "contain", alignSelf: "center", mt: 1, mb: 0.5, filter: "drop-shadow(0 10px 26px rgba(0,0,0,.5))" }}
         />
 
         <Lead>
