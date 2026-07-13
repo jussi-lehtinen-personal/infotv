@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getJaksot, activeJaksoNo, getCards, getJaksoScore } = require('../lib/ahmaliiga');
+const { getActiveSeason, getJaksot, activeJaksoNo, getCards, getJaksoScore, getResultsFull, listManagers } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/summary?jakso=N — the signed-in manager's jakso breakdown:
 // each card's points (captain doubled), total, rank, best card. Powers the
@@ -26,21 +26,28 @@ app.http('ahmaliigaSummary', {
       const score = await getJaksoScore(season.rowKey, jakso, userId);
       if (!score) return { jsonBody: { jakso, settled: false, cards: [] } };
 
-      const cards = await getCards(season.rowKey);
+      const [cards, resultMap] = await Promise.all([getCards(season.rowKey), getResultsFull(season.rowKey, jakso)]);
       const map = {};
       for (const c of cards) map[c.rowKey] = c;
       const resolved = score.ids.map((id) => {
         const c = map[id] || {};
+        const r = resultMap[id] || {};
         return {
           id, name: c.name || id, kind: c.kind || 'team', sub: c.sub || '',
-          pts: score.breakdown[id] || 0, isCaptain: id === score.captainId,
+          pts: score.breakdown[id] || 0, reason: r.reason || '', isCaptain: id === score.captainId,
         };
       }).sort((a, b) => b.pts - a.pts);
+      const best = resolved[0] || null;
+      // prediction bonus as its own row (if any)
+      if (score.breakdown._predict) {
+        resolved.push({ id: '_predict', name: 'Veikkausbonus', kind: 'predict', reason: 'Osui otteluveikkaus', pts: score.breakdown._predict, isCaptain: false });
+      }
 
+      const managerCount = (await listManagers()).length;
       return {
         jsonBody: {
-          jakso, settled: true, total: score.total, rank: score.rank,
-          captainId: score.captainId, cards: resolved, best: resolved[0] || null,
+          jakso, settled: true, total: score.total, rank: score.rank, managerCount,
+          captainId: score.captainId, cards: resolved, best,
         },
       };
     } catch (err) {

@@ -29,8 +29,8 @@ async function post(action, extra) {
 (async () => {
   if (!token) { console.error('Set AHMA_TOKEN.'); process.exit(1); }
   if (cmd === 'setup') {
-    const results = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `results-${season}.json`), 'utf8')).results;
-    await post('loadResults', { results });
+    const rd = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `results-${season}.json`), 'utf8'));
+    await post('loadResults', { results: rd.results, reasons: rd.reasons });
     const games = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `games-${season}.json`), 'utf8')).games;
     await post('loadGames', { games });
     await post('seedBots', {});

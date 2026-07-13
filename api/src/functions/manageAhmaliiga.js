@@ -36,7 +36,7 @@ app.http('manageAhmaliiga', {
         }
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
-        const result = await loadResults(season.rowKey, body.results);
+        const result = await loadResults(season.rowKey, body.results, body.reasons);
         return { jsonBody: { ok: true, ...result } };
       }
 

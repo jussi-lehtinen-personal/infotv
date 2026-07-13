@@ -108,7 +108,7 @@ function goaliePoints(r, g) {
   const G = ga[primary], S = sv[primary], shots = S + G, pct = shots > 0 ? (S / shots) * 100 : 0;
   const cs = G === 0 && shots > 0, p95 = shots >= CFG.goalie.minShots && pct >= 95, p92 = shots >= CFG.goalie.minShots && pct >= 92 && !p95;
   const gp = CFG.goalie; const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (p95 ? gp.sv95 : p92 ? gp.sv92 : 0);
-  return { name: primary, pts };
+  return { name: primary, pts, pct, won, cs, shots };
 }
 
 // Player (individual U18+) cards: per-(player,jakso) points (skater goals/assists
@@ -116,8 +116,10 @@ function goaliePoints(r, g) {
 function buildPlayerCards(year, start) {
   const all = loadSeason(year);
   const jaksoOf = (g) => Math.floor((parseDate(g.date) - start) / (CFG.jaksoWeeks * 7 * 86400000));
-  const players = {}, teamJaksot = {};
+  const players = {}, teamJaksot = {}, detail = {};
   const add = (name, team, J, pts, isGK) => { if (!name) return; (players[name] = players[name] || { team, pts: {}, gk: false }).pts[J] = (players[name].pts[J] || 0) + pts; if (isGK) players[name].gk = true; };
+  // per-(player,jakso) breakdown for the "why these points" explanation
+  const dj = (name, J) => { const d = (detail[name] = detail[name] || {}); return (d[J] = d[J] || { goals: 0, assists: 0 }); };
   for (const g of all) {
     if (!isPlayerEligible(teamKey(g)) || g.finished != 1) continue;
     const tkk = teamKey(g), J = jaksoOf(g);
@@ -128,12 +130,14 @@ function buildPlayerCards(year, start) {
     const ahmaSide = g.ahmaHome ? "home" : "away";
     for (const goal of r.goals || []) {
       if (goal.side !== ahmaSide) continue;
-      add(goal.scorer && goal.scorer.name, tkk, J, CFG.player.goal, false);
-      for (const a of goal.assists || []) add(a, tkk, J, CFG.player.assist, false);
+      const scorer = goal.scorer && goal.scorer.name;
+      add(scorer, tkk, J, CFG.player.goal, false); if (scorer) dj(scorer, J).goals += 1;
+      for (const a of goal.assists || []) { add(a, tkk, J, CFG.player.assist, false); if (a) dj(a, J).assists += 1; }
     }
-    const gp = goaliePoints(r, g); if (gp) add(gp.name, tkk, J, gp.pts, true);
+    const gp = goaliePoints(r, g);
+    if (gp) { add(gp.name, tkk, J, gp.pts, true); const d = dj(gp.name, J); d.gk = { pct: gp.pct, won: gp.won, cs: gp.cs, shots: gp.shots }; }
   }
-  return { players, teamJaksot };
+  return { players, teamJaksot, detail };
 }
 
 // Pre-season prior: from the PREVIOUS season's stats. teams priced BY AGE (avg

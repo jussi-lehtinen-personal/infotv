@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuShieldCheck, LuGoal, LuMedal, LuClock, LuTrendingUp, LuChevronRight, LuCrown } from "react-icons/lu";
+import { LuShieldCheck, LuGoal, LuMedal, LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, Eyebrow } from "./_shared";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
@@ -119,27 +119,28 @@ export default function LiigaHome() {
         </>
       )}
 
-      {summary && summary.settled && summary.cards && summary.cards.length > 0 && (
-        <>
-          <SectionHeader title={`Jakson ${summary.jakso + 1} pisteet`} onMore={() => nav("/ahmaliiga/jakso")} />
-          <Stack spacing={1}>
-            {summary.cards.map((c) => (
-              <Stack key={c.id} direction="row" alignItems="center" spacing={1.5}
-                     sx={{ px: 1.5, py: 1.1, borderRadius: "var(--radius-item)",
-                           bgcolor: "rgba(255,255,255,0.03)", border: "1px solid var(--color-surface-border)" }}>
-                <Box component={c.isCaptain ? LuCrown : LuGoal} sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
-                <Typography sx={{ flex: 1, fontSize: 14, color: "text.secondary",
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {c.name}{c.isCaptain ? " · kapteeni" : ""}
-                </Typography>
-                <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4,
-                      color: c.pts > 0 ? "var(--color-live)" : "text.disabled", fontWeight: 800, fontSize: 13 }}>
-                  <LuTrendingUp size={14} /> +{c.pts}
-                </Box>
-              </Stack>
-            ))}
-          </Stack>
-        </>
+      {summary && summary.settled && (
+        <ButtonBase onClick={() => nav("/ahmaliiga/jakso")}
+          sx={{ display: "flex", width: "100%", alignItems: "center", gap: 1.75, p: 2, textAlign: "left",
+                borderRadius: "var(--radius-card)",
+                background: "linear-gradient(135deg, rgba(249,115,22,0.20), rgba(249,115,22,0.04))",
+                border: "1px solid rgba(249,115,22,0.5)" }}>
+          <Box sx={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
+                bgcolor: "rgba(249,115,22,0.18)" }}>
+            <Box component={LuClipboardList} sx={{ fontSize: 24, color: "primary.main" }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
+              Jakso {summary.jakso + 1} ratkaistu
+            </Typography>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+                  fontSize: 22, lineHeight: 1.1, color: "text.primary" }}>Jakson yhteenveto</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Sait {summary.total} pistettä · katso mistä ne tulivat
+            </Typography>
+          </Box>
+          <Box component={LuChevronRight} sx={{ color: "primary.main", fontSize: 22, flexShrink: 0 }} />
+        </ButtonBase>
       )}
     </Screen>
   );

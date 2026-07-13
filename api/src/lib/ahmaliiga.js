@@ -223,11 +223,12 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
 
 // --- M2: results + settlement (replay a past season) ---
 
-async function loadResults(seasonId, resultsObj) {
+async function loadResults(seasonId, resultsObj, reasonsObj) {
   const byJakso = {};
   for (const [cardId, jm] of Object.entries(resultsObj || {})) {
     for (const [j, pts] of Object.entries(jm)) {
-      (byJakso[j] = byJakso[j] || []).push({ partitionKey: `${seasonId}|${j}`, rowKey: cardId, pts: Number(pts) || 0 });
+      const reason = (reasonsObj && reasonsObj[cardId] && reasonsObj[cardId][j]) || '';
+      (byJakso[j] = byJakso[j] || []).push({ partitionKey: `${seasonId}|${j}`, rowKey: cardId, pts: Number(pts) || 0, reason });
     }
   }
   let rows = 0;
@@ -239,6 +240,14 @@ async function getResults(seasonId, jakso) {
   const rows = await listByPartition(T.results, `${seasonId}|${jakso}`);
   const out = {};
   for (const r of rows) out[r.rowKey] = Number(r.pts) || 0;
+  return out;
+}
+
+// {cardId: {pts, reason}} for a jakso — used by the summary "why" lines.
+async function getResultsFull(seasonId, jakso) {
+  const rows = await listByPartition(T.results, `${seasonId}|${jakso}`);
+  const out = {};
+  for (const r of rows) out[r.rowKey] = { pts: Number(r.pts) || 0, reason: r.reason || '' };
   return out;
 }
 
@@ -566,7 +575,7 @@ module.exports = {
   ECON, T, badRequest,
   getActiveSeason, getCards, getJaksot, currentJaksoNo, activeJaksoNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, settleJakso, seedBots, resetSim, getSimStatus,
-  getLeaderboard, getStanding, getJaksoScore,
+  loadResults, getResults, getResultsFull, settleJakso, seedBots, resetSim, getSimStatus,
+  getLeaderboard, getStanding, getJaksoScore, listManagers,
   loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus,
 };
