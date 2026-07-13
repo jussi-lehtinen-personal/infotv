@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { Box, Typography, Stack, Button, ButtonBase } from "@mui/material";
 import { LuPlus, LuMinus, LuGoal, LuClock, LuCheck } from "react-icons/lu";
-import { Screen, Title, Eyebrow, AHMA_LOGO } from "./_shared";
+import { Screen, Title, Eyebrow, CardAvatar } from "./_shared";
 
 // Veikkaa ottelu — one match per jakso. Predict the exact score for bonus points.
 // Mock: U15 vs HPK. Points: oikea voittaja +1, oikea maaliero +2, tarkka tulos +3.
 
 const MATCH = {
-  home: { name: "U15", logo: AHMA_LOGO },
-  away: { name: "HPK", logo: null },
+  home: { name: "U15", ahma: true },
+  away: { name: "HPK", ahma: false },
   when: "La 12.7. klo 14.00",
   deadline: "2 pv 4 h",
 };
@@ -31,29 +31,31 @@ const RoundBtn = ({ onClick, disabled, children }) => (
 const Stepper = ({ value, set }) => (
   <Stack alignItems="center" spacing={0.75} sx={{ width: 44 }}>
     <RoundBtn onClick={() => set(value + 1)}><LuPlus size={16} /></RoundBtn>
-    <Box sx={{ fontFamily: "var(--font-family-display)", fontSize: 46, lineHeight: 1,
-          color: "text.primary", width: "100%", textAlign: "center" }}>
-      {value}
+    {/* fixed-height, flex-centred slot so the digit sits exactly between the
+        buttons; translateY nudges Bebas (which sits high in its line box). */}
+    <Box sx={{ width: 44, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 44, lineHeight: 1,
+            color: "text.primary", transform: "translateY(var(--font-display-shift))" }}>{value}</Box>
     </Box>
     <RoundBtn onClick={() => set(Math.max(0, value - 1))} disabled={value <= 0}><LuMinus size={16} /></RoundBtn>
   </Stack>
 );
 
-const TeamAvatar = ({ team, size = 48 }) =>
-  team.logo ? (
-    <Box component="img" src={team.logo} alt="" sx={{ width: size, height: size, objectFit: "contain", flexShrink: 0 }} />
-  ) : (
-    <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "flex",
-          alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
-          border: "1px solid rgba(255,255,255,0.12)", fontWeight: 800, fontSize: Math.round(size * 0.4),
-          lineHeight: 1, color: "text.primary" }}>
-      {team.name.charAt(0)}
-    </Box>
-  );
+// Opponent (non-Ahma) crest placeholder: dark circle with the abbreviation.
+const OpponentBadge = ({ name, size }) => (
+  <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "flex",
+        alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
+        border: "1px solid rgba(255,255,255,0.12)", fontWeight: 800,
+        fontSize: Math.round(size * (name.length <= 3 ? 0.32 : 0.26)), letterSpacing: "0.02em", color: "text.primary" }}>
+    {name}
+  </Box>
+);
 
 const Side = ({ team }) => (
   <Stack alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-    <TeamAvatar team={team} />
+    {team.ahma
+      ? <CardAvatar card={{ kind: "team", name: team.name }} size={52} />
+      : <OpponentBadge name={team.name} size={52} />}
     <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 20, lineHeight: 1,
           letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>{team.name}</Typography>
   </Stack>
