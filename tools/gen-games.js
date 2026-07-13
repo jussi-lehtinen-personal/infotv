@@ -20,6 +20,7 @@ for (const g of games) {
   (byJakso[j] = byJakso[j] || []).push({
     gameId: String(g.id),
     home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+    homeLogo: g.home_logo || "", awayLogo: g.away_logo || "",
     homeGoals: g.home_goals, awayGoals: g.away_goals,
     date: g.date, level: g.level || "",
   });

@@ -37,7 +37,8 @@ app.http('ahmaliigaPrediction', {
       const games = await getJaksoGames(season.rowKey, jakso);
       const pred = await getPrediction(season.rowKey, jakso, userId);
       const outGames = games.map((g) => ({
-        gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome, date: g.date, level: g.level,
+        gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome,
+        homeLogo: g.homeLogo, awayLogo: g.awayLogo, date: g.date, level: g.level,
         ...(settled ? { homeGoals: g.homeGoals, awayGoals: g.awayGoals } : {}),
       }));
       let bonus = null;

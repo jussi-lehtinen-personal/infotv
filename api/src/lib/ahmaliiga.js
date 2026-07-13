@@ -453,6 +453,7 @@ async function loadGames(seasonId, gamesByJakso) {
     const ents = (arr || []).map((g) => ({
       partitionKey: `${seasonId}|${j}`, rowKey: String(g.gameId),
       home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+      homeLogo: g.homeLogo || '', awayLogo: g.awayLogo || '',
       homeGoals: g.homeGoals, awayGoals: g.awayGoals, date: g.date || '', level: g.level || '',
     }));
     await upsertBatch(T.games, ents); rows += ents.length;
@@ -464,6 +465,7 @@ async function getJaksoGames(seasonId, jakso) {
   const rows = await listByPartition(T.games, `${seasonId}|${jakso}`);
   return rows.map((g) => ({
     gameId: g.rowKey, home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+    homeLogo: g.homeLogo || '', awayLogo: g.awayLogo || '',
     homeGoals: g.homeGoals, awayGoals: g.awayGoals, date: g.date, level: g.level,
   })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }

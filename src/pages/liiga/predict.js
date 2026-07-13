@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, Button, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlus, LuMinus, LuGoal, LuCheck, LuChevronRight } from "react-icons/lu";
+import { LuPlus, LuMinus, LuGoal, LuCheck } from "react-icons/lu";
 import { Screen, Title, Eyebrow, CardAvatar } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
@@ -39,26 +39,30 @@ const Stepper = ({ value, set, readOnly }) => (
   </Stack>
 );
 
-const OpponentBadge = ({ name, size }) => (
-  <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "flex",
-        alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
-        border: "1px solid rgba(255,255,255,0.12)", fontWeight: 800,
-        fontSize: Math.round(size * (String(name).length <= 3 ? 0.32 : 0.24)), letterSpacing: "0.02em", color: "text.primary" }}>
-    {name}
-  </Box>
-);
+// Real team logo (tulospalvelu), else the Ahma crest / an initials badge.
+const TeamLogo = ({ name, logo, ahma, size }) =>
+  logo ? (
+    <Box component="img" src={logo} alt="" sx={{ width: size, height: size, objectFit: "contain", flexShrink: 0,
+          borderRadius: `${Math.round(size * 0.16)}px`, bgcolor: "rgba(255,255,255,0.05)", p: `${Math.round(size * 0.06)}px` }} />
+  ) : ahma ? (
+    <CardAvatar card={{ kind: "team", name }} size={size} />
+  ) : (
+    <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "flex",
+          alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
+          border: "1px solid rgba(255,255,255,0.12)", fontWeight: 800,
+          fontSize: Math.round(size * (String(name).length <= 3 ? 0.32 : 0.24)), color: "text.primary" }}>
+      {name}
+    </Box>
+  );
 
-const TeamSide = ({ name, ahma }) => (
+const TeamSide = ({ name, logo, ahma }) => (
   <Stack alignItems="center" spacing={0.75} sx={{ minWidth: 0, width: 96 }}>
-    {ahma ? <CardAvatar card={{ kind: "team", name }} size={52} /> : <OpponentBadge name={name} size={52} />}
+    <TeamLogo name={name} logo={logo} ahma={ahma} size={54} />
     <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1.05, textAlign: "center",
           letterSpacing: "var(--font-display-tracking)", color: "text.primary",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{name}</Typography>
   </Stack>
 );
-
-const ahmaName = (g) => (g.ahmaHome ? g.home : g.away);
-const oppName = (g) => (g.ahmaHome ? g.away : g.home);
 
 export default function LiigaPredict() {
   const [data, setData] = useState(undefined);
@@ -121,33 +125,35 @@ export default function LiigaPredict() {
       <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>
         Valitse ottelu
       </Typography>
-      <Box sx={{ maxHeight: 210, overflowY: "auto", mb: 2, borderRadius: "var(--radius-card)",
-            border: "1px solid var(--color-surface-border)", "&::-webkit-scrollbar": { width: 4 } }}>
+      <Stack spacing={1} sx={{ maxHeight: 264, overflowY: "auto", mb: 2, pr: 0.5, "&::-webkit-scrollbar": { width: 4 } }}>
         {data.games.map((g) => {
           const active = g.gameId === game.gameId;
           return (
             <ButtonBase key={g.gameId} onClick={() => selectGame(g)}
-              sx={{ display: "flex", width: "100%", alignItems: "center", gap: 1, px: 1.5, py: 1, textAlign: "left",
-                    borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 },
-                    bgcolor: active ? "rgba(249,115,22,0.12)" : "transparent" }}>
+              sx={{ display: "flex", width: "100%", alignItems: "center", gap: 1.25, px: 1.25, py: 1, textAlign: "left",
+                    borderRadius: "var(--radius-item)", bgcolor: active ? "rgba(249,115,22,0.10)" : "var(--color-surface)",
+                    border: `1px solid ${active ? "var(--color-primary)" : "var(--color-surface-border)"}` }}>
+              <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                <TeamLogo name={g.home} logo={g.homeLogo} ahma={g.ahmaHome} size={28} />
+                <TeamLogo name={g.away} logo={g.awayLogo} ahma={!g.ahmaHome} size={28} />
+              </Stack>
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: active ? "primary.main" : "text.primary",
+                <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: active ? "primary.main" : "text.primary",
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {ahmaName(g)} <Box component="span" sx={{ color: "text.disabled", fontWeight: 400 }}>vs</Box> {oppName(g)}
+                  {g.home} – {g.away}
                 </Typography>
                 <Typography variant="caption" sx={{ color: "text.disabled" }}>{shortDate(g.date)} {g.level}</Typography>
               </Box>
               {g.gameId === savedId && <Box component={LuCheck} sx={{ color: "var(--color-live)", fontSize: 16, flexShrink: 0 }} />}
-              <Box component={LuChevronRight} sx={{ color: "text.disabled", fontSize: 16, flexShrink: 0 }} />
             </ButtonBase>
           );
         })}
-      </Box>
+      </Stack>
 
       {/* selected game + score */}
       <Box sx={{ borderRadius: "var(--radius-card)", p: 2.5, mb: 2, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 1 }}>
-          <Box sx={{ justifySelf: "center" }}><TeamSide name={game.home} ahma={game.ahmaHome} /></Box>
+          <Box sx={{ justifySelf: "center" }}><TeamSide name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} /></Box>
           {settled ? (
             <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 44, lineHeight: 1,
                   letterSpacing: "var(--font-display-tracking)", color: "primary.main", px: 1 }}>
@@ -160,7 +166,7 @@ export default function LiigaPredict() {
               <Stepper value={away} set={setAway} />
             </Stack>
           )}
-          <Box sx={{ justifySelf: "center" }}><TeamSide name={game.away} ahma={!game.ahmaHome} /></Box>
+          <Box sx={{ justifySelf: "center" }}><TeamSide name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} /></Box>
         </Box>
 
         {settled && data.myPrediction && (
