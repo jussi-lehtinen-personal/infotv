@@ -1,4 +1,5 @@
 const { getEntity, upsertEntity, deleteEntity, listByPartition, listEntities, transact } = require('./tables');
+const { avatarUrl } = require('./blob');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/jaksot/cards +
@@ -461,12 +462,17 @@ async function getLeaderboard(seasonId, scope, jakso) {
   const nick = {};
   for (const m of managers) nick[m.userId] = m.nickname;
   const prev = await previousRankMap(seasonId, scope, jakso);
+  // Manager avatars from their profile (null → the client shows initials; bots have none).
+  const ids = [...new Set(rows.map((r) => r.rowKey))];
+  const profiles = await Promise.all(ids.map((id) => getEntity('Users', id, 'profile').catch(() => null)));
+  const avatarById = {};
+  ids.forEach((id, i) => { avatarById[id] = avatarUrl(id, profiles[i]); });
   return rows
     .map((r) => {
       const rank = Number(r.rank) || 0;
       const pr = prev && prev[r.rowKey] != null ? prev[r.rowKey] : null;
       // delta > 0 = climbed (rank number went down); < 0 = dropped; null = no history.
-      return { userId: r.rowKey, nickname: nick[r.rowKey] || 'Pelaaja', total: Number(r.total) || 0, rank, delta: pr != null ? pr - rank : null };
+      return { userId: r.rowKey, nickname: nick[r.rowKey] || 'Pelaaja', avatar: avatarById[r.rowKey] || null, total: Number(r.total) || 0, rank, delta: pr != null ? pr - rank : null };
     })
     .sort((a, b) => a.rank - b.rank);
 }
