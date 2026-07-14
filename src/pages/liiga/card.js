@@ -188,8 +188,9 @@ export default function LiigaCard() {
     <Screen>
       <DialogHeader title="Kortin tiedot" />
 
-      {/* hero — avatar half the width (left) + info the other half (right) */}
-      <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+      {/* hero — avatar half the width (left) + info the other half (right),
+          info column vertically centred against the taller avatar+name block */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Box sx={{ flex: 1, minWidth: 0, textAlign: "center" }}>
           <Box sx={{ position: "relative", display: "inline-flex" }}>
             <Box sx={{ borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={140} /></Box>
@@ -207,8 +208,9 @@ export default function LiigaCard() {
             {nameLines(card).map((line, i) => <Box component="span" key={i} sx={{ display: "block" }}>{line}</Box>)}
           </Typography>
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0, pt: 1 }}>
+        <Box sx={{ flex: 1, minWidth: 0, "& > :last-child": { mb: 0 } }}>
           <InfoRow label="Hinta"><PricePill value={card.price} size={16} /></InfoRow>
+          <InfoRow label="Kauden pisteet"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{card.seasonPts} p</Typography></InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
           <InfoRow label="Tyyppi"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{TYPE_LABEL[card.kind] || "Kortti"}</Typography></InfoRow>
           {(card.trend === "up" || card.trend === "down") && (
