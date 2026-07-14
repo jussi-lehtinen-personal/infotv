@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuCircleDollarSign } from "react-icons/lu";
+import { LuCircleDollarSign, LuChevronLeft } from "react-icons/lu";
 
 // Shared bits for the Ahmaliiga (fantasy) preview screens. Mock data only — the
 // real game runs on Table Storage later. Preview is gated to ADMIN_USER_IDS
@@ -36,7 +36,7 @@ export const teamAbbr = (name) => {
 export const CardAvatar = ({ card, size }) => {
   if (card && card.photo) {
     return <Box component="img" src={card.photo} alt=""
-                sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+                sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", objectPosition: "top", flexShrink: 0,
                       bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />;
   }
   const isTeam = card && card.kind === "team";
@@ -56,6 +56,24 @@ export const CardAvatar = ({ card, size }) => {
 // Scroll container with consistent page padding + max width.
 export const Screen = ({ children, sx }) => (
   <Box sx={{ px: 2, py: 2, maxWidth: 640, mx: "auto", ...sx }}>{children}</Box>
+);
+
+// Back-header for full-screen dialogs (Korvaa/Lisää): a centred back chevron + a
+// Bebas title + optional right slot. The title carries the display-shift so the
+// caps sit on the SAME centre line as the icon — use this, don't hand-roll it.
+export const DialogHeader = ({ onBack, title, right }) => (
+  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2, minHeight: 40 }}>
+    <ButtonBase onClick={onBack} aria-label="Takaisin"
+      sx={{ width: 36, height: 36, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
+            color: "text.secondary", "&:hover": { bgcolor: "rgba(255,255,255,0.06)" } }}>
+      <Box component={LuChevronLeft} sx={{ fontSize: 24, display: "block" }} />
+    </ButtonBase>
+    <Box component="span" sx={{ flex: 1, minWidth: 0, fontFamily: "var(--font-family-display)",
+          letterSpacing: "var(--font-display-tracking)", textTransform: "uppercase", fontSize: 24, lineHeight: 1,
+          color: "text.primary", transform: "translateY(var(--font-display-shift))",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</Box>
+    {right}
+  </Stack>
 );
 
 // ===== Shared layout templates — use these for EVERY list/stat, don't restyle

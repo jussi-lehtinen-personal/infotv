@@ -5,9 +5,9 @@ import {
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Drawer,
 } from "@mui/material";
 import {
-  LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronLeft, LuArrowRight, LuX,
+  LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
 } from "react-icons/lu";
-import { Screen, Title, CoinPill, Coins, CardAvatar } from "./_shared";
+import { Screen, Title, CoinPill, Coins, CardAvatar, DialogHeader } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad } from "../../lib/ahmaliigaApi";
 
@@ -37,6 +37,7 @@ export default function LiigaEdit() {
   const [all, setAll] = useState(null);
   const [settled, setSettled] = useState(false);
   const [budget, setBudget] = useState(120);
+  const [savedBuy, setSavedBuy] = useState({}); // id -> locked-in buyPrice from the saved squad
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -74,6 +75,11 @@ export default function LiigaEdit() {
         setAll(cardsRes.cards || []);
         setSettled(!!cardsRes.settled);
         if (squadRes && squadRes.budget) setBudget(squadRes.budget);
+        // Lock-in prices come from the SAVED squad (server rule), regardless of any draft.
+        const sq = squadRes && squadRes.squad ? squadRes.squad : null;
+        const buy = {};
+        if (sq) for (const c of sq.cards || []) buy[c.id] = c.buyPrice;
+        setSavedBuy(buy);
         let list = null, cap = null;
         try {
           const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
@@ -102,7 +108,10 @@ export default function LiigaEdit() {
   }, [all]);
 
   const selected = useMemo(() => ids.map((id) => byId[id]).filter(Boolean), [ids, byId]);
-  const spent = useMemo(() => selected.reduce((s, c) => s + c.price, 0), [selected]);
+  // Budget cost of a card: locked buyPrice if already owned, otherwise the current
+  // market price (a new purchase). Mirrors the server's lock-in on save.
+  const cost = (c) => (c && savedBuy[c.id] != null ? savedBuy[c.id] : (c ? c.price : 0));
+  const spent = selected.reduce((s, c) => s + cost(c), 0);
   const bank = budget - spent;
   const playerCount = selected.filter((c) => c.kind !== "team").length;
   const full = ids.length === 5;
@@ -130,12 +139,12 @@ export default function LiigaEdit() {
   // selection rules for the shared list
   const canReplaceWith = (c) => {
     if (!replaceFor) return false;
-    const afford = c.price <= bank + replaceFor.price;
+    const afford = cost(c) <= bank + cost(replaceFor);
     const playersAfter = playerCount - (replaceFor.kind !== "team" ? 1 : 0) + (c.kind !== "team" ? 1 : 0);
     return afford && playersAfter <= 2;
   };
   const canAdd = (c) =>
-    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < 2);
+    ids.length < 5 && !ids.includes(c.id) && cost(c) <= bank && (c.kind === "team" || playerCount < 2);
 
   const save = async () => {
     setError("");
@@ -183,7 +192,7 @@ export default function LiigaEdit() {
               <KindTag kind={captain.kind} />
               <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "text.primary", mt: 0.25 }}>{captain.name}</Typography>
               {captain.kind !== "team" && captain.sub && <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>{captain.sub}</Typography>}
-              <Box sx={{ mt: 1 }}><Coins value={captain.price} size={15} /></Box>
+              <Box sx={{ mt: 1 }}><Coins value={cost(captain)} size={15} /></Box>
             </Box>
           </Stack>
         </ButtonBase>
@@ -202,7 +211,7 @@ export default function LiigaEdit() {
                 <Typography sx={{ fontWeight: 700, fontSize: 15, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</Typography>
                 {c.kind !== "team" && c.sub && <Typography variant="caption" sx={{ color: "text.disabled", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.sub}</Typography>}
               </Box>
-              <Coins value={c.price} size={13} />
+              <Coins value={cost(c)} size={13} />
             </Stack>
           </ButtonBase>
         ))}
@@ -222,21 +231,24 @@ export default function LiigaEdit() {
         {saving ? "Tallennetaan…" : full ? "Tallenna joukkue" : `Valitse vielä ${5 - ids.length} korttia`}
       </Button>
 
-      {/* 2A. Action sheet (bottom) */}
-      <Drawer anchor="bottom" open={!!menuCard} onClose={() => setMenuCard(null)}
-        PaperProps={{ sx: { bgcolor: "var(--color-bg)", borderTop: "1px solid var(--color-surface-border)", borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundImage: "none" } }}>
+      {/* 2A. Action sheet (bottom). elevation=0 kills MUI's dark-mode paper overlay
+          (the grey tint); solid dark bg + a hairline top border like the concept. */}
+      <Drawer anchor="bottom" open={!!menuCard} onClose={() => setMenuCard(null)} elevation={0}
+        PaperProps={{ sx: { backgroundColor: "#161616", backgroundImage: "none",
+          borderTop: "1px solid var(--color-surface-border)", borderTopLeftRadius: 20, borderTopRightRadius: 20,
+          boxShadow: "0 -18px 40px rgba(0,0,0,0.5)" } }}>
         {menuCard && (
           <Box sx={{ p: 2, pb: 3, maxWidth: 640, mx: "auto", width: "100%" }}>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2, pb: 2, borderBottom: "1px solid var(--color-surface-divider)" }}>
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5, pb: 2, borderBottom: "1px solid var(--color-surface-divider)" }}>
               <CardAvatar card={menuCard} size={44} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography noWrap sx={{ fontWeight: 700, fontSize: 16, color: "text.primary" }}>{menuCard.name}</Typography>
+                <Typography noWrap sx={{ fontWeight: 800, fontSize: 16, color: "text.primary", lineHeight: 1.2 }}>{menuCard.name}</Typography>
                 <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>{menuCard.kind === "team" ? "Joukkue" : menuCard.sub}</Typography>
               </Box>
-              <Coins value={menuCard.price} size={14} />
+              <Box sx={{ flexShrink: 0 }}><Coins value={cost(menuCard)} size={15} /></Box>
             </Stack>
-            <Stack spacing={0.5}>
-              <SheetAction icon={LuArrowLeftRight} label="Korvaa kortti" sub="Vaihda tämä kortti toiseen"
+            <Stack spacing={0.25}>
+              <SheetAction icon={LuArrowLeftRight} label="Korvaa kortti" sub="Vaihda tämä kortti toiseen" chevron
                 onClick={() => { const c = menuCard; setMenuCard(null); setReplaceFor(c); }} />
               {menuCard.id !== captainId && (
                 <SheetAction icon={LuCrown} label="Tee kapteeniksi" sub="Kapteenin pisteet ×2"
@@ -244,16 +256,17 @@ export default function LiigaEdit() {
               )}
               <SheetAction icon={LuInfo} label="Näytä tiedot" sub="Avaa kortin tiedot"
                 onClick={() => nav(`/ahmaliiga/kortti/${encodeURIComponent(menuCard.id)}`)} />
-              <SheetAction icon={LuTrash2} label="Poista kortti" danger
+              <SheetAction icon={LuTrash2} label="Poista kortti" sub="Poista kortti joukkueesta" danger
                 onClick={() => { const c = menuCard; setMenuCard(null); setRemoveConfirm(c); }} />
             </Stack>
-            <Button fullWidth variant="text" onClick={() => setMenuCard(null)} sx={{ mt: 1.5, color: "text.secondary" }}>Peruuta</Button>
+            <Button fullWidth variant="outlined" onClick={() => setMenuCard(null)}
+              sx={{ mt: 2, py: 1.1, color: "text.secondary", borderColor: "var(--color-surface-border)" }}>Peruuta</Button>
           </Box>
         )}
       </Drawer>
 
       {/* 2B. Set-captain confirm */}
-      <Dialog open={!!capConfirm} onClose={() => setCapConfirm(null)} PaperProps={{ sx: dialogPaper }}>
+      <Dialog open={!!capConfirm} onClose={() => setCapConfirm(null)} PaperProps={{ elevation: 0, sx: dialogPaper }}>
         <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>Aseta kapteeniksi?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: "text.secondary" }}>
@@ -267,7 +280,7 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* Remove confirm */}
-      <Dialog open={!!removeConfirm} onClose={() => setRemoveConfirm(null)} PaperProps={{ sx: dialogPaper }}>
+      <Dialog open={!!removeConfirm} onClose={() => setRemoveConfirm(null)} PaperProps={{ elevation: 0, sx: dialogPaper }}>
         <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>Poista kortti?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: "text.secondary" }}>
@@ -281,13 +294,10 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* 3. Replace list (full screen) */}
-      <Dialog fullScreen open={!!replaceFor} onClose={() => setReplaceFor(null)} PaperProps={{ sx: { bgcolor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
+      <Dialog fullScreen open={!!replaceFor} onClose={() => setReplaceFor(null)} PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
         {replaceFor && (
           <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-              <ButtonBase onClick={() => setReplaceFor(null)} sx={{ p: 0.5, borderRadius: "50%", color: "text.secondary" }}><LuChevronLeft size={24} /></ButtonBase>
-              <Title sx={{ fontSize: 24 }}>Korvaa kortti</Title>
-            </Stack>
+            <DialogHeader onBack={() => setReplaceFor(null)} title="Korvaa kortti" />
             <Box sx={{ mb: 2, p: 1.5, borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
               <Box component="span" sx={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>Korvattava kortti</Box>
               <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 0.75 }}>
@@ -296,7 +306,7 @@ export default function LiigaEdit() {
                   <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, color: "text.primary" }}>{replaceFor.name}</Typography>
                   <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>{replaceFor.kind === "team" ? "Joukkue" : replaceFor.sub}</Typography>
                 </Box>
-                <Coins value={replaceFor.price} size={14} />
+                <Coins value={cost(replaceFor)} size={14} />
               </Stack>
             </Box>
             <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canReplaceWith}
@@ -306,18 +316,18 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* 4. Swap confirm */}
-      <Dialog open={!!swapIn} onClose={() => setSwapIn(null)} PaperProps={{ sx: dialogPaper }}>
+      <Dialog open={!!swapIn} onClose={() => setSwapIn(null)} PaperProps={{ elevation: 0, sx: dialogPaper }}>
         <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>Vahvista vaihto</DialogTitle>
         <DialogContent>
           {replaceFor && swapIn && (
             <>
               <Stack direction="row" alignItems="center" justifyContent="center" spacing={1.5} sx={{ my: 1 }}>
-                <SwapCard card={replaceFor} label="Ulos" tone="out" />
+                <SwapCard card={replaceFor} price={cost(replaceFor)} label="Ulos" tone="out" />
                 <Box component={LuArrowRight} sx={{ fontSize: 22, color: "text.disabled", flexShrink: 0 }} />
-                <SwapCard card={swapIn} label="Sisään" tone="in" />
+                <SwapCard card={swapIn} price={cost(swapIn)} label="Sisään" tone="in" />
               </Stack>
               <Typography sx={{ textAlign: "center", color: "text.secondary", fontSize: 14, mt: 1 }}>
-                Budjetti vaihdon jälkeen: <b style={{ color: "var(--color-primary)" }}>{bank + replaceFor.price - swapIn.price} 🪙</b>
+                Budjetti vaihdon jälkeen: <b style={{ color: "var(--color-primary)" }}>{bank + cost(replaceFor) - cost(swapIn)} 🪙</b>
               </Typography>
             </>
           )}
@@ -329,13 +339,9 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* 6. Add list (full screen) */}
-      <Dialog fullScreen open={addOpen} onClose={() => setAddOpen(false)} PaperProps={{ sx: { bgcolor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
-        <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-            <ButtonBase onClick={() => setAddOpen(false)} sx={{ p: 0.5, borderRadius: "50%", color: "text.secondary" }}><LuX size={22} /></ButtonBase>
-            <Title sx={{ fontSize: 24, flex: 1 }}>Lisää kortti</Title>
-            <CoinPill value={bank} total={budget} />
-          </Stack>
+      <Dialog fullScreen open={addOpen} onClose={() => setAddOpen(false)} PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
+        <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
+          <DialogHeader onBack={() => setAddOpen(false)} title="Lisää kortti" right={<CoinPill value={bank} total={budget} />} />
           <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canAdd}
             onPick={addCard} emptyText="Ei lisättäviä kortteja." />
         </Box>
@@ -344,27 +350,33 @@ export default function LiigaEdit() {
   );
 }
 
-const dialogPaper = { bgcolor: "var(--color-bg)", backgroundImage: "none", border: "1px solid var(--color-surface-border)", borderRadius: "var(--radius-card)" };
+const dialogPaper = { backgroundColor: "var(--color-bg)", backgroundImage: "none", border: "1px solid var(--color-surface-border)", borderRadius: "var(--radius-card)" };
 
-const SheetAction = ({ icon: Icon, label, sub, danger, onClick }) => (
-  <ButtonBase onClick={onClick} sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", px: 1, py: 1.25, borderRadius: "var(--radius-item)", "&:hover": { bgcolor: "rgba(255,255,255,0.04)" } }}>
-    <Box sx={{ width: 36, height: 36, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
-          bgcolor: danger ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.06)", color: danger ? "#f87171" : "primary.main" }}>
-      <Box component={Icon} sx={{ fontSize: 18, display: "block" }} />
+// One action-sheet row: rounded-square icon tile + title/subtitle, optional chevron.
+// Icon tile is a block grid (no baseline gap) so the icon centres cleanly.
+const SheetAction = ({ icon: Icon, label, sub, danger, chevron, onClick }) => (
+  <ButtonBase onClick={onClick} sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left",
+        px: 1, py: 1.15, borderRadius: "var(--radius-item)", "&:hover": { bgcolor: "rgba(255,255,255,0.04)" } }}>
+    <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "var(--radius-small)", display: "grid", placeItems: "center",
+          bgcolor: danger ? "rgba(239,68,68,0.12)" : "rgba(249,115,22,0.12)",
+          border: `1px solid ${danger ? "rgba(239,68,68,0.28)" : "rgba(249,115,22,0.28)"}`,
+          color: danger ? "#f87171" : "primary.main" }}>
+      <Box component={Icon} sx={{ fontSize: 19, display: "block" }} />
     </Box>
-    <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontWeight: 700, fontSize: 15, color: danger ? "#f87171" : "text.primary" }}>{label}</Typography>
-      {sub && <Typography variant="caption" sx={{ color: "text.disabled" }}>{sub}</Typography>}
+    <Box sx={{ minWidth: 0, flex: 1 }}>
+      <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: danger ? "#f87171" : "text.primary" }}>{label}</Typography>
+      {sub && <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", lineHeight: 1.25 }}>{sub}</Typography>}
     </Box>
+    {chevron && <Box component={LuChevronRight} sx={{ fontSize: 18, color: "text.disabled", flexShrink: 0, display: "block" }} />}
   </ButtonBase>
 );
 
-const SwapCard = ({ card, label, tone }) => (
+const SwapCard = ({ card, price, label, tone }) => (
   <Box sx={{ textAlign: "center", minWidth: 0, flex: 1 }}>
     <Box component="span" sx={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
           color: tone === "in" ? "var(--color-live)" : "#f87171" }}>{label}</Box>
     <Box sx={{ display: "flex", justifyContent: "center", my: 0.75 }}><CardAvatar card={card} size={48} /></Box>
     <Typography noWrap sx={{ fontWeight: 700, fontSize: 13, color: "text.primary" }}>{card.name}</Typography>
-    <Box sx={{ display: "flex", justifyContent: "center", mt: 0.25 }}><Coins value={card.price} size={12} /></Box>
+    <Box sx={{ display: "flex", justifyContent: "center", mt: 0.25 }}><Coins value={price != null ? price : card.price} size={12} /></Box>
   </Box>
 );

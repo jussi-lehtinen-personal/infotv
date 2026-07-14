@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Box, Typography, Stack, ButtonBase, InputBase } from "@mui/material";
-import { LuSearch, LuLock } from "react-icons/lu";
+import { LuSearch } from "react-icons/lu";
 import { PricePill, CardAvatar, ListCard, signed } from "./_shared";
 
 // THE one card-list component, used in three modes:
@@ -24,11 +24,14 @@ const GRID = {
   columnGap: 1,
   px: 1.5,
 };
+// Stat columns (Jakso/Kausi/Hinta) centre both the header and the value in the
+// same grid cell → their optical centres line up regardless of text width. The
+// first column (Pelaaja) stays left-aligned.
 const StatVal = ({ children }) => (
-  <Box sx={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: "text.secondary" }}>{children}</Box>
+  <Box sx={{ textAlign: "center", fontSize: 13, fontWeight: 800, color: "text.secondary" }}>{children}</Box>
 );
 const HeadCell = ({ children }) => (
-  <Box sx={{ textAlign: "right", fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+  <Box sx={{ textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
         textTransform: "uppercase", color: "text.disabled" }}>{children}</Box>
 );
 
@@ -94,19 +97,14 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
           {list.map((c, i) => {
             const ok = !canPick || canPick(c);
             const divider = i < list.length - 1;
+            // Non-selectable rows just dim (no lock icon drawn over the avatar).
             const rowSx = { ...GRID, py: 1.25, textAlign: "left", width: "100%",
+              opacity: ok ? 1 : 0.38,
               borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0 };
             const body = (
               <>
-                <Box sx={{ position: "relative", width: 44, height: 44 }}>
-                  <Box sx={{ opacity: ok ? 1 : 0.4 }}><CardAvatar card={c} size={44} /></Box>
-                  {!ok && (
-                    <Box sx={{ position: "absolute", inset: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "rgba(0,0,0,0.45)" }}>
-                      <Box component={LuLock} sx={{ fontSize: 15, color: "text.secondary", display: "block" }} />
-                    </Box>
-                  )}
-                </Box>
-                <Box sx={{ minWidth: 0, opacity: ok ? 1 : 0.4 }}>
+                <CardAvatar card={c} size={44} />
+                <Box sx={{ minWidth: 0 }}>
                   <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary" }}>{c.name}</Typography>
                   <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.3, lineHeight: 1.2 }}>
                     {c.kind === "team" ? "Joukkue" : c.sub}
@@ -116,7 +114,7 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
                 </Box>
                 <StatVal>{settled ? `${signed(c.lastPts)}p` : "—"}</StatVal>
                 <StatVal>{settled ? `${c.seasonPts}p` : "—"}</StatVal>
-                <Box sx={{ display: "flex", justifyContent: "flex-end", opacity: ok ? 1 : 0.4 }}><PricePill value={c.price} /></Box>
+                <Box sx={{ display: "flex", justifyContent: "center" }}><PricePill value={c.price} /></Box>
               </>
             );
             return ok ? (
