@@ -64,10 +64,10 @@ app.http('manageAhmaliiga', {
         return { jsonBody: { ok: true, ...result } };
       }
 
-      if (action === 'resetSim') {
+      if (action === 'resetSim' || action === 'resetAll') {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
-        const result = await resetSim(season.rowKey);
+        const result = await resetSim(season.rowKey, { hard: action === 'resetAll' });
         return { jsonBody: { ok: true, ...result } };
       }
 

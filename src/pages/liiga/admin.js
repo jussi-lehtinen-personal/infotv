@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2 } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -106,6 +106,9 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
                   onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet ja hinnat resetoidaan. Pakat, botit ja tulokset säilyvät.")} />
+        <AdminBtn icon={LuTrash2} label="Nollaa KAIKKI (joukkueet, budjetit, botit)" danger
+                  busy={busy === "resetAll"} disabled={!s}
+                  onClick={() => run("resetAll", "Kaikki nollattu", "Nollataanko KAIKKI? Tämä tyhjentää lisäksi kaikki joukkueet (budjetit täyteen), veikkaukset ja botit. Ihmiskäyttäjät säilyvät mutta menettävät joukkueensa. Kortit ja tulokset säilyvät.")} />
       </Stack>
 
       {s && !s.resultsLoaded && (

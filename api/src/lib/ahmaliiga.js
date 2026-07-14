@@ -739,9 +739,12 @@ async function clearPartition(table, pk) {
 }
 
 // Reset the replay: pointer → round 0, rounds → open, cards restored to seed
-// prices, all Scores/SeasonScores cleared. KEEPS results, bots, managers, squads
-// (so you can just settle again). Card ownership/lastPts zeroed.
-async function resetSim(seasonId) {
+// prices, all Scores/SeasonScores cleared. Card ownership/lastPts zeroed.
+// By default KEEPS squads, bots, managers and results (so you can just settle
+// again). With `{ hard: true }` it ALSO wipes every squad (→ empty teams + full
+// budget + transfers reset), every round's predictions, and the bot managers —
+// a clean slate for the whole participant state (human registrations are kept).
+async function resetSim(seasonId, opts = {}) {
   const seasonRow = await getEntity(T.season, 'season', seasonId);
   if (!seasonRow) throw badRequest('Kausi puuttuu.');
   await upsertEntity(T.season, { ...seasonRow, currentRound: 0 });
@@ -760,7 +763,22 @@ async function resetSim(seasonId) {
   }));
   for (let j = 0; j < rounds.length; j++) await clearPartition(T.scores, `${seasonId}|${j}`);
   await clearPartition(T.seasonScores, seasonId);
-  return { reset: true, rounds: rounds.length };
+
+  let wiped;
+  if (opts.hard) {
+    // Every squad (human + bot) → gone, so teams empty + budget full + transfers reset.
+    const squads = await listEntities(T.squads, "RowKey eq 'current'");
+    await inChunks(squads, 25, (r) => deleteEntity(T.squads, r.partitionKey, r.rowKey));
+    // Every round's predictions.
+    let predictions = 0;
+    for (const j of rounds) predictions += await clearPartition(T.predictions, `${seasonId}|${j.rowKey}`);
+    // Bot managers (human registrations kept — humans just lose their squad).
+    const managers = await listEntities(T.managers, "RowKey eq 'profile'");
+    const bots = managers.filter((m) => m.isBot);
+    await inChunks(bots, 25, (r) => deleteEntity(T.managers, r.partitionKey, r.rowKey));
+    wiped = { squads: squads.length, predictions, bots: bots.length };
+  }
+  return { reset: true, rounds: rounds.length, ...(wiped ? { wiped } : {}) };
 }
 
 // Status for the admin panel.
