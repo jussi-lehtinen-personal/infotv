@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getCards, getJaksot } = require('../lib/ahmaliiga');
+const { getActiveSeason, getCards, getRounds } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/cards?filter=team|player|goalie — the active season's card
 // pool (Korttimarkkina). Public. filter omitted/all = every card.
@@ -14,8 +14,8 @@ app.http('ahmaliigaCards', {
       const season = await getActiveSeason();
       if (!season) return { jsonBody: { season: null, cards: [] } };
       const filter = request.query?.get('filter');
-      const [allCards, jaksot] = await Promise.all([getCards(season.rowKey), getJaksot(season.rowKey)]);
-      const settled = jaksot.some((j) => j.status === 'settled');
+      const [allCards, rounds] = await Promise.all([getCards(season.rowKey), getRounds(season.rowKey)]);
+      const settled = rounds.some((j) => j.status === 'settled');
       let cards = allCards;
       if (filter && filter !== 'all') cards = cards.filter((c) => c.kind === filter);
       const out = cards

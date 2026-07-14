@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, loadResults, loadGames, settleJakso, seedBots, resetSim, getSimStatus, enrichPhotos, getActiveSeason, getJaksot, activeJaksoNo } = require('../lib/ahmaliiga');
+const { seedSeason, loadResults, loadGames, settleRound, seedBots, resetSim, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -78,20 +78,20 @@ app.http('manageAhmaliiga', {
         return { jsonBody: { active: true, ...result } };
       }
 
-      if (action === 'settleJakso' || action === 'settleAll') {
+      if (action === 'settleRound' || action === 'settleAll') {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
-        const jaksot = await getJaksot(season.rowKey);
-        const last = jaksot.length - 1;
-        if (action === 'settleJakso') {
-          const j = body.jakso != null ? Number(body.jakso) : activeJaksoNo(season, jaksot);
-          const result = await settleJakso(season.rowKey, j);
+        const rounds = await getRounds(season.rowKey);
+        const last = rounds.length - 1;
+        if (action === 'settleRound') {
+          const j = body.round != null ? Number(body.round) : activeRoundNo(season, rounds);
+          const result = await settleRound(season.rowKey, j);
           return { jsonBody: { ok: true, ...result } };
         }
-        // settleAll: from the current pointer to the last jakso
-        const from = activeJaksoNo(season, jaksot);
+        // settleAll: from the current pointer to the last round
+        const from = activeRoundNo(season, rounds);
         const settled = [];
-        for (let j = from; j <= last; j++) { const r = await settleJakso(season.rowKey, j); settled.push(r.jakso); }
+        for (let j = from; j <= last; j++) { const r = await settleRound(season.rowKey, j); settled.push(r.round); }
         return { jsonBody: { ok: true, settled } };
       }
 

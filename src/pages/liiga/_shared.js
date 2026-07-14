@@ -209,7 +209,7 @@ export const IconText = ({ icon: Icon, iconSize = 17, iconColor = "text.secondar
   </Box>
 );
 
-// Labelled big-number stat card (jakso points / rank). Standalone number → display font.
+// Labelled big-number stat card (round points / rank). Standalone number → display font.
 export const StatCard = ({ label, value, sub, accent }) => (
   <Box sx={{ flex: 1, borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
         border: "1px solid var(--color-surface-border)", py: 2, px: 1.5, textAlign: "center" }}>
@@ -347,7 +347,7 @@ export const EmptyState = ({ icon: Icon, title, text, action, sx }) => (
   </Screen>
 );
 
-// Orange gradient highlight panel (jakso-CTA, best-card banner, etc.). Pass onClick
+// Orange gradient highlight panel (round-CTA, best-card banner, etc.). Pass onClick
 // to make it a button. THE accent surface — don't hand-roll the gradient per page.
 export const AccentPanel = ({ children, onClick, sx }) => {
   const base = { display: "flex", alignItems: "center", gap: 1.75, width: "100%", textAlign: "left", p: 2,

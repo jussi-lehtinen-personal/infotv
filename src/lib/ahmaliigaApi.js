@@ -18,7 +18,7 @@ export async function getAhmaliigaState() {
   // it's optional server-side, but without it `standing` comes back null.
   const r = await fetch("/api/ahmaliiga/state", { headers: authHeaders() });
   if (!r.ok) throw new Error(`state ${r.status}`);
-  return r.json(); // { active, season, currentJakso, jaksoCount, budget, standing, ... } | { active:false }
+  return r.json(); // { active, season, currentJakso, roundCount, budget, standing, ... } | { active:false }
 }
 
 export async function getAhmaliigaCards(filter) {
@@ -28,7 +28,7 @@ export async function getAhmaliigaCards(filter) {
   return r.json(); // { season, cards: [{ id, kind, name, sub, band, price, ownerCount, lastPts }] }
 }
 
-// Kortin tiedot — a card + ownership %, per-jakso history and its games.
+// Kortin tiedot — a card + ownership %, per-round history and its games.
 export async function getAhmaliigaCard(id) {
   const r = await fetch(`/api/ahmaliiga/card?id=${encodeURIComponent(id)}`);
   if (!r.ok) throw new Error(`card ${r.status}`);
@@ -56,29 +56,29 @@ export async function joinAhmaliiga() {
   return asJson(r);
 }
 
-// Every settled jakso with winner + the signed-in manager's points that jakso.
-export async function getAhmaliigaJaksot() {
-  const r = await fetch("/api/ahmaliiga/jaksot", { headers: authHeaders() });
-  return asJson(r); // { jaksot: [{ no, startDate, endDate, winner, me }] }
+// Every settled round with winner + the signed-in manager's points that round.
+export async function getAhmaliigaRounds() {
+  const r = await fetch("/api/ahmaliiga/rounds", { headers: authHeaders() });
+  return asJson(r); // { rounds: [{ no, startDate, endDate, winner, me }] }
 }
 
-// Leaderboard. scope = "jakso" | "kausi". Rows: { rank, nickname, total, me }.
-export async function getAhmaliigaRanking(scope, jakso) {
+// Leaderboard. scope = "round" | "kausi". Rows: { rank, nickname, total, me }.
+export async function getAhmaliigaRanking(scope, round) {
   const p = new URLSearchParams();
   if (scope) p.set("scope", scope);
-  if (jakso != null) p.set("jakso", jakso);
+  if (round != null) p.set("round", round);
   const r = await fetch(`/api/ahmaliiga/ranking?${p.toString()}`, { headers: authHeaders() });
   return asJson(r);
 }
 
-// The signed-in manager's jakso breakdown (cards + points, total, rank, best).
-export async function getAhmaliigaSummary(jakso) {
-  const q = jakso != null ? `?jakso=${jakso}` : "";
+// The signed-in manager's round breakdown (cards + points, total, rank, best).
+export async function getAhmaliigaSummary(round) {
+  const q = round != null ? `?round=${round}` : "";
   const r = await fetch(`/api/ahmaliiga/summary${q}`, { headers: authHeaders() });
   return asJson(r);
 }
 
-// Veikkaus — current jakso's games + my prediction (results hidden until settled).
+// Veikkaus — current round's games + my prediction (results hidden until settled).
 export async function getAhmaliigaPrediction() {
   const r = await fetch("/api/ahmaliiga/prediction", { headers: authHeaders() });
   return asJson(r);
@@ -92,7 +92,7 @@ export async function saveAhmaliigaPrediction(gameId, homeGoals, awayGoals) {
   return asJson(r);
 }
 
-// Admin ops (env-admin gated server-side): status | settleJakso | settleAll |
+// Admin ops (env-admin gated server-side): status | settleRound | settleAll |
 // seedBots | resetSim. Drives the season replay from the in-app admin panel.
 export async function ahmaliigaAdmin(action, extra) {
   const r = await fetch("/api/manageAhmaliiga", {

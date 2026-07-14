@@ -5,9 +5,9 @@ import { LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, AccentPanel } from "./_shared";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// Ahmaliiga Dashboard — season status (rank, jakso points, season total), the
-// jakso-summary CTA, and Top 5. Real backend data; stats show "—" before the
-// first jakso is settled.
+// Ahmaliiga Dashboard — season status (rank, round points, season total), the
+// round-summary CTA, and Top 5. Real backend data; stats show "—" before the
+// first round is settled.
 
 function timeLeft(endDate) {
   if (!endDate) return "—";
@@ -42,9 +42,9 @@ export default function LiigaHome() {
     return () => { cancelled = true; };
   }, []);
 
-  const jakso = state && state.active ? state.currentJakso : null;
+  const round = state && state.active ? state.currentJakso : null;
   const st = state && state.standing;
-  const jaksoLabel = jakso ? `Jakso ${jakso.no + 1} / ${state.jaksoCount}` : "Esikatselu";
+  const roundLabel = round ? `Jakso ${round.no + 1} / ${state.roundCount}` : "Esikatselu";
   const dash = (v) => (v == null ? "—" : v);
 
   return (
@@ -60,14 +60,14 @@ export default function LiigaHome() {
       <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
             border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 2, pt: 1.5 }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}><Eyebrow>{jaksoLabel}</Eyebrow></Box>
-          {jakso && (
+          <Box sx={{ flex: 1, minWidth: 0 }}><Eyebrow>{roundLabel}</Eyebrow></Box>
+          {round && (
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", color: "text.secondary", flexShrink: 0 }}>
               <LuClock size={14} />
               <Box component="span" sx={{ fontSize: 12, fontWeight: 600 }}>
                 {state.simMode
-                  ? (jakso.status === "settled" ? "Ratkaistu" : "Käynnissä")
-                  : timeLeft(jakso.endDate)}
+                  ? (round.status === "settled" ? "Ratkaistu" : "Käynnissä")
+                  : timeLeft(round.endDate)}
               </Box>
             </Stack>
           )}
@@ -106,16 +106,16 @@ export default function LiigaHome() {
         );
       })()}
 
-      {/* Previous jakso summary — kept last, at the bottom of the page. */}
+      {/* Previous round summary — kept last, at the bottom of the page. */}
       {summary && summary.settled && (
-        <AccentPanel onClick={() => nav("/ahmaliiga/jakso")}>
+        <AccentPanel onClick={() => nav("/ahmaliiga/round")}>
           <Box sx={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
                 bgcolor: "rgba(249,115,22,0.18)" }}>
             <Box component={LuClipboardList} sx={{ fontSize: 24, color: "primary.main" }} />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
-              Jakso {summary.jakso + 1} ratkaistu
+              Jakso {summary.round + 1} ratkaistu
             </Typography>
             <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
                   fontSize: 22, lineHeight: 1.1, color: "text.primary" }}>Jakson yhteenveto</Typography>

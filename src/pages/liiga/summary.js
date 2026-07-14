@@ -5,7 +5,7 @@ import { LuStar, LuGoal, LuTrophy } from "react-icons/lu";
 import { Screen, PageHead, EmptyState, Loading, AccentPanel, CardAvatar, StatCard, ListCard, ListRow, RowValue, signed } from "./_shared";
 import { getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// Jakson yhteenveto — big jakso points + rank, then each card with its reason and
+// Jakson yhteenveto — big round points + rank, then each card with its reason and
 // points, a total, and the best card. Built on the shared ListRow/StatCard templates.
 
 const RowIcon = ({ card }) =>
@@ -27,16 +27,16 @@ const CaptainTag = () => (
 export default function LiigaSummary() {
   const [data, setData] = useState(undefined);
   const [params] = useSearchParams();
-  const jakso = params.get("jakso");
+  const round = params.get("round");
 
   useEffect(() => {
     let cancelled = false;
     setData(undefined);
-    getAhmaliigaSummary(jakso != null ? Number(jakso) : undefined)
+    getAhmaliigaSummary(round != null ? Number(round) : undefined)
       .then((d) => { if (!cancelled) setData(d); })
       .catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
-  }, [jakso]);
+  }, [round]);
 
   if (data === undefined) return <Loading screen />;
   if (!data || !data.settled) {
@@ -46,7 +46,7 @@ export default function LiigaSummary() {
   const best = data.best;
   return (
     <Screen>
-      <PageHead eyebrow={`Jakso ${data.jakso + 1}`} title="Jakson yhteenveto" />
+      <PageHead eyebrow={`Jakso ${data.round + 1}`} title="Jakson yhteenveto" />
 
       <Stack direction="row" spacing={1.25} sx={{ mb: 2.5 }}>
         <StatCard label="Jakson pisteet" value={data.total} accent />

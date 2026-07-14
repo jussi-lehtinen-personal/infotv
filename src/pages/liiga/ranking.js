@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar } from "./_shared";
-import { getAhmaliigaRanking, getAhmaliigaJaksot } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
-// Ranking — leaderboard (current jakso / whole season) + a "Kaikki jaksot" tab that
-// lists every settled jakso, each linking to that jakso's summary. Airy rows; the
+// Ranking — leaderboard (current round / whole season) + a "Kaikki jaksot" tab that
+// lists every settled round, each linking to that round's summary. Airy rows; the
 // signed-in manager's own row is highlighted orange.
 
 const TABS = [
-  { key: "jakso", label: "Nykyinen jakso" },
+  { key: "round", label: "Nykyinen jakso" },
   { key: "kausi", label: "Koko kausi" },
   { key: "jaksot", label: "Kaikki jaksot" },
 ];
@@ -40,19 +40,19 @@ const RankTrend = ({ delta }) => {
 
 export default function LiigaRanking() {
   const nav = useNavigate();
-  const [tab, setTab] = useState("jakso");
+  const [tab, setTab] = useState("round");
   const [data, setData] = useState({});     // leaderboard rows per scope
-  const [jaksot, setJaksot] = useState(null); // "Kaikki jaksot" list
+  const [rounds, setRounds] = useState(null); // "Kaikki jaksot" list
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     if (tab === "jaksot") {
-      if (jaksot != null) { setLoading(false); return; }
+      if (rounds != null) { setLoading(false); return; }
       setLoading(true);
-      getAhmaliigaJaksot()
-        .then((d) => { if (!cancelled) setJaksot(d.jaksot || []); })
-        .catch(() => { if (!cancelled) setJaksot([]); })
+      getAhmaliigaRounds()
+        .then((d) => { if (!cancelled) setRounds(d.rounds || []); })
+        .catch(() => { if (!cancelled) setRounds([]); })
         .finally(() => { if (!cancelled) setLoading(false); });
       return () => { cancelled = true; };
     }
@@ -63,7 +63,7 @@ export default function LiigaRanking() {
       .catch(() => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: [] })); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, data, jaksot]);
+  }, [tab, data, rounds]);
 
   const rows = data[tab];
 
@@ -80,16 +80,16 @@ export default function LiigaRanking() {
       </Stack>
 
       {tab === "jaksot" ? (
-        loading || jaksot == null ? (
+        loading || rounds == null ? (
           <Loading />
-        ) : jaksot.length === 0 ? (
+        ) : rounds.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
             <Typography variant="body2">Ei ratkaistuja jaksoja vielä.</Typography>
           </Box>
         ) : (
           <Stack spacing={1}>
-            {jaksot.map((j) => (
-              <ButtonBase key={j.no} onClick={() => nav(`/ahmaliiga/jakso?jakso=${j.no}`)}
+            {rounds.map((j) => (
+              <ButtonBase key={j.no} onClick={() => nav(`/ahmaliiga/round?round=${j.no}`)}
                 sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", p: 1.5,
                       borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
                 <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "rgba(249,115,22,0.15)" }}>

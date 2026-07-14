@@ -3,7 +3,7 @@ const { ensureTables } = require('../lib/tables');
 const { getActiveSeason, getCardDetail } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/card?id=<cardId> — Kortin tiedot: the card + ownership %,
-// per-jakso price/points history and the card's games. Public.
+// per-round price/points history and the card's games. Public.
 app.http('ahmaliigaCard', {
   methods: ['GET'],
   authLevel: 'anonymous',

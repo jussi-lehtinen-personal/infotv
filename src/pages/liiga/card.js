@@ -6,7 +6,7 @@ import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton
 import { getAhmaliigaCard } from "../../lib/ahmaliigaApi";
 
 // Kortin tiedot — card hero (avatar + Hinta / Omistus / Tyyppi / trend) + tabs:
-// Pelit (game results, no per-game points), Pisteet and Hintakehitys (per-jakso
+// Pelit (game results, no per-game points), Pisteet and Hintakehitys (per-round
 // from cardHistory, with a small line chart).
 
 const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
@@ -59,7 +59,7 @@ const GameRow = ({ g }) => {
   );
 };
 
-// Points-per-jakso bar row.
+// Points-per-round bar row.
 const BarRow = ({ label, value, bar, max, coin }) => (
   <Box sx={{ px: 1.5, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>

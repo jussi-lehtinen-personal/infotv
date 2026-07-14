@@ -62,9 +62,9 @@ async function resolve(season, squad) {
   return {
     squad: {
       cards: resolved, captainId: squad.captainId,
-      jaksoNo: squad.jaksoNo, transfersUsedThisJakso: squad.transfersUsedThisJakso || 0,
+      roundNo: squad.roundNo, transfersUsedThisRound: squad.transfersUsedThisRound || 0,
     },
     budget: season.budget, bank: squad.bank, spent: season.budget - squad.bank,
-    transfersUsed: squad.transfersUsedThisJakso || 0, freeTransfers: ECON.transfersPerJakso,
+    transfersUsed: squad.transfersUsedThisRound || 0, freeTransfers: ECON.transfersPerRound,
   };
 }

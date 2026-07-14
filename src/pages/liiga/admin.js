@@ -52,7 +52,7 @@ export default function LiigaAdmin() {
     } finally { setBusy(""); }
   };
 
-  // Re-settle the already-settled jaksot (0..settled-1) in order. Idempotent:
+  // Re-settle the already-settled rounds (0..settled-1) in order. Idempotent:
   // recomputes trend + seasonPts without changing the standings or the pointer.
   // Same as `node tools/sim.js resettle`, but from the panel.
   const resettle = async () => {
@@ -61,7 +61,7 @@ export default function LiigaAdmin() {
     if (!window.confirm(`Ratkaistaan jaksot 0…${cur - 1} uudelleen. Idempotentti: sarjataulukko ei muutu, päivittää trendit ja kausipisteet.`)) return;
     setBusy("resettle"); setMsg(null);
     try {
-      for (let j = 0; j < cur; j++) await ahmaliigaAdmin("settleJakso", { jakso: j });
+      for (let j = 0; j < cur; j++) await ahmaliigaAdmin("settleRound", { round: j });
       setMsg({ type: "success", text: `Trendit + kausipisteet päivitetty (jaksot 0…${cur - 1}) ✓` });
       load();
     } catch (e) {
@@ -80,8 +80,8 @@ export default function LiigaAdmin() {
         <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
               border: "1px solid var(--color-surface-border)", px: 2, py: 1, mb: 2 }}>
           <Row k="Kausi" v={s.season} />
-          <Row k="Nykyinen jakso" v={`${s.currentJakso + 1} / ${s.jaksoCount}`} />
-          <Row k="Ratkaistu" v={`${s.settled} / ${s.jaksoCount}`} />
+          <Row k="Nykyinen jakso" v={`${s.currentJakso + 1} / ${s.roundCount}`} />
+          <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
           <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
           <Row k="Tulokset ladattu" v={s.resultsLoaded ? "kyllä" : "EI"} />
           <Row k="Ottelut ladattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
@@ -94,7 +94,7 @@ export default function LiigaAdmin() {
 
       <Stack spacing={1.25}>
         <AdminBtn icon={LuPlay} label={s ? `Ratkaise jakso ${s.currentJakso + 1}` : "Ratkaise jakso"}
-                  busy={busy === "settleJakso"} disabled={!s} onClick={() => run("settleJakso", "Jakso ratkaistu")} />
+                  busy={busy === "settleRound"} disabled={!s} onClick={() => run("settleRound", "Jakso ratkaistu")} />
         <AdminBtn icon={LuFastForward} label="Ratkaise koko kausi loppuun"
                   busy={busy === "settleAll"} disabled={!s} onClick={() => run("settleAll", "Kausi ratkaistu")} />
         <AdminBtn icon={LuBot} label="Lisää / päivitä botit"

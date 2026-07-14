@@ -120,7 +120,7 @@ function App() {
                 <Route path="kortti/:id" element={<LiigaCard />} />
                 <Route path="veikkaus" element={<LiigaPredict />} />
                 <Route path="ranking" element={<LiigaRanking />} />
-                <Route path="jakso" element={<LiigaSummary />} />
+                <Route path="round" element={<LiigaSummary />} />
                 <Route path="admin" element={<LiigaAdmin />} />
                 <Route path="profiili" element={<LiigaStub icon={LuUser} title="Profiili" desc="Fantasy-tilastosi: liittymispäivä, mestaruudet, paras ja keskimääräinen sijoitus, pelatut jaksot." />} />
                 <Route path="saavutukset" element={<LiigaStub icon={LuAward} title="Saavutukset" desc="Ansiomerkit: ensimmäinen voitto, jakson voittaja, 100 pistettä, 10 oikeaa veikkausta." />} />

@@ -1,9 +1,9 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getJaksot, activeJaksoNo, getCards, getJaksoScore, getResultsFull, listManagers } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, getCards, getRoundScore, getResultsFull, listManagers } = require('../lib/ahmaliiga');
 
-// GET /api/ahmaliiga/summary?jakso=N — the signed-in manager's jakso breakdown:
+// GET /api/ahmaliiga/summary?round=N — the signed-in manager's round breakdown:
 // each card's points (captain doubled), total, rank, best card. Powers the
 // "Jakson yhteenveto" screen + the dashboard's latest-points list.
 app.http('ahmaliigaSummary', {
@@ -17,16 +17,16 @@ app.http('ahmaliigaSummary', {
       await ensureTables();
       const season = await getActiveSeason();
       if (!season) return { status: 400, jsonBody: { error: 'Kausi ei ole käynnissä.' } };
-      const jaksot = await getJaksot(season.rowKey);
-      const curNo = activeJaksoNo(season, jaksot);
-      const cur = jaksot.find((j) => Number(j.rowKey) === curNo);
+      const rounds = await getRounds(season.rowKey);
+      const curNo = activeRoundNo(season, rounds);
+      const cur = rounds.find((j) => Number(j.rowKey) === curNo);
       const settledNo = cur && cur.status === 'settled' ? curNo : Math.max(0, curNo - 1);
-      const jakso = request.query?.get('jakso') != null ? Number(request.query.get('jakso')) : settledNo;
+      const round = request.query?.get('round') != null ? Number(request.query.get('round')) : settledNo;
 
-      const score = await getJaksoScore(season.rowKey, jakso, userId);
-      if (!score) return { jsonBody: { jakso, settled: false, cards: [] } };
+      const score = await getRoundScore(season.rowKey, round, userId);
+      if (!score) return { jsonBody: { round, settled: false, cards: [] } };
 
-      const [cards, resultMap] = await Promise.all([getCards(season.rowKey), getResultsFull(season.rowKey, jakso)]);
+      const [cards, resultMap] = await Promise.all([getCards(season.rowKey), getResultsFull(season.rowKey, round)]);
       const map = {};
       for (const c of cards) map[c.rowKey] = c;
       const resolved = score.ids.map((id) => {
@@ -48,7 +48,7 @@ app.http('ahmaliigaSummary', {
       const managerCount = (await listManagers()).length;
       return {
         jsonBody: {
-          jakso, settled: true, total: score.total, rank: score.rank, managerCount,
+          round, settled: true, total: score.total, rank: score.rank, managerCount,
           captainId: score.captainId, cards: resolved, best,
         },
       };

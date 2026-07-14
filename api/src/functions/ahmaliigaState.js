@@ -1,11 +1,11 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getJaksot, activeJaksoNo, getStanding } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, getStanding } = require('../lib/ahmaliiga');
 
-// GET /api/ahmaliiga/state — active season + current jakso (admin pointer in
+// GET /api/ahmaliiga/state — active season + current round (admin pointer in
 // sim/replay, else by date) + config. If authed, also the manager's standing
-// (jakso + season points/rank).
+// (round + season points/rank).
 app.http('ahmaliigaState', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -15,16 +15,16 @@ app.http('ahmaliigaState', {
       await ensureTables();
       const season = await getActiveSeason();
       if (!season) return { jsonBody: { active: false } };
-      const jaksot = await getJaksot(season.rowKey);
-      const curNo = activeJaksoNo(season, jaksot);
-      const cur = jaksot.find((j) => Number(j.rowKey) === curNo) || null;
+      const rounds = await getRounds(season.rowKey);
+      const curNo = activeRoundNo(season, rounds);
+      const cur = rounds.find((j) => Number(j.rowKey) === curNo) || null;
       let bands = {};
       try { bands = JSON.parse(season.bands || '{}'); } catch { bands = {}; }
 
       let standing = null;
       const userId = await requireAuth(request);
       if (userId) {
-        // show the last SETTLED jakso's standing if the current one isn't scored yet
+        // show the last SETTLED round's standing if the current one isn't scored yet
         const settledNo = cur && cur.status === 'settled' ? curNo : Math.max(0, curNo - 1);
         standing = await getStanding(season.rowKey, settledNo, userId);
         standing.jakso = settledNo;
@@ -40,7 +40,7 @@ app.http('ahmaliigaState', {
           squadSize: season.squadSize,
           maxPlayers: season.maxPlayers,
           bands,
-          jaksoCount: jaksot.length,
+          roundCount: rounds.length,
           currentJakso: cur
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,
