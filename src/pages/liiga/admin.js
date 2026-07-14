@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2 } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -103,6 +103,9 @@ export default function LiigaAdmin() {
                   busy={busy === "enrichPhotos"} disabled={!s} onClick={() => run("enrichPhotos", "Kuvat haettu")} />
         <AdminBtn icon={LuRefreshCw} label="Päivitä trendit + kausipisteet"
                   busy={busy === "resettle"} disabled={!s} onClick={resettle} />
+        <AdminBtn icon={LuWallet} label="Korjaa budjettisaldot"
+                  busy={busy === "recomputeBanks"} disabled={!s}
+                  onClick={() => run("recomputeBanks", "Saldot korjattu")} />
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
                   onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet ja hinnat resetoidaan. Pakat, botit ja tulokset säilyvät.")} />

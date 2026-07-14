@@ -842,6 +842,24 @@ async function resetSim(seasonId, opts = {}) {
   return { reset: true, rounds: rounds.length, ...(wiped ? { wiped } : {}) };
 }
 
+// Recompute every squad's money-in-hand bank from its holdings (budget minus the
+// sum of lock-in buy prices, clamped ≥ 0). Repairs banks left inconsistent by the
+// earlier current-price debit bug — no full reset needed, squads are untouched.
+async function recomputeBanks(seasonId) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  const budget = season && season.budget != null ? Number(season.budget) : ECON.budget;
+  const rows = await listEntities(T.squads, "RowKey eq 'current'");
+  let fixed = 0;
+  for (const row of rows) {
+    let cards = [];
+    try { cards = JSON.parse(row.cards || '[]'); } catch { cards = []; }
+    const spent = cards.reduce((s, c) => s + (Number(c.buyPrice) || 0), 0);
+    const bank = Math.max(0, Math.round((budget - spent) * 10) / 10);
+    if (Number(row.bank) !== bank) { await upsertEntity(T.squads, { ...row, bank }); fixed++; }
+  }
+  return { squads: rows.length, fixed };
+}
+
 // Status for the admin panel.
 async function getSimStatus(seasonId) {
   const season = await getEntity(T.season, 'season', seasonId);
@@ -866,7 +884,7 @@ module.exports = {
   ECON, T, badRequest,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, getSimStatus, enrichPhotos,
+  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead,

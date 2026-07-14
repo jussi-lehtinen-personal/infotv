@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, loadResults, loadGames, settleRound, seedBots, resetSim, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo } = require('../lib/ahmaliiga');
+const { seedSeason, loadResults, loadGames, settleRound, seedBots, resetSim, recomputeBanks, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -68,6 +68,13 @@ app.http('manageAhmaliiga', {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
         const result = await resetSim(season.rowKey, { hard: action === 'resetAll' });
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      if (action === 'recomputeBanks') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await recomputeBanks(season.rowKey);
         return { jsonBody: { ok: true, ...result } };
       }
 
