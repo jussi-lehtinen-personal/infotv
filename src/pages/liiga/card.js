@@ -74,6 +74,8 @@ export default function LiigaCard() {
 
   const history = data.history || [];
   const games = data.games || [];
+  // Games belong to the card's TEAM, so label them with the team, not the player.
+  const teamLabel = card.kind === "team" ? card.name : (card.sub || card.name);
   const maxPts = Math.max(1, ...history.map((h) => h.pts));
   const maxPrice = Math.max(1, ...history.map((h) => h.price));
 
@@ -104,15 +106,15 @@ export default function LiigaCard() {
 
       {(tab === "yhteenveto" || tab === "pelit") && (
         games.length === 0 ? <Empty text="Ei pelejä vielä." /> : (
-          <Section title="Viimeiset pelit">
-            {(tab === "yhteenveto" ? games.slice(0, 6) : games).map((g, i) => {
+          <Section title={tab === "yhteenveto" ? "Viimeiset pelit" : "Kaikki pelit"}>
+            {(tab === "yhteenveto" ? games.slice(0, 5) : games).map((g, i) => {
               const r = gameResult(g.ahmaGoals, g.oppGoals);
               return (
                 <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.1,
                       borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
                   <Box sx={{ width: 46, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(g.date)}</Box>
                   <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, color: "text.primary" }}>
-                    {card.name} {g.ahmaGoals}–{g.oppGoals} {g.opponent}
+                    {teamLabel} {g.ahmaGoals}–{g.oppGoals} {g.opponent}
                   </Typography>
                   <Box sx={{ flexShrink: 0, fontWeight: 800, fontSize: 12.5, color: r.color }}>{r.label}</Box>
                 </Box>

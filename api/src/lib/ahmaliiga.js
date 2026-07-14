@@ -533,14 +533,26 @@ async function getCardDetail(seasonId, cardId) {
     .map((r) => ({ jakso: Number(r.rowKey), price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
     .sort((a, b) => a.jakso - b.jakso);
 
-  const cardAge = ageOf(card.age || (card.kind === 'team' ? card.name : card.sub));
+  // Match the card's team's games by age group, and by peliryhmä colour when the
+  // card has one (so U15 Musta doesn't pull in U15 Valkoinen games). Falls back to
+  // age-only when a game carries no colour (can't distinguish).
+  const COLORS = /(musta|valkoinen|oranssi|keltainen|sininen|punainen|vihre|harmaa)/i;
+  const cardAge = ageOf(card.age || card.teamKey || (card.kind === 'team' ? card.name : card.sub));
+  const cardColor = ((card.teamKey || card.sub || card.name || '').match(COLORS) || [])[0];
+  const matchGame = (g) => {
+    if (ageOf(g.level) !== cardAge) return false;
+    if (!cardColor) return true;
+    const ahmaTeam = g.ahmaHome ? g.home : g.away;
+    const gColor = ((String(g.level).match(COLORS) || [])[0]) || ((String(ahmaTeam).match(COLORS) || [])[0]);
+    return !gColor || gColor.toLowerCase() === cardColor.toLowerCase();
+  };
   let games = [];
   if (cardAge) {
     const jaksot = await getJaksot(seasonId);
     for (const j of jaksot) {
       const gs = await getJaksoGames(seasonId, Number(j.rowKey));
       for (const g of gs) {
-        if (ageOf(g.level) !== cardAge) continue;
+        if (!matchGame(g)) continue;
         const ahmaGoals = Number(g.ahmaHome ? g.homeGoals : g.awayGoals);
         const oppGoals = Number(g.ahmaHome ? g.awayGoals : g.homeGoals);
         games.push({ jakso: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals });
