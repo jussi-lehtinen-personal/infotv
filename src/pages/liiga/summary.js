@@ -8,17 +8,18 @@ import { getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 // big jakso points + rank, then each card with its reason (Voitto 5–1 / maali /
 // 94 % torjunta …) and points, a total, and the best card.
 
-const StatCard = ({ label, value, suffix, accent }) => (
+const StatCard = ({ label, value, sub, accent }) => (
   <Box sx={{ flex: 1, borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
         border: "1px solid var(--color-surface-border)", py: 2, px: 1.5, textAlign: "center" }}>
-    <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled" }}>
+    <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 0.75 }}>
       {label}
     </Typography>
-    <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-          fontSize: 46, lineHeight: 1.05, color: accent ? "primary.main" : "text.primary" }}>
-      {value}
-    </Typography>
-    {suffix && <Typography sx={{ fontSize: 12, color: "text.disabled", mt: 0.25 }}>{suffix}</Typography>}
+    <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 0.6 }}>
+      <Box component="span" sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+            fontSize: 46, lineHeight: 1, color: accent ? "primary.main" : "text.primary" }}>{value}</Box>
+      {sub && <Box component="span" sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+            fontSize: 24, lineHeight: 1, color: "text.disabled" }}>{sub}</Box>}
+    </Box>
   </Box>
 );
 
@@ -62,9 +63,9 @@ export default function LiigaSummary() {
       <Title sx={{ mt: 0.5, mb: 2 }}>Jakson yhteenveto</Title>
 
       <Stack direction="row" spacing={1.25} sx={{ mb: 2.5 }}>
-        <StatCard label="Jakson pisteet" value={data.total} suffix="pistettä" accent />
+        <StatCard label="Jakson pisteet" value={data.total} accent />
         <StatCard label="Sijoitus" value={data.rank != null ? `${data.rank}.` : "—"}
-                  suffix={data.managerCount ? `/ ${data.managerCount}` : null} />
+                  sub={data.managerCount ? `/ ${data.managerCount}` : null} />
       </Stack>
 
       <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>
