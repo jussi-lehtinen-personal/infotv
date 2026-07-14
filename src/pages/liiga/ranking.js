@@ -18,8 +18,8 @@ const ManagerAvatar = ({ avatar, nickname, size }) => {
   if (!avatar || err) return <CardAvatar card={{ kind: "player", name: nickname }} size={size} />;
   return (
     <Box component="img" src={avatar} alt="" onError={() => setErr(true)}
-      sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", objectPosition: "top",
-            flexShrink: 0, bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />
+      sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", objectPosition: "center",
+            display: "block", flexShrink: 0, bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />
   );
 };
 
