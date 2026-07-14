@@ -432,6 +432,27 @@ async function seedBots(seasonId) {
 }
 
 // Leaderboard (jakso or kausi) with nicknames.
+// Rank map at the PREVIOUS point (for the leaderboard's up/down trend): the prior
+// jakso's rank (jakso scope) or the cumulative-through-previous-jakso rank (kausi).
+async function previousRankMap(seasonId, scope, jakso) {
+  if (!(jakso > 0)) return null;
+  if (scope === 'jakso') {
+    const rows = await listByPartition(T.scores, `${seasonId}|${jakso - 1}`);
+    const m = {};
+    for (const r of rows) m[r.rowKey] = Number(r.rank) || 0;
+    return m;
+  }
+  const totals = {};
+  for (let j = 0; j <= jakso - 1; j++) {
+    const rows = await listByPartition(T.scores, `${seasonId}|${j}`);
+    for (const r of rows) totals[r.rowKey] = (totals[r.rowKey] || 0) + (Number(r.total) || 0);
+  }
+  const arr = Object.entries(totals).map(([userId, total]) => ({ userId, total })).sort((a, b) => b.total - a.total);
+  const m = {};
+  arr.forEach((r, i) => { m[r.userId] = i + 1; });
+  return m;
+}
+
 async function getLeaderboard(seasonId, scope, jakso) {
   const rows = scope === 'kausi'
     ? await listByPartition(T.seasonScores, seasonId)
@@ -439,8 +460,14 @@ async function getLeaderboard(seasonId, scope, jakso) {
   const managers = await listManagers();
   const nick = {};
   for (const m of managers) nick[m.userId] = m.nickname;
+  const prev = await previousRankMap(seasonId, scope, jakso);
   return rows
-    .map((r) => ({ userId: r.rowKey, nickname: nick[r.rowKey] || 'Pelaaja', total: Number(r.total) || 0, rank: Number(r.rank) || 0 }))
+    .map((r) => {
+      const rank = Number(r.rank) || 0;
+      const pr = prev && prev[r.rowKey] != null ? prev[r.rowKey] : null;
+      // delta > 0 = climbed (rank number went down); < 0 = dropped; null = no history.
+      return { userId: r.rowKey, nickname: nick[r.rowKey] || 'Pelaaja', total: Number(r.total) || 0, rank, delta: pr != null ? pr - rank : null };
+    })
     .sort((a, b) => a.rank - b.rank);
 }
 

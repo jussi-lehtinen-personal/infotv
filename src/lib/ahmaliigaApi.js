@@ -14,9 +14,11 @@ async function asJson(r) {
 }
 
 export async function getAhmaliigaState() {
-  const r = await fetch("/api/ahmaliiga/state");
+  // Send the token so the server can include the manager's standing (rank/points);
+  // it's optional server-side, but without it `standing` comes back null.
+  const r = await fetch("/api/ahmaliiga/state", { headers: authHeaders() });
   if (!r.ok) throw new Error(`state ${r.status}`);
-  return r.json(); // { active, season, currentJakso, jaksoCount, budget, ... } | { active:false }
+  return r.json(); // { active, season, currentJakso, jaksoCount, budget, standing, ... } | { active:false }
 }
 
 export async function getAhmaliigaCards(filter) {

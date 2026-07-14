@@ -64,8 +64,8 @@ export const Screen = ({ children, sx }) => (
 // THIS for every full-screen flow, don't wire a raw <Dialog> per screen.
 export const LiigaDialog = ({ open, onClose, title, right, children }) => (
   <Dialog fullScreen open={open} onClose={onClose}
-    slotProps={{ backdrop: { sx: { backgroundColor: "var(--color-bg)" } } }}
-    PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", display: "flex", flexDirection: "column" } }}>
+    slotProps={{ paper: { elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", display: "flex", flexDirection: "column" } },
+                 backdrop: { sx: { backgroundColor: "var(--color-bg)" } } }}>
     {/* dark scroll container fills the whole paper → no grey can ever show through */}
     <Box sx={{ flex: 1, minHeight: 0, width: "100%", overflowY: "auto", bgcolor: "var(--color-bg)" }}>
       <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>

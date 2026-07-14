@@ -1,15 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack } from "@mui/material";
-import { Screen, PageHead, ListCard, ListRow, RankBadge, RowValue, PillButton, Loading } from "./_shared";
+import { Screen, PageHead, ListCard, ListRow, RankBadge, RowValue, PillButton, Loading, CardAvatar } from "./_shared";
 import { getAhmaliigaRanking } from "../../lib/ahmaliigaApi";
 
-// Ranking — global leaderboard, two tabs (current jakso / whole season). Uses the
-// shared ListRow template so rows match the rest of the app.
+// Ranking — global leaderboard, two tabs (current jakso / whole season). Each row:
+// rank + manager avatar + nickname + points + up/down trend. The signed-in
+// manager's row is highlighted orange (no "(sinä)" label needed).
 
 const TABS = [
   { key: "jakso", label: "Nykyinen jakso" },
   { key: "kausi", label: "Koko kausi" },
 ];
+
+// Rank movement vs the previous point: ▲ N green (up), ▼ N red (down), — none.
+const RankTrend = ({ delta }) => {
+  if (delta == null || delta === 0) {
+    return <Box component="span" sx={{ width: 34, textAlign: "right", flexShrink: 0, color: "text.disabled", fontWeight: 700, fontSize: 15 }}>—</Box>;
+  }
+  const up = delta > 0;
+  return (
+    <Box component="span" sx={{ width: 34, textAlign: "right", flexShrink: 0, fontWeight: 800, fontSize: 13,
+          color: up ? "var(--color-live)" : "#f87171" }}>
+      {up ? "▲" : "▼"} {Math.abs(delta)}
+    </Box>
+  );
+};
 
 export default function LiigaRanking() {
   const [tab, setTab] = useState("jakso");
@@ -51,9 +66,19 @@ export default function LiigaRanking() {
         <ListCard>
           {rows.map((r, i) => (
             <ListRow key={r.userId} highlight={r.me} divider={i < rows.length - 1}
-              leading={<RankBadge rank={r.rank} highlight={r.me} />}
-              title={r.me ? `${r.nickname} (sinä)` : r.nickname}
-              trailing={<RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>} />
+              leading={
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <RankBadge rank={r.rank} highlight={r.me} />
+                  <CardAvatar card={{ kind: "player", name: r.nickname }} size={32} />
+                </Stack>
+              }
+              title={r.nickname}
+              trailing={
+                <Stack direction="row" alignItems="center" spacing={1.25}>
+                  <RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>
+                  <RankTrend delta={r.delta} />
+                </Stack>
+              } />
           ))}
         </ListCard>
       )}
