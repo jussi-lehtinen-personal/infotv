@@ -21,8 +21,12 @@ const RANGES = [
   { key: "kaikki", label: "Kaikki", days: Infinity },
 ];
 const dayDiff = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
-// Player names are stored "SURNAME Firstname"; show first name first on the hero.
-const firstNameFirst = (name) => { const p = String(name || "").trim().split(/\s+/); return p.length === 2 ? `${p[1]} ${p[0]}` : name; };
+// Players are stored "SURNAME Firstname" → hero shows first name on line 1,
+// surname on line 2. Teams / single-word names stay one line.
+const nameLines = (card) => {
+  const p = String(card.name || "").trim().split(/\s+/);
+  return card.kind !== "team" && p.length === 2 ? [p[1], p[0]] : [card.name];
+};
 
 const InfoRow = ({ label, children }) => (
   <Box sx={{ mb: 1.5 }}>
@@ -200,7 +204,7 @@ export default function LiigaCard() {
           </Box>
           <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
                 fontSize: 28, lineHeight: 1.02, mt: 1.5, color: "text.primary" }}>
-            {card.kind === "team" ? card.name : firstNameFirst(card.name)}
+            {nameLines(card).map((line, i) => <Box component="span" key={i} sx={{ display: "block" }}>{line}</Box>)}
           </Typography>
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, pt: 1 }}>
