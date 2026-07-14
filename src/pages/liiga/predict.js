@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, Button, Select, MenuItem, Alert } from "@mui/material";
 import { LuGoal, LuTrophy, LuTarget, LuStar, LuClock } from "react-icons/lu";
-import { Screen, PageHead, EmptyState, Loading, CardAvatar } from "./_shared";
+import { Screen, PageHead, EmptyState, Loading, CardAvatar, shortDate } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
 // Veikkaa ottelu — bonus tiers, a match dropdown + match card, and two score
@@ -14,10 +14,6 @@ const BONUS = [
 ];
 const GOALS = Array.from({ length: 16 }, (_, i) => i); // 0..15
 
-const shortDate = (d) => {
-  const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2}:\d{2})?/);
-  return m ? `${Number(m[3])}.${Number(m[2])}.${m[4] ? " " + m[4] : ""}` : "";
-};
 const timeLeft = (d) => {
   const t = new Date(String(d || "").replace(" ", "T")) - new Date();
   if (!(t > 0)) return null;

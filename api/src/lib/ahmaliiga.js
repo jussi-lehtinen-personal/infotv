@@ -63,7 +63,10 @@ function currentRoundNo(rounds, now = new Date()) {
 
 // The current round: the admin-advanced pointer (sim/replay), else by date.
 function activeRoundNo(season, rounds) {
-  if (season && season.currentJakso != null && season.currentJakso !== '') return Number(season.currentJakso);
+  // Read the new column, falling back to the legacy 'currentJakso' until a re-settle
+  // rewrites the season row with 'currentRound'.
+  const cur = season ? (season.currentRound != null && season.currentRound !== '' ? season.currentRound : season.currentJakso) : null;
+  if (cur != null && cur !== '') return Number(cur);
   return currentRoundNo(rounds);
 }
 
@@ -98,7 +101,7 @@ async function seedSeason(seed) {
     budget: seed.budget ?? ECON.budget, squadSize: seed.squadSize ?? ECON.squadSize,
     maxPlayers: seed.maxPlayers ?? ECON.maxPlayers, bands: JSON.stringify(seed.bands || {}),
     // Sim/replay: an admin-advanced round pointer (settlement moves it forward).
-    currentJakso: 0, simMode: true,
+    currentRound: 0, simMode: true,
   });
 
   for (const j of seed.jaksot || []) {
@@ -126,7 +129,7 @@ async function seedSeason(seed) {
     price: c.price, band: c.band, pts: 0, ownerCount: 0, ownerPct: 0,
   }));
 
-  return { seasonId, jaksot: (seed.jaksot || []).length, cards: cards.length };
+  return { seasonId, rounds: (seed.jaksot || []).length, cards: cards.length };
 }
 
 // --- M1: managers + squads ---
@@ -241,16 +244,16 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
 // --- M2: results + settlement (replay a past season) ---
 
 async function loadResults(seasonId, resultsObj, reasonsObj) {
-  const byJakso = {};
+  const byRound = {};
   for (const [cardId, jm] of Object.entries(resultsObj || {})) {
     for (const [j, pts] of Object.entries(jm)) {
       const reason = (reasonsObj && reasonsObj[cardId] && reasonsObj[cardId][j]) || '';
-      (byJakso[j] = byJakso[j] || []).push({ partitionKey: `${seasonId}|${j}`, rowKey: cardId, pts: Number(pts) || 0, reason });
+      (byRound[j] = byRound[j] || []).push({ partitionKey: `${seasonId}|${j}`, rowKey: cardId, pts: Number(pts) || 0, reason });
     }
   }
   let rows = 0;
-  for (const arr of Object.values(byJakso)) { await upsertBatch(T.results, arr); rows += arr.length; }
-  return { jaksot: Object.keys(byJakso).length, rows };
+  for (const arr of Object.values(byRound)) { await upsertBatch(T.results, arr); rows += arr.length; }
+  return { rounds: Object.keys(byRound).length, rows };
 }
 
 async function getResults(seasonId, round) {
@@ -302,9 +305,9 @@ function bandPricesFrom(pool, form, prices) {
 // the in-between steps = keski.
 const bandNameOf = (price, prices) => (price >= prices[0] ? 'kallis' : price <= prices[prices.length - 1] ? 'halpa' : 'keski');
 
-async function recomputeSeasonScores(seasonId, uptoJakso) {
+async function recomputeSeasonScores(seasonId, uptoRound) {
   const totals = {};
-  for (let j = 0; j <= uptoJakso; j++) {
+  for (let j = 0; j <= uptoRound; j++) {
     const rows = await listByPartition(T.scores, `${seasonId}|${j}`);
     for (const r of rows) totals[r.rowKey] = (totals[r.rowKey] || 0) + (Number(r.total) || 0);
   }
@@ -379,8 +382,8 @@ async function settleRound(seasonId, round) {
 
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
   if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'settled' });
-  const nextJakso = Math.min(round + 1, rounds.length - 1);
-  await upsertEntity(T.season, { ...seasonRow, currentJakso: nextJakso });
+  const nextRound = Math.min(round + 1, rounds.length - 1);
+  await upsertEntity(T.season, { ...seasonRow, currentRound: nextRound });
 
   // recompute the WHOLE cumulative (0..last) so re-settling an earlier round stays correct
   await recomputeSeasonScores(seasonId, rounds.length - 1);
@@ -411,7 +414,7 @@ async function settleRound(seasonId, round) {
     pts: resJ[c.rowKey] || 0, ownerCount: ownerCount[c.rowKey] || 0,
   }));
 
-  return { round, managers: roundRows.length, nextJakso };
+  return { round, managers: roundRows.length, nextRound };
 }
 
 // Greedy squad pick for bots (budget + slots + max players), matching backtest.
@@ -534,8 +537,8 @@ async function getStanding(seasonId, round, userId) {
     getEntity(T.seasonScores, seasonId, userId),
   ]);
   return {
-    jaksoPts: jRow ? Number(jRow.total) : null,
-    jaksoRank: jRow ? Number(jRow.rank) : null,
+    roundPts: jRow ? Number(jRow.total) : null,
+    roundRank: jRow ? Number(jRow.rank) : null,
     seasonPts: sRow ? Number(sRow.total) : null,
     seasonRank: sRow ? Number(sRow.rank) : null,
   };
@@ -543,9 +546,9 @@ async function getStanding(seasonId, round, userId) {
 
 // --- M3: games + predictions (Veikkaus) ---
 
-async function loadGames(seasonId, gamesByJakso) {
+async function loadGames(seasonId, gamesByRound) {
   let rows = 0;
-  for (const [j, arr] of Object.entries(gamesByJakso || {})) {
+  for (const [j, arr] of Object.entries(gamesByRound || {})) {
     const ents = (arr || []).map((g) => ({
       partitionKey: `${seasonId}|${j}`, rowKey: String(g.gameId),
       home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
@@ -554,7 +557,7 @@ async function loadGames(seasonId, gamesByJakso) {
     }));
     await upsertBatch(T.games, ents); rows += ents.length;
   }
-  return { jaksot: Object.keys(gamesByJakso || {}).length, rows };
+  return { rounds: Object.keys(gamesByRound || {}).length, rows };
 }
 
 async function getRoundGames(seasonId, round) {
@@ -583,7 +586,7 @@ async function getCardDetail(seasonId, cardId) {
   for (const j of rounds) roundDate[Number(j.rowKey)] = j.endDate || j.startDate || '';
   const histRows = await listByPartition(T.cardHistory, `${seasonId}|${cardId}`);
   const history = histRows
-    .map((r) => ({ jakso: Number(r.rowKey), date: roundDate[Number(r.rowKey)] || '', price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
+    .map((r) => ({ round: Number(r.rowKey), date: roundDate[Number(r.rowKey)] || '', price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
     .sort((a, b) => a.jakso - b.jakso);
 
   // Match the card's team's games by age group, and by peliryhmä colour when the
@@ -608,7 +611,7 @@ async function getCardDetail(seasonId, cardId) {
         if (!matchGame(g)) continue;
         const ahmaGoals = Number(g.ahmaHome ? g.homeGoals : g.awayGoals);
         const oppGoals = Number(g.ahmaHome ? g.awayGoals : g.homeGoals);
-        games.push({ jakso: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals });
+        games.push({ round: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals });
       }
     }
     games.sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -741,7 +744,7 @@ async function clearPartition(table, pk) {
 async function resetSim(seasonId) {
   const seasonRow = await getEntity(T.season, 'season', seasonId);
   if (!seasonRow) throw badRequest('Kausi puuttuu.');
-  await upsertEntity(T.season, { ...seasonRow, currentJakso: 0 });
+  await upsertEntity(T.season, { ...seasonRow, currentRound: 0 });
   const rounds = await getRounds(seasonId);
   for (const j of rounds) if (j.status && j.status !== 'open') await upsertEntity(T.rounds, { ...j, status: 'open' });
   const cards = await getCards(seasonId);
@@ -757,7 +760,7 @@ async function resetSim(seasonId) {
   }));
   for (let j = 0; j < rounds.length; j++) await clearPartition(T.scores, `${seasonId}|${j}`);
   await clearPartition(T.seasonScores, seasonId);
-  return { reset: true, jaksot: rounds.length };
+  return { reset: true, rounds: rounds.length };
 }
 
 // Status for the admin panel.
@@ -770,7 +773,7 @@ async function getSimStatus(seasonId) {
   const gamesLoaded = (await listByPartition(T.games, `${seasonId}|0`)).length > 0;
   return {
     season: seasonId,
-    currentJakso: season && season.currentJakso != null ? Number(season.currentJakso) : 0,
+    currentRound: season ? Number(season.currentRound != null ? season.currentRound : (season.currentJakso != null ? season.currentJakso : 0)) : 0,
     roundCount: rounds.length,
     settled,
     humans: managers.filter((m) => !m.isBot).length,

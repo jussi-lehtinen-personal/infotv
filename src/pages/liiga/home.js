@@ -42,7 +42,7 @@ export default function LiigaHome() {
     return () => { cancelled = true; };
   }, []);
 
-  const round = state && state.active ? state.currentJakso : null;
+  const round = state && state.active ? state.currentRound : null;
   const st = state && state.standing;
   const roundLabel = round ? `Jakso ${round.no + 1} / ${state.roundCount}` : "Esikatselu";
   const dash = (v) => (v == null ? "—" : v);
@@ -74,7 +74,7 @@ export default function LiigaHome() {
         </Stack>
         <Stack direction="row" divider={<Box sx={{ width: "1px", bgcolor: "var(--color-surface-border)" }} />}>
           <StatBox label="Sijoitus" value={st && st.seasonRank != null ? `${st.seasonRank}.` : "—"} accent />
-          <StatBox label="Jakson pisteet" value={dash(st && st.jaksoPts)} />
+          <StatBox label="Jakson pisteet" value={dash(st && st.roundPts)} />
           <StatBox label="Kausi yht." value={dash(st && st.seasonPts)} />
         </Stack>
       </Box>

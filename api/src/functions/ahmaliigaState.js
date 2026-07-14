@@ -41,7 +41,7 @@ app.http('ahmaliigaState', {
           maxPlayers: season.maxPlayers,
           bands,
           roundCount: rounds.length,
-          currentJakso: cur
+          currentRound: cur
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,
           standing,

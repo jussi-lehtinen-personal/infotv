@@ -80,7 +80,7 @@ export default function LiigaAdmin() {
         <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
               border: "1px solid var(--color-surface-border)", px: 2, py: 1, mb: 2 }}>
           <Row k="Kausi" v={s.season} />
-          <Row k="Nykyinen jakso" v={`${s.currentJakso + 1} / ${s.roundCount}`} />
+          <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
           <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
           <Row k="Tulokset ladattu" v={s.resultsLoaded ? "kyllä" : "EI"} />
@@ -93,7 +93,7 @@ export default function LiigaAdmin() {
       {msg && <Alert severity={msg.type} sx={{ mb: 2 }} onClose={() => setMsg(null)}>{msg.text}</Alert>}
 
       <Stack spacing={1.25}>
-        <AdminBtn icon={LuPlay} label={s ? `Ratkaise jakso ${s.currentJakso + 1}` : "Ratkaise jakso"}
+        <AdminBtn icon={LuPlay} label={s ? `Ratkaise jakso ${s.currentRound + 1}` : "Ratkaise jakso"}
                   busy={busy === "settleRound"} disabled={!s} onClick={() => run("settleRound", "Jakso ratkaistu")} />
         <AdminBtn icon={LuFastForward} label="Ratkaise koko kausi loppuun"
                   busy={busy === "settleAll"} disabled={!s} onClick={() => run("settleAll", "Kausi ratkaistu")} />

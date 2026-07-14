@@ -8,7 +8,7 @@ import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
   LuStar, LuTrendingUp, LuTrendingDown,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog, BAND_LABEL } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
@@ -29,8 +29,6 @@ const StatCell = ({ label, children }) => (
 const StatNum = ({ children }) => (
   <Box component="span" sx={{ fontWeight: 800, fontSize: 19, color: "text.primary", lineHeight: 1 }}>{children}</Box>
 );
-const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
-
 // Rising/falling price tag (replaces the flame). Renders nothing if the card is flat.
 const TrendTag = ({ trend }) => {
   if (trend !== "up" && trend !== "down") return null;
@@ -106,7 +104,7 @@ export default function LiigaEdit() {
         if (squadRes && squadRes.budget) setBudget(squadRes.budget);
         setBank(squadRes && squadRes.bank != null ? squadRes.bank : (squadRes && squadRes.budget) || 120);
         if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
-        if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.jaksoPts ?? null);
+        if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
       })

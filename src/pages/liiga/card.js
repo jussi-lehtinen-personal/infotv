@@ -2,14 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
 import { LuChevronRight } from "react-icons/lu";
-import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials } from "./_shared";
+import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, TYPE_LABEL } from "./_shared";
 import { getAhmaliigaCard } from "../../lib/ahmaliigaApi";
 
 // Kortin tiedot — card hero (avatar + Hinta / Omistus / Tyyppi / trend) + tabs:
 // Pelit (game results, no per-game points), Pisteet and Hintakehitys (per-round
 // from cardHistory, with a small line chart).
 
-const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
 const TABS = [
   { key: "pelit", label: "Pelit" },
   { key: "pisteet", label: "Pisteet" },
@@ -21,13 +20,6 @@ const RANGES = [
   { key: "90", label: "90 pv", days: 90 },
   { key: "kaikki", label: "Kaikki", days: Infinity },
 ];
-
-const gameResult = (a, o) => {
-  if (a > o) return { label: o === 0 ? "Voitto (nolapeli)" : (a - o >= 3 ? "Voitto (iso)" : "Voitto"), color: "var(--color-live)" };
-  if (a < o) return { label: "Tappio", color: "#ef4444" };
-  return { label: "Tasapeli", color: "text.disabled" };
-};
-const shortDate = (d) => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[3])}.${Number(m[2])}.` : ""; };
 const dayDiff = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
 
 const InfoRow = ({ label, children }) => (
@@ -144,7 +136,7 @@ const PriceHistory = ({ history }) => {
           const ch = p ? h.price - p.price : 0;
           const pc = p && p.price ? ((ch / p.price) * 100).toFixed(1) : null;
           return (
-            <Box key={h.jakso} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
+            <Box key={h.round} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
                   borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
               <Box sx={{ width: 52, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(h.date)}</Box>
               <Box sx={{ flex: 1, minWidth: 0 }}><Coins value={h.price} size={13} /></Box>
@@ -232,7 +224,7 @@ export default function LiigaCard() {
       {tab === "pisteet" && (
         history.length === 0 ? <Empty text="Ei pistehistoriaa — jaksoa ei ole ratkaistu." /> : (
           <Section title="Pisteet jaksoittain">
-            {history.map((h) => <BarRow key={h.jakso} label={`Jakso ${h.jakso + 1}`} value={`${h.pts} p`} bar={h.pts} max={maxPts} />)}
+            {history.map((h) => <BarRow key={h.round} label={`Jakso ${h.round + 1}`} value={`${h.pts} p`} bar={h.pts} max={maxPts} />)}
           </Section>
         )
       )}
