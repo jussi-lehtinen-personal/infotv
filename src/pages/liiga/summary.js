@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, CircularProgress } from "@mui/material";
 import { LuStar, LuGoal, LuTrophy } from "react-icons/lu";
-import { Screen, Title, Eyebrow, CardAvatar, StatCard, ListCard, ListRow, RowValue } from "./_shared";
+import { Screen, Title, Eyebrow, CardAvatar, StatCard, ListCard, ListRow, RowValue, signed } from "./_shared";
 import { getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
 // Jakson yhteenveto — big jakso points + rank, then each card with its reason and
@@ -69,7 +69,7 @@ export default function LiigaSummary() {
             title={c.name}
             titleRight={c.isCaptain ? <CaptainTag /> : null}
             subtitle={c.reason || "Ei pisteitä"}
-            trailing={<RowValue size={22} color={c.pts > 0 ? "primary.main" : "text.disabled"}>+{c.pts}</RowValue>} />
+            trailing={<RowValue size={22} color={c.pts > 0 ? "primary.main" : "text.disabled"}>{signed(c.pts)}</RowValue>} />
         ))}
         {/* total — same row geometry so the number lines up with the rows above */}
         <Box sx={{ display: "flex", alignItems: "center", px: 1.75, py: 1.25, borderTop: "2px solid rgba(249,115,22,0.4)" }}>
@@ -85,13 +85,13 @@ export default function LiigaSummary() {
           <Box component={LuTrophy} sx={{ fontSize: 26, color: "primary.main", flexShrink: 0, display: "block" }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
-              Parhaiten pisteitä
+              Eniten pisteitä
             </Typography>
             <Typography sx={{ fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {best.name}
             </Typography>
           </Box>
-          <RowValue size={22} color="primary.main">+{best.pts}</RowValue>
+          <RowValue size={22} color="primary.main">{signed(best.pts)}</RowValue>
         </Box>
       )}
     </Screen>

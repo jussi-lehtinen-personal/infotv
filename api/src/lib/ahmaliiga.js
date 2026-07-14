@@ -265,7 +265,7 @@ async function cumForm(seasonId, jakso) {
   }
   const form = {};
   for (const id of Object.keys(sums)) form[id] = counts[id] ? sums[id] / counts[id] : null;
-  return form;
+  return { form, sums }; // form = avg/jakso (pricing), sums = season total pts
 }
 
 // Band by ranking a pool on form: top third Kallis, mid Keski, bottom Halpa; no
@@ -359,7 +359,7 @@ async function settleJakso(seasonId, jakso) {
   await recomputeSeasonScores(seasonId, jaksot.length - 1);
 
   // reband for next jakso + snapshot this jakso's price/points/ownership
-  const form = await cumForm(seasonId, jakso);
+  const { form, sums } = await cumForm(seasonId, jakso);
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand);
   const newPrice = { ...priceT, ...priceP };
@@ -370,7 +370,9 @@ async function settleJakso(seasonId, jakso) {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
       band: bandNameOf(price, bands), price, ownerCount: ownerCount[c.rowKey] || 0,
-      lastPts: resJ[c.rowKey] || 0, priorForm: c.priorForm ?? null,
+      lastPts: resJ[c.rowKey] || 0, seasonPts: Math.round((sums[c.rowKey] || 0) * 10) / 10,
+      priorForm: c.priorForm ?? null,
+      seedPrice: c.seedPrice != null ? c.seedPrice : c.price, seedBand: c.seedBand || c.band,
     };
   }));
   await inChunks(cards, 25, (c) => upsertEntity(T.cardHistory, {

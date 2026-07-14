@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, InputBase } from "@mui/material";
 import { LuSearch } from "react-icons/lu";
-import { Screen, Title, PricePill, CardAvatar, ListCard, ListRow } from "./_shared";
+import { Screen, Title, PricePill, CardAvatar, ListCard, ListRow, signed } from "./_shared";
 import { getAhmaliigaCards } from "../../lib/ahmaliigaApi";
 
 // Korttimarkkina — the active season's card pool. Filter by type + search; tapping
@@ -17,16 +17,25 @@ const FILTERS = [
 const KIND_LABEL = { team: "Joukkue", player: "Pelaaja", goalie: "Maalivahti" };
 const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
 
+// A tiny right-aligned stat column (Viime jakso / Kausi) shown before the price.
+const StatMini = ({ label, value }) => (
+  <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+    <Box sx={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "text.disabled", lineHeight: 1 }}>{label}</Box>
+    <Box sx={{ fontSize: 13, fontWeight: 800, color: "text.secondary", lineHeight: 1, mt: 0.4 }}>{value}</Box>
+  </Box>
+);
+
 export default function LiigaMarket() {
   const nav = useNavigate();
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState(null);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaCards()
-      .then((d) => { if (!cancelled) setCards(d.cards || []); })
+      .then((d) => { if (!cancelled) { setCards(d.cards || []); setSettled(!!d.settled); } })
       .catch(() => { if (!cancelled) setCards([]); });
     return () => { cancelled = true; };
   }, []);
@@ -91,8 +100,14 @@ export default function LiigaMarket() {
                   {BAND_LABEL[c.band] || c.band}
                 </Box>
               }
-              subtitle={`${KIND_LABEL[c.kind]}${c.sub ? ` · ${c.sub}` : ""}${c.lastPts > 0 ? ` · viime jakso ${c.lastPts} p` : ""}`}
-              trailing={<PricePill value={c.price} />} />
+              subtitle={c.sub || KIND_LABEL[c.kind]}
+              trailing={
+                <Stack direction="row" alignItems="center" spacing={1.25}>
+                  <StatMini label="Viime" value={settled ? `${signed(c.lastPts)}p` : "—"} />
+                  <StatMini label="Kausi" value={settled ? `${c.seasonPts}p` : "—"} />
+                  <PricePill value={c.price} />
+                </Stack>
+              } />
           ))}
         </ListCard>
       )}

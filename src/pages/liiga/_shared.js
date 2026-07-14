@@ -21,24 +21,32 @@ export const initials = (name) => {
   return (parts[parts.length - 1].charAt(0) + parts[0].charAt(0)).toLocaleUpperCase("fi");
 };
 
-// Team crest (logo) or player initials avatar. Uses the body font (not Bebas) so
-// the initials sit optically centred in the circle.
-export const CardAvatar = ({ card, size }) =>
-  card && card.kind === "team" ? (
-    <Box component="img" src={AHMA_LOGO} alt=""
-         sx={{ width: size, height: size, objectFit: "contain", borderRadius: "50%",
-               bgcolor: "rgba(255,255,255,0.05)", p: `${Math.round(size * 0.09)}px`, flexShrink: 0 }} />
-  ) : (
+// Short badge for a team card: the age (U15) or ED / N — the tiny crest looked bad.
+export const teamAbbr = (name) => {
+  const s = String(name || "").trim();
+  const age = s.match(/^U\s*\d+/i);
+  if (age) return age[0].replace(/\s+/g, "");
+  if (/^edustus/i.test(s)) return "ED";
+  if (/^nais/i.test(s)) return "N";
+  return s.slice(0, 3).toUpperCase();
+};
+
+// Avatar for a card: a text badge — teams show ED / N / U15, players their
+// initials. Body font, optically centred in the circle.
+export const CardAvatar = ({ card, size }) => {
+  const isTeam = card && card.kind === "team";
+  const label = isTeam ? teamAbbr(card && card.name) : initials(card && card.name);
+  return (
     <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0,
                display: "flex", alignItems: "center", justifyContent: "center",
-               background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)", border: "1px solid rgba(255,255,255,0.12)",
-               fontWeight: 800, fontSize: Math.round(size * 0.36), color: "text.primary" }}>
-      {/* nudge caps down: with line-height 1 they sit high in the box */}
-      <Box component="span" sx={{ lineHeight: 1, transform: "translateY(0.06em)", letterSpacing: "0.02em" }}>
-        {initials(card && card.name)}
-      </Box>
+               background: isTeam ? "linear-gradient(160deg, rgba(249,115,22,0.28), rgba(249,115,22,0.08))" : "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
+               border: `1px solid ${isTeam ? "rgba(249,115,22,0.45)" : "rgba(255,255,255,0.12)"}`,
+               fontWeight: 800, fontSize: Math.round(size * (label.length > 2 ? 0.3 : 0.36)),
+               color: isTeam ? "#fff" : "text.primary" }}>
+      <Box component="span" sx={{ lineHeight: 1, transform: "translateY(0.06em)", letterSpacing: "0.02em" }}>{label}</Box>
     </Box>
   );
+};
 
 // Scroll container with consistent page padding + max width.
 export const Screen = ({ children, sx }) => (
@@ -49,17 +57,25 @@ export const Screen = ({ children, sx }) => (
 // rows per screen. Numbers use the body font so they share the same centre line
 // as the (body-font) title next to them. =====
 
-// Trailing value on a list row (right-aligned by flex).
+// Trailing value on a list row (right-aligned by flex). Display font (Bebas) —
+// the same look as the stat cards; the display-shift optically centres it so it
+// lines up with the body-font title beside it.
 export const RowValue = ({ children, size = 20, color = "text.primary" }) => (
-  <Box component="span" sx={{ flexShrink: 0, fontFamily: "var(--font-family-base)", fontWeight: 800,
-        fontSize: size, lineHeight: 1, color }}>{children}</Box>
+  <Box component="span" sx={{ flexShrink: 0, fontFamily: "var(--font-family-display)", fontSize: size,
+        lineHeight: 1, transform: "translateY(var(--font-display-shift))", letterSpacing: "var(--font-display-tracking)",
+        color }}>{children}</Box>
 );
 
 // Leading rank number for leaderboards (fixed width so names line up).
 export const RankBadge = ({ rank, highlight }) => (
-  <Box sx={{ width: 22, flexShrink: 0, textAlign: "center", fontFamily: "var(--font-family-base)", fontWeight: 800,
-        fontSize: 17, lineHeight: 1, color: highlight || rank <= 3 ? "primary.main" : "text.disabled" }}>{rank}</Box>
+  <Box sx={{ width: 22, flexShrink: 0, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 18,
+        lineHeight: 1, transform: "translateY(var(--font-display-shift))", letterSpacing: "var(--font-display-tracking)",
+        color: highlight || rank <= 3 ? "primary.main" : "text.disabled" }}>{rank}</Box>
 );
+
+// A signed points value ("+5") with a hair of space so the sign doesn't touch the
+// digit in the condensed display font. Use inside RowValue / stat columns.
+export const signed = (n) => `+ ${n}`;
 
 // THE list row: [leading] [title (+titleRight) / subtitle] [trailing]. alignItems
 // centre; trailing pinned right. Pass `subtitle` (even "") to reserve a second
