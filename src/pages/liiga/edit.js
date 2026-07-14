@@ -66,6 +66,8 @@ export default function LiigaEdit() {
   const [settled, setSettled] = useState(false);
   const [budget, setBudget] = useState(120);
   const [points, setPoints] = useState(null); // manager's season points (top stat)
+  const [bank, setBank] = useState(120);      // money in hand (server-authoritative)
+  const [transfers, setTransfers] = useState({ used: 0, free: 2 });
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
   const [error, setError] = useState("");
@@ -77,6 +79,7 @@ export default function LiigaEdit() {
   const [replaceFor, setReplaceFor] = useState(null); // outgoing card → replace list
   const [swapIn, setSwapIn] = useState(null);         // chosen replacement → confirm
   const [addOpen, setAddOpen] = useState(false);
+  const [paidAdd, setPaidAdd] = useState(null);       // add that costs a transfer → confirm
 
   // Tap vs. long-press (450ms → captain shortcut). One press at a time, so a single
   // pair of refs suffices — avoids per-card hooks in the map/conditional above.
@@ -101,6 +104,8 @@ export default function LiigaEdit() {
         setAll(cardsRes.cards || []);
         setSettled(!!cardsRes.settled);
         if (squadRes && squadRes.budget) setBudget(squadRes.budget);
+        setBank(squadRes && squadRes.bank != null ? squadRes.bank : (squadRes && squadRes.budget) || 120);
+        if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.jaksoPts ?? null);
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
@@ -116,23 +121,27 @@ export default function LiigaEdit() {
   }, [all]);
 
   const selected = useMemo(() => ids.map((id) => byId[id]).filter(Boolean), [ids, byId]);
-  // Current market price — squad and card page show the same, no lock-in.
-  const cost = (c) => (c ? c.price : 0);
-  const spent = selected.reduce((s, c) => s + cost(c), 0);
-  const bank = budget - spent;
   const playerCount = selected.filter((c) => c.kind !== "team").length;
+  const transfersLeft = Math.max(0, transfers.free - transfers.used);
   const captain = byId[captainId] || selected[0] || null;
   const rest = selected.filter((c) => c.id !== (captain && captain.id));
 
   // Every change persists immediately. Optimistic: update state, save, and on
   // failure revert + surface the server message (e.g. the transfer limit).
   const persist = async (nextIds, nextCap) => {
-    const prevIds = ids, prevCap = captainId;
-    setIds(nextIds); setCaptainId(nextCap); setError("");
+    const prevIds = ids, prevCap = captainId, prevBank = bank;
+    // optimistic bank: selling a removed card credits its current price, buying a
+    // new one debits it. The server returns the authoritative bank + transfers.
+    let nb = bank;
+    for (const id of ids) if (!nextIds.includes(id)) nb += byId[id] ? byId[id].price : 0;
+    for (const id of nextIds) if (!ids.includes(id)) nb -= byId[id] ? byId[id].price : 0;
+    setIds(nextIds); setCaptainId(nextCap); setBank(nb); setError("");
     try {
-      await saveMySquad(nextIds, nextCap || "");
+      const res = await saveMySquad(nextIds, nextCap || "");
+      if (res && res.bank != null) setBank(res.bank);
+      if (res && res.freeTransfers != null) setTransfers({ used: res.transfersUsed || 0, free: res.freeTransfers });
     } catch (e) {
-      setIds(prevIds); setCaptainId(prevCap);
+      setIds(prevIds); setCaptainId(prevCap); setBank(prevBank);
       setError(e.message || "Tallennus epäonnistui.");
     }
   };
@@ -149,18 +158,20 @@ export default function LiigaEdit() {
   const addCard = (c) => {
     setAddOpen(false);
     if (ids.length >= 5 || ids.includes(c.id)) return;
+    // Out of free transfers → confirm the point cost first.
+    if (transfersLeft === 0) { setPaidAdd(c); return; }
     persist([...ids, c.id], captainId || c.id);
   };
 
   // selection rules for the shared list
   const canReplaceWith = (c) => {
     if (!replaceFor) return false;
-    const afford = cost(c) <= bank + cost(replaceFor);
+    const afford = c.price <= bank + replaceFor.price;
     const playersAfter = playerCount - (replaceFor.kind !== "team" ? 1 : 0) + (c.kind !== "team" ? 1 : 0);
     return afford && playersAfter <= 2;
   };
   const canAdd = (c) =>
-    ids.length < 5 && !ids.includes(c.id) && cost(c) <= bank && (c.kind === "team" || playerCount < 2);
+    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < 2);
 
   // A squad row (captain or bench). Same flex + alignItems:center base as the
   // shared ListRow (v9-safe alignment), 3 lines (name / team / price+trend) + a
@@ -188,7 +199,7 @@ export default function LiigaEdit() {
           {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 800 }}>▼ Laskussa</Box>}
         </Typography>
       </Box>
-      <PricePill value={cost(c)} />
+      <PricePill value={c.price} />
       <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
     </ButtonBase>
   );
@@ -199,9 +210,12 @@ export default function LiigaEdit() {
     <Screen sx={{ overflowX: "hidden" }}>
       <PageHead title="Oma joukkue" />
 
-      {/* top stats — Budjetti / Kortteja / Pisteet */}
-      <Box sx={{ display: "flex", gap: 1.25, mb: 2.5 }}>
-        <StatCell label="Budjetti jäljellä"><Coins value={bank} size={15} /></StatCell>
+      {/* top stats — Budjetti / Siirrot / Kortteja / Pisteet */}
+      <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
+        <StatCell label="Budjetti"><Coins value={bank} size={15} /></StatCell>
+        <StatCell label="Siirrot">
+          <StatNum><Box component="span" sx={{ color: transfersLeft > 0 ? "text.primary" : "#f87171" }}>{transfersLeft}</Box> / {transfers.free}</StatNum>
+        </StatCell>
         <StatCell label="Kortteja"><StatNum>{ids.length} / 5</StatNum></StatCell>
         <StatCell label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
       </Box>
@@ -242,7 +256,7 @@ export default function LiigaEdit() {
                 <Typography noWrap sx={{ fontWeight: 800, fontSize: 16, color: "text.primary", lineHeight: 1.2 }}>{menuCard.name}</Typography>
                 <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>{menuCard.kind === "team" ? "Joukkue" : menuCard.sub}</Typography>
               </Box>
-              <Box sx={{ flexShrink: 0 }}><Coins value={cost(menuCard)} size={15} /></Box>
+              <Box sx={{ flexShrink: 0 }}><Coins value={menuCard.price} size={15} /></Box>
             </Stack>
             <Stack spacing={0.25}>
               <SheetAction icon={LuArrowLeftRight} label="Korvaa kortti" sub="Vaihda tämä kortti toiseen" chevron
@@ -302,7 +316,7 @@ export default function LiigaEdit() {
                   <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, color: "text.primary" }}>{replaceFor.name}</Typography>
                   <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>{replaceFor.kind === "team" ? "Joukkue" : replaceFor.sub}</Typography>
                 </Box>
-                <Coins value={cost(replaceFor)} size={14} />
+                <Coins value={replaceFor.price} size={14} />
               </Stack>
             </Box>
             <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canReplaceWith}
@@ -320,9 +334,9 @@ export default function LiigaEdit() {
             <Typography sx={{ textAlign: "center", fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
                   textTransform: "uppercase", fontSize: 20, mb: 2, color: "text.primary" }}>Vahvista vaihto</Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: "stretch" }}>
-              <SwapCard card={replaceFor} price={cost(replaceFor)} label="Ulos" tone="out" />
+              <SwapCard card={replaceFor} price={replaceFor.price} label="Ulos" tone="out" />
               <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}><Box component={LuArrowRight} sx={{ fontSize: 22, color: "primary.main", display: "block" }} /></Box>
-              <SwapCard card={swapIn} price={cost(swapIn)} label="Sisään" tone="in" />
+              <SwapCard card={swapIn} price={swapIn.price} label="Sisään" tone="in" />
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
               <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, px: 1.5, py: 1.15,
@@ -335,13 +349,32 @@ export default function LiigaEdit() {
                     borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
                 <Box component="span" sx={{ fontSize: 13, fontWeight: 700, color: "text.disabled", textDecoration: "line-through" }}>{bank}</Box>
                 <Box component={LuArrowRight} sx={{ fontSize: 13, color: "text.disabled" }} />
-                <Coins value={bank + cost(replaceFor) - cost(swapIn)} size={14} />
+                <Coins value={bank + replaceFor.price - swapIn.price} size={14} />
               </Box>
             </Stack>
+            {transfersLeft === 0 && (
+              <Typography sx={{ mt: 2, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#f87171" }}>
+                Siirrot käytetty — tämä vaihto maksaa −5 pistettä.
+              </Typography>
+            )}
             <Button fullWidth variant="contained" onClick={() => applySwap(replaceFor.id, swapIn)} sx={{ mt: 2.5, py: 1.25 }}>Vahvista vaihto</Button>
             <Button fullWidth variant="outlined" onClick={() => setSwapIn(null)} sx={{ mt: 1, py: 1, color: "text.secondary", borderColor: "var(--color-surface-border)" }}>Peruuta</Button>
           </Box>
         )}
+      </Dialog>
+
+      {/* Add that costs a transfer — confirm the point cost */}
+      <Dialog open={!!paidAdd} onClose={() => setPaidAdd(null)} slotProps={{ paper: { elevation: 0, sx: dialogPaper }, backdrop: { sx: { backgroundColor: "rgba(0,0,0,0.7)" } } }}>
+        <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>Ylimääräinen siirto?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: "text.secondary" }}>
+            {paidAdd && <>Ilmaiset siirrot on käytetty tällä jaksolla. <b>{paidAdd.name}</b> lisääminen maksaa <b style={{ color: "#f87171" }}>−5 pistettä</b>.</>}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPaidAdd(null)} sx={{ color: "text.secondary" }}>Peruuta</Button>
+          <Button variant="contained" onClick={() => { const c = paidAdd; setPaidAdd(null); persist([...ids, c.id], captainId || c.id); }}>Lisää (−5 p)</Button>
+        </DialogActions>
       </Dialog>
 
       {/* 6. Add list (full screen) */}

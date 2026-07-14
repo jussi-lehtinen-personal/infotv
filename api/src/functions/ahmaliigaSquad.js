@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity } = require('../lib/tables');
-const { getActiveSeason, getCards, getSquad, saveSquad } = require('../lib/ahmaliiga');
+const { getActiveSeason, getCards, getSquad, saveSquad, ECON } = require('../lib/ahmaliiga');
 
 // GET  /api/ahmaliiga/squad — the signed-in manager's current squad (resolved card
 //      details + bank), or { squad: null } if none built yet.
@@ -34,8 +34,10 @@ app.http('ahmaliigaSquad', {
 
       const squad = await getSquad(userId);
       if (!squad) return { jsonBody: { squad: null, budget: season.budget } };
-      const spent = (squad.cards || []).reduce((s, c) => s + c.buyPrice, 0);
-      return { jsonBody: await resolve(season, { ...squad, bank: season.budget - spent }) };
+      // Stored money-in-hand bank; legacy squads (no stored bank) derive it from buyPrices.
+      const legacyBank = season.budget - (squad.cards || []).reduce((s, c) => s + (c.buyPrice || 0), 0);
+      const bank = squad.bank != null ? squad.bank : legacyBank;
+      return { jsonBody: await resolve(season, { ...squad, bank }) };
     } catch (err) {
       context.log('ahmaliigaSquad failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };
@@ -63,5 +65,6 @@ async function resolve(season, squad) {
       jaksoNo: squad.jaksoNo, transfersUsedThisJakso: squad.transfersUsedThisJakso || 0,
     },
     budget: season.budget, bank: squad.bank, spent: season.budget - squad.bank,
+    transfersUsed: squad.transfersUsedThisJakso || 0, freeTransfers: ECON.transfersPerJakso,
   };
 }

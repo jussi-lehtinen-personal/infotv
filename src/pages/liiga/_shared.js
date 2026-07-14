@@ -58,6 +58,41 @@ export const Screen = ({ children, sx }) => (
   <Box sx={{ px: 2, py: 2, maxWidth: 640, mx: "auto", ...sx }}>{children}</Box>
 );
 
+// ===== Ahmaliiga domain helpers (shared so the labels/format live in ONE place) =====
+export const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
+export const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
+
+// Rising/falling price tag: "▲ Nousussa" (green) / "▼ Laskussa" (red); nothing if flat.
+export const TrendTag = ({ trend, sx }) => {
+  if (trend !== "up" && trend !== "down") return null;
+  const up = trend === "up";
+  return (
+    <Box component="span" sx={{ fontWeight: 800, color: up ? "var(--color-live)" : "#ef4444", ...sx }}>
+      {up ? "▲ Nousussa" : "▼ Laskussa"}
+    </Box>
+  );
+};
+
+// "YYYY-MM-DD[ HH:MM]" → "D.M." (+ time when present).
+export const shortDate = (d) => {
+  const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2}:\d{2})?/);
+  return m ? `${Number(m[3])}.${Number(m[2])}.${m[4] ? " " + m[4] : ""}` : "";
+};
+
+// Hockey result from our goals vs opponent goals → { label, color }.
+export const gameResult = (a, o) => {
+  if (a > o) return { label: o === 0 ? "Voitto (nolapeli)" : (a - o >= 3 ? "Voitto (iso)" : "Voitto"), color: "var(--color-live)" };
+  if (a < o) return { label: "Tappio", color: "#ef4444" };
+  return { label: "Tasapeli", color: "text.disabled" };
+};
+
+// A tinted round icon (CTA / list-row icons). Pass the react-icons component.
+export const IconCircle = ({ icon: Icon, size = 40, tint = "rgba(249,115,22,0.15)", color = "primary.main" }) => (
+  <Box sx={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: tint }}>
+    <Box component={Icon} sx={{ fontSize: Math.round(size * 0.48), color, display: "block" }} />
+  </Box>
+);
+
 // Full-screen dialog template (Korvaa/Lisää and any future step). GUARANTEES the
 // dark theme: an explicit full-bleed dark layer sits over MUI's paper so the
 // dark-mode elevation overlay can never grey it out. Header comes built in — use

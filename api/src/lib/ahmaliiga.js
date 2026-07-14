@@ -10,6 +10,7 @@ const ECON = {
   squadSize: 5,
   maxPlayers: 2,
   transfersPerJakso: 2,
+  transferPenalty: 5, // points lost per extra transfer beyond the free allowance
   // Price tiers, highest → lowest (5 tiers so cards can sit at the in-between
   // 35/45 / 15/25 steps, not just 3 levels). Assigned by form quintile.
   band: [30, 25, 20, 15, 10],       // team cards
@@ -160,6 +161,8 @@ function parseSquad(row) {
   return {
     cards, captainId: row.captainId || null,
     seasonId: row.seasonId, jaksoNo: row.jaksoNo,
+    bank: row.bank != null ? Number(row.bank) : null,
+    jaksoStart: (() => { try { return JSON.parse(row.jaksoStart || 'null'); } catch { return null; } })(),
     transfersUsedThisJakso: row.transfersUsedThisJakso || 0,
     updatedAt: row.updatedAt,
   };
@@ -197,31 +200,42 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const curJakso = activeJaksoNo(season, jaksot);
   const prev = await getSquad(userId);
 
-  // No lock-in: every card costs its CURRENT price (so the squad and the card page
-  // agree). A squad that drifts over budget as prices rise can still be kept and
-  // rearranged (grandfathered) — you just can't make it MORE expensive while over.
-  const squadCards = cardIds.map((id) => ({ id, buyPrice: map[id].price }));
-  const spent = squadCards.reduce((s, c) => s + c.buyPrice, 0);
-  const prevSpent = prev ? (prev.cards || []).reduce((s, c) => s + ((map[c.id] && map[c.id].price) || 0), 0) : 0;
-  if (spent > budget && spent > prevSpent) throw badRequest(`Budjetti ylittyy: ${spent} / ${budget} 🪙.`);
+  // Money-in-hand: `bank` is stored and moves per transaction — selling a card
+  // credits its CURRENT price, buying one debits the current price (so a price rise
+  // is realised as profit when you sell). Legacy squads (no stored bank) start from
+  // budget − what they paid. The bank never goes negative.
+  const prevBuy = {};
+  if (prev) for (const c of prev.cards || []) prevBuy[c.id] = c.buyPrice;
+  let bank = prev && prev.bank != null ? prev.bank
+    : prev ? budget - (prev.cards || []).reduce((s, c) => s + (Number(c.buyPrice) || 0), 0)
+    : budget;
+  for (const c of (prev && prev.cards) || []) if (!cardIds.includes(c.id)) bank += Number((map[c.id] || {}).price) || 0; // sold
+  for (const id of cardIds) if (prevBuy[id] == null) bank -= Number(map[id].price) || 0; // bought
+  if (bank < 0) throw badRequest('Budjetti ei riitä.');
+  const squadCards = cardIds.map((id) => ({ id, buyPrice: prevBuy[id] != null ? prevBuy[id] : map[id].price }));
 
-  // Transfer limit is DISABLED for now (re-enable later if needed). We still keep a
-  // running count per jakso so the data exists when the cap comes back — but nothing
-  // is enforced, so any number of swaps is allowed.
-  let transfersUsed = prev && prev.jaksoNo === curJakso ? (prev.transfersUsedThisJakso || 0) : 0;
-  if (prev && cardIds.length === squadSize && (prev.cards || []).length === squadSize) {
-    transfersUsed += cardIds.filter((id) => !(prev.cards || []).some((c) => c.id === id)).length;
-  }
+  // Transfers: any card not in the squad you STARTED this jakso with costs a
+  // transfer. transfersPerJakso are free; extra transfers are ALLOWED but cost
+  // TRANSFER_PENALTY points each at settlement. The first build (no complete
+  // jakso-start squad yet) is free. Counting vs the jakso-start snapshot means
+  // remove+re-add can't dodge the count. The snapshot rolls when the jakso advances.
+  const jaksoStart = prev && prev.jaksoNo === curJakso
+    ? (Array.isArray(prev.jaksoStart) ? prev.jaksoStart : (prev.cards || []).map((c) => c.id))
+    : prev ? (prev.cards || []).map((c) => c.id)
+    : [];
+  const startComplete = jaksoStart.length === squadSize;
+  const transfersUsed = startComplete ? cardIds.filter((id) => !jaksoStart.includes(id)).length : 0;
 
   await ensureManager(userId, nickname);
   const row = {
     partitionKey: userId, rowKey: 'current',
     seasonId: season.rowKey, jaksoNo: curJakso,
-    cards: JSON.stringify(squadCards), captainId,
+    cards: JSON.stringify(squadCards), captainId, bank,
+    jaksoStart: JSON.stringify(jaksoStart),
     transfersUsedThisJakso: transfersUsed, updatedAt: new Date().toISOString(),
   };
   await upsertEntity(T.squads, row);
-  return { ...parseSquad(row), bank: budget - spent, spent };
+  return { ...parseSquad(row), bank, spent: budget - bank, freeTransfers: ECON.transfersPerJakso, transfersUsed };
 }
 
 // --- M2: results + settlement (replay a past season) ---
@@ -327,14 +341,16 @@ async function settleJakso(seasonId, jakso) {
   for (const m of managers) {
     // reuse a previously frozen lineup so re-settle is stable
     const existing = await getEntity(T.scores, `${seasonId}|${jakso}`, m.userId);
-    let ids, captainId;
+    let ids, captainId, penalty = 0;
     if (existing && existing.cards) {
-      try { const p = JSON.parse(existing.cards); ids = p.ids; captainId = p.captainId; } catch { ids = null; }
+      try { const p = JSON.parse(existing.cards); ids = p.ids; captainId = p.captainId; penalty = Number(existing.penalty) || 0; } catch { ids = null; }
     }
     if (!ids) {
       const sq = await getSquad(m.userId);
       if (!sq || !sq.cards.length) continue;
       ids = sq.cards.map((c) => c.id); captainId = sq.captainId;
+      // extra transfers beyond the free allowance cost points
+      penalty = ECON.transferPenalty * Math.max(0, (sq.transfersUsedThisJakso || 0) - ECON.transfersPerJakso);
     }
     let total = 0; const breakdown = {};
     for (const id of ids) {
@@ -346,7 +362,8 @@ async function settleJakso(seasonId, jakso) {
     const pred = predMap[m.userId];
     const pbonus = pred ? predictionBonus(pred, gameMap[pred.gameId]) : 0;
     if (pbonus) { breakdown._predict = pbonus; total += pbonus; }
-    jaksoRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids, captainId, breakdown });
+    if (penalty) { breakdown._transfers = -penalty; total -= penalty; }
+    jaksoRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids, captainId, breakdown, penalty });
   }
   jaksoRows.sort((a, b) => b.total - a.total);
   jaksoRows.forEach((r, i) => { r.rank = i + 1; });
@@ -356,6 +373,7 @@ async function settleJakso(seasonId, jakso) {
       total: r.total, rank: r.rank, captainId: r.captainId || '',
       cards: JSON.stringify({ ids: r.ids, captainId: r.captainId }),
       breakdown: JSON.stringify(r.breakdown),
+      penalty: r.penalty || 0,
     });
   }
 
@@ -584,6 +602,7 @@ async function getCardDetail(seasonId, cardId) {
   let games = [];
   if (cardAge) {
     for (const j of jaksot) {
+      if (j.status !== 'settled') continue; // only played jaksot (no future results)
       const gs = await getJaksoGames(seasonId, Number(j.rowKey));
       for (const g of gs) {
         if (!matchGame(g)) continue;
