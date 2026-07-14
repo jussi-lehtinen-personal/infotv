@@ -22,7 +22,7 @@ app.http('ahmaliigaCards', {
         .map((c) => ({
           id: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
           band: c.band, price: c.price, ownerCount: c.ownerCount || 0,
-          lastPts: c.lastPts || 0, seasonPts: c.seasonPts || 0,
+          lastPts: c.lastPts || 0, seasonPts: c.seasonPts || 0, photo: c.photo || '', trend: c.trend || '',
         }))
         .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, 'fi'));
       return { jsonBody: { season: season.rowKey, settled, cards: out } };

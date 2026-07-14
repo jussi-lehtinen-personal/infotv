@@ -110,7 +110,7 @@ async function seedSeason(seed) {
     partitionKey: seasonId, rowKey: c.id,
     kind: c.kind, name: c.name, sub: c.sub || '',
     teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
-    band: c.band, price: c.price, ownerCount: 0, lastPts: 0,
+    band: c.band, price: c.price, ownerCount: 0, lastPts: 0, seasonPts: 0, photo: '',
     priorForm: c.priorForm ?? null,
     // seed values so an admin "reset" can restore prices without re-uploading
     seedPrice: c.price, seedBand: c.band,
@@ -366,13 +366,16 @@ async function settleJakso(seasonId, jakso) {
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
     const price = newPrice[c.rowKey];
+    const old = Number(c.price);
     return {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
       band: bandNameOf(price, bands), price, ownerCount: ownerCount[c.rowKey] || 0,
       lastPts: resJ[c.rowKey] || 0, seasonPts: Math.round((sums[c.rowKey] || 0) * 10) / 10,
+      trend: price > old ? 'up' : price < old ? 'down' : '',
       priorForm: c.priorForm ?? null,
       seedPrice: c.seedPrice != null ? c.seedPrice : c.price, seedBand: c.seedBand || c.band,
+      photo: c.photo || '',
     };
   }));
   await inChunks(cards, 25, (c) => upsertEntity(T.cardHistory, {
@@ -512,6 +515,68 @@ function predictionBonus(pred, game) {
   return ECON.predict.winner;
 }
 
+// --- Player photos from the Jopox rosters (matched by team + name) ---
+
+const ROSTER_BASE = 'https://www.kiekko-ahma.fi';
+const IMAGEBANK = 'https://static.jopox.fi/kiekko-ahma/imagebank';
+const ROSTER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+// Player-eligible teamKey age → Jopox subsiteId (see src/data/jopoxTeams.js).
+const AGE_SUBSITE = { Edustus: 9947, Naiset: 9974, U20: 9948, U18: 9949 };
+
+const normName = (s) => String(s || '').toLocaleLowerCase('fi')
+  .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/å/g, 'a')
+  .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// {normalizedName: photoUrl} for a Jopox team roster (both name orders keyed).
+async function fetchRosterPhotos(subsiteId) {
+  const res = await fetch(`${ROSTER_BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': ROSTER_UA, Accept: 'text/html' } });
+  if (!res.ok) return {};
+  const html = await res.text();
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!m) return {};
+  let pageProps;
+  try { pageProps = JSON.parse(m[1]).props && JSON.parse(m[1]).props.pageProps || {}; } catch { return {}; }
+  const map = {};
+  for (const group of pageProps.players || []) {
+    for (const p of group.players || []) {
+      if (!p.imagename) continue;
+      const photo = `${IMAGEBANK}/${p.imagename}`;
+      const first = (p.personFirstname || '').trim(), last = (p.personLastname || '').trim();
+      map[normName(`${last} ${first}`)] = photo;
+      map[normName(`${first} ${last}`)] = photo;
+    }
+  }
+  return map;
+}
+
+// Enrich player/goalie cards with a photo from their team's Jopox roster.
+async function enrichPhotos(seasonId) {
+  const cards = await getCards(seasonId);
+  const players = cards.filter((c) => c.kind !== 'team' && c.personName);
+  const subsiteOf = (teamKey) => AGE_SUBSITE[String(teamKey || '').split(' ')[0]] || null;
+  const bySub = {};
+  for (const c of players) { const s = subsiteOf(c.sub || c.teamKey); if (s) (bySub[s] = bySub[s] || []).push(c); }
+
+  let matched = 0;
+  const updates = [];
+  for (const [sub, list] of Object.entries(bySub)) {
+    const roster = await fetchRosterPhotos(sub);
+    for (const c of list) {
+      const photo = roster[normName(c.personName)] || '';
+      if (photo) matched++;
+      updates.push({
+        partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
+        teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
+        band: c.band, price: c.price, ownerCount: c.ownerCount || 0, lastPts: c.lastPts || 0,
+        seasonPts: c.seasonPts || 0, trend: c.trend || '', priorForm: c.priorForm ?? null,
+        seedPrice: c.seedPrice ?? c.price, seedBand: c.seedBand || c.band, photo,
+      });
+    }
+  }
+  await upsertBatch(T.cards, updates);
+  return { players: players.length, matched, subsites: Object.keys(bySub).length };
+}
+
 // A manager's per-jakso score row (total, rank, per-card breakdown, lineup).
 async function getJaksoScore(seasonId, jakso, userId) {
   const row = await getEntity(T.scores, `${seasonId}|${jakso}`, userId);
@@ -544,8 +609,8 @@ async function resetSim(seasonId) {
     return {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
-      band, price, ownerCount: 0, lastPts: 0, priorForm: c.priorForm ?? null,
-      seedPrice: price, seedBand: band,
+      band, price, ownerCount: 0, lastPts: 0, seasonPts: 0, priorForm: c.priorForm ?? null,
+      seedPrice: price, seedBand: band, photo: c.photo || '',
     };
   }));
   for (let j = 0; j < jaksot.length; j++) await clearPartition(T.scores, `${seasonId}|${j}`);
@@ -577,7 +642,7 @@ module.exports = {
   ECON, T, badRequest,
   getActiveSeason, getCards, getJaksot, currentJaksoNo, activeJaksoNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleJakso, seedBots, resetSim, getSimStatus,
+  loadResults, getResults, getResultsFull, settleJakso, seedBots, resetSim, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getJaksoScore, listManagers,
   loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus,
 };

@@ -52,7 +52,7 @@ async function resolve(season, squad) {
     const c = map[sc.id] || {};
     return {
       id: sc.id, buyPrice: sc.buyPrice,
-      kind: c.kind || 'team', name: c.name || sc.id, sub: c.sub || '',
+      kind: c.kind || 'team', name: c.name || sc.id, sub: c.sub || '', photo: c.photo || '',
       band: c.band || '', price: c.price ?? sc.buyPrice, lastPts: c.lastPts || 0,
       isCaptain: sc.id === squad.captainId,
     };

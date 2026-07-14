@@ -31,9 +31,14 @@ export const teamAbbr = (name) => {
   return s.slice(0, 3).toUpperCase();
 };
 
-// Avatar for a card: a text badge — teams show ED / N / U15, players their
-// initials. Body font, optically centred in the circle.
+// Avatar for a card: the player's Jopox photo if we have one, else a text badge —
+// teams show ED / N / U15, players their initials. Body font, optically centred.
 export const CardAvatar = ({ card, size }) => {
+  if (card && card.photo) {
+    return <Box component="img" src={card.photo} alt=""
+                sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+                      bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />;
+  }
   const isTeam = card && card.kind === "team";
   const label = isTeam ? teamAbbr(card && card.name) : initials(card && card.name);
   return (
@@ -205,7 +210,8 @@ export const PricePill = ({ value, size = 17, sx }) => (
     <Box component={COIN_ICON} sx={{ color: "rgba(255,255,255,0.95)", fontSize: size - 1, flexShrink: 0, display: "block" }} />
     <Box
       component="span"
-      sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "0.02em", fontSize: size, lineHeight: 1, color: "#fff" }}
+      sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "0.02em", fontSize: size, lineHeight: 1,
+            transform: "translateY(var(--font-display-shift))", color: "#fff" }}
     >
       {value}
     </Box>

@@ -33,7 +33,7 @@ app.http('ahmaliigaSummary', {
         const c = map[id] || {};
         const r = resultMap[id] || {};
         return {
-          id, name: c.name || id, kind: c.kind || 'team', sub: c.sub || '',
+          id, name: c.name || id, kind: c.kind || 'team', sub: c.sub || '', photo: c.photo || '',
           pts: score.breakdown[id] || 0, reason: r.reason || '', isCaptain: id === score.captainId,
         };
       }).sort((a, b) => b.pts - a.pts);

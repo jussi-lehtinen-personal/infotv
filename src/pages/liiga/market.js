@@ -14,15 +14,15 @@ const FILTERS = [
   { key: "player", label: "Pelaajat" },
   { key: "goalie", label: "Maalivahdit" },
 ];
-const KIND_LABEL = { team: "Joukkue", player: "Pelaaja", goalie: "Maalivahti" };
-const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
+// Column widths shared by the header + each row so they line up.
+const STAT_W = 46, COIN_W = 54, COL_GAP = 1.5;
 
-// A tiny right-aligned stat column (Viime jakso / Kausi) shown before the price.
-const StatMini = ({ label, value }) => (
-  <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-    <Box sx={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "text.disabled", lineHeight: 1 }}>{label}</Box>
-    <Box sx={{ fontSize: 13, fontWeight: 800, color: "text.secondary", lineHeight: 1, mt: 0.4 }}>{value}</Box>
-  </Box>
+const StatVal = ({ children }) => (
+  <Box sx={{ width: STAT_W, textAlign: "right", flexShrink: 0, fontSize: 13, fontWeight: 800, color: "text.secondary" }}>{children}</Box>
+);
+const ColHead = ({ children, w }) => (
+  <Box sx={{ width: w, textAlign: "right", flexShrink: 0, fontSize: 9, fontWeight: 800,
+        letterSpacing: "0.05em", textTransform: "uppercase", color: "text.disabled" }}>{children}</Box>
 );
 
 export default function LiigaMarket() {
@@ -89,27 +89,36 @@ export default function LiigaMarket() {
           <Typography variant="body2">{cards.length === 0 ? "Kausi ei ole vielä käynnissä." : "Ei osumia."}</Typography>
         </Box>
       ) : (
-        <ListCard>
-          {list.map((c, i) => (
-            <ListRow key={c.id} divider={i < list.length - 1} onClick={() => nav(`/ahmaliiga/kortti/${encodeURIComponent(c.id)}`)}
-              leading={<CardAvatar card={c} size={44} />}
-              title={c.name}
-              titleRight={
-                <Box component="span" sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-                      textTransform: "uppercase", color: "primary.main", flexShrink: 0 }}>
-                  {BAND_LABEL[c.band] || c.band}
-                </Box>
-              }
-              subtitle={c.sub || KIND_LABEL[c.kind]}
-              trailing={
-                <Stack direction="row" alignItems="center" spacing={1.25}>
-                  <StatMini label="Viime" value={settled ? `${signed(c.lastPts)}p` : "—"} />
-                  <StatMini label="Kausi" value={settled ? `${c.seasonPts}p` : "—"} />
-                  <PricePill value={c.price} />
-                </Stack>
-              } />
-          ))}
-        </ListCard>
+        <>
+          {/* column headers (so Jakso/Kausi aren't repeated on every row) */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: COL_GAP, px: 1.75, pb: 0.75 }}>
+            <Box sx={{ flex: 1, fontSize: 9, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.disabled" }}>Pelaaja</Box>
+            <ColHead w={STAT_W}>Jakso</ColHead>
+            <ColHead w={STAT_W}>Kausi</ColHead>
+            <ColHead w={COIN_W}>Hinta</ColHead>
+          </Box>
+          <ListCard>
+            {list.map((c, i) => (
+              <ListRow key={c.id} divider={i < list.length - 1} onClick={() => nav(`/ahmaliiga/kortti/${encodeURIComponent(c.id)}`)}
+                leading={<CardAvatar card={c} size={44} />}
+                title={c.name}
+                subtitle={
+                  <>
+                    {c.sub}
+                    {c.trend === "up" && <Box component="span" sx={{ color: "var(--color-live)", fontWeight: 700 }}>{" · Nousussa ▲"}</Box>}
+                    {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}>{" · Laskussa ▼"}</Box>}
+                  </>
+                }
+                trailing={
+                  <Stack direction="row" alignItems="center" spacing={COL_GAP}>
+                    <StatVal>{settled ? `${signed(c.lastPts)}p` : "—"}</StatVal>
+                    <StatVal>{settled ? `${c.seasonPts}p` : "—"}</StatVal>
+                    <Box sx={{ width: COIN_W, display: "flex", justifyContent: "flex-end", flexShrink: 0 }}><PricePill value={c.price} /></Box>
+                  </Stack>
+                } />
+            ))}
+          </ListCard>
+        </>
       )}
     </Screen>
   );
