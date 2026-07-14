@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
-import { LuCoins } from "react-icons/lu";
+import { LuCircleDollarSign } from "react-icons/lu";
 
 // Shared bits for the Ahmaliiga (fantasy) preview screens. Mock data only — the
 // real game runs on Table Storage later. Preview is gated to ADMIN_USER_IDS
@@ -8,6 +8,9 @@ import { LuCoins } from "react-icons/lu";
 
 export const AHMA_LOGO = "/ahma_logo.png";
 export const BUDGET = 120;
+
+// The Ahma-coin icon, in ONE place → changing it here updates the whole app.
+export const COIN_ICON = LuCircleDollarSign;
 
 // Initials from a "SUKUNIMI Etunimi" name, first name FIRST → e.g.
 // "BLOMBERG Niklas" → "NB", "NELIMARKKA Lassi" → "LN"; single word → its letter.
@@ -29,9 +32,11 @@ export const CardAvatar = ({ card, size }) =>
     <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0,
                display: "flex", alignItems: "center", justifyContent: "center",
                background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)", border: "1px solid rgba(255,255,255,0.12)",
-               fontWeight: 800, fontSize: Math.round(size * 0.36), letterSpacing: "0.02em",
-               lineHeight: 1, color: "text.primary" }}>
-      {initials(card && card.name)}
+               fontWeight: 800, fontSize: Math.round(size * 0.36), color: "text.primary" }}>
+      {/* nudge caps down: with line-height 1 they sit high in the box */}
+      <Box component="span" sx={{ lineHeight: 1, transform: "translateY(0.06em)", letterSpacing: "0.02em" }}>
+        {initials(card && card.name)}
+      </Box>
     </Box>
   );
 
@@ -43,7 +48,7 @@ export const Screen = ({ children, sx }) => (
 // AHMA-coin amount, e.g. 🪙 30. `total` renders "value / total".
 export const Coins = ({ value, total, size = 15, sx }) => (
   <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, ...sx }}>
-    <Box component={LuCoins} sx={{ color: "primary.main", fontSize: size, flexShrink: 0 }} />
+    <Box component={COIN_ICON} sx={{ color: "primary.main", fontSize: size, flexShrink: 0 }} />
     <Box
       component="span"
       sx={{
@@ -86,18 +91,19 @@ export const CoinPill = ({ value, total }) => (
   </Box>
 );
 
-// Price shown as a solid orange coin pill (card market / squad prices).
-export const PricePill = ({ value, size = 18, sx }) => (
+// Price shown as a solid orange coin pill (card market / squad prices). Hugs its
+// content vertically; the row it sits in centres it.
+export const PricePill = ({ value, size = 17, sx }) => (
   <Box
     sx={{
-      display: "inline-flex", alignItems: "center", gap: 0.6, px: 1.3, py: 0.6,
-      borderRadius: "var(--radius-item)", flexShrink: 0,
+      display: "inline-flex", alignItems: "center", alignSelf: "center", gap: 0.5,
+      px: 1.15, py: "5px", lineHeight: 1, borderRadius: 999, flexShrink: 0,
       background: "linear-gradient(180deg, #f97316, #e4610f)",
       boxShadow: "0 3px 10px rgba(249,115,22,0.35)",
       ...sx,
     }}
   >
-    <Box component={LuCoins} sx={{ color: "rgba(255,255,255,0.95)", fontSize: size - 2, flexShrink: 0 }} />
+    <Box component={COIN_ICON} sx={{ color: "rgba(255,255,255,0.95)", fontSize: size - 1, flexShrink: 0, display: "block" }} />
     <Box
       component="span"
       sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "0.02em", fontSize: size, lineHeight: 1, color: "#fff" }}

@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuShieldCheck, LuGoal, LuMedal, LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
+import { LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, Eyebrow } from "./_shared";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// Ahmaliiga Dashboard — season status (rank, jakso points, season total), Top 5,
-// the manager's latest-jakso card points, and the three CTAs. Real backend data;
-// stats show "—" before the first jakso is settled.
-
-const CTAS = [
-  { to: "/ahmaliiga/joukkue", label: "Oma joukkue", Icon: LuShieldCheck },
-  { to: "/ahmaliiga/veikkaus", label: "Veikkaa ottelu", Icon: LuGoal },
-  { to: "/ahmaliiga/ranking", label: "Ranking", Icon: LuMedal },
-];
+// Ahmaliiga Dashboard — season status (rank, jakso points, season total), the
+// jakso-summary CTA, and Top 5. Real backend data; stats show "—" before the
+// first jakso is settled.
 
 function timeLeft(endDate) {
   if (!endDate) return "—";
@@ -43,7 +37,7 @@ export default function LiigaHome() {
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
-    getAhmaliigaRanking("kausi").then((d) => { if (!cancelled) setTop((d.rows || []).slice(0, 5)); }).catch(() => {});
+    getAhmaliigaRanking("kausi").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
     getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -85,43 +79,9 @@ export default function LiigaHome() {
         </Stack>
       </Box>
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2.5 }}>
-        {CTAS.map((c) => (
-          <ButtonBase key={c.to} onClick={() => nav(c.to)}
-            sx={{ flex: 1, flexDirection: "column", gap: 0.75, py: 1.5, borderRadius: "var(--radius-item)",
-                  bgcolor: "rgba(255,255,255,0.04)", border: "1px solid var(--color-surface-border)",
-                  color: "text.primary", "&:hover": { borderColor: "primary.main" } }}>
-            <Box component={c.Icon} sx={{ fontSize: 22, color: "primary.main" }} />
-            <Box component="span" sx={{ fontSize: 12, fontWeight: 700 }}>{c.label}</Box>
-          </ButtonBase>
-        ))}
-      </Stack>
-
-      {top && top.length > 0 && (
-        <>
-          <SectionHeader title="Top 5" onMore={() => nav("/ahmaliiga/ranking")} />
-          <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
-                border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2.5 }}>
-            {top.map((r) => (
-              <Stack key={r.userId} direction="row" alignItems="center" spacing={1.5}
-                     sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)",
-                           "&:last-of-type": { borderBottom: 0 }, bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
-                <Box sx={{ width: 22, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 18,
-                      color: r.rank <= 3 ? "primary.main" : "text.disabled" }}>{r.rank}</Box>
-                <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14, color: r.me ? "primary.main" : "text.primary" }}>
-                  {r.me ? "Sinä" : r.nickname}
-                </Typography>
-                <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 18,
-                      letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>{r.total}</Box>
-              </Stack>
-            ))}
-          </Box>
-        </>
-      )}
-
       {summary && summary.settled && (
         <ButtonBase onClick={() => nav("/ahmaliiga/jakso")}
-          sx={{ display: "flex", width: "100%", alignItems: "center", gap: 1.75, p: 2, textAlign: "left",
+          sx={{ display: "flex", width: "100%", alignItems: "center", gap: 1.75, p: 2, mb: 2.5, textAlign: "left",
                 borderRadius: "var(--radius-card)",
                 background: "linear-gradient(135deg, rgba(249,115,22,0.20), rgba(249,115,22,0.04))",
                 border: "1px solid rgba(249,115,22,0.5)" }}>
@@ -142,9 +102,48 @@ export default function LiigaHome() {
           <Box component={LuChevronRight} sx={{ color: "primary.main", fontSize: 22, flexShrink: 0 }} />
         </ButtonBase>
       )}
+
+      {top && top.length > 0 && (() => {
+        const top3 = top.slice(0, 3);
+        const myRow = top.find((r) => r.me);
+        const showMe = myRow && myRow.rank > 3;
+        return (
+          <>
+            <SectionHeader title="Top 3" onMore={() => nav("/ahmaliiga/ranking")} />
+            <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
+                  border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2.5 }}>
+              {top3.map((r, i) => <RankRow key={r.userId} r={r} divider={i < top3.length - 1} />)}
+              {showMe && (
+                <Box sx={{ borderTop: "2px solid rgba(249,115,22,0.45)" }}>
+                  <RankRow r={myRow} divider={false} />
+                </Box>
+              )}
+            </Box>
+          </>
+        );
+      })()}
+
     </Screen>
   );
 }
+
+const RankRow = ({ r, divider }) => (
+  <Stack direction="row" alignItems="center" spacing={1.5}
+         sx={{ px: 2, py: 1.1, borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0,
+               bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
+    <Box sx={{ width: 22, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 18,
+          lineHeight: 1, transform: "translateY(var(--font-display-shift))",
+          color: r.me || r.rank <= 3 ? "primary.main" : "text.disabled" }}>{r.rank}</Box>
+    <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14, lineHeight: 1,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          color: r.me ? "primary.main" : "text.primary" }}>
+      {r.me ? `${r.nickname} (sinä)` : r.nickname}
+    </Typography>
+    <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1,
+          transform: "translateY(var(--font-display-shift))",
+          letterSpacing: "var(--font-display-tracking)", color: r.me ? "primary.main" : "text.primary" }}>{r.total}</Box>
+  </Stack>
+);
 
 const SectionHeader = ({ title, onMore }) => (
   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>

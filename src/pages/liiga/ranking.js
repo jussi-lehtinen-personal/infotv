@@ -63,14 +63,16 @@ export default function LiigaRanking() {
                          "&:last-of-type": { borderBottom: 0 },
                          bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
               <Box sx={{ width: 26, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 20,
+                    lineHeight: 1, transform: "translateY(var(--font-display-shift))",
                     letterSpacing: "var(--font-display-tracking)", color: r.rank <= 3 ? "primary.main" : "text.disabled" }}>
                 {r.rank}
               </Box>
-              <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14,
+              <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14, lineHeight: 1,
                     color: r.me ? "primary.main" : "text.primary" }}>
                 {r.me ? "Sinä" : r.nickname}
               </Typography>
               <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 20,
+                    lineHeight: 1, transform: "translateY(var(--font-display-shift))",
                     letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>
                 {r.total}
               </Box>

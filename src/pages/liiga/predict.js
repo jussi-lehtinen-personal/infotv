@@ -159,15 +159,19 @@ export default function LiigaPredict() {
 
       {/* bonus tiers */}
       <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mb: 2.5,
-            bgcolor: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.45)" }}>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, py: 1.1, borderBottom: "1px solid rgba(249,115,22,0.2)" }}>
-          <Box component={LuGoal} sx={{ color: "primary.main", fontSize: 17 }} />
+            bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
+          <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+            <Box component={LuGoal} sx={{ color: "primary.main", fontSize: 17, display: "block" }} />
+          </Box>
           <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>Bonuspisteet</Typography>
         </Stack>
         {BONUS.map((b, i) => (
           <Stack key={i} direction="row" alignItems="center" spacing={1.25}
-                 sx={{ px: 2, py: 0.9, borderBottom: "1px solid rgba(249,115,22,0.12)", "&:last-of-type": { borderBottom: 0 } }}>
-            <Box component={b.icon} sx={{ color: "text.secondary", fontSize: 17, flexShrink: 0 }} />
+                 sx={{ px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+            <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+              <Box component={b.icon} sx={{ color: "text.secondary", fontSize: 17, display: "block" }} />
+            </Box>
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>{b.label}</Typography>
             <Box sx={{ flexShrink: 0, fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 15, color: "primary.main" }}>{b.pts}</Box>
           </Stack>
@@ -183,6 +187,7 @@ export default function LiigaPredict() {
       </Select>
 
       <Box sx={{ mt: 2, mb: 2.5 }}>
+        <Typography variant="body2" sx={{ textAlign: "center", color: "text.secondary", mb: 1.5 }}>{shortDate(game.date)} · {game.level}</Typography>
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.5, rowGap: 1 }}>
           <Box sx={{ gridColumn: 1, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} size={84} /></Box>
           <Box sx={{ gridColumn: 2, gridRow: "1 / 3", alignSelf: "center", fontFamily: "var(--font-family-display)",
@@ -193,7 +198,6 @@ export default function LiigaPredict() {
           <Box sx={{ gridColumn: 1, gridRow: 2, minWidth: 0 }}><TeamName base={hs.base} sub={hs.sub} /></Box>
           <Box sx={{ gridColumn: 3, gridRow: 2, minWidth: 0 }}><TeamName base={as.base} sub={as.sub} /></Box>
         </Box>
-        <Typography variant="body2" sx={{ textAlign: "center", color: "text.secondary", mt: 1.5 }}>{shortDate(game.date)} · {game.level}</Typography>
       </Box>
 
       {/* 2. score */}
