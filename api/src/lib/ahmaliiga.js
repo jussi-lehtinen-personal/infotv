@@ -181,10 +181,12 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const map = {};
   for (const c of cards) map[c.rowKey] = c;
 
-  if (!Array.isArray(cardIds) || cardIds.length !== squadSize) throw badRequest(`Valitse tasan ${squadSize} korttia.`);
+  // Direct-edit model: a partial squad (0..squadSize) is allowed — you can play
+  // with fewer cards. Only the upper bound + the other rules are hard limits.
+  if (!Array.isArray(cardIds) || cardIds.length > squadSize) throw badRequest(`Enintään ${squadSize} korttia.`);
   if (new Set(cardIds).size !== cardIds.length) throw badRequest('Sama kortti valittu kahdesti.');
   for (const id of cardIds) if (!map[id]) throw badRequest('Tuntematon kortti kokoonpanossa.');
-  if (!cardIds.includes(captainId)) throw badRequest('Kapteenin on oltava kokoonpanossa.');
+  if (cardIds.length && captainId && !cardIds.includes(captainId)) throw badRequest('Kapteenin on oltava kokoonpanossa.');
   const playerCount = cardIds.filter((id) => map[id].kind !== 'team').length;
   if (playerCount > maxPlayers) throw badRequest(`Enintään ${maxPlayers} pelaaja-/maalivahtikorttia.`);
 
@@ -199,15 +201,12 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const spent = squadCards.reduce((s, c) => s + c.buyPrice, 0);
   if (spent > budget) throw badRequest(`Budjetti ylittyy: ${spent} / ${budget} 🪙.`);
 
-  // Transfers: count swaps vs the previous squad; first-ever build is free.
-  let transfersUsed = 0;
-  if (prev) {
-    const base = prev.jaksoNo === curJakso ? (prev.transfersUsedThisJakso || 0) : 0;
-    const changed = cardIds.filter((id) => !(prev.cards || []).some((c) => c.id === id)).length;
-    transfersUsed = base + changed;
-    if (changed > 0 && transfersUsed > ECON.transfersPerJakso) {
-      throw badRequest(`Liikaa siirtoja tällä jaksolla (enintään ${ECON.transfersPerJakso}).`);
-    }
+  // Transfer limit is DISABLED for now (re-enable later if needed). We still keep a
+  // running count per jakso so the data exists when the cap comes back — but nothing
+  // is enforced, so any number of swaps is allowed.
+  let transfersUsed = prev && prev.jaksoNo === curJakso ? (prev.transfersUsedThisJakso || 0) : 0;
+  if (prev && cardIds.length === squadSize && (prev.cards || []).length === squadSize) {
+    transfersUsed += cardIds.filter((id) => !(prev.cards || []).some((c) => c.id === id)).length;
   }
 
   await ensureManager(userId, nickname);

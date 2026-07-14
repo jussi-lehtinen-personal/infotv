@@ -11,13 +11,12 @@ import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog } f
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad } from "../../lib/ahmaliigaApi";
 
-// Muokkaa joukkuetta — the squad editor. Captain hero + a grid of the other cards.
-// Tapping a card opens an action sheet (Korvaa / Kapteeni / Näytä tiedot / Poista);
-// a long press is a shortcut to set the captain. Korvaa/Lisää open the shared
-// <CardList> (replace/add mode); captain changes, swaps and removals all confirm
-// first. Edits live in a localStorage draft until "Tallenna joukkue" persists them.
+// Oma joukkue — the squad, edited in place. Captain hero + a grid of the other
+// cards. Tapping a card opens an action sheet (Korvaa / Kapteeni / Näytä tiedot /
+// Poista); a long press sets the captain. Korvaa/Lisää open the shared <CardList>.
+// Every change persists to the server immediately (direct edit); a partial squad
+// (fewer than 5 cards) is allowed — the server enforces the rest of the rules.
 
-const DRAFT_KEY = "ahma.squadDraft";
 const KindTag = ({ kind }) => (
   <Box component="span" sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>
     {kind === "team" ? "Joukkue" : kind === "goalie" ? "Maalivahti" : "Pelaaja"}
@@ -40,9 +39,7 @@ export default function LiigaEdit() {
   const [savedBuy, setSavedBuy] = useState({}); // id -> locked-in buyPrice from the saved squad
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const loaded = useRef(false);
 
   // Overlay/dialog state
   const [menuCard, setMenuCard] = useState(null);   // action sheet target
@@ -75,31 +72,15 @@ export default function LiigaEdit() {
         setAll(cardsRes.cards || []);
         setSettled(!!cardsRes.settled);
         if (squadRes && squadRes.budget) setBudget(squadRes.budget);
-        // Lock-in prices come from the SAVED squad (server rule), regardless of any draft.
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         const buy = {};
         if (sq) for (const c of sq.cards || []) buy[c.id] = c.buyPrice;
         setSavedBuy(buy);
-        let list = null, cap = null;
-        try {
-          const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-          if (d && Array.isArray(d.ids) && d.ids.length) { list = d.ids; cap = d.captainId; }
-        } catch { /* ignore */ }
-        if (!list && squadRes && squadRes.squad) {
-          list = (squadRes.squad.cards || []).map((c) => c.id);
-          cap = squadRes.squad.captainId;
-        }
-        if (list) { setIds(list); setCaptainId(cap); }
-        loaded.current = true;
+        if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
       })
-      .catch(() => { if (!cancelled) { setAll([]); loaded.current = true; } });
+      .catch(() => { if (!cancelled) setAll([]); });
     return () => { cancelled = true; };
   }, []);
-
-  useEffect(() => {
-    if (!loaded.current) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ids, captainId })); } catch { /* ignore */ }
-  }, [ids, captainId]);
 
   const byId = useMemo(() => {
     const m = {};
@@ -118,22 +99,35 @@ export default function LiigaEdit() {
   const captain = byId[captainId] || selected[0] || null;
   const rest = selected.filter((c) => c.id !== (captain && captain.id));
 
-  // mutations (draft only; persisted on Tallenna)
-  const setCaptain = (id) => { setCaptainId(id); setCapConfirm(null); };
+  // Every change persists immediately. Optimistic: update state, save, and on
+  // failure revert + surface the server message (e.g. the transfer limit).
+  const persist = async (nextIds, nextCap) => {
+    const prevIds = ids, prevCap = captainId;
+    setIds(nextIds); setCaptainId(nextCap); setError("");
+    try {
+      const res = await saveMySquad(nextIds, nextCap || "");
+      const buy = {};
+      for (const c of (res && res.cards) || []) buy[c.id] = c.buyPrice;
+      setSavedBuy(buy);
+    } catch (e) {
+      setIds(prevIds); setCaptainId(prevCap);
+      setError(e.message || "Tallennus epäonnistui.");
+    }
+  };
+  const setCaptain = (id) => { setCapConfirm(null); persist(ids, id); };
   const removeCard = (id) => {
-    setIds((xs) => xs.filter((x) => x !== id));
-    setCaptainId((cap) => (cap === id ? (ids.find((x) => x !== id) || null) : cap));
     setRemoveConfirm(null);
+    const nextIds = ids.filter((x) => x !== id);
+    persist(nextIds, captainId === id ? (nextIds[0] || null) : captainId);
   };
   const applySwap = (outId, inCard) => {
-    setIds((xs) => xs.map((x) => (x === outId ? inCard.id : x)));
-    setCaptainId((cap) => (cap === outId ? inCard.id : cap));
     setSwapIn(null); setReplaceFor(null);
+    persist(ids.map((x) => (x === outId ? inCard.id : x)), captainId === outId ? inCard.id : captainId);
   };
   const addCard = (c) => {
-    setIds((xs) => (xs.length >= 5 || xs.includes(c.id) ? xs : [...xs, c.id]));
-    setCaptainId((cap) => cap || c.id);
     setAddOpen(false);
+    if (ids.length >= 5 || ids.includes(c.id)) return;
+    persist([...ids, c.id], captainId || c.id);
   };
 
   // selection rules for the shared list
@@ -146,24 +140,11 @@ export default function LiigaEdit() {
   const canAdd = (c) =>
     ids.length < 5 && !ids.includes(c.id) && cost(c) <= bank && (c.kind === "team" || playerCount < 2);
 
-  const save = async () => {
-    setError("");
-    if (ids.length !== 5) { setError("Valitse tasan 5 korttia."); return; }
-    setSaving(true);
-    try {
-      await saveMySquad(ids, captainId || ids[0]);
-      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-      nav("/ahmaliiga/joukkue");
-    } catch (e) {
-      setError(e.message || "Tallennus epäonnistui.");
-    } finally { setSaving(false); }
-  };
-
   if (all === null) return <Loading screen />;
 
   return (
     <Screen sx={{ overflowX: "hidden" }}>
-      <PageHead title="Muokkaa joukkuetta" right={<CoinPill value={bank} total={budget} />} sx={{ mb: 1.5 }} />
+      <PageHead title="Oma joukkue" right={<CoinPill value={bank} total={budget} />} sx={{ mb: 1.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
         <Chip active={full}>{ids.length} / 5 korttia</Chip>
@@ -220,11 +201,7 @@ export default function LiigaEdit() {
         )}
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
-
-      <Button fullWidth variant="contained" disabled={saving || !full} onClick={save} sx={{ py: 1.25 }}>
-        {saving ? "Tallennetaan…" : full ? "Tallenna joukkue" : `Valitse vielä ${5 - ids.length} korttia`}
-      </Button>
+      {error && <Alert severity="error" sx={{ mt: 0.5 }}>{error}</Alert>}
 
       {/* 2A. Action sheet (bottom). elevation=0 kills MUI's dark-mode paper overlay
           (the grey tint); solid dark bg + a hairline top border like the concept. */}

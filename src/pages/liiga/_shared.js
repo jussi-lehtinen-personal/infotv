@@ -64,8 +64,10 @@ export const Screen = ({ children, sx }) => (
 // THIS for every full-screen flow, don't wire a raw <Dialog> per screen.
 export const LiigaDialog = ({ open, onClose, title, right, children }) => (
   <Dialog fullScreen open={open} onClose={onClose}
-    PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
-    <Box sx={{ minHeight: "100%", width: "100%", bgcolor: "var(--color-bg)" }}>
+    slotProps={{ backdrop: { sx: { backgroundColor: "var(--color-bg)" } } }}
+    PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", display: "flex", flexDirection: "column" } }}>
+    {/* dark scroll container fills the whole paper → no grey can ever show through */}
+    <Box sx={{ flex: 1, minHeight: 0, width: "100%", overflowY: "auto", bgcolor: "var(--color-bg)" }}>
       <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
         <DialogHeader onBack={onClose} title={title} right={right} />
         {children}
@@ -183,28 +185,16 @@ export const StatCard = ({ label, value, sub, accent }) => (
   </Box>
 );
 
-// AHMA-coin amount, e.g. 🪙 30. `total` renders "value / total". Icon is a block
-// (no baseline gap) and the Bebas number carries the display-shift → the coin and
-// the number ALWAYS share the same centre line. This is THE coin chip — reuse it
-// everywhere (CoinPill/PricePill build on the same trick), don't hand-roll one.
-export const Coins = ({ value, total, size = 15, sx }) => (
-  <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, ...sx }}>
-    <Box component={COIN_ICON} sx={{ color: "primary.main", fontSize: size, flexShrink: 0, display: "block" }} />
-    <Box
-      component="span"
-      sx={{
-        fontFamily: "var(--font-family-display)",
-        letterSpacing: "var(--font-display-tracking)",
-        fontSize: size + 3,
-        lineHeight: 1,
-        transform: "translateY(var(--font-display-shift))",
-        color: "text.primary",
-      }}
-    >
+// THE coin chip: coin icon + amount, e.g. 🪙 30. `total` renders "value / total".
+// Body font (Barlow) so the digits sit on the icon's centre line WITHOUT any
+// baseline hack — icon is a block, alignItems centres them. Reuse this EVERYWHERE
+// a coin amount is shown (CoinPill + PricePill wrap it); never hand-roll a coin.
+export const Coins = ({ value, total, size = 15, color = "text.primary", iconColor = "primary.main", sx }) => (
+  <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, lineHeight: 1, ...sx }}>
+    <Box component={COIN_ICON} sx={{ color: iconColor, fontSize: size + 2, flexShrink: 0, display: "block" }} />
+    <Box component="span" sx={{ fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: size + 1, lineHeight: 1, color }}>
       {value}
-      {total != null && (
-        <Box component="span" sx={{ color: "text.disabled" }}> / {total}</Box>
-      )}
+      {total != null && <Box component="span" sx={{ color: "text.disabled", fontWeight: 700 }}> / {total}</Box>}
     </Box>
   </Box>
 );
@@ -235,24 +225,17 @@ export const CoinPill = ({ value, total }) => (
 
 // Price shown as a solid orange coin pill (card market / squad prices). Hugs its
 // content vertically; the row it sits in centres it.
-export const PricePill = ({ value, size = 17, sx }) => (
+export const PricePill = ({ value, size = 15, sx }) => (
   <Box
     sx={{
-      display: "inline-flex", alignItems: "center", alignSelf: "center", gap: 0.5,
-      px: 1.15, py: "5px", lineHeight: 1, borderRadius: 999, flexShrink: 0,
+      display: "inline-flex", alignItems: "center", alignSelf: "center",
+      px: 1.25, py: "6px", borderRadius: 999, flexShrink: 0,
       background: "linear-gradient(180deg, #f97316, #e4610f)",
       boxShadow: "0 3px 10px rgba(249,115,22,0.35)",
       ...sx,
     }}
   >
-    <Box component={COIN_ICON} sx={{ color: "rgba(255,255,255,0.95)", fontSize: size - 1, flexShrink: 0, display: "block" }} />
-    <Box
-      component="span"
-      sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "0.02em", fontSize: size, lineHeight: 1,
-            transform: "translateY(var(--font-display-shift))", color: "#fff" }}
-    >
-      {value}
-    </Box>
+    <Coins value={value} size={size} color="#fff" iconColor="rgba(255,255,255,0.95)" />
   </Box>
 );
 

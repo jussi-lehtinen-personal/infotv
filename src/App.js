@@ -41,7 +41,6 @@ import FacilityReservations from "./pages/facility_reservations";
 import Ahmaliiga from "./pages/ahmaliiga";
 import { AhmaliigaLayout, RequireEnvAdmin } from "./components/AhmaliigaLayout";
 import LiigaHome from "./pages/liiga/home";
-import LiigaTeam from "./pages/liiga/team";
 import LiigaMarket from "./pages/liiga/market";
 import LiigaPredict from "./pages/liiga/predict";
 import LiigaRanking from "./pages/liiga/ranking";
@@ -115,8 +114,7 @@ function App() {
                 the ADMIN_USER_IDS env allowlist only (RequireEnvAdmin/Gate). */}
             <Route path="/ahmaliiga" element={<AhmaliigaLayout />}>
                 <Route index element={<LiigaHome />} />
-                <Route path="joukkue" element={<LiigaTeam />} />
-                <Route path="joukkue/muokkaa" element={<LiigaEdit />} />
+                <Route path="joukkue" element={<LiigaEdit />} />
                 <Route path="markkina" element={<LiigaMarket />} />
                 <Route path="kortti/:id" element={<LiigaStub icon={LuLayoutGrid} title="Kortin tiedot" desc="Kuva, pistehistoria, tulevat pelit, hintakehitys ja viimeisimmät tulokset." />} />
                 <Route path="veikkaus" element={<LiigaPredict />} />
