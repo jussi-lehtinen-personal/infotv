@@ -48,7 +48,9 @@ export default function LiigaMarket() {
             borderRadius: 999, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
         <Box component={LuSearch} sx={{ color: "text.disabled", fontSize: 18, flexShrink: 0, display: "block" }} />
         <InputBase value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae korttia…"
-          sx={{ flex: 1, color: "text.primary", fontSize: 14, "& input::placeholder": { color: "text.disabled", opacity: 1 } }} />
+          sx={{ flex: 1, color: "text.primary", fontSize: 14,
+                "& .MuiInputBase-input": { p: 0, height: "auto", lineHeight: 1.4 },
+                "& input::placeholder": { color: "text.disabled", opacity: 1 } }} />
         {query && (
           <ButtonBase onClick={() => setQuery("")} sx={{ color: "text.disabled", fontSize: 12, fontWeight: 700, px: 0.5 }}>
             Tyhjennä
