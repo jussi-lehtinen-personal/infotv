@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
 import { LuStar, LuGoal, LuTrophy } from "react-icons/lu";
 import { Screen, PageHead, EmptyState, Loading, AccentPanel, CardAvatar, StatCard, ListCard, ListRow, RowValue, signed } from "./_shared";
@@ -25,12 +26,17 @@ const CaptainTag = () => (
 
 export default function LiigaSummary() {
   const [data, setData] = useState(undefined);
+  const [params] = useSearchParams();
+  const jakso = params.get("jakso");
 
   useEffect(() => {
     let cancelled = false;
-    getAhmaliigaSummary().then((d) => { if (!cancelled) setData(d); }).catch(() => { if (!cancelled) setData(null); });
+    setData(undefined);
+    getAhmaliigaSummary(jakso != null ? Number(jakso) : undefined)
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
-  }, []);
+  }, [jakso]);
 
   if (data === undefined) return <Loading screen />;
   if (!data || !data.settled) {

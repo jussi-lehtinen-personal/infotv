@@ -76,16 +76,19 @@ export const LiigaDialog = ({ open, onClose, title, right, children }) => (
   </Dialog>
 );
 
-// Back-header for full-screen dialogs (Korvaa/Lisää): a centred back chevron + a
-// Bebas title + optional right slot. The title carries the display-shift so the
-// caps sit on the SAME centre line as the icon — use this, don't hand-roll it.
+// Back-header + Bebas title + optional right slot. Pass `onBack` to get a back
+// chevron (full-screen dialogs); omit it on pages where the layout already shows a
+// back arrow (just the title then). The title carries the display-shift so the caps
+// sit on the SAME centre line as the icon — use this, don't hand-roll it.
 export const DialogHeader = ({ onBack, title, right }) => (
   <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, minHeight: 40 }}>
-    <ButtonBase onClick={onBack} aria-label="Takaisin"
-      sx={{ width: 36, height: 36, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
-            color: "text.secondary", "&:hover": { bgcolor: "rgba(255,255,255,0.06)" } }}>
-      <Box component={LuChevronLeft} sx={{ fontSize: 24, display: "block" }} />
-    </ButtonBase>
+    {onBack && (
+      <ButtonBase onClick={onBack} aria-label="Takaisin"
+        sx={{ width: 36, height: 36, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
+              color: "text.secondary", "&:hover": { bgcolor: "rgba(255,255,255,0.06)" } }}>
+        <Box component={LuChevronLeft} sx={{ fontSize: 24, display: "block" }} />
+      </ButtonBase>
+    )}
     <Box component="span" sx={{ flex: 1, minWidth: 0, fontFamily: "var(--font-family-display)",
           letterSpacing: "var(--font-display-tracking)", textTransform: "uppercase", fontSize: 24, lineHeight: 1,
           color: "text.primary", transform: "translateY(var(--font-display-shift))",

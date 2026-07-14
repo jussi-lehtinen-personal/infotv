@@ -66,7 +66,6 @@ export default function LiigaEdit() {
   const [settled, setSettled] = useState(false);
   const [budget, setBudget] = useState(120);
   const [points, setPoints] = useState(null); // manager's season points (top stat)
-  const [savedBuy, setSavedBuy] = useState({}); // id -> locked-in buyPrice from the saved squad
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
   const [error, setError] = useState("");
@@ -104,9 +103,6 @@ export default function LiigaEdit() {
         if (squadRes && squadRes.budget) setBudget(squadRes.budget);
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.jaksoPts ?? null);
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
-        const buy = {};
-        if (sq) for (const c of sq.cards || []) buy[c.id] = c.buyPrice;
-        setSavedBuy(buy);
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
       })
       .catch(() => { if (!cancelled) setAll([]); });
@@ -120,9 +116,8 @@ export default function LiigaEdit() {
   }, [all]);
 
   const selected = useMemo(() => ids.map((id) => byId[id]).filter(Boolean), [ids, byId]);
-  // Budget cost of a card: locked buyPrice if already owned, otherwise the current
-  // market price (a new purchase). Mirrors the server's lock-in on save.
-  const cost = (c) => (c && savedBuy[c.id] != null ? savedBuy[c.id] : (c ? c.price : 0));
+  // Current market price — squad and card page show the same, no lock-in.
+  const cost = (c) => (c ? c.price : 0);
   const spent = selected.reduce((s, c) => s + cost(c), 0);
   const bank = budget - spent;
   const playerCount = selected.filter((c) => c.kind !== "team").length;
@@ -135,10 +130,7 @@ export default function LiigaEdit() {
     const prevIds = ids, prevCap = captainId;
     setIds(nextIds); setCaptainId(nextCap); setError("");
     try {
-      const res = await saveMySquad(nextIds, nextCap || "");
-      const buy = {};
-      for (const c of (res && res.cards) || []) buy[c.id] = c.buyPrice;
-      setSavedBuy(buy);
+      await saveMySquad(nextIds, nextCap || "");
     } catch (e) {
       setIds(prevIds); setCaptainId(prevCap);
       setError(e.message || "Tallennus epäonnistui.");
@@ -191,8 +183,9 @@ export default function LiigaEdit() {
         <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{c.name}</Typography>
         <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.25, lineHeight: 1.3 }}>
           {bandSub(c)}
-          {c.trend === "up" && <Box component="span" sx={{ color: "var(--color-live)", fontWeight: 800 }}>{" · ▲"}</Box>}
-          {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 800 }}>{" · ▼"}</Box>}
+          {(c.trend === "up" || c.trend === "down") && " · "}
+          {c.trend === "up" && <Box component="span" sx={{ color: "var(--color-live)", fontWeight: 800 }}>▲ Nousussa</Box>}
+          {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 800 }}>▼ Laskussa</Box>}
         </Typography>
       </Box>
       <PricePill value={cost(c)} />

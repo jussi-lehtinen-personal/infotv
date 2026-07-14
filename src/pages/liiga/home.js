@@ -79,26 +79,6 @@ export default function LiigaHome() {
         </Stack>
       </Box>
 
-      {summary && summary.settled && (
-        <AccentPanel onClick={() => nav("/ahmaliiga/jakso")} sx={{ mb: 2.5 }}>
-          <Box sx={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
-                bgcolor: "rgba(249,115,22,0.18)" }}>
-            <Box component={LuClipboardList} sx={{ fontSize: 24, color: "primary.main" }} />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
-              Jakso {summary.jakso + 1} ratkaistu
-            </Typography>
-            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-                  fontSize: 22, lineHeight: 1.1, color: "text.primary" }}>Jakson yhteenveto</Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Sait {summary.total} pistettä · katso mistä ne tulivat
-            </Typography>
-          </Box>
-          <Box component={LuChevronRight} sx={{ color: "primary.main", fontSize: 22, flexShrink: 0 }} />
-        </AccentPanel>
-      )}
-
       {top && top.length > 0 && (() => {
         const top3 = top.slice(0, 3);
         const myRow = top.find((r) => r.me);
@@ -125,6 +105,27 @@ export default function LiigaHome() {
           </>
         );
       })()}
+
+      {/* Previous jakso summary — kept last, at the bottom of the page. */}
+      {summary && summary.settled && (
+        <AccentPanel onClick={() => nav("/ahmaliiga/jakso")}>
+          <Box sx={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
+                bgcolor: "rgba(249,115,22,0.18)" }}>
+            <Box component={LuClipboardList} sx={{ fontSize: 24, color: "primary.main" }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
+              Jakso {summary.jakso + 1} ratkaistu
+            </Typography>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+                  fontSize: 22, lineHeight: 1.1, color: "text.primary" }}>Jakson yhteenveto</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Sait {summary.total} pistettä · katso mistä ne tulivat
+            </Typography>
+          </Box>
+          <Box component={LuChevronRight} sx={{ color: "primary.main", fontSize: 22, flexShrink: 0 }} />
+        </AccentPanel>
+      )}
 
     </Screen>
   );

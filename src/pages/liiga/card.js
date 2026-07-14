@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
-import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton } from "./_shared";
+import { LuChevronRight } from "react-icons/lu";
+import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials } from "./_shared";
 import { getAhmaliigaCard } from "../../lib/ahmaliigaApi";
 
 // Kortin tiedot — card hero (avatar + Hinta / Omistus / Tyyppi / trend) + tabs:
-// Yhteenveto & Pelit (game results, no per-game points), Pistehistoria and
-// Hintakehitys (per-jakso from cardHistory).
+// Pelit (game results, no per-game points), Pisteet and Hintakehitys (per-jakso
+// from cardHistory, with a small line chart).
 
 const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
 const TABS = [
-  { key: "yhteenveto", label: "Yhteenveto" },
   { key: "pelit", label: "Pelit" },
-  { key: "pisteet", label: "Pistehistoria" },
+  { key: "pisteet", label: "Pisteet" },
   { key: "hinta", label: "Hintakehitys" },
+];
+const RANGES = [
+  { key: "7", label: "7 pv", days: 7 },
+  { key: "30", label: "30 pv", days: 30 },
+  { key: "90", label: "90 pv", days: 90 },
+  { key: "kaikki", label: "Kaikki", days: Infinity },
 ];
 
 const gameResult = (a, o) => {
@@ -22,6 +28,7 @@ const gameResult = (a, o) => {
   return { label: "Tasapeli", color: "text.disabled" };
 };
 const shortDate = (d) => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[3])}.${Number(m[2])}.` : ""; };
+const dayDiff = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
 
 const InfoRow = ({ label, children }) => (
   <Box sx={{ mb: 1.5 }}>
@@ -36,6 +43,23 @@ const Section = ({ title, children }) => (
     <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", overflow: "hidden" }}>{children}</Box>
   </Box>
 );
+
+// One game row: date · opponent · score · result · chevron.
+const GameRow = ({ g }) => {
+  const r = gameResult(g.ahmaGoals, g.oppGoals);
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
+          borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+      <Box sx={{ width: 44, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(g.date)}</Box>
+      <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, color: "text.primary" }}>{g.opponent}</Typography>
+      <Box sx={{ flexShrink: 0, width: 46, textAlign: "right", fontWeight: 800, fontSize: 14, color: "text.primary" }}>{g.ahmaGoals}–{g.oppGoals}</Box>
+      <Box sx={{ flexShrink: 0, textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap", color: r.color }}>{r.label}</Box>
+      <Box component={LuChevronRight} sx={{ fontSize: 16, color: "text.disabled", flexShrink: 0, display: "block" }} />
+    </Box>
+  );
+};
+
+// Points-per-jakso bar row.
 const BarRow = ({ label, value, bar, max, coin }) => (
   <Box sx={{ px: 1.5, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
@@ -49,11 +73,97 @@ const BarRow = ({ label, value, bar, max, coin }) => (
   </Box>
 );
 
+// Small SVG line chart. points = [{ v, label }] oldest → newest.
+const LineChart = ({ points, coin }) => {
+  if (points.length < 2) return null;
+  const W = 320, H = 150, P = { l: 34, r: 10, t: 8, b: 20 };
+  const vals = points.map((p) => p.v);
+  const lo = Math.max(0, Math.floor((Math.min(...vals) - 5) / 10) * 10);
+  const hi = Math.ceil((Math.max(...vals) + 5) / 10) * 10;
+  const span = hi - lo || 1;
+  const x = (i) => P.l + (i / (points.length - 1)) * (W - P.l - P.r);
+  const y = (v) => P.t + (1 - (v - lo) / span) * (H - P.t - P.b);
+  const d = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const last = points.length - 1;
+  const stroke = coin ? "#f97316" : "#22c55e";
+  return (
+    <Box component="svg" viewBox={`0 0 ${W} ${H}`} sx={{ width: "100%", height: "auto", display: "block" }}>
+      {[lo, lo + span / 2, hi].map((t, i) => (
+        <g key={i}>
+          <line x1={P.l} y1={y(t)} x2={W - P.r} y2={y(t)} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+          <text x={P.l - 6} y={y(t) + 3} textAnchor="end" fill="rgba(255,255,255,0.4)" fontSize="9">{Math.round(t)}</text>
+        </g>
+      ))}
+      {[0, Math.floor(last / 2), last].map((i, k) => (
+        <text key={k} x={x(i)} y={H - 5} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="9">{points[i].label}</text>
+      ))}
+      <path d={d} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(last)} cy={y(points[last].v)} r="3.5" fill={stroke} stroke="var(--color-bg)" strokeWidth="1.5" />
+    </Box>
+  );
+};
+
+// Hintakehitys tab: current price + change badge, chart, range pills, history.
+const PriceHistory = ({ history }) => {
+  const [range, setRange] = useState("kaikki");
+  const cur = history[history.length - 1];
+  const prev = history[history.length - 2];
+  const change = prev ? cur.price - prev.price : 0;
+  const pct = prev && prev.price ? ((change / prev.price) * 100).toFixed(1) : "0.0";
+  const up = change > 0;
+  const days = (RANGES.find((r) => r.key === range) || {}).days ?? Infinity;
+  const inRange = cur && cur.date ? history.filter((h) => !h.date || dayDiff(cur.date, h.date) <= days) : history;
+
+  return (
+    <>
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+        <Box>
+          <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 0.5 }}>Nykyinen hinta</Typography>
+          <Coins value={cur.price} size={22} />
+        </Box>
+        {change !== 0 && (
+          <Box sx={{ textAlign: "right", px: 1.25, py: 0.75, borderRadius: "var(--radius-item)",
+                bgcolor: up ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+                border: `1px solid ${up ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)"}`,
+                color: up ? "var(--color-live)" : "#ef4444" }}>
+            <Box sx={{ fontWeight: 800, fontSize: 12 }}>{up ? "▲ Nousussa" : "▼ Laskussa"}</Box>
+            <Box sx={{ fontWeight: 800, fontSize: 12 }}>{up ? "+" : ""}{change} ({pct}%)</Box>
+          </Box>
+        )}
+      </Box>
+
+      <Box sx={{ mb: 2 }}><LineChart points={inRange.map((h) => ({ v: h.price, label: shortDate(h.date) }))} coin /></Box>
+
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        {RANGES.map((r) => <PillButton key={r.key} active={range === r.key} onClick={() => setRange(r.key)} sx={{ flex: 1 }}>{r.label}</PillButton>)}
+      </Stack>
+
+      <Section title="Historia">
+        {[...history].reverse().map((h, i, arr) => {
+          const p = arr[i + 1];
+          const ch = p ? h.price - p.price : 0;
+          const pc = p && p.price ? ((ch / p.price) * 100).toFixed(1) : null;
+          return (
+            <Box key={h.jakso} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
+                  borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+              <Box sx={{ width: 52, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(h.date)}</Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}><Coins value={h.price} size={13} /></Box>
+              <Box sx={{ flexShrink: 0, fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap",
+                    color: ch > 0 ? "var(--color-live)" : ch < 0 ? "#ef4444" : "text.disabled" }}>
+                {ch === 0 || pc == null ? "—" : `${ch > 0 ? "▲" : "▼"} ${Math.abs(ch)} (${pc}%)`}
+              </Box>
+            </Box>
+          );
+        })}
+      </Section>
+    </>
+  );
+};
+
 export default function LiigaCard() {
   const { id } = useParams();
-  const nav = useNavigate();
   const [data, setData] = useState(undefined);
-  const [tab, setTab] = useState("yhteenveto");
+  const [tab, setTab] = useState("pelit");
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +176,7 @@ export default function LiigaCard() {
   if (!card) {
     return (
       <Screen>
-        <DialogHeader onBack={() => nav(-1)} title="Kortin tiedot" />
+        <DialogHeader title="Kortin tiedot" />
         <Empty text="Korttia ei löytynyt." />
       </Screen>
     );
@@ -74,23 +184,30 @@ export default function LiigaCard() {
 
   const history = data.history || [];
   const games = data.games || [];
-  // Games belong to the card's TEAM, so label them with the team, not the player.
-  const teamLabel = card.kind === "team" ? card.name : (card.sub || card.name);
   const maxPts = Math.max(1, ...history.map((h) => h.pts));
-  const maxPrice = Math.max(1, ...history.map((h) => h.price));
 
   return (
     <Screen>
-      <DialogHeader onBack={() => nav(-1)} title="Kortin tiedot" />
+      <DialogHeader title="Kortin tiedot" />
 
-      {/* hero */}
+      {/* hero — big ring avatar + name (left), info (right) */}
       <Box sx={{ display: "flex", gap: 2, mb: 2.5 }}>
-        <Box sx={{ flexShrink: 0, borderRadius: "var(--radius-card)", p: 1.5, bgcolor: "var(--color-surface)",
-              border: "1px solid var(--color-surface-border)", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <Box sx={{ borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.55)" }}><CardAvatar card={card} size={92} /></Box>
-          <Typography noWrap sx={{ maxWidth: 120, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 20, mt: 1, color: "text.primary" }}>{card.name}</Typography>
+        <Box sx={{ flexShrink: 0, width: 132, textAlign: "center" }}>
+          <Box sx={{ position: "relative", display: "inline-flex" }}>
+            <Box sx={{ borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={112} /></Box>
+            {card.photo && (
+              <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 40, height: 40, borderRadius: "50%",
+                    bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>
+                <Box sx={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
+                      border: "1px solid rgba(255,255,255,0.12)", display: "grid", placeItems: "center",
+                      fontWeight: 800, fontSize: 13, color: "text.primary" }}>{initials(card.name)}</Box>
+              </Box>
+            )}
+          </Box>
+          <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+                fontSize: 21, lineHeight: 1.05, mt: 1.25, color: "text.primary" }}>{card.name}</Typography>
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 0, pt: 0.5 }}>
           <InfoRow label="Hinta"><PricePill value={card.price} size={16} /></InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
           <InfoRow label="Tyyppi"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{TYPE_LABEL[card.kind] || "Kortti"}</Typography></InfoRow>
@@ -100,26 +217,14 @@ export default function LiigaCard() {
       </Box>
 
       {/* tabs */}
-      <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5, "&::-webkit-scrollbar": { display: "none" } }}>
-        {TABS.map((t) => <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)}>{t.label}</PillButton>)}
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        {TABS.map((t) => <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1 }}>{t.label}</PillButton>)}
       </Stack>
 
-      {(tab === "yhteenveto" || tab === "pelit") && (
+      {tab === "pelit" && (
         games.length === 0 ? <Empty text="Ei pelejä vielä." /> : (
-          <Section title={tab === "yhteenveto" ? "Viimeiset pelit" : "Kaikki pelit"}>
-            {(tab === "yhteenveto" ? games.slice(0, 5) : games).map((g, i) => {
-              const r = gameResult(g.ahmaGoals, g.oppGoals);
-              return (
-                <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.1,
-                      borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
-                  <Box sx={{ width: 46, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(g.date)}</Box>
-                  <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, color: "text.primary" }}>
-                    {teamLabel} {g.ahmaGoals}–{g.oppGoals} {g.opponent}
-                  </Typography>
-                  <Box sx={{ flexShrink: 0, fontWeight: 800, fontSize: 12.5, color: r.color }}>{r.label}</Box>
-                </Box>
-              );
-            })}
+          <Section title="Ottelut">
+            {games.map((g, i) => <GameRow key={i} g={g} />)}
           </Section>
         )
       )}
@@ -133,11 +238,7 @@ export default function LiigaCard() {
       )}
 
       {tab === "hinta" && (
-        history.length === 0 ? <Empty text="Ei hintahistoriaa." /> : (
-          <Section title="Hinta jaksoittain">
-            {history.map((h) => <BarRow key={h.jakso} label={`Jakso ${h.jakso + 1}`} value={<Coins value={h.price} size={12} />} bar={h.price} max={maxPrice} coin />)}
-          </Section>
-        )
+        history.length === 0 ? <Empty text="Ei hintahistoriaa." /> : <PriceHistory history={history} />
       )}
     </Screen>
   );

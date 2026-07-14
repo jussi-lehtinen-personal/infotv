@@ -10,8 +10,10 @@ const ECON = {
   squadSize: 5,
   maxPlayers: 2,
   transfersPerJakso: 2,
-  band: { kallis: 30, keski: 20, halpa: 10 },
-  playerBand: { kallis: 50, keski: 40, halpa: 30 },
+  // Price tiers, highest → lowest (5 tiers so cards can sit at the in-between
+  // 35/45 / 15/25 steps, not just 3 levels). Assigned by form quintile.
+  band: [30, 25, 20, 15, 10],       // team cards
+  playerBand: [50, 45, 40, 35, 30], // player / goalie cards
   predict: { winner: 1, margin: 2, exact: 3 }, // score-prediction bonus tiers
 };
 
@@ -195,12 +197,13 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const curJakso = activeJaksoNo(season, jaksot);
   const prev = await getSquad(userId);
 
-  // Lock-in buy prices: kept cards keep their price, new cards pay current.
-  const prevBuy = {};
-  if (prev) for (const c of prev.cards || []) prevBuy[c.id] = c.buyPrice;
-  const squadCards = cardIds.map((id) => ({ id, buyPrice: prevBuy[id] != null ? prevBuy[id] : map[id].price }));
+  // No lock-in: every card costs its CURRENT price (so the squad and the card page
+  // agree). A squad that drifts over budget as prices rise can still be kept and
+  // rearranged (grandfathered) — you just can't make it MORE expensive while over.
+  const squadCards = cardIds.map((id) => ({ id, buyPrice: map[id].price }));
   const spent = squadCards.reduce((s, c) => s + c.buyPrice, 0);
-  if (spent > budget) throw badRequest(`Budjetti ylittyy: ${spent} / ${budget} 🪙.`);
+  const prevSpent = prev ? (prev.cards || []).reduce((s, c) => s + ((map[c.id] && map[c.id].price) || 0), 0) : 0;
+  if (spent > budget && spent > prevSpent) throw badRequest(`Budjetti ylittyy: ${spent} / ${budget} 🪙.`);
 
   // Transfer limit is DISABLED for now (re-enable later if needed). We still keep a
   // running count per jakso so the data exists when the cap comes back — but nothing
@@ -270,14 +273,20 @@ async function cumForm(seasonId, jakso) {
 
 // Band by ranking a pool on form: top third Kallis, mid Keski, bottom Halpa; no
 // form (not yet played) → Keski.
-function bandPricesFrom(pool, form, bands) {
+// Assign a price tier per card by form quintile: best form → prices[0] (highest),
+// worst → prices[last]. `prices` is a highest→lowest array. No form → middle tier.
+function bandPricesFrom(pool, form, prices) {
+  const tiers = prices.length;
   const withForm = pool.filter((c) => form[c.rowKey] != null).sort((a, b) => form[b.rowKey] - form[a.rowKey]);
   const n = withForm.length, out = {};
-  withForm.forEach((c, i) => { out[c.rowKey] = i < n / 3 ? bands.kallis : i < (2 * n) / 3 ? bands.keski : bands.halpa; });
-  for (const c of pool) if (form[c.rowKey] == null) out[c.rowKey] = bands.keski;
+  withForm.forEach((c, i) => { out[c.rowKey] = prices[Math.min(tiers - 1, Math.floor((i * tiers) / (n || 1)))]; });
+  const mid = prices[Math.floor(tiers / 2)];
+  for (const c of pool) if (form[c.rowKey] == null) out[c.rowKey] = mid;
   return out;
 }
-const bandNameOf = (price, bands) => (price === bands.kallis ? 'kallis' : price === bands.keski ? 'keski' : 'halpa');
+// Coarse band name (still 3 labels) for the UI: top tier = kallis, bottom = halpa,
+// the in-between steps = keski.
+const bandNameOf = (price, prices) => (price >= prices[0] ? 'kallis' : price <= prices[prices.length - 1] ? 'halpa' : 'keski');
 
 async function recomputeSeasonScores(seasonId, uptoJakso) {
   const totals = {};
@@ -394,7 +403,7 @@ function botSquad(cards, scoreFn) {
     for (const c of order) {
       if (squad.length >= ECON.squadSize) break;
       if (c.kind !== 'team' && np >= ECON.maxPlayers) continue;
-      const reserve = (ECON.squadSize - squad.length - 1) * ECON.band.halpa;
+      const reserve = (ECON.squadSize - squad.length - 1) * ECON.band[ECON.band.length - 1];
       if (c.price <= ECON.budget - spent - reserve) { squad.push(c); spent += c.price; if (c.kind !== 'team') np++; }
     }
     return squad;
@@ -452,6 +461,29 @@ async function previousRankMap(seasonId, scope, jakso) {
   const m = {};
   arr.forEach((r, i) => { m[r.userId] = i + 1; });
   return m;
+}
+
+// All settled jaksot (newest first) for the ranking "Kaikki jaksot" tab: each with
+// its winner and, if authed, the signed-in manager's points/rank that jakso.
+async function getJaksoList(seasonId, userId) {
+  const jaksot = await getJaksot(seasonId);
+  const managers = await listManagers();
+  const nick = {};
+  for (const m of managers) nick[m.userId] = m.nickname;
+  const out = [];
+  for (const j of jaksot) {
+    if (j.status !== 'settled') continue;
+    const no = Number(j.rowKey);
+    const rows = await listByPartition(T.scores, `${seasonId}|${no}`);
+    const winner = rows.find((r) => Number(r.rank) === 1);
+    const meRow = userId ? rows.find((r) => r.rowKey === userId) : null;
+    out.push({
+      no, startDate: j.startDate || '', endDate: j.endDate || '',
+      winner: winner ? { nickname: nick[winner.rowKey] || 'Pelaaja', total: Number(winner.total) || 0 } : null,
+      me: meRow ? { total: Number(meRow.total) || 0, rank: Number(meRow.rank) || 0 } : null,
+    });
+  }
+  return out.sort((a, b) => a.no - b.no);
 }
 
 async function getLeaderboard(seasonId, scope, jakso) {
@@ -528,9 +560,12 @@ async function getCardDetail(seasonId, cardId) {
   if (!card) return null;
   const managerCount = (await listManagers()).length;
   const ownerCount = card.ownerCount || 0;
+  const jaksot = await getJaksot(seasonId);
+  const jaksoDate = {};
+  for (const j of jaksot) jaksoDate[Number(j.rowKey)] = j.endDate || j.startDate || '';
   const histRows = await listByPartition(T.cardHistory, `${seasonId}|${cardId}`);
   const history = histRows
-    .map((r) => ({ jakso: Number(r.rowKey), price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
+    .map((r) => ({ jakso: Number(r.rowKey), date: jaksoDate[Number(r.rowKey)] || '', price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
     .sort((a, b) => a.jakso - b.jakso);
 
   // Match the card's team's games by age group, and by peliryhmä colour when the
@@ -548,7 +583,6 @@ async function getCardDetail(seasonId, cardId) {
   };
   let games = [];
   if (cardAge) {
-    const jaksot = await getJaksot(seasonId);
     for (const j of jaksot) {
       const gs = await getJaksoGames(seasonId, Number(j.rowKey));
       for (const g of gs) {
@@ -733,5 +767,5 @@ module.exports = {
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleJakso, seedBots, resetSim, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getJaksoScore, listManagers,
-  loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus, getCardDetail,
+  loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getJaksoList,
 };

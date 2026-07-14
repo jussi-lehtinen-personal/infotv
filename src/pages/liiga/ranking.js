@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Stack } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { Box, Typography, Stack, ButtonBase } from "@mui/material";
+import { LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar } from "./_shared";
-import { getAhmaliigaRanking } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaRanking, getAhmaliigaJaksot } from "../../lib/ahmaliigaApi";
 
-// Ranking — global leaderboard, two tabs (current jakso / whole season). An airy
-// row list (no card container): rank + manager avatar + nickname + points + an
-// up/down trend. The signed-in manager's row is highlighted orange.
+// Ranking — leaderboard (current jakso / whole season) + a "Kaikki jaksot" tab that
+// lists every settled jakso, each linking to that jakso's summary. Airy rows; the
+// signed-in manager's own row is highlighted orange.
 
 const TABS = [
   { key: "jakso", label: "Nykyinen jakso" },
   { key: "kausi", label: "Koko kausi" },
+  { key: "jaksot", label: "Kaikki jaksot" },
 ];
 
-// Manager avatar from the profile; falls back to initials (bots / no photo).
 const ManagerAvatar = ({ avatar, nickname, size }) => {
   const [err, setErr] = useState(false);
   if (!avatar || err) return <CardAvatar card={{ kind: "player", name: nickname }} size={size} />;
@@ -23,7 +25,6 @@ const ManagerAvatar = ({ avatar, nickname, size }) => {
   );
 };
 
-// Rank movement vs the previous point: ▲ N green (up), ▼ N red (down), — none.
 const RankTrend = ({ delta }) => {
   if (delta == null || delta === 0) {
     return <Box component="span" sx={{ width: 36, textAlign: "right", flexShrink: 0, color: "text.disabled", fontWeight: 700, fontSize: 15 }}>—</Box>;
@@ -38,20 +39,31 @@ const RankTrend = ({ delta }) => {
 };
 
 export default function LiigaRanking() {
+  const nav = useNavigate();
   const [tab, setTab] = useState("jakso");
-  const [data, setData] = useState({});
+  const [data, setData] = useState({});     // leaderboard rows per scope
+  const [jaksot, setJaksot] = useState(null); // "Kaikki jaksot" list
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    if (data[tab]) return;
+    if (tab === "jaksot") {
+      if (jaksot != null) { setLoading(false); return; }
+      setLoading(true);
+      getAhmaliigaJaksot()
+        .then((d) => { if (!cancelled) setJaksot(d.jaksot || []); })
+        .catch(() => { if (!cancelled) setJaksot([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
+    }
+    if (data[tab]) { setLoading(false); return; }
     setLoading(true);
     getAhmaliigaRanking(tab)
       .then((d) => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: d.rows || [] })); })
       .catch(() => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: [] })); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, data]);
+  }, [tab, data, jaksot]);
 
   const rows = data[tab];
 
@@ -59,15 +71,41 @@ export default function LiigaRanking() {
     <Screen>
       <PageHead title="Ranking" />
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5, "&::-webkit-scrollbar": { display: "none" } }}>
         {TABS.map((t) => (
-          <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1, py: 0.9 }}>
+          <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1, py: 0.9, whiteSpace: "nowrap" }}>
             {t.label}
           </PillButton>
         ))}
       </Stack>
 
-      {rows == null || loading ? (
+      {tab === "jaksot" ? (
+        loading || jaksot == null ? (
+          <Loading />
+        ) : jaksot.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
+            <Typography variant="body2">Ei ratkaistuja jaksoja vielä.</Typography>
+          </Box>
+        ) : (
+          <Stack spacing={1}>
+            {jaksot.map((j) => (
+              <ButtonBase key={j.no} onClick={() => nav(`/ahmaliiga/jakso?jakso=${j.no}`)}
+                sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", p: 1.5,
+                      borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+                <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "rgba(249,115,22,0.15)" }}>
+                  <Box component={LuClipboardList} sx={{ fontSize: 19, color: "primary.main", display: "block" }} />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.3 }}>Jakso {j.no + 1}</Typography>
+                  <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", lineHeight: 1.3 }}>katso mistä pisteesi tulivat</Typography>
+                </Box>
+                <RowValue color="primary.main">{j.me ? j.me.total : "—"}</RowValue>
+                <Box component={LuChevronRight} sx={{ fontSize: 18, color: "text.disabled", flexShrink: 0, display: "block" }} />
+              </ButtonBase>
+            ))}
+          </Stack>
+        )
+      ) : rows == null || loading ? (
         <Loading />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
@@ -76,8 +114,6 @@ export default function LiigaRanking() {
       ) : (
         <Box>
           {rows.map((r) => (
-            // Plain flex Box with alignItems in sx — MUI v9 doesn't reliably apply
-            // Stack's alignItems prop, which left the name stretched (top-aligned).
             <Box key={r.userId} sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5, py: 1, px: 1.25,
                   borderRadius: "var(--radius-item)",
                   bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent",

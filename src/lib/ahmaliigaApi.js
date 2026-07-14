@@ -56,6 +56,12 @@ export async function joinAhmaliiga() {
   return asJson(r);
 }
 
+// Every settled jakso with winner + the signed-in manager's points that jakso.
+export async function getAhmaliigaJaksot() {
+  const r = await fetch("/api/ahmaliiga/jaksot", { headers: authHeaders() });
+  return asJson(r); // { jaksot: [{ no, startDate, endDate, winner, me }] }
+}
+
 // Leaderboard. scope = "jakso" | "kausi". Rows: { rank, nickname, total, me }.
 export async function getAhmaliigaRanking(scope, jakso) {
   const p = new URLSearchParams();
