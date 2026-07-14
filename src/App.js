@@ -48,8 +48,9 @@ import LiigaRanking from "./pages/liiga/ranking";
 import LiigaEdit from "./pages/liiga/edit";
 import LiigaSummary from "./pages/liiga/summary";
 import LiigaAdmin from "./pages/liiga/admin";
+import LiigaNotifications from "./pages/liiga/notifications";
 import { LiigaStub } from "./pages/liiga/stub";
-import { LuUser, LuAward, LuBell } from "react-icons/lu";
+import { LuUser, LuAward } from "react-icons/lu";
 
 function App() {
   return (
@@ -124,7 +125,7 @@ function App() {
                 <Route path="admin" element={<LiigaAdmin />} />
                 <Route path="profiili" element={<LiigaStub icon={LuUser} title="Profiili" desc="Fantasy-tilastosi: liittymispäivä, mestaruudet, paras ja keskimääräinen sijoitus, pelatut jaksot." />} />
                 <Route path="saavutukset" element={<LiigaStub icon={LuAward} title="Saavutukset" desc="Ansiomerkit: ensimmäinen voitto, jakson voittaja, 100 pistettä, 10 oikeaa veikkausta." />} />
-                <Route path="ilmoitukset" element={<LiigaStub icon={LuBell} title="Ilmoitukset" desc="Fantasy-notifikaatiot: kapteenisi teki maalin, joukkueesi voitti, veikkauksesi osui." />} />
+                <Route path="ilmoitukset" element={<LiigaNotifications />} />
             </Route>
             <Route path="/ahmaliiga/saannot" element={<RequireEnvAdmin><Ahmaliiga /></RequireEnvAdmin>} />
 

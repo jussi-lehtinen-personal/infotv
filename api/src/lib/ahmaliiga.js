@@ -31,6 +31,7 @@ const T = {
   seasonScores: 'AhmaliigaSeasonScores',
   results: 'AhmaliigaResults',
   games: 'AhmaliigaGames',
+  messages: 'AhmaliigaMessages',
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -378,6 +379,39 @@ async function settleRound(seasonId, round) {
       breakdown: JSON.stringify(r.breakdown),
       penalty: r.penalty || 0,
     });
+  }
+
+  // Per-manager notifications (humans only) — a round-level summary from the data
+  // on hand. Deterministic RK per (round, kind) so re-settling UPSERTS, never dupes;
+  // reverse-round prefix so the inbox lists the newest round first.
+  const humanIds = new Set(managers.filter((m) => !m.isBot).map((m) => m.userId));
+  const nowIso = new Date().toISOString();
+  const revRound = String(1000 - round).padStart(4, '0');
+  const MSG_ORDER = { round: 0, captain: 1, best: 2, predict: 3, penalty: 4 };
+  for (const r of roundRows) {
+    if (!humanIds.has(r.userId)) continue;
+    const msgs = [{ kind: 'round', title: `Jakso ${round + 1} ratkaistu`, body: `Sijoituit sijalle ${r.rank}.`, points: r.total }];
+    if (r.captainId && cardMap[r.captainId]) {
+      const capPts = Math.round((resJ[r.captainId] || 0) * 2 * 10) / 10;
+      msgs.push({ kind: 'captain', title: `Kapteeni: ${cardMap[r.captainId].name}`, body: `Toi ${capPts} p (2×).`, points: capPts });
+    }
+    let best = null;
+    for (const id of r.ids) { const p = resJ[id] || 0; if (!best || p > best.p) best = { id, p }; }
+    if (best && best.p > 0 && cardMap[best.id]) msgs.push({ kind: 'best', title: `Paras korttisi: ${cardMap[best.id].name}`, body: `Toi ${best.p} p tässä jaksossa.`, points: best.p });
+    if (predMap[r.userId]) {
+      const pb = r.breakdown._predict || 0;
+      msgs.push(pb
+        ? { kind: 'predict', title: 'Veikkauksesi osui', body: `+${pb} bonuspistettä.`, points: pb }
+        : { kind: 'predict', title: 'Veikkaus ei osunut', body: 'Ei bonuspisteitä tällä kertaa.', points: 0 });
+    }
+    if (r.penalty) msgs.push({ kind: 'penalty', title: 'Ylimääräiset siirrot', body: `-${r.penalty} p ylimääräisistä siirroista.`, points: -r.penalty });
+    for (const m of msgs) {
+      await upsertEntity(T.messages, {
+        partitionKey: r.userId, rowKey: `${revRound}|${MSG_ORDER[m.kind]}`,
+        kind: m.kind, title: m.title, body: m.body, points: m.points,
+        round, createdAt: nowIso, read: false,
+      });
+    }
   }
 
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
@@ -738,6 +772,30 @@ async function clearPartition(table, pk) {
   return rows.length;
 }
 
+// A manager's notifications (inbox). RK = reverse-round|order → ascending list is
+// already newest-round-first. Returns the items + the unread count for the badge.
+async function getNotifications(userId) {
+  const rows = await listByPartition(T.messages, userId);
+  const items = rows
+    .map((r) => ({
+      id: r.rowKey, kind: r.kind, title: r.title, body: r.body,
+      points: r.points != null ? Number(r.points) : null,
+      round: r.round != null ? Number(r.round) : null,
+      createdAt: r.createdAt || '', read: !!r.read,
+    }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return { items, unread: items.filter((i) => !i.read).length };
+}
+
+// Mark every unread notification for a manager as read (called when they open the
+// inbox). Only rewrites the unread ones.
+async function markNotificationsRead(userId) {
+  const rows = await listByPartition(T.messages, userId);
+  const unread = rows.filter((r) => !r.read);
+  await inChunks(unread, 25, (r) => upsertEntity(T.messages, { ...r, read: true }));
+  return { marked: unread.length };
+}
+
 // Reset the replay: pointer → round 0, rounds → open, cards restored to seed
 // prices, all Scores/SeasonScores cleared. Card ownership/lastPts zeroed.
 // By default KEEPS squads, bots, managers and results (so you can just settle
@@ -763,6 +821,9 @@ async function resetSim(seasonId, opts = {}) {
   }));
   for (let j = 0; j < rounds.length; j++) await clearPartition(T.scores, `${seasonId}|${j}`);
   await clearPartition(T.seasonScores, seasonId);
+  // Notifications are settlement output → clear them so a reset+re-settle starts clean.
+  const oldMsgs = await listEntities(T.messages);
+  await inChunks(oldMsgs, 25, (r) => deleteEntity(T.messages, r.partitionKey, r.rowKey));
 
   let wiped;
   if (opts.hard) {
@@ -808,4 +869,5 @@ module.exports = {
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
+  getNotifications, markNotificationsRead,
 };

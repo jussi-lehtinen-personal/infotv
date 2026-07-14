@@ -92,6 +92,20 @@ export async function saveAhmaliigaPrediction(gameId, homeGoals, awayGoals) {
   return asJson(r);
 }
 
+// Ilmoitukset — the signed-in manager's inbox (newest first) + unread count.
+export async function getAhmaliigaNotifications() {
+  const r = await fetch("/api/ahmaliiga/notifications", { headers: authHeaders() });
+  return asJson(r); // { items: [{ id, kind, title, body, points, round, createdAt, read }], unread }
+}
+export async function markAhmaliigaNotificationsRead() {
+  const r = await fetch("/api/ahmaliiga/notifications", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ action: "markRead" }),
+  });
+  return asJson(r);
+}
+
 // Admin ops (env-admin gated server-side): status | settleRound | settleAll |
 // seedBots | resetSim. Drives the season replay from the in-app admin panel.
 export async function ahmaliigaAdmin(action, extra) {

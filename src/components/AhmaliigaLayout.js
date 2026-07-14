@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles } from "@mui/material";
-import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
+import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles, Badge } from "@mui/material";
+import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuBell, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
 import { useEnvAdmin, useAdminAccess } from "../hooks/useEnvAdmin";
+import { getAhmaliigaNotifications } from "../lib/ahmaliigaApi";
 
 // Ahmaliiga runs as its own "mode" inside Gamezone: own bottom bar, and a top bar
 // styled like the box-score header (sticky, orange Bebas title, framed buttons)
@@ -61,6 +62,14 @@ export const AhmaliigaLayout = () => {
   // The sim admin panel (settle/reset) is the root operator's tool only.
   const isEnvAdmin = useEnvAdmin();
 
+  // Unread notification count for the bell badge. Refetched on navigation so it
+  // clears after the inbox marks everything read (cheap query, preview scale).
+  const [unread, setUnread] = useState(0);
+  const refreshUnread = useCallback(() => {
+    getAhmaliigaNotifications().then((d) => setUnread(d.unread || 0)).catch(() => {});
+  }, []);
+  useEffect(() => { refreshUnread(); }, [pathname, refreshUnread]);
+
   return (
     <Gate>
       {/* overscroll: stop pull-to-refresh wiping in-progress squad edits.
@@ -89,6 +98,12 @@ export const AhmaliigaLayout = () => {
               <LuSettings size={18} />
             </IconButton>
           )}
+          <IconButton component={Link} to="/ahmaliiga/ilmoitukset" aria-label="Ilmoitukset" sx={topBtnSx}>
+            <Badge badgeContent={unread} color="primary" overlap="circular"
+                   sx={{ "& .MuiBadge-badge": { fontSize: 10, height: 16, minWidth: 16, fontWeight: 800 } }}>
+              <LuBell size={18} />
+            </Badge>
+          </IconButton>
           <IconButton component={Link} to="/ahmaliiga/saannot" aria-label="Säännöt" sx={topBtnSx}>
             <LuInfo size={18} />
           </IconButton>
