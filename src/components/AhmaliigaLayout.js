@@ -2,7 +2,7 @@ import React from "react";
 import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles } from "@mui/material";
 import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
-import { useEnvAdmin } from "../hooks/useEnvAdmin";
+import { useEnvAdmin, useAdminAccess } from "../hooks/useEnvAdmin";
 
 // Ahmaliiga runs as its own "mode" inside Gamezone: own bottom bar, and a top bar
 // styled like the box-score header (sticky, orange Bebas title, framed buttons)
@@ -39,10 +39,11 @@ const FullScreenSpinner = () => (
   </Box>
 );
 
-// Gate: render children only for env-allowlist admins; others bounce to home;
-// null (still loading) shows a spinner so a legit admin isn't redirected early.
+// Gate: render children for ANY admin (env allowlist OR data-admin role); others
+// bounce to home; null (still loading) shows a spinner so a legit admin isn't
+// redirected early. (The sim admin panel gear is separately env-admin only.)
 const Gate = ({ children }) => {
-  const allowed = useEnvAdmin();
+  const allowed = useAdminAccess();
   if (allowed === false) return <Navigate to="/" replace />;
   if (allowed === null) return <FullScreenSpinner />;
   return children;
@@ -57,6 +58,8 @@ export const AhmaliigaLayout = () => {
   // Show the back arrow only on drill-downs (not the 5 main tabs); the Gamezone
   // button is the constant exit and is always present.
   const showBack = !TABS.some((t) => t.to === pathname);
+  // The sim admin panel (settle/reset) is the root operator's tool only.
+  const isEnvAdmin = useEnvAdmin();
 
   return (
     <Gate>
@@ -81,9 +84,11 @@ export const AhmaliigaLayout = () => {
                 transform: "translateY(var(--font-display-shift))", color: "text.primary" }}>
             AHMA<Box component="span" sx={{ color: "primary.main" }}>LIIGA</Box>
           </Typography>
-          <IconButton component={Link} to="/ahmaliiga/admin" aria-label="Admin" sx={topBtnSx}>
-            <LuSettings size={18} />
-          </IconButton>
+          {isEnvAdmin && (
+            <IconButton component={Link} to="/ahmaliiga/admin" aria-label="Admin" sx={topBtnSx}>
+              <LuSettings size={18} />
+            </IconButton>
+          )}
           <IconButton component={Link} to="/ahmaliiga/saannot" aria-label="Säännöt" sx={topBtnSx}>
             <LuInfo size={18} />
           </IconButton>

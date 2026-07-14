@@ -121,8 +121,8 @@ const Index = () => {
         >
           <HeroCarousel matches={heroMatches} loading={heroLoading} />
 
-          {/* Ahmaliiga launch teaser — preview only, shown to ADMIN_USER_IDS. */}
-          {authUser?.isEnvAdmin && <AhmaliigaLaunchCard />}
+          {/* Ahmaliiga launch teaser — preview, shown to any admin (env or data-role). */}
+          {(authUser?.isEnvAdmin || authUser?.isAdmin) && <AhmaliigaLaunchCard />}
 
           <Box sx={sectionHeadingSx}>Pikatoiminnot</Box>
           <Box
