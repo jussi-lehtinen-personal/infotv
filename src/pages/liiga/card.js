@@ -21,6 +21,8 @@ const RANGES = [
   { key: "kaikki", label: "Kaikki", days: Infinity },
 ];
 const dayDiff = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
+// Player names are stored "SURNAME Firstname"; show first name first on the hero.
+const firstNameFirst = (name) => { const p = String(name || "").trim().split(/\s+/); return p.length === 2 ? `${p[1]} ${p[0]}` : name; };
 
 const InfoRow = ({ label, children }) => (
   <Box sx={{ mb: 1.5 }}>
@@ -182,24 +184,26 @@ export default function LiigaCard() {
     <Screen>
       <DialogHeader title="Kortin tiedot" />
 
-      {/* hero — big ring avatar + name (left), info (right) */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2.5 }}>
-        <Box sx={{ flexShrink: 0, width: 132, textAlign: "center" }}>
+      {/* hero — avatar half the width (left) + info the other half (right) */}
+      <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+        <Box sx={{ flex: 1, minWidth: 0, textAlign: "center" }}>
           <Box sx={{ position: "relative", display: "inline-flex" }}>
-            <Box sx={{ borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={112} /></Box>
+            <Box sx={{ borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={140} /></Box>
             {card.photo && (
-              <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 40, height: 40, borderRadius: "50%",
+              <Box sx={{ position: "absolute", bottom: 2, right: 2, width: 46, height: 46, borderRadius: "50%",
                     bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>
-                <Box sx={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
+                <Box sx={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
                       border: "1px solid rgba(255,255,255,0.12)", display: "grid", placeItems: "center",
-                      fontWeight: 800, fontSize: 13, color: "text.primary" }}>{initials(card.name)}</Box>
+                      fontWeight: 800, fontSize: 15, color: "text.primary" }}>{initials(card.name)}</Box>
               </Box>
             )}
           </Box>
           <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-                fontSize: 21, lineHeight: 1.05, mt: 1.25, color: "text.primary" }}>{card.name}</Typography>
+                fontSize: 28, lineHeight: 1.02, mt: 1.5, color: "text.primary" }}>
+            {card.kind === "team" ? card.name : firstNameFirst(card.name)}
+          </Typography>
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0, pt: 0.5 }}>
+        <Box sx={{ flex: 1, minWidth: 0, pt: 1 }}>
           <InfoRow label="Hinta"><PricePill value={card.price} size={16} /></InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
           <InfoRow label="Tyyppi"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{TYPE_LABEL[card.kind] || "Kortti"}</Typography></InfoRow>
