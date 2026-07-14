@@ -38,9 +38,11 @@ app.http('ahmaliigaSummary', {
         };
       }).sort((a, b) => b.pts - a.pts);
       const best = resolved[0] || null;
-      // prediction bonus as its own row (if any)
+      // prediction bonus as its own row (if any) — reason = which tier hit
       if (score.breakdown._predict) {
-        resolved.push({ id: '_predict', name: 'Veikkausbonus', kind: 'predict', reason: 'Osui otteluveikkaus', pts: score.breakdown._predict, isCaptain: false });
+        const pb = score.breakdown._predict;
+        const reason = pb >= 3 ? 'Tarkka tulos' : pb === 2 ? 'Oikea voittaja ja maaliero' : 'Oikea voittaja';
+        resolved.push({ id: '_predict', name: 'Veikkausbonus', kind: 'predict', reason, pts: pb, isCaptain: false });
       }
 
       const managerCount = (await listManagers()).length;

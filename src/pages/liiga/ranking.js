@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress } from "@mui/material";
-import { Screen, Title } from "./_shared";
+import { Screen, Title, ListCard, ListRow, RankBadge, RowValue } from "./_shared";
 import { getAhmaliigaRanking } from "../../lib/ahmaliigaApi";
 
-// Ranking — global leaderboard, two tabs (current jakso / whole season). Data from
-// /api/ahmaliiga/ranking; the signed-in manager's row is highlighted.
+// Ranking — global leaderboard, two tabs (current jakso / whole season). Uses the
+// shared ListRow template so rows match the rest of the app.
 
 const TABS = [
   { key: "jakso", label: "Nykyinen jakso" },
@@ -13,12 +13,12 @@ const TABS = [
 
 export default function LiigaRanking() {
   const [tab, setTab] = useState("jakso");
-  const [data, setData] = useState({}); // { jakso: rows, kausi: rows }
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    if (data[tab]) return; // cached
+    if (data[tab]) return;
     setLoading(true);
     getAhmaliigaRanking(tab)
       .then((d) => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: d.rows || [] })); })
@@ -55,30 +55,14 @@ export default function LiigaRanking() {
           <Typography variant="body2">Ei vielä tuloksia — jaksoa ei ole ratkaistu.</Typography>
         </Box>
       ) : (
-        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
-              border: "1px solid var(--color-surface-border)", overflow: "hidden" }}>
-          {rows.map((r) => (
-            <Stack key={r.userId} direction="row" alignItems="center" spacing={1.5}
-                   sx={{ px: 2, py: 1.25, borderBottom: "1px solid var(--color-surface-divider)",
-                         "&:last-of-type": { borderBottom: 0 },
-                         bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
-              <Box sx={{ width: 26, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 20,
-                    lineHeight: 1, transform: "translateY(var(--font-display-shift))",
-                    letterSpacing: "var(--font-display-tracking)", color: r.rank <= 3 ? "primary.main" : "text.disabled" }}>
-                {r.rank}
-              </Box>
-              <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14, lineHeight: 1,
-                    color: r.me ? "primary.main" : "text.primary" }}>
-                {r.me ? "Sinä" : r.nickname}
-              </Typography>
-              <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 20,
-                    lineHeight: 1, transform: "translateY(var(--font-display-shift))",
-                    letterSpacing: "var(--font-display-tracking)", color: "text.primary" }}>
-                {r.total}
-              </Box>
-            </Stack>
+        <ListCard>
+          {rows.map((r, i) => (
+            <ListRow key={r.userId} highlight={r.me} divider={i < rows.length - 1}
+              leading={<RankBadge rank={r.rank} highlight={r.me} />}
+              title={r.me ? `${r.nickname} (sinä)` : r.nickname}
+              trailing={<RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>} />
           ))}
-        </Box>
+        </ListCard>
       )}
     </Screen>
   );

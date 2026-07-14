@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
-import { Screen, Eyebrow } from "./_shared";
+import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue } from "./_shared";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — season status (rank, jakso points, season total), the
@@ -110,15 +110,22 @@ export default function LiigaHome() {
         return (
           <>
             <SectionHeader title="Top 3" onMore={() => nav("/ahmaliiga/ranking")} />
-            <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
-                  border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2.5 }}>
-              {top3.map((r, i) => <RankRow key={r.userId} r={r} divider={i < top3.length - 1} />)}
+            <ListCard sx={{ mb: 2.5 }}>
+              {top3.map((r, i) => (
+                <ListRow key={r.userId} highlight={r.me} divider={i < top3.length - 1}
+                  leading={<RankBadge rank={r.rank} highlight={r.me} />}
+                  title={r.me ? `${r.nickname} (sinä)` : r.nickname}
+                  trailing={<RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>} />
+              ))}
               {showMe && (
                 <Box sx={{ borderTop: "2px solid rgba(249,115,22,0.45)" }}>
-                  <RankRow r={myRow} divider={false} />
+                  <ListRow highlight
+                    leading={<RankBadge rank={myRow.rank} highlight />}
+                    title={`${myRow.nickname} (sinä)`}
+                    trailing={<RowValue color="primary.main">{myRow.total}</RowValue>} />
                 </Box>
               )}
-            </Box>
+            </ListCard>
           </>
         );
       })()}
@@ -126,24 +133,6 @@ export default function LiigaHome() {
     </Screen>
   );
 }
-
-const RankRow = ({ r, divider }) => (
-  <Stack direction="row" alignItems="center" spacing={1.5}
-         sx={{ px: 2, py: 1.1, borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0,
-               bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent" }}>
-    <Box sx={{ width: 22, textAlign: "center", fontFamily: "var(--font-family-display)", fontSize: 18,
-          lineHeight: 1, transform: "translateY(var(--font-display-shift))",
-          color: r.me || r.rank <= 3 ? "primary.main" : "text.disabled" }}>{r.rank}</Box>
-    <Typography sx={{ flex: 1, fontWeight: r.me ? 800 : 600, fontSize: 14, lineHeight: 1,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          color: r.me ? "primary.main" : "text.primary" }}>
-      {r.me ? `${r.nickname} (sinä)` : r.nickname}
-    </Typography>
-    <Box component="span" sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1,
-          transform: "translateY(var(--font-display-shift))",
-          letterSpacing: "var(--font-display-tracking)", color: r.me ? "primary.main" : "text.primary" }}>{r.total}</Box>
-  </Stack>
-);
 
 const SectionHeader = ({ title, onMore }) => (
   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>
