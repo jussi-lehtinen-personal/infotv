@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Stack, ButtonBase, CircularProgress } from "@mui/material";
-import { Screen, Title, ListCard, ListRow, RankBadge, RowValue } from "./_shared";
+import { Box, Typography, Stack } from "@mui/material";
+import { Screen, PageHead, ListCard, ListRow, RankBadge, RowValue, PillButton, Loading } from "./_shared";
 import { getAhmaliigaRanking } from "../../lib/ahmaliigaApi";
 
 // Ranking — global leaderboard, two tabs (current jakso / whole season). Uses the
@@ -31,25 +31,18 @@ export default function LiigaRanking() {
 
   return (
     <Screen>
-      <Title sx={{ mb: 1.5 }}>Ranking</Title>
+      <PageHead title="Ranking" />
 
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-        {TABS.map((t) => {
-          const active = tab === t.key;
-          return (
-            <ButtonBase key={t.key} onClick={() => setTab(t.key)}
-              sx={{ flex: 1, py: 0.9, borderRadius: 999, fontSize: 13, fontWeight: 700,
-                    border: "1px solid", borderColor: active ? "primary.main" : "var(--color-surface-border)",
-                    bgcolor: active ? "rgba(249,115,22,0.15)" : "transparent",
-                    color: active ? "primary.main" : "text.secondary" }}>
-              {t.label}
-            </ButtonBase>
-          );
-        })}
+        {TABS.map((t) => (
+          <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1, py: 0.9 }}>
+            {t.label}
+          </PillButton>
+        ))}
       </Stack>
 
       {rows == null || loading ? (
-        <Box sx={{ display: "grid", placeItems: "center", py: 6 }}><CircularProgress sx={{ color: "primary.main" }} /></Box>
+        <Loading />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
           <Typography variant="body2">Ei vielä tuloksia — jaksoa ei ole ratkaistu.</Typography>

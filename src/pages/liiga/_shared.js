@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography, Stack, ButtonBase } from "@mui/material";
+import { Box, Typography, Stack, ButtonBase, Dialog, CircularProgress } from "@mui/material";
 import { LuCircleDollarSign, LuChevronLeft } from "react-icons/lu";
 
 // Shared bits for the Ahmaliiga (fantasy) preview screens. Mock data only — the
@@ -56,6 +56,22 @@ export const CardAvatar = ({ card, size }) => {
 // Scroll container with consistent page padding + max width.
 export const Screen = ({ children, sx }) => (
   <Box sx={{ px: 2, py: 2, maxWidth: 640, mx: "auto", ...sx }}>{children}</Box>
+);
+
+// Full-screen dialog template (Korvaa/Lisää and any future step). GUARANTEES the
+// dark theme: an explicit full-bleed dark layer sits over MUI's paper so the
+// dark-mode elevation overlay can never grey it out. Header comes built in — use
+// THIS for every full-screen flow, don't wire a raw <Dialog> per screen.
+export const LiigaDialog = ({ open, onClose, title, right, children }) => (
+  <Dialog fullScreen open={open} onClose={onClose}
+    PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
+    <Box sx={{ minHeight: "100%", width: "100%", bgcolor: "var(--color-bg)" }}>
+      <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
+        <DialogHeader onBack={onClose} title={title} right={right} />
+        {children}
+      </Box>
+    </Box>
+  </Dialog>
 );
 
 // Back-header for full-screen dialogs (Korvaa/Lisää): a centred back chevron + a
@@ -167,10 +183,13 @@ export const StatCard = ({ label, value, sub, accent }) => (
   </Box>
 );
 
-// AHMA-coin amount, e.g. 🪙 30. `total` renders "value / total".
+// AHMA-coin amount, e.g. 🪙 30. `total` renders "value / total". Icon is a block
+// (no baseline gap) and the Bebas number carries the display-shift → the coin and
+// the number ALWAYS share the same centre line. This is THE coin chip — reuse it
+// everywhere (CoinPill/PricePill build on the same trick), don't hand-roll one.
 export const Coins = ({ value, total, size = 15, sx }) => (
   <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, ...sx }}>
-    <Box component={COIN_ICON} sx={{ color: "primary.main", fontSize: size, flexShrink: 0 }} />
+    <Box component={COIN_ICON} sx={{ color: "primary.main", fontSize: size, flexShrink: 0, display: "block" }} />
     <Box
       component="span"
       sx={{
@@ -178,6 +197,7 @@ export const Coins = ({ value, total, size = 15, sx }) => (
         letterSpacing: "var(--font-display-tracking)",
         fontSize: size + 3,
         lineHeight: 1,
+        transform: "translateY(var(--font-display-shift))",
         color: "text.primary",
       }}
     >
@@ -268,4 +288,62 @@ export const Eyebrow = ({ children, sx }) => (
   >
     {children}
   </Typography>
+);
+
+// Centred loading spinner. `screen` fills a page (initial load); default is inline
+// (a section within a page). Use this instead of hand-rolling a CircularProgress.
+export const Loading = ({ screen }) =>
+  screen ? (
+    <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>
+  ) : (
+    <Box sx={{ display: "grid", placeItems: "center", py: 6 }}><CircularProgress sx={{ color: "primary.main" }} /></Box>
+  );
+
+// Standard page header: optional eyebrow, Bebas title, optional right-side slot
+// (a pill/button). One place for the title spacing → every page lines up.
+export const PageHead = ({ eyebrow, title, right, sx }) => (
+  <Box sx={{ mb: 2, ...sx }}>
+    {eyebrow && <Eyebrow sx={{ mb: 0.5 }}>{eyebrow}</Eyebrow>}
+    <Stack direction="row" alignItems="center" spacing={1}>
+      <Title sx={{ flex: 1, minWidth: 0 }}>{title}</Title>
+      {right && <Box sx={{ flexShrink: 0 }}>{right}</Box>}
+    </Stack>
+  </Box>
+);
+
+// Centred empty/placeholder state: optional round icon, title, text, optional action.
+export const EmptyState = ({ icon: Icon, title, text, action, sx }) => (
+  <Screen sx={{ pt: 6, textAlign: "center", ...sx }}>
+    {Icon && (
+      <Box sx={{ width: 72, height: 72, mx: "auto", mb: 2, borderRadius: "50%", display: "grid", placeItems: "center",
+            bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
+        <Box component={Icon} sx={{ fontSize: 32, color: "primary.main", display: "block" }} />
+      </Box>
+    )}
+    <Title sx={{ mb: 1 }}>{title}</Title>
+    {text && <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 340, mx: "auto", mb: action ? 3 : 0 }}>{text}</Typography>}
+    {action}
+  </Screen>
+);
+
+// Orange gradient highlight panel (jakso-CTA, best-card banner, etc.). Pass onClick
+// to make it a button. THE accent surface — don't hand-roll the gradient per page.
+export const AccentPanel = ({ children, onClick, sx }) => {
+  const base = { display: "flex", alignItems: "center", gap: 1.75, width: "100%", textAlign: "left", p: 2,
+    borderRadius: "var(--radius-card)", background: "linear-gradient(135deg, rgba(249,115,22,0.20), rgba(249,115,22,0.04))",
+    border: "1px solid rgba(249,115,22,0.5)", ...sx };
+  return onClick
+    ? <ButtonBase onClick={onClick} sx={base}>{children}</ButtonBase>
+    : <Box sx={base}>{children}</Box>;
+};
+
+// Rounded pill toggle used by tab/filter rows. `active` tints it orange. Extra sx
+// (e.g. flex:1 for full-width tabs) and handlers pass through.
+export const PillButton = ({ active, children, sx, ...rest }) => (
+  <ButtonBase {...rest} sx={{ px: 1.5, py: 0.7, borderRadius: 999, whiteSpace: "nowrap", fontSize: 13, fontWeight: 700,
+        border: "1px solid", borderColor: active ? "primary.main" : "var(--color-surface-border)",
+        bgcolor: active ? "rgba(249,115,22,0.15)" : "transparent",
+        color: active ? "primary.main" : "text.secondary", ...sx }}>
+    {children}
+  </ButtonBase>
 );

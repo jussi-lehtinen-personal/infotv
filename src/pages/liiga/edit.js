@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Box, Typography, Stack, Button, ButtonBase, CircularProgress, Alert,
+  Box, Typography, Stack, Button, ButtonBase, Alert,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Drawer,
 } from "@mui/material";
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
 } from "react-icons/lu";
-import { Screen, Title, CoinPill, Coins, CardAvatar, DialogHeader } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad } from "../../lib/ahmaliigaApi";
 
@@ -159,21 +159,16 @@ export default function LiigaEdit() {
     } finally { setSaving(false); }
   };
 
-  if (all === null) {
-    return <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>;
-  }
+  if (all === null) return <Loading screen />;
 
   return (
     <Screen sx={{ overflowX: "hidden" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-        <Title sx={{ flex: 1, minWidth: 0 }}>Muokkaa joukkuetta</Title>
-        <Box sx={{ flexShrink: 0 }}><CoinPill value={bank} total={budget} /></Box>
-      </Stack>
+      <PageHead title="Muokkaa joukkuetta" right={<CoinPill value={bank} total={budget} />} sx={{ mb: 1.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
         <Chip active={full}>{ids.length} / 5 korttia</Chip>
         <Chip active={playerCount <= 2}>{playerCount} / 2 pelaajaa</Chip>
-        <Chip active={bank >= 0}>{spent} / {budget} 🪙</Chip>
+        <Chip active={bank >= 0}><Coins value={spent} total={budget} size={12} /></Chip>
       </Stack>
 
       {/* Captain hero */}
@@ -239,8 +234,8 @@ export default function LiigaEdit() {
           boxShadow: "0 -18px 40px rgba(0,0,0,0.5)" } }}>
         {menuCard && (
           <Box sx={{ p: 2, pb: 3, maxWidth: 640, mx: "auto", width: "100%" }}>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5, pb: 2, borderBottom: "1px solid var(--color-surface-divider)" }}>
-              <CardAvatar card={menuCard} size={44} />
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ px: 1, mb: 1.5, pb: 2, borderBottom: "1px solid var(--color-surface-divider)" }}>
+              <CardAvatar card={menuCard} size={40} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography noWrap sx={{ fontWeight: 800, fontSize: 16, color: "text.primary", lineHeight: 1.2 }}>{menuCard.name}</Typography>
                 <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>{menuCard.kind === "team" ? "Joukkue" : menuCard.sub}</Typography>
@@ -294,10 +289,9 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* 3. Replace list (full screen) */}
-      <Dialog fullScreen open={!!replaceFor} onClose={() => setReplaceFor(null)} PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
+      <LiigaDialog open={!!replaceFor} onClose={() => setReplaceFor(null)} title="Korvaa kortti">
         {replaceFor && (
-          <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
-            <DialogHeader onBack={() => setReplaceFor(null)} title="Korvaa kortti" />
+          <>
             <Box sx={{ mb: 2, p: 1.5, borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
               <Box component="span" sx={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>Korvattava kortti</Box>
               <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 0.75 }}>
@@ -311,9 +305,9 @@ export default function LiigaEdit() {
             </Box>
             <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canReplaceWith}
               onPick={(c) => setSwapIn(c)} emptyText="Ei korvaavia kortteja." />
-          </Box>
+          </>
         )}
-      </Dialog>
+      </LiigaDialog>
 
       {/* 4. Swap confirm */}
       <Dialog open={!!swapIn} onClose={() => setSwapIn(null)} PaperProps={{ elevation: 0, sx: dialogPaper }}>
@@ -326,9 +320,10 @@ export default function LiigaEdit() {
                 <Box component={LuArrowRight} sx={{ fontSize: 22, color: "text.disabled", flexShrink: 0 }} />
                 <SwapCard card={swapIn} price={cost(swapIn)} label="Sisään" tone="in" />
               </Stack>
-              <Typography sx={{ textAlign: "center", color: "text.secondary", fontSize: 14, mt: 1 }}>
-                Budjetti vaihdon jälkeen: <b style={{ color: "var(--color-primary)" }}>{bank + cost(replaceFor) - cost(swapIn)} 🪙</b>
-              </Typography>
+              <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.75} sx={{ mt: 1 }}>
+                <Typography sx={{ color: "text.secondary", fontSize: 14 }}>Budjetti vaihdon jälkeen:</Typography>
+                <Coins value={bank + cost(replaceFor) - cost(swapIn)} size={14} />
+              </Stack>
             </>
           )}
         </DialogContent>
@@ -339,13 +334,10 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* 6. Add list (full screen) */}
-      <Dialog fullScreen open={addOpen} onClose={() => setAddOpen(false)} PaperProps={{ elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", overflowY: "auto" } }}>
-        <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
-          <DialogHeader onBack={() => setAddOpen(false)} title="Lisää kortti" right={<CoinPill value={bank} total={budget} />} />
-          <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canAdd}
-            onPick={addCard} emptyText="Ei lisättäviä kortteja." />
-        </Box>
-      </Dialog>
+      <LiigaDialog open={addOpen} onClose={() => setAddOpen(false)} title="Lisää kortti" right={<CoinPill value={bank} total={budget} />}>
+        <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canAdd}
+          onPick={addCard} emptyText="Ei lisättäviä kortteja." />
+      </LiigaDialog>
     </Screen>
   );
 }

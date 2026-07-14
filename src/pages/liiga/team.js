@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, Stack, Button, CircularProgress } from "@mui/material";
+import { Box, Typography, Stack, Button } from "@mui/material";
 import { LuCrown, LuPencil, LuShieldCheck } from "react-icons/lu";
-import { Screen, CoinPill, Title, Eyebrow, Coins, CardAvatar } from "./_shared";
+import { Screen, PageHead, EmptyState, Loading, CoinPill, Coins, CardAvatar } from "./_shared";
 import { getMySquad } from "../../lib/ahmaliigaApi";
 
 // Oma joukkue — the signed-in manager's squad from /api/ahmaliiga/squad. Captain
@@ -36,26 +36,18 @@ export default function LiigaTeam() {
     return () => { cancelled = true; };
   }, []);
 
-  if (data === undefined) {
-    return <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>;
-  }
+  if (data === undefined) return <Loading screen />;
 
   if (data === null) {
     return (
-      <Screen sx={{ pt: 6, textAlign: "center" }}>
-        <Box sx={{ width: 72, height: 72, mx: "auto", mb: 2, borderRadius: "50%", display: "grid",
-              placeItems: "center", bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
-          <Box component={LuShieldCheck} sx={{ fontSize: 32, color: "primary.main" }} />
-        </Box>
-        <Title sx={{ mb: 1 }}>Kokoa joukkueesi</Title>
-        <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 340, mx: "auto", mb: 3 }}>
-          Valitse 5 korttia budjetilla 120 🪙, nimeä kapteeni ja lähde keräämään pisteitä.
-        </Typography>
-        <Button variant="contained" startIcon={<LuShieldCheck size={18} />}
-                onClick={() => nav("/ahmaliiga/joukkue/muokkaa")} sx={{ py: 1.1, px: 3 }}>
-          Kokoa joukkue
-        </Button>
-      </Screen>
+      <EmptyState icon={LuShieldCheck} title="Kokoa joukkueesi"
+        text="Valitse 5 korttia budjetilla 120 coinia, nimeä kapteeni ja lähde keräämään pisteitä."
+        action={
+          <Button variant="contained" startIcon={<LuShieldCheck size={18} />}
+                  onClick={() => nav("/ahmaliiga/joukkue/muokkaa")} sx={{ py: 1.1, px: 3 }}>
+            Kokoa joukkue
+          </Button>
+        } />
     );
   }
 
@@ -66,13 +58,7 @@ export default function LiigaTeam() {
 
   return (
     <Screen>
-      <Box sx={{ mb: 1.5 }}>
-        <Eyebrow>Kokoonpano</Eyebrow>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-          <Title sx={{ flex: 1, minWidth: 0 }}>Oma joukkue</Title>
-          <Box sx={{ flexShrink: 0 }}><CoinPill value={data.bank} total={data.budget} /></Box>
-        </Stack>
-      </Box>
+      <PageHead eyebrow="Kokoonpano" title="Oma joukkue" right={<CoinPill value={data.bank} total={data.budget} />} sx={{ mb: 1.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
         <StatChip>{cards.length} / {data.budget != null ? 5 : cards.length} korttia</StatChip>

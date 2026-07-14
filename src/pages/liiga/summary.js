@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Stack, CircularProgress } from "@mui/material";
+import { Box, Typography, Stack } from "@mui/material";
 import { LuStar, LuGoal, LuTrophy } from "react-icons/lu";
-import { Screen, Title, Eyebrow, CardAvatar, StatCard, ListCard, ListRow, RowValue, signed } from "./_shared";
+import { Screen, PageHead, EmptyState, Loading, AccentPanel, CardAvatar, StatCard, ListCard, ListRow, RowValue, signed } from "./_shared";
 import { getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
 // Jakson yhteenveto — big jakso points + rank, then each card with its reason and
-// points, a total, and the best card. Built on the shared ListRow/StatCard/IconText
-// templates so everything is consistent + aligned.
+// points, a total, and the best card. Built on the shared ListRow/StatCard templates.
 
 const RowIcon = ({ card }) =>
   card.kind === "predict" ? (
@@ -33,25 +32,15 @@ export default function LiigaSummary() {
     return () => { cancelled = true; };
   }, []);
 
-  if (data === undefined) {
-    return <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>;
-  }
+  if (data === undefined) return <Loading screen />;
   if (!data || !data.settled) {
-    return (
-      <Screen sx={{ pt: 6, textAlign: "center" }}>
-        <Title sx={{ mb: 1 }}>Jakson yhteenveto</Title>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          Jaksoa ei ole vielä ratkaistu — pisteet ilmestyvät kun jakso päättyy.
-        </Typography>
-      </Screen>
-    );
+    return <EmptyState title="Jakson yhteenveto" text="Jaksoa ei ole vielä ratkaistu — pisteet ilmestyvät kun jakso päättyy." />;
   }
 
   const best = data.best;
   return (
     <Screen>
-      <Eyebrow>Jakso {data.jakso + 1}</Eyebrow>
-      <Title sx={{ mt: 0.5, mb: 2 }}>Jakson yhteenveto</Title>
+      <PageHead eyebrow={`Jakso ${data.jakso + 1}`} title="Jakson yhteenveto" />
 
       <Stack direction="row" spacing={1.25} sx={{ mb: 2.5 }}>
         <StatCard label="Jakson pisteet" value={data.total} accent />
@@ -80,8 +69,7 @@ export default function LiigaSummary() {
       </ListCard>
 
       {best && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.75, mt: 2, borderRadius: "var(--radius-card)",
-              background: "linear-gradient(150deg, rgba(249,115,22,0.20), rgba(249,115,22,0.04))", border: "1px solid rgba(249,115,22,0.5)" }}>
+        <AccentPanel sx={{ mt: 2 }}>
           <Box component={LuTrophy} sx={{ fontSize: 26, color: "primary.main", flexShrink: 0, display: "block" }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
@@ -92,7 +80,7 @@ export default function LiigaSummary() {
             </Typography>
           </Box>
           <RowValue size={22} color="primary.main">{signed(best.pts)}</RowValue>
-        </Box>
+        </AccentPanel>
       )}
     </Screen>
   );

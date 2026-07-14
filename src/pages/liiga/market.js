@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
-import { Screen, Title } from "./_shared";
+import { Screen, PageHead, Loading } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards } from "../../lib/ahmaliigaApi";
 
@@ -23,9 +22,9 @@ export default function LiigaMarket() {
 
   return (
     <Screen>
-      <Title sx={{ mb: 1.5 }}>Korttimarkkina</Title>
+      <PageHead title="Korttimarkkina" />
       {cards == null ? (
-        <Box sx={{ display: "grid", placeItems: "center", py: 6 }}><CircularProgress sx={{ color: "primary.main" }} /></Box>
+        <Loading />
       ) : (
         <CardList cards={cards} settled={settled}
           onPick={(c) => nav(`/ahmaliiga/kortti/${encodeURIComponent(c.id)}`)}

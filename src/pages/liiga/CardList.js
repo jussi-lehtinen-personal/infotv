@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Box, Typography, Stack, ButtonBase, InputBase } from "@mui/material";
 import { LuSearch } from "react-icons/lu";
-import { PricePill, CardAvatar, ListCard, signed } from "./_shared";
+import { PricePill, CardAvatar, ListCard, signed, PillButton } from "./_shared";
 
 // THE one card-list component, used in three modes:
 //   browse  (Korttimarkkina) — tap opens the card details
@@ -67,18 +67,9 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
 
       {/* type filter */}
       <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5, "&::-webkit-scrollbar": { display: "none" } }}>
-        {FILTERS.map((f) => {
-          const active = filter === f.key;
-          return (
-            <ButtonBase key={f.key} onClick={() => setFilter(f.key)}
-              sx={{ px: 1.5, py: 0.7, borderRadius: 999, whiteSpace: "nowrap", fontSize: 13, fontWeight: 700,
-                    border: "1px solid", borderColor: active ? "primary.main" : "var(--color-surface-border)",
-                    bgcolor: active ? "rgba(249,115,22,0.15)" : "transparent",
-                    color: active ? "primary.main" : "text.secondary" }}>
-              {f.label}
-            </ButtonBase>
-          );
-        })}
+        {FILTERS.map((f) => (
+          <PillButton key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>{f.label}</PillButton>
+        ))}
       </Stack>
 
       {list.length === 0 ? (

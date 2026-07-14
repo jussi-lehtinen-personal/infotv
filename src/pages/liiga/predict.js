@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Stack, Button, Select, MenuItem, CircularProgress, Alert } from "@mui/material";
+import { Box, Typography, Stack, Button, Select, MenuItem, Alert } from "@mui/material";
 import { LuGoal, LuTrophy, LuTarget, LuStar, LuClock } from "react-icons/lu";
-import { Screen, Title, Eyebrow, CardAvatar } from "./_shared";
+import { Screen, PageHead, EmptyState, Loading, CardAvatar } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
 // Veikkaa ottelu — bonus tiers, a match dropdown + match card, and two score
@@ -120,16 +120,9 @@ export default function LiigaPredict() {
     return () => { cancelled = true; };
   }, []);
 
-  if (data === undefined) {
-    return <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>;
-  }
+  if (data === undefined) return <Loading screen />;
   if (!data || !data.games || data.games.length === 0) {
-    return (
-      <Screen sx={{ pt: 6, textAlign: "center" }}>
-        <Title sx={{ mb: 1 }}>Veikkaa ottelu</Title>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>Ei otteluita tässä jaksossa.</Typography>
-      </Screen>
-    );
+    return <EmptyState title="Veikkaa ottelu" text="Ei otteluita tässä jaksossa." />;
   }
 
   const { settled, games } = data;
@@ -154,8 +147,7 @@ export default function LiigaPredict() {
 
   return (
     <Screen>
-      <Eyebrow>Jakson veikkaus</Eyebrow>
-      <Title sx={{ mt: 0.5, mb: 2 }}>Veikkaa ottelu</Title>
+      <PageHead eyebrow="Jakson veikkaus" title="Veikkaa ottelu" />
 
       {/* bonus tiers */}
       <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mb: 2.5,

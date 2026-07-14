@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
 import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw } from "react-icons/lu";
-import { Screen, Title, Eyebrow } from "./_shared";
+import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga admin panel — drive the season replay from buttons (no scripts). The
@@ -69,15 +69,12 @@ export default function LiigaAdmin() {
     } finally { setBusy(""); }
   };
 
-  if (status === undefined) {
-    return <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>;
-  }
+  if (status === undefined) return <Loading screen />;
   const s = status && status.active ? status : null;
 
   return (
     <Screen>
-      <Eyebrow>Vain sinulle</Eyebrow>
-      <Title sx={{ mt: 0.5, mb: 2 }}>Admin · kauden toisto</Title>
+      <PageHead eyebrow="Vain sinulle" title="Admin · kauden toisto" />
 
       {s ? (
         <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",

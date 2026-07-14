@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
-import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue } from "./_shared";
+import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, AccentPanel } from "./_shared";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — season status (rank, jakso points, season total), the
@@ -80,11 +80,7 @@ export default function LiigaHome() {
       </Box>
 
       {summary && summary.settled && (
-        <ButtonBase onClick={() => nav("/ahmaliiga/jakso")}
-          sx={{ display: "flex", width: "100%", alignItems: "center", gap: 1.75, p: 2, mb: 2.5, textAlign: "left",
-                borderRadius: "var(--radius-card)",
-                background: "linear-gradient(135deg, rgba(249,115,22,0.20), rgba(249,115,22,0.04))",
-                border: "1px solid rgba(249,115,22,0.5)" }}>
+        <AccentPanel onClick={() => nav("/ahmaliiga/jakso")} sx={{ mb: 2.5 }}>
           <Box sx={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
                 bgcolor: "rgba(249,115,22,0.18)" }}>
             <Box component={LuClipboardList} sx={{ fontSize: 24, color: "primary.main" }} />
@@ -100,7 +96,7 @@ export default function LiigaHome() {
             </Typography>
           </Box>
           <Box component={LuChevronRight} sx={{ color: "primary.main", fontSize: 22, flexShrink: 0 }} />
-        </ButtonBase>
+        </AccentPanel>
       )}
 
       {top && top.length > 0 && (() => {
