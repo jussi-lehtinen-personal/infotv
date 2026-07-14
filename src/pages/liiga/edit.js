@@ -6,9 +6,9 @@ import {
 } from "@mui/material";
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
-  LuStar, LuTrendingUp, LuTrendingDown,
+  LuStar,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog, BAND_LABEL } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog, BAND_LABEL, TrendTag } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
@@ -29,19 +29,6 @@ const StatCell = ({ label, children }) => (
 const StatNum = ({ children }) => (
   <Box component="span" sx={{ fontWeight: 800, fontSize: 19, color: "text.primary", lineHeight: 1 }}>{children}</Box>
 );
-// Rising/falling price tag (replaces the flame). Renders nothing if the card is flat.
-const TrendTag = ({ trend }) => {
-  if (trend !== "up" && trend !== "down") return null;
-  const up = trend === "up";
-  return (
-    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.35, fontSize: 11, fontWeight: 800,
-          color: up ? "var(--color-live)" : "#f87171" }}>
-      <Box component={up ? LuTrendingUp : LuTrendingDown} sx={{ fontSize: 13, display: "block" }} />
-      {up ? "Nousussa" : "Laskussa"}
-    </Box>
-  );
-};
-
 // Orange section header (★ KAPTEENI / MUUT KORTIT).
 const SectionLabel = ({ icon: Icon, children, sx }) => (
   <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 1, ...sx }}>
@@ -190,12 +177,15 @@ export default function LiigaEdit() {
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{c.name}</Typography>
-        <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.25, lineHeight: 1.3 }}>
-          {bandSub(c)}
-          {(c.trend === "up" || c.trend === "down") && " · "}
-          {c.trend === "up" && <Box component="span" sx={{ color: "var(--color-live)", fontWeight: 800 }}>▲ Nousussa</Box>}
-          {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 800 }}>▼ Laskussa</Box>}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.25, minWidth: 0, overflow: "hidden" }}>
+          <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.3 }}>{bandSub(c)}</Typography>
+          {(c.trend === "up" || c.trend === "down") && (
+            <>
+              <Box component="span" sx={{ color: "text.disabled", fontSize: 12, lineHeight: 1 }}>·</Box>
+              <TrendTag trend={c.trend} sx={{ fontSize: 12 }} />
+            </>
+          )}
+        </Box>
       </Box>
       <PricePill value={c.price} />
       <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />

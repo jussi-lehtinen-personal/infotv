@@ -63,12 +63,16 @@ export const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
 export const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
 
 // Rising/falling price tag: "▲ Nousussa" (green) / "▼ Laskussa" (red); nothing if flat.
+// inline-flex + the triangle in its own line-height-1 box so the glyph shares the
+// text's centre line (a bare unicode ▲/▼ sits low and looks misaligned).
 export const TrendTag = ({ trend, sx }) => {
   if (trend !== "up" && trend !== "down") return null;
   const up = trend === "up";
   return (
-    <Box component="span" sx={{ fontWeight: 800, color: up ? "var(--color-live)" : "#ef4444", ...sx }}>
-      {up ? "▲ Nousussa" : "▼ Laskussa"}
+    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, verticalAlign: "middle",
+          fontWeight: 800, color: up ? "var(--color-live)" : "#ef4444", ...sx }}>
+      <Box component="span" sx={{ fontSize: "0.82em", lineHeight: 1 }}>{up ? "▲" : "▼"}</Box>
+      {up ? "Nousussa" : "Laskussa"}
     </Box>
   );
 };

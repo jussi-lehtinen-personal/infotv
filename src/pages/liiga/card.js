@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
 import { LuChevronRight } from "react-icons/lu";
-import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, TYPE_LABEL } from "./_shared";
+import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, TYPE_LABEL, TrendTag } from "./_shared";
 import { getAhmaliigaCard } from "../../lib/ahmaliigaApi";
 
 // Kortin tiedot — card hero (avatar + Hinta / Omistus / Tyyppi / trend) + tabs:
@@ -48,10 +48,10 @@ const GameRow = ({ g }) => {
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
           borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
-      <Box sx={{ width: 44, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(g.date)}</Box>
+      <Box sx={{ width: 40, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(g.date)}</Box>
       <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, color: "text.primary" }}>{g.opponent}</Typography>
-      <Box sx={{ flexShrink: 0, width: 46, textAlign: "right", fontWeight: 800, fontSize: 14, color: "text.primary" }}>{g.ahmaGoals}–{g.oppGoals}</Box>
-      <Box sx={{ flexShrink: 0, textAlign: "right", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap", color: r.color }}>{r.label}</Box>
+      <Box sx={{ flexShrink: 0, width: 42, textAlign: "right", fontWeight: 800, fontSize: 14, color: "text.primary" }}>{g.ahmaGoals}–{g.oppGoals}</Box>
+      <Box sx={{ flexShrink: 0, width: 108, textAlign: "left", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: r.color }}>{r.label}</Box>
       <Box component={LuChevronRight} sx={{ fontSize: 16, color: "text.disabled", flexShrink: 0, display: "block" }} />
     </Box>
   );
@@ -211,8 +211,9 @@ export default function LiigaCard() {
           <InfoRow label="Hinta"><PricePill value={card.price} size={16} /></InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
           <InfoRow label="Tyyppi"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{TYPE_LABEL[card.kind] || "Kortti"}</Typography></InfoRow>
-          {card.trend === "up" && <Box sx={{ color: "var(--color-live)", fontWeight: 800 }}>▲ Nousussa</Box>}
-          {card.trend === "down" && <Box sx={{ color: "#ef4444", fontWeight: 800 }}>▼ Laskussa</Box>}
+          {(card.trend === "up" || card.trend === "down") && (
+            <InfoRow label="Suunta"><TrendTag trend={card.trend} sx={{ fontSize: 15 }} /></InfoRow>
+          )}
         </Box>
       </Box>
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Box, Typography, Stack, ButtonBase, InputBase } from "@mui/material";
 import { LuSearch } from "react-icons/lu";
-import { PricePill, CardAvatar, ListCard, signed, PillButton } from "./_shared";
+import { PricePill, CardAvatar, ListCard, signed, PillButton, TrendTag } from "./_shared";
 
 // THE one card-list component, used in three modes:
 //   browse  (Korttimarkkina) — tap opens the card details
@@ -97,11 +97,17 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
                 <CardAvatar card={c} size={44} />
                 <Box sx={{ minWidth: 0 }}>
                   <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary" }}>{c.name}</Typography>
-                  <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.3, lineHeight: 1.2 }}>
-                    {c.kind === "team" ? "Joukkue" : c.sub}
-                    {c.trend === "up" && <Box component="span" sx={{ color: "var(--color-live)", fontWeight: 700 }}>{" · Nousussa ▲"}</Box>}
-                    {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}>{" · Laskussa ▼"}</Box>}
-                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.3, minWidth: 0, overflow: "hidden" }}>
+                    <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.2 }}>
+                      {c.kind === "team" ? "Joukkue" : c.sub}
+                    </Typography>
+                    {(c.trend === "up" || c.trend === "down") && (
+                      <>
+                        <Box component="span" sx={{ color: "text.disabled", fontSize: 12, lineHeight: 1 }}>·</Box>
+                        <TrendTag trend={c.trend} sx={{ fontSize: 12 }} />
+                      </>
+                    )}
+                  </Box>
                 </Box>
                 <StatVal>{settled ? `${signed(c.lastPts)}p` : "—"}</StatVal>
                 <StatVal>{settled ? `${c.seasonPts}p` : "—"}</StatVal>
