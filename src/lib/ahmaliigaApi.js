@@ -28,6 +28,13 @@ export async function getAhmaliigaCards(filter) {
   return r.json(); // { season, cards: [{ id, kind, name, sub, band, price, ownerCount, lastPts }] }
 }
 
+// Kortin tiedot — a card + ownership %, per-jakso history and its games.
+export async function getAhmaliigaCard(id) {
+  const r = await fetch(`/api/ahmaliiga/card?id=${encodeURIComponent(id)}`);
+  if (!r.ok) throw new Error(`card ${r.status}`);
+  return r.json(); // { card, managerCount, ownerCount, ownerPct, history, games }
+}
+
 // The signed-in manager's squad (resolved cards + bank), or { squad: null }.
 export async function getMySquad() {
   const r = await fetch("/api/ahmaliiga/squad", { headers: authHeaders() });

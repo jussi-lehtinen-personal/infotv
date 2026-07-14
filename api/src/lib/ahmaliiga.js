@@ -516,6 +516,51 @@ async function getJaksoGames(seasonId, jakso) {
   })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
+// Extract the age group ("U15") from a game level or team name; '' if none.
+function ageOf(s) { const m = String(s || '').match(/U\s*\d+/i); return m ? m[0].replace(/\s+/g, '').toUpperCase() : ''; }
+
+// Kortin tiedot — the card + ownership %, per-jakso history (price + points from
+// cardHistory) and the card's games (matched by age group; result only, no
+// per-game points). Public read.
+async function getCardDetail(seasonId, cardId) {
+  const cards = await getCards(seasonId);
+  const card = cards.find((c) => c.rowKey === cardId);
+  if (!card) return null;
+  const managerCount = (await listManagers()).length;
+  const ownerCount = card.ownerCount || 0;
+  const histRows = await listByPartition(T.cardHistory, `${seasonId}|${cardId}`);
+  const history = histRows
+    .map((r) => ({ jakso: Number(r.rowKey), price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
+    .sort((a, b) => a.jakso - b.jakso);
+
+  const cardAge = ageOf(card.age || (card.kind === 'team' ? card.name : card.sub));
+  let games = [];
+  if (cardAge) {
+    const jaksot = await getJaksot(seasonId);
+    for (const j of jaksot) {
+      const gs = await getJaksoGames(seasonId, Number(j.rowKey));
+      for (const g of gs) {
+        if (ageOf(g.level) !== cardAge) continue;
+        const ahmaGoals = Number(g.ahmaHome ? g.homeGoals : g.awayGoals);
+        const oppGoals = Number(g.ahmaHome ? g.awayGoals : g.homeGoals);
+        games.push({ jakso: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals });
+      }
+    }
+    games.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }
+
+  return {
+    card: {
+      id: card.rowKey, kind: card.kind, name: card.name, sub: card.sub || '', band: card.band,
+      price: card.price, trend: card.trend || '', photo: card.photo || '',
+      lastPts: card.lastPts || 0, seasonPts: card.seasonPts || 0,
+    },
+    managerCount, ownerCount,
+    ownerPct: managerCount ? Math.round((ownerCount / managerCount) * 100) : 0,
+    history, games,
+  };
+}
+
 async function getPrediction(seasonId, jakso, userId) {
   const row = await getEntity(T.predictions, `${seasonId}|${jakso}`, userId);
   return row ? { gameId: row.gameId, homeGoals: Number(row.homeGoals), awayGoals: Number(row.awayGoals) } : null;
@@ -676,5 +721,5 @@ module.exports = {
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleJakso, seedBots, resetSim, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getJaksoScore, listManagers,
-  loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus,
+  loadGames, getJaksoGames, getPrediction, savePrediction, predictionBonus, getCardDetail,
 };

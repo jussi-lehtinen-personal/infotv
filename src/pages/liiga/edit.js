@@ -8,7 +8,7 @@ import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
   LuStar, LuTrendingUp, LuTrendingDown,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
@@ -28,14 +28,6 @@ const StatCell = ({ label, children }) => (
 );
 const StatNum = ({ children }) => (
   <Box component="span" sx={{ fontWeight: 800, fontSize: 19, color: "text.primary", lineHeight: 1 }}>{children}</Box>
-);
-// Small "Pisteet" box on the right of a squad row.
-const PointsBox = ({ value }) => (
-  <Box sx={{ flexShrink: 0, textAlign: "center", px: 1.25, py: 0.6, borderRadius: "var(--radius-small)",
-        bgcolor: "rgba(255,255,255,0.04)", border: "1px solid var(--color-surface-border)" }}>
-    <Box sx={{ fontSize: 8.5, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "text.disabled", lineHeight: 1 }}>Pisteet</Box>
-    <Box sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.2, mt: 0.3 }}>{value}</Box>
-  </Box>
 );
 const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
 
@@ -187,7 +179,7 @@ export default function LiigaEdit() {
             borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)",
             border: `1px solid ${isCap ? "rgba(249,115,22,0.4)" : "var(--color-surface-border)"}` }}>
       <Box sx={{ position: "relative", flexShrink: 0, display: "flex" }}>
-        <RingAvatar card={c} size={46} />
+        <RingAvatar card={c} size={44} />
         {isCap && (
           <Box sx={{ position: "absolute", bottom: -3, left: -3, width: 18, height: 18, borderRadius: "50%",
                 bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>
@@ -197,13 +189,13 @@ export default function LiigaEdit() {
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{c.name}</Typography>
-        <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", lineHeight: 1.3 }}>{bandSub(c)}</Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.4 }}>
-          <Coins value={cost(c)} size={12} />
-          <TrendTag trend={c.trend} />
-        </Box>
+        <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.25, lineHeight: 1.3 }}>
+          {bandSub(c)}
+          {c.trend === "up" && <Box component="span" sx={{ color: "var(--color-live)", fontWeight: 800 }}>{" · ▲"}</Box>}
+          {c.trend === "down" && <Box component="span" sx={{ color: "#ef4444", fontWeight: 800 }}>{" · ▼"}</Box>}
+        </Typography>
       </Box>
-      <PointsBox value={settled ? c.seasonPts : "—"} />
+      <PricePill value={cost(c)} />
       <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
     </ButtonBase>
   );

@@ -42,13 +42,14 @@ import Ahmaliiga from "./pages/ahmaliiga";
 import { AhmaliigaLayout, RequireEnvAdmin } from "./components/AhmaliigaLayout";
 import LiigaHome from "./pages/liiga/home";
 import LiigaMarket from "./pages/liiga/market";
+import LiigaCard from "./pages/liiga/card";
 import LiigaPredict from "./pages/liiga/predict";
 import LiigaRanking from "./pages/liiga/ranking";
 import LiigaEdit from "./pages/liiga/edit";
 import LiigaSummary from "./pages/liiga/summary";
 import LiigaAdmin from "./pages/liiga/admin";
 import { LiigaStub } from "./pages/liiga/stub";
-import { LuLayoutGrid, LuUser, LuAward, LuBell } from "react-icons/lu";
+import { LuUser, LuAward, LuBell } from "react-icons/lu";
 
 function App() {
   return (
@@ -116,7 +117,7 @@ function App() {
                 <Route index element={<LiigaHome />} />
                 <Route path="joukkue" element={<LiigaEdit />} />
                 <Route path="markkina" element={<LiigaMarket />} />
-                <Route path="kortti/:id" element={<LiigaStub icon={LuLayoutGrid} title="Kortin tiedot" desc="Kuva, pistehistoria, tulevat pelit, hintakehitys ja viimeisimmät tulokset." />} />
+                <Route path="kortti/:id" element={<LiigaCard />} />
                 <Route path="veikkaus" element={<LiigaPredict />} />
                 <Route path="ranking" element={<LiigaRanking />} />
                 <Route path="jakso" element={<LiigaSummary />} />
