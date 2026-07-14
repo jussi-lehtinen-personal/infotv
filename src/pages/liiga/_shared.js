@@ -80,7 +80,7 @@ export const LiigaDialog = ({ open, onClose, title, right, children }) => (
 // Bebas title + optional right slot. The title carries the display-shift so the
 // caps sit on the SAME centre line as the icon — use this, don't hand-roll it.
 export const DialogHeader = ({ onBack, title, right }) => (
-  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2, minHeight: 40 }}>
+  <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, minHeight: 40 }}>
     <ButtonBase onClick={onBack} aria-label="Takaisin"
       sx={{ width: 36, height: 36, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
             color: "text.secondary", "&:hover": { bgcolor: "rgba(255,255,255,0.06)" } }}>
@@ -126,7 +126,7 @@ export const ListRow = ({ leading, title, titleRight, subtitle, trailing, onClic
     <>
       {leading}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Stack direction="row" alignItems="center" spacing={0.6}>
+        <Stack direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
           <Typography sx={{ minWidth: 0, fontWeight: highlight ? 800 : 700, fontSize: 15, lineHeight: 1.2,
                 color: highlight ? "primary.main" : "text.primary",
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</Typography>
@@ -287,7 +287,7 @@ export const Loading = ({ screen }) =>
 export const PageHead = ({ eyebrow, title, right, sx }) => (
   <Box sx={{ mb: 2, ...sx }}>
     {eyebrow && <Eyebrow sx={{ mb: 0.5 }}>{eyebrow}</Eyebrow>}
-    <Stack direction="row" alignItems="center" spacing={1}>
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
       <Title sx={{ flex: 1, minWidth: 0 }}>{title}</Title>
       {right && <Box sx={{ flexShrink: 0 }}>{right}</Box>}
     </Stack>

@@ -9,8 +9,8 @@ import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 // root operator. One-time results upload still runs from the machine (noted below).
 
 const Row = ({ k, v }) => (
-  <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}
-         sx={{ width: "100%", py: 0.75, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+  <Stack direction="row" spacing={1}
+         sx={{ alignItems: "center", justifyContent: "space-between", width: "100%", py: 0.75, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
     <Typography variant="body2" sx={{ color: "text.secondary" }}>{k}</Typography>
     <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 700, textAlign: "right" }}>{v}</Typography>
   </Stack>

@@ -51,7 +51,7 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
   return (
     <>
       {/* search */}
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5, px: 1.5, py: 0.75,
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5, px: 1.5, py: 0.75,
             borderRadius: 999, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
         <Box component={LuSearch} sx={{ color: "text.disabled", fontSize: 18, flexShrink: 0, display: "block" }} />
         <InputBase value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae korttia…"

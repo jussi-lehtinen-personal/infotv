@@ -152,15 +152,15 @@ export default function LiigaPredict() {
       {/* bonus tiers */}
       <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mb: 2.5,
             bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
           <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
             <Box component={LuGoal} sx={{ color: "primary.main", fontSize: 17, display: "block" }} />
           </Box>
           <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>Bonuspisteet</Typography>
         </Stack>
         {BONUS.map((b, i) => (
-          <Stack key={i} direction="row" alignItems="center" spacing={1.25}
-                 sx={{ px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+          <Stack key={i} direction="row" spacing={1.25}
+                 sx={{ alignItems: "center", px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
             <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
               <Box component={b.icon} sx={{ color: "text.secondary", fontSize: 17, display: "block" }} />
             </Box>
@@ -227,7 +227,7 @@ export default function LiigaPredict() {
       )}
 
       {left && (
-        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mt: 2, px: 1.75, py: 1.25, borderRadius: "var(--radius-item)",
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2, px: 1.75, py: 1.25, borderRadius: "var(--radius-item)",
               bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
           <Box component={LuClock} sx={{ color: "text.secondary", fontSize: 20, flexShrink: 0 }} />
           <Box>

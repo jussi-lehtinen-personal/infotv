@@ -74,21 +74,23 @@ export default function LiigaRanking() {
           <Typography variant="body2">Ei vielä tuloksia — jaksoa ei ole ratkaistu.</Typography>
         </Box>
       ) : (
-        <Stack spacing={0.5}>
+        <Box>
           {rows.map((r) => (
-            <Stack key={r.userId} direction="row" alignItems="center" spacing={1.5}
-              sx={{ py: 1, px: 1.25, borderRadius: "var(--radius-item)",
-                    bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent",
-                    border: r.me ? "1px solid rgba(249,115,22,0.35)" : "1px solid transparent" }}>
+            // Plain flex Box with alignItems in sx — MUI v9 doesn't reliably apply
+            // Stack's alignItems prop, which left the name stretched (top-aligned).
+            <Box key={r.userId} sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5, py: 1, px: 1.25,
+                  borderRadius: "var(--radius-item)",
+                  bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent",
+                  border: r.me ? "1px solid rgba(249,115,22,0.35)" : "1px solid transparent" }}>
               <RankBadge rank={r.rank} highlight={r.me} />
               <ManagerAvatar avatar={r.avatar} nickname={r.nickname} size={38} />
-              <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: r.me ? 800 : 700, fontSize: 15,
+              <Typography noWrap sx={{ flex: 1, minWidth: 0, lineHeight: 1.2, fontWeight: r.me ? 800 : 700, fontSize: 15,
                     color: r.me ? "primary.main" : "text.primary" }}>{r.nickname}</Typography>
               <RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>
               <RankTrend delta={r.delta} />
-            </Stack>
+            </Box>
           ))}
-        </Stack>
+        </Box>
       )}
     </Screen>
   );
