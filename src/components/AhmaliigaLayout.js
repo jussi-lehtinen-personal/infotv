@@ -62,11 +62,11 @@ export const AhmaliigaLayout = () => {
   // The sim admin panel (settle/reset) is the root operator's tool only.
   const isEnvAdmin = useEnvAdmin();
 
-  // Unread notification count for the bell badge. Refetched on navigation so it
-  // clears after the inbox marks everything read (cheap query, preview scale).
+  // Notification count for the bell badge = pending notifications (each disappears
+  // when clicked). Refetched on navigation so it drops after one is handled.
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(() => {
-    getAhmaliigaNotifications().then((d) => setUnread(d.unread || 0)).catch(() => {});
+    getAhmaliigaNotifications().then((d) => setUnread(((d && d.items) || []).length)).catch(() => {});
   }, []);
   useEffect(() => { refreshUnread(); }, [pathname, refreshUnread]);
 

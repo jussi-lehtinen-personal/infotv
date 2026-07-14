@@ -796,6 +796,12 @@ async function markNotificationsRead(userId) {
   return { marked: unread.length };
 }
 
+// Remove one notification (the manager clicked it → it's handled and disappears).
+async function deleteNotification(userId, id) {
+  await deleteEntity(T.messages, userId, String(id));
+  return { deleted: String(id) };
+}
+
 // Reset the replay: pointer → round 0, rounds → open, cards restored to seed
 // prices, all Scores/SeasonScores cleared. Card ownership/lastPts zeroed.
 // By default KEEPS squads, bots, managers and results (so you can just settle
@@ -887,5 +893,5 @@ module.exports = {
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
-  getNotifications, markNotificationsRead,
+  getNotifications, markNotificationsRead, deleteNotification,
 };

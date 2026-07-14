@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography } from "@mui/material";
-import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell } from "react-icons/lu";
+import { useNavigate } from "react-router-dom";
+import { Box, Typography, ButtonBase } from "@mui/material";
+import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell, LuChevronRight } from "react-icons/lu";
 import { Screen, PageHead, Loading, EmptyState, ListCard, IconCircle, shortDate } from "./_shared";
-import { getAhmaliigaNotifications, markAhmaliigaNotificationsRead } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaNotifications, deleteAhmaliigaNotification } from "../../lib/ahmaliigaApi";
 
 // Ilmoitukset — the manager's inbox, filled by settlement (one round-summary batch
-// per settled round). Round-level for now; per-game events come later. Opening the
-// page marks everything read so the top-bar badge clears.
+// per settled round). Each notification is clickable: it opens the round's
+// Jakson yhteenveto AND is removed (handled → disappears).
 
 // Icon + tint per notification kind.
 const KIND = {
@@ -16,6 +17,11 @@ const KIND = {
   predict: { icon: LuGoal,           tint: "rgba(249,115,22,0.15)", color: "primary.main" },
   penalty: { icon: LuArrowLeftRight, tint: "rgba(239,68,68,0.15)",  color: "#ef4444" },
 };
+
+// Where a notification takes you when clicked — every kind belongs to a settled
+// round, so they all open that round's summary (shows rank, per-card points,
+// captain ×2, best card and the prediction bonus).
+const targetOf = (n) => (n.round != null ? `/ahmaliiga/round?round=${n.round}` : "/ahmaliiga");
 
 const PointsBadge = ({ points }) => {
   if (points == null || points === 0) return null;
@@ -30,26 +36,28 @@ const PointsBadge = ({ points }) => {
 };
 
 export default function LiigaNotifications() {
-  const [data, setData] = useState(undefined);
+  const nav = useNavigate();
+  const [items, setItems] = useState(undefined);
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaNotifications()
-      .then((d) => {
-        if (cancelled) return;
-        setData(d);
-        // Mark read after we've captured the unread state for this view.
-        if (d.unread > 0) markAhmaliigaNotificationsRead().catch(() => {});
-      })
-      .catch(() => { if (!cancelled) setData(null); });
+      .then((d) => { if (!cancelled) setItems((d && d.items) || []); })
+      .catch(() => { if (!cancelled) setItems(null); });
     return () => { cancelled = true; };
   }, []);
 
-  if (data === undefined) return <Loading screen />;
-  const items = (data && data.items) || [];
-  if (!items.length) {
+  const open = (n) => {
+    // Handle it: drop it from the list, delete server-side, then navigate.
+    setItems((prev) => (prev || []).filter((x) => x.id !== n.id));
+    deleteAhmaliigaNotification(n.id).catch(() => {});
+    nav(targetOf(n));
+  };
+
+  if (items === undefined) return <Loading screen />;
+  if (!items || !items.length) {
     return <EmptyState icon={LuBell} title="Ei ilmoituksia"
-      text="Kun jakso ratkaistaan, näet täällä miten joukkueesi, kapteenisi ja veikkauksesi pärjäsivät." />;
+      text="Kun jakso ratkaistaan, näet täällä miten joukkueesi, kapteenisi ja veikkauksesi pärjäsivät. Klikkaa ilmoitusta nähdäksesi jakson yhteenvedon." />;
   }
 
   return (
@@ -59,18 +67,20 @@ export default function LiigaNotifications() {
         {items.map((n, i) => {
           const k = KIND[n.kind] || KIND.round;
           return (
-            <Box key={n.id} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1.75, py: 1.5,
-                  borderBottom: i < items.length - 1 ? "1px solid var(--color-surface-divider)" : 0,
-                  bgcolor: n.read ? "transparent" : "rgba(249,115,22,0.06)" }}>
+            <ButtonBase key={n.id} onClick={() => open(n)}
+              sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1.75, py: 1.5, width: "100%", textAlign: "left",
+                    borderBottom: i < items.length - 1 ? "1px solid var(--color-surface-divider)" : 0,
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } }}>
               <IconCircle icon={k.icon} tint={k.tint} color={k.color} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: n.read ? 700 : 800, fontSize: 14.5, lineHeight: 1.3, color: "text.primary",
+                <Typography sx={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.3, color: "text.primary",
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</Typography>
                 <Typography variant="caption" sx={{ display: "block", color: "text.secondary", lineHeight: 1.35, mt: 0.2 }}>{n.body}</Typography>
                 {n.createdAt && <Typography variant="caption" sx={{ display: "block", color: "text.disabled", fontSize: 11, mt: 0.3 }}>{shortDate(n.createdAt)}</Typography>}
               </Box>
               <PointsBadge points={n.points} />
-            </Box>
+              <Box component={LuChevronRight} sx={{ fontSize: 18, color: "text.disabled", flexShrink: 0, display: "block" }} />
+            </ButtonBase>
           );
         })}
       </ListCard>

@@ -1,11 +1,12 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getNotifications, markNotificationsRead } = require('../lib/ahmaliiga');
+const { getNotifications, markNotificationsRead, deleteNotification } = require('../lib/ahmaliiga');
 
 // GET  /api/ahmaliiga/notifications — the signed-in manager's inbox (newest first)
 //      + the unread count for the top-bar badge.
-// POST /api/ahmaliiga/notifications — { action: "markRead" } marks all read.
+// POST /api/ahmaliiga/notifications — { action: "markRead" } marks all read;
+//      { action: "delete", id } removes one (clicked → handled → disappears).
 app.http('ahmaliigaNotifications', {
   methods: ['GET', 'POST'],
   authLevel: 'anonymous',
@@ -20,6 +21,11 @@ app.http('ahmaliigaNotifications', {
         const body = await request.json().catch(() => ({}));
         if (body.action === 'markRead') {
           const res = await markNotificationsRead(userId);
+          return { jsonBody: { ok: true, ...res } };
+        }
+        if (body.action === 'delete') {
+          if (!body.id) return { status: 400, jsonBody: { error: 'Puuttuva id.' } };
+          const res = await deleteNotification(userId, body.id);
           return { jsonBody: { ok: true, ...res } };
         }
         return { status: 400, jsonBody: { error: 'Tuntematon toiminto.' } };

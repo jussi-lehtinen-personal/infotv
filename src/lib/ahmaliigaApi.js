@@ -105,6 +105,15 @@ export async function markAhmaliigaNotificationsRead() {
   });
   return asJson(r);
 }
+// Clicking a notification handles it → remove it.
+export async function deleteAhmaliigaNotification(id) {
+  const r = await fetch("/api/ahmaliiga/notifications", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ action: "delete", id }),
+  });
+  return asJson(r);
+}
 
 // Admin ops (env-admin gated server-side): status | settleRound | settleAll |
 // seedBots | resetSim. Drives the season replay from the in-app admin panel.
