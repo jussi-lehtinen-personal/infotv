@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw } from "react-icons/lu";
 import { Screen, Title, Eyebrow } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -52,6 +52,23 @@ export default function LiigaAdmin() {
     } finally { setBusy(""); }
   };
 
+  // Re-settle the already-settled jaksot (0..settled-1) in order. Idempotent:
+  // recomputes trend + seasonPts without changing the standings or the pointer.
+  // Same as `node tools/sim.js resettle`, but from the panel.
+  const resettle = async () => {
+    const cur = s ? s.settled : 0;
+    if (cur < 1) { setMsg({ type: "error", text: "Ei ratkaistuja jaksoja." }); return; }
+    if (!window.confirm(`Ratkaistaan jaksot 0…${cur - 1} uudelleen. Idempotentti: sarjataulukko ei muutu, päivittää trendit ja kausipisteet.`)) return;
+    setBusy("resettle"); setMsg(null);
+    try {
+      for (let j = 0; j < cur; j++) await ahmaliigaAdmin("settleJakso", { jakso: j });
+      setMsg({ type: "success", text: `Trendit + kausipisteet päivitetty (jaksot 0…${cur - 1}) ✓` });
+      load();
+    } catch (e) {
+      setMsg({ type: "error", text: e.message });
+    } finally { setBusy(""); }
+  };
+
   if (status === undefined) {
     return <Screen sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}><CircularProgress sx={{ color: "primary.main" }} /></Screen>;
   }
@@ -85,6 +102,10 @@ export default function LiigaAdmin() {
                   busy={busy === "settleAll"} disabled={!s} onClick={() => run("settleAll", "Kausi ratkaistu")} />
         <AdminBtn icon={LuBot} label="Lisää / päivitä botit"
                   busy={busy === "seedBots"} disabled={!s} onClick={() => run("seedBots", "Botit lisätty")} />
+        <AdminBtn icon={LuImage} label="Hae pelaajakuvat (Jopox)"
+                  busy={busy === "enrichPhotos"} disabled={!s} onClick={() => run("enrichPhotos", "Kuvat haettu")} />
+        <AdminBtn icon={LuRefreshCw} label="Päivitä trendit + kausipisteet"
+                  busy={busy === "resettle"} disabled={!s} onClick={resettle} />
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
                   onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet ja hinnat resetoidaan. Pakat, botit ja tulokset säilyvät.")} />
