@@ -4,7 +4,7 @@ import { Box, Typography, Stack } from "@mui/material";
 import { LuClock } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { buildEvents, EventRow, playedCardCount, squadTeamKeys } from "./events";
-import { getAhmaliigaState, getAhmaliigaSummary, getMySquad } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getMySquad } from "../../lib/ahmaliigaApi";
 
 // Jakso timeline (reached from the dashboard "Näytä kaikki"): the jakso yhteenveto
 // on top, then a vertical timeline of the remaining events (games + jakso end).
@@ -23,13 +23,11 @@ const YCell = ({ value, unit, accent }) => (
 export default function LiigaTimeline() {
   const nav = useNavigate();
   const [state, setState] = useState(undefined);
-  const [summary, setSummary] = useState(null);
   const [squad, setSquad] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState(null); });
-    getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -43,7 +41,9 @@ export default function LiigaTimeline() {
   const events = buildEvents(state, squadTeamKeys(squad && squad.cards), { includePast: true });
   const firstUpcoming = events.findIndex((e) => !e.played); // the "current" position
   const dl = state.daysLeft;                                // single source of truth (from /state)
-  const st = state.standing;                                // your SEASON standing (consistent, not a past jakso)
+  const gameEvents = events.filter((e) => e.type === "game");
+  const playedGames = gameEvents.filter((e) => e.played).length;
+  const upcomingGames = gameEvents.length - playedGames;
   const played = squad ? playedCardCount(squad.cards, state.games, simDate) : null;
   const squadSize = (squad && squad.cards && squad.cards.length) || 5;
 
@@ -58,12 +58,13 @@ export default function LiigaTimeline() {
           </Box>
         )} />
 
-      {/* Yhteenveto — your season standing + this jakso's progress (before the timeline) */}
-      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Yhteenveto</Typography>
+      {/* Yhteenveto — THIS jakso's progress only (no points/ranking: the jakso isn't
+          settled yet, so mixing in season data would be inconsistent) */}
+      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Jakson eteneminen</Typography>
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
-        <YCell value={st && st.seasonPts != null ? st.seasonPts : "—"} unit="pistettä" accent />
-        <YCell value={st && st.seasonRank != null ? (summary && summary.managerCount ? `${st.seasonRank}/${summary.managerCount}` : `${st.seasonRank}`) : "—"} unit="sijoitus" />
-        <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="pelannut" />
+        <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="korttia pelannut" accent />
+        <YCell value={playedGames} unit="ottelua pelattu" />
+        <YCell value={upcomingGames} unit="ottelua tulossa" />
       </Stack>
 
       {/* Timeline */}
