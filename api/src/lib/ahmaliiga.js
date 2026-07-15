@@ -1,5 +1,7 @@
 const { getEntity, upsertEntity, deleteEntity, listByPartition, listEntities, transact } = require('./tables');
 const { avatarUrl } = require('./blob');
+const { workerGet } = require('./worker');
+const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResults');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/rounds/cards +
@@ -604,7 +606,79 @@ async function getRoundGames(seasonId, round) {
     gameId: g.rowKey, home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
     homeLogo: g.homeLogo || '', awayLogo: g.awayLogo || '',
     homeGoals: g.homeGoals, awayGoals: g.awayGoals, date: g.date, level: g.level,
+    // team ids (from the schedule sync) needed to fetch a box score; '' for legacy rows
+    homeTeamId: g.homeTeamId || '', awayTeamId: g.awayTeamId || '', levelId: g.levelId || '',
   })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+// ===== LIVE (Phase 2): compute results at runtime from tulospalvelu instead of a
+// precomputed results-<season>.json. See scoring.js + roundResults.js. =====
+
+const FRIENDLY_RE = /harjoitus/i;
+const JAKSO_MS = 2 * 7 * 86400000; // must match tools/lib/model CFG.jaksoWeeks
+
+// Schedule sync: pull the season's whole game list from the Worker (1 cached call)
+// and UPSERT into AhmaliigaGames with the team ids (needed to fetch box scores) and
+// the jakso derived by date. Discovers new series mid-season automatically. Filter +
+// jakso anchor match tools/lib/model.loadSeason / gen-games so the grouping is
+// identical to the seeded data (the validation relies on this).
+async function syncSeasonGames(seasonId) {
+  const data = await workerGet(`/getSeasonGames?season=${encodeURIComponent(seasonId)}`);
+  const all = (data && data.games) || [];
+  const games = all.filter((g) =>
+    g.finished == 1 && g.home_goals != null && g.away_goals != null &&
+    !FRIENDLY_RE.test(g.league || '') && !FRIENDLY_RE.test(g.level || ''));
+  if (!games.length) return { fetched: all.length, kept: 0, upserted: 0 };
+  const anchor = new Date(games.reduce((m, g) => (g.date < m ? g.date : m), games[0].date).replace(' ', 'T')).getTime();
+  const jaksoOf = (g) => Math.floor((new Date(String(g.date).replace(' ', 'T')).getTime() - anchor) / JAKSO_MS);
+  const byPart = {};
+  for (const g of games) {
+    const pk = `${seasonId}|${jaksoOf(g)}`;
+    (byPart[pk] = byPart[pk] || []).push({
+      partitionKey: pk, rowKey: String(g.id),
+      home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+      homeLogo: g.home_logo || '', awayLogo: g.away_logo || '',
+      homeGoals: g.home_goals, awayGoals: g.away_goals,
+      date: g.date || '', level: g.level || '',
+      homeTeamId: String(g.homeTeamId || ''), awayTeamId: String(g.awayTeamId || ''), levelId: String(g.levelId || ''),
+    });
+  }
+  for (const pk of Object.keys(byPart)) await upsertBatch(T.games, byPart[pk]);
+  return { fetched: all.length, kept: games.length, upserted: games.length, jaksot: Object.keys(byPart).length };
+}
+
+// Box score for one game via the Worker (permanently KV-cached → 1 tulospalvelu
+// call per game ever). Needs the team ids from the sync; null if missing/failed.
+async function fetchGameReport(g) {
+  if (!g.homeTeamId || !g.awayTeamId) return null;
+  const date = String(g.date || '').slice(0, 10);
+  const q = `date=${encodeURIComponent(date)}&home=${encodeURIComponent(g.homeTeamId)}&away=${encodeURIComponent(g.awayTeamId)}&extId=${encodeURIComponent(g.gameId)}`;
+  try { return await workerGet(`/getGameReport?${q}`); } catch { return null; }
+}
+
+// Compute a round's results at RUNTIME: the round's games (team cards) + box scores
+// for player-eligible games (player/goalie cards). Same shape as getResultsFull.
+async function computeRoundResults(seasonId, round) {
+  const games = await getRoundGames(seasonId, round);
+  const eligible = games.filter((g) => isPlayerEligible(teamKey(g)));
+  const reports = {};
+  await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
+  const { results, reasons } = computeRoundPoints({ games, reports });
+  return { results, reasons, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
+}
+
+// Safety gate before switching settlement over: compare the runtime engine to the
+// precomputed AhmaliigaResults for a round. Returns the mismatches (should be none).
+async function validateRoundResults(seasonId, round) {
+  const expected = await getResults(seasonId, round);       // precomputed { cardId: pts }
+  const { results, games, reportsFetched, eligible } = await computeRoundResults(seasonId, round);
+  const ids = new Set([...Object.keys(expected), ...Object.keys(results)]);
+  const diffs = [];
+  for (const id of ids) {
+    const e = expected[id], g = results[id];
+    if ((e == null ? 0 : e) !== (g == null ? 0 : g)) diffs.push({ card: id, expected: e ?? 0, got: g ?? 0 });
+  }
+  return { round, games, eligible, reportsFetched, cards: ids.size, mismatches: diffs.length, diffs: diffs.slice(0, 20) };
 }
 
 // Extract the age group ("U15") from a game level or team name; '' if none.
@@ -969,4 +1043,5 @@ module.exports = {
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
+  syncSeasonGames, computeRoundResults, validateRoundResults,
 };

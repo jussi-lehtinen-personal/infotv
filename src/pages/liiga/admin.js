@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -119,6 +119,12 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuWallet} label="Korjaa budjettisaldot"
                   busy={busy === "recomputeBanks"} disabled={!s}
                   onClick={() => run("recomputeBanks", "Saldot korjattu")} />
+        <AdminBtn icon={LuDownload} label="Synkkaa pelit (worker + ID:t)"
+                  busy={busy === "syncGames"} disabled={!s}
+                  onClick={() => run("syncGames", "Pelit synkattu")} />
+        <AdminBtn icon={LuShieldCheck} label="Validoi tulokset (live vs. esilaskettu)"
+                  busy={busy === "validateResults"} disabled={!s}
+                  onClick={() => run("validateResults", "Tulokset validoitu")} />
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
                   onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet, hinnat ja veikkaukset resetoidaan. Pakat, botit ja tulokset säilyvät.")} />

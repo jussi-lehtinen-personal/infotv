@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, loadResults, loadGames, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo } = require('../lib/ahmaliiga');
+const { seedSeason, loadResults, loadGames, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -89,6 +89,24 @@ app.http('manageAhmaliiga', {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
         const result = await setAutoStep(season.rowKey, !!body.on);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      // LIVE (Phase 2): pull the game schedule (+ team ids) from the Worker.
+      if (action === 'syncGames') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await syncSeasonGames(season.rowKey);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      // LIVE (Phase 2): safety gate — runtime engine vs precomputed results for a round.
+      if (action === 'validateResults') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const rounds = await getRounds(season.rowKey);
+        const round = body.round != null ? Number(body.round) : Math.max(0, activeRoundNo(season, rounds) - 1);
+        const result = await validateRoundResults(season.rowKey, round);
         return { jsonBody: { ok: true, ...result } };
       }
 
