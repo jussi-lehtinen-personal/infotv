@@ -46,6 +46,7 @@ const GameOption = ({ g }) => (
     <Box sx={{ fontSize: 11, fontWeight: 600, color: "text.disabled", lineHeight: 1.3,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
       {shortDate(g.date)} · {g.level}
+      {g.locked && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}> · Alkanut</Box>}
     </Box>
     <Box sx={{ fontSize: 14, fontWeight: 700, color: "text.primary", lineHeight: 1.3,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -124,7 +125,9 @@ export default function LiigaPredict() {
     getAhmaliigaPrediction().then((d) => {
       if (cancelled) return;
       setData(d);
-      const first = (d.myPrediction && d.myPrediction.gameId) || (d.games[0] && d.games[0].gameId) || "";
+      // default to the manager's own prediction, else the first game still open
+      const firstOpen = (d.games || []).find((g) => !g.locked);
+      const first = (d.myPrediction && d.myPrediction.gameId) || (firstOpen && firstOpen.gameId) || (d.games[0] && d.games[0].gameId) || "";
       setGameId(first);
       if (d.myPrediction) { setHome(d.myPrediction.homeGoals); setAway(d.myPrediction.awayGoals); setSavedId(d.myPrediction.gameId); }
     }).catch(() => { if (!cancelled) setData(null); });
@@ -139,7 +142,8 @@ export default function LiigaPredict() {
   const { settled, games } = data;
   const game = games.find((g) => g.gameId === gameId) || games[0];
   const isSavedGame = savedId === game.gameId;
-  const left = !settled && timeLeft(game.date);
+  const locked = !settled && !!game.locked; // kickoff passed → can't predict this one
+  const left = !settled && !locked && timeLeft(game.date);
   const hs = splitTeam(game.home, game.level, game.ahmaHome);
   const as = splitTeam(game.away, game.level, !game.ahmaHome);
 
@@ -186,7 +190,7 @@ export default function LiigaPredict() {
       <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} sx={selectSx} MenuProps={menuProps}
               renderValue={(val) => <GameOption g={games.find((x) => x.gameId === val) || game} />}>
         {games.map((g) => (
-          <MenuItem key={g.gameId} value={g.gameId} sx={{ whiteSpace: "normal", alignItems: "stretch" }}>
+          <MenuItem key={g.gameId} value={g.gameId} disabled={!settled && g.locked} sx={{ whiteSpace: "normal", alignItems: "stretch" }}>
             <GameOption g={g} />
           </MenuItem>
         ))}
@@ -218,6 +222,14 @@ export default function LiigaPredict() {
             <Typography variant="body2" sx={{ color: "text.disabled" }}>Et veikannut tätä ottelua.</Typography>
           )}
         </Box>
+      ) : locked ? (
+        <Box sx={{ textAlign: "center", py: 1 }}>
+          <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>
+            {isSavedGame
+              ? `Veikkasit ${data.myPrediction.homeGoals}–${data.myPrediction.awayGoals} · lukittu`
+              : "Peli on jo alkanut — et voi enää veikata tätä ottelua."}
+          </Typography>
+        </Box>
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.25, rowGap: 0.75 }}>
           <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1, "& .MuiSelect-select": scoreSelectSx }} MenuProps={menuProps}>
@@ -234,7 +246,7 @@ export default function LiigaPredict() {
 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
-      {!settled && (
+      {!settled && !locked && (
         <Button fullWidth variant="contained" disabled={saving} onClick={save} sx={{ py: 1.3, mt: 2.5 }}>
           {saving ? "Tallennetaan…" : isSavedGame ? "Veikkaus tallennettu — päivitä" : "Tallenna veikkaus"}
         </Button>

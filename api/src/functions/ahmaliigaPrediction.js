@@ -22,9 +22,30 @@ app.http('ahmaliigaPrediction', {
       const cur = rounds.find((j) => Number(j.rowKey) === round);
       const settled = !!(cur && cur.status === 'settled');
 
+      // A game locks at its kickoff: in a replay the clock is the sim date (start of
+      // the sim day), live it's the wall clock. Locked = kickoff before the clock.
+      const clockMs = season.simMode && season.simDate
+        ? new Date(season.simDate + 'T00:00:00').getTime()
+        : Date.now();
+      const isLocked = (g) => {
+        const k = new Date(String(g && g.date || '').replace(' ', 'T')).getTime();
+        return Number.isFinite(k) && k < clockMs;
+      };
+
+      const games = await getRoundGames(season.rowKey, round);
+
       if (request.method === 'PUT') {
         if (settled) return { status: 400, jsonBody: { error: 'Jakso on jo ratkaistu.' } };
         const b = await request.json().catch(() => ({}));
+        const target = games.find((g) => g.gameId === b.gameId);
+        if (!target) return { status: 400, jsonBody: { error: 'Peliä ei löytynyt.' } };
+        if (isLocked(target)) return { status: 400, jsonBody: { error: 'Peli on jo alkanut — veikkaus on lukittu.' } };
+        // Don't let a manager move an already-started prediction onto another game.
+        const existing = await getPrediction(season.rowKey, round, userId);
+        if (existing && existing.gameId !== b.gameId) {
+          const eg = games.find((g) => g.gameId === existing.gameId);
+          if (eg && isLocked(eg)) return { status: 400, jsonBody: { error: 'Aiempi veikkauksesi on jo lukittu.' } };
+        }
         try {
           const saved = await savePrediction(season.rowKey, round, userId, b.gameId, b.homeGoals, b.awayGoals);
           return { jsonBody: { ok: true, prediction: saved } };
@@ -34,16 +55,18 @@ app.http('ahmaliigaPrediction', {
         }
       }
 
-      const games = await getRoundGames(season.rowKey, round);
       const pred = await getPrediction(season.rowKey, round, userId);
       const outGames = games.map((g) => ({
         gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome,
         homeLogo: g.homeLogo, awayLogo: g.awayLogo, date: g.date, level: g.level,
+        locked: isLocked(g),
         ...(settled ? { homeGoals: g.homeGoals, awayGoals: g.awayGoals } : {}),
       }));
+      const predGame = pred ? games.find((x) => x.gameId === pred.gameId) : null;
+      const predictionLocked = !!(predGame && isLocked(predGame));
       let bonus = null;
-      if (settled && pred) bonus = predictionBonus(pred, games.find((x) => x.gameId === pred.gameId));
-      return { jsonBody: { round, settled, games: outGames, myPrediction: pred, bonus } };
+      if (settled && pred) bonus = predictionBonus(pred, predGame);
+      return { jsonBody: { round, settled, games: outGames, myPrediction: pred, predictionLocked, bonus } };
     } catch (err) {
       context.log('ahmaliigaPrediction failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };
