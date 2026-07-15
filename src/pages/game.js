@@ -492,9 +492,9 @@ const Stats = ({ report }) => {
 const nameKey = (s) => Array.from(new Set(String(s || "").toLocaleUpperCase("fi").split(/\s+/).filter(Boolean))).sort().join(" ");
 
 // Per-game scoring leaders (tulospalvelu "Pisteet"): goals + assists tallied per
-// player, ranked by points. Row = jersey number (left) · name / team / M+S=P
-// breakdown (stacked middle) · total points (right, tabular). Jersey numbers come
-// from the rosters (goal events carry none).
+// player, ranked by points. Row = jersey number (left) · name / team (middle, two
+// rows) · "goals + assists = total" formula (right, total in orange). Jersey numbers
+// come from the rosters (goal events carry none).
 const Scorers = ({ report, game }) => {
   const numByName = {};
   const idx = (players, side) => { for (const p of players || []) { const k = nameKey(`${p.last} ${p.first}`); if (k) numByName[`${side}|${k}`] = p.number; } };
@@ -526,19 +526,17 @@ const Scorers = ({ report, game }) => {
               <Box sx={{ flexShrink: 0, width: 34, height: 34, borderRadius: "50%", bgcolor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", display: "grid", placeItems: "center" }}>
                 <Typography sx={{ fontSize: 14, fontWeight: 800, lineHeight: 1, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{r.number != null && r.number !== "" ? r.number : "–"}</Typography>
               </Box>
-              {/* name / team / breakdown */}
+              {/* name / team (two rows) */}
               <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
                 <Typography noWrap sx={{ fontSize: 14, fontWeight: 700, color: "var(--gz-text-primary)" }}>{fullName(r.name)}</Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: "2px" }}>
-                  <Box component="img" src={logo} alt="" sx={{ width: 14, height: 14, borderRadius: "3px", objectFit: "contain", bgcolor: "#fff", p: "1px", flexShrink: 0 }} />
-                  <Typography noWrap sx={{ fontSize: 12, color: "var(--gz-text-tertiary)" }}>{team}</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: "3px" }}>
+                  <Box component="img" src={logo} alt="" sx={{ width: 15, height: 15, borderRadius: "3px", objectFit: "contain", bgcolor: "#fff", p: "1px", flexShrink: 0 }} />
+                  <Typography noWrap sx={{ fontSize: 13, color: "var(--gz-text-tertiary)" }}>{team}</Typography>
                 </Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", mt: "2px" }}>{r.g} + {r.a} = {r.p}</Typography>
               </Box>
-              {/* total points */}
-              <Box sx={{ flexShrink: 0, textAlign: "right", minWidth: 40 }}>
-                <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 30, lineHeight: 1, color: "var(--color-primary)", fontVariantNumeric: "tabular-nums", transform: "translateY(var(--font-display-shift))" }}>{r.p}</Typography>
-                <Typography sx={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--gz-text-tertiary)", mt: "1px" }}>pistettä</Typography>
+              {/* points as a formula: maalit + syötöt = total (total in orange) */}
+              <Box component="span" sx={{ flexShrink: 0, fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: "var(--gz-text-secondary)" }}>
+                {r.g} + {r.a} = <Box component="span" sx={{ color: "var(--color-primary)" }}>{r.p}</Box>
               </Box>
             </Box>
           );
