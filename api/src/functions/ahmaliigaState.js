@@ -36,7 +36,9 @@ app.http('ahmaliigaState', {
           season: season.rowKey,
           name: season.name,
           simMode: !!season.simMode,
-          simDate: season.simDate || null,
+          // fall back to the current round's start so the countdown works even
+          // before the clock has been stepped for the first time
+          simDate: season.simDate || (season.simMode && cur ? cur.startDate : null),
           budget: season.budget,
           squadSize: season.squadSize,
           maxPlayers: season.maxPlayers,

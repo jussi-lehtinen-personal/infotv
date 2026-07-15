@@ -871,12 +871,20 @@ async function resetSim(seasonId, opts = {}) {
 // real season, swap simDate → the real date and the same job settles rounds as
 // they actually end. =====
 
-// Turn the automatic stepping (cron) on/off for a season.
+// Turn the automatic stepping (cron) on/off for a season. Enabling it also seeds
+// the sim clock (at the current, first-unsettled round) if it isn't set yet, so the
+// dashboard countdown works right away.
 async function setAutoStep(seasonId, on) {
   const season = await getEntity(T.season, 'season', seasonId);
   if (!season) throw badRequest('Kausi puuttuu.');
-  await upsertEntity(T.season, { ...season, autoStep: !!on });
-  return { autoStep: !!on };
+  const patch = { ...season, autoStep: !!on };
+  if (on && !/^\d{4}-\d{2}-\d{2}$/.test(season.simDate || '')) {
+    const rounds = await getRounds(seasonId);
+    const firstUnsettled = rounds.find((j) => j.status !== 'settled') || rounds[0];
+    if (firstUnsettled) patch.simDate = firstUnsettled.startDate;
+  }
+  await upsertEntity(T.season, patch);
+  return { autoStep: !!on, simDate: patch.simDate || season.simDate || '' };
 }
 
 // Advance the sim clock by `days` and settle any round whose window has now fully
@@ -888,8 +896,10 @@ async function stepSim(seasonId, days = 1) {
   const rounds = await getRounds(seasonId);
   if (!rounds.length) return { simDate: season.simDate || '', settled: [] };
 
-  // Initialise the clock at the first round's start if unset/invalid.
-  let sim = /^\d{4}-\d{2}-\d{2}$/.test(season.simDate || '') ? season.simDate : rounds[0].startDate;
+  // Initialise the clock at the first NOT-YET-settled round's start if unset/invalid
+  // (so it picks up correctly even if some rounds were settled manually).
+  const firstUnsettled = rounds.find((j) => j.status !== 'settled') || rounds[rounds.length - 1];
+  let sim = /^\d{4}-\d{2}-\d{2}$/.test(season.simDate || '') ? season.simDate : firstUnsettled.startDate;
   const d = new Date(sim + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + Math.max(1, Number(days) || 1));
   sim = d.toISOString().slice(0, 10);
