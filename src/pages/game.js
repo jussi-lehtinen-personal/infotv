@@ -490,9 +490,17 @@ const Stats = ({ report }) => {
   );
 };
 
-// Per-game scoring leaders: goals + assists tallied per player, ranked by points.
-// Built from the goal events (scorer +1 goal, each assist +1 assist; point = both).
+// order-independent name key (scorer "SALONEN Jooa" ↔ roster last "Salonen" + first).
+const nameKey = (s) => Array.from(new Set(String(s || "").toLocaleUpperCase("fi").split(/\s+/).filter(Boolean))).sort().join(" ");
+
+// Per-game scoring leaders (tulospalvelu "Pisteet" style): goals + assists tallied
+// per player, ranked by points, each as jersey-circle + "M + S = P" + number/name +
+// team. Jersey numbers come from the rosters (goal events carry none).
 const Scorers = ({ report, game }) => {
+  const numByName = {};
+  const idx = (players, side) => { for (const p of players || []) { const k = nameKey(`${p.last} ${p.first}`); if (k) numByName[`${side}|${k}`] = p.number; } };
+  if (report.rosters) { idx(report.rosters.home && report.rosters.home.players, "home"); idx(report.rosters.away && report.rosters.away.players, "away"); }
+
   const tally = {};
   const add = (side, name, isGoal) => {
     const key = `${side}|${name}`;
@@ -503,30 +511,34 @@ const Scorers = ({ report, game }) => {
     if (gl.scorer && gl.scorer.name) add(gl.side, gl.scorer.name, true);
     for (const as of gl.assists || []) if (as) add(gl.side, as, false);
   }
-  const rows = Object.values(tally).map((r) => ({ ...r, p: r.g + r.a }))
+  const rows = Object.values(tally).map((r) => ({ ...r, p: r.g + r.a, number: numByName[`${r.side}|${nameKey(r.name)}`] }))
     .sort((a, b) => b.p - a.p || b.g - a.g || String(a.name).localeCompare(String(b.name)));
   if (!rows.length) return null;
-  const colSx = { flex: "0 0 30px", textAlign: "center", fontVariantNumeric: "tabular-nums" };
   return (
     <Box sx={{ mt: 3 }}>
       <Box sx={sectionTitleSx}>Pistepörssi</Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.75, pb: 0.5, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--gz-text-tertiary)" }}>
-        <Box component="span" sx={{ flex: "0 0 20px" }} />
-        <Box component="span" sx={{ flex: "1 1 auto" }}>Pelaaja</Box>
-        <Box component="span" sx={colSx}>M</Box>
-        <Box component="span" sx={colSx}>S</Box>
-        <Box component="span" sx={{ ...colSx, color: "var(--color-primary)" }}>P</Box>
-      </Box>
       <Box sx={{ display: "flex", flexDirection: "column" }}>
-        {rows.map((r, i) => (
-          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.75, py: "7px", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-            <Box component="img" src={r.side === "home" ? game.home_logo : game.away_logo} alt="" sx={{ ...logoSx(20, "2px"), boxShadow: "none" }} />
-            <Box component="span" sx={{ flex: "1 1 auto", minWidth: 0, color: "var(--gz-text-primary)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fullName(r.name)}</Box>
-            <Box component="span" sx={{ ...colSx, color: "var(--gz-text-secondary)", fontWeight: 700 }}>{r.g}</Box>
-            <Box component="span" sx={{ ...colSx, color: "var(--gz-text-secondary)", fontWeight: 700 }}>{r.a}</Box>
-            <Box component="span" sx={{ ...colSx, color: "var(--color-primary)", fontWeight: 800 }}>{r.p}</Box>
-          </Box>
-        ))}
+        {rows.map((r, i) => {
+          const logo = r.side === "home" ? game.home_logo : game.away_logo;
+          const team = splitTeamName((r.side === "home" ? game.home : game.away) || "").main;
+          return (
+            <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.75, py: 1.25, borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+              <Box sx={{ flexShrink: 0, width: 52, height: 52, borderRadius: "50%", bgcolor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", display: "grid", placeItems: "center" }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 23, lineHeight: 1, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", transform: "translateY(var(--font-display-shift))" }}>{r.number != null && r.number !== "" ? r.number : "–"}</Typography>
+              </Box>
+              <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: "var(--gz-text-secondary)" }}>
+                  {r.g} + {r.a} = <Box component="span" sx={{ color: "var(--color-primary)", fontSize: 16 }}>{r.p}</Box>
+                </Typography>
+                <Typography noWrap sx={{ fontSize: 14, fontWeight: 700, color: "var(--gz-text-primary)", mt: "1px" }}>{fullName(r.name)}</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: "3px" }}>
+                  <Box component="img" src={logo} alt="" sx={{ width: 15, height: 15, borderRadius: "3px", objectFit: "contain", bgcolor: "#fff", p: "1px", flexShrink: 0 }} />
+                  <Typography noWrap sx={{ fontSize: 12, color: "var(--gz-text-tertiary)" }}>{team}</Typography>
+                </Box>
+              </Box>
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );
