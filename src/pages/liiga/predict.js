@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, Button, Select, MenuItem, Alert } from "@mui/material";
-import { LuGoal, LuTrophy, LuTarget, LuStar, LuClock } from "react-icons/lu";
-import { Screen, PageHead, EmptyState, Loading, CardAvatar, shortDate } from "./_shared";
+import { LuGoal, LuTrophy, LuTarget, LuStar, LuClock, LuLock } from "react-icons/lu";
+import { Screen, PageHead, EmptyState, Loading, CardAvatar, shortDate, IconCircle } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
 // Veikkaa ottelu — bonus tiers, a match dropdown + match card, and two score
@@ -54,6 +54,13 @@ const GameOption = ({ g }) => (
     </Box>
   </Box>
 );
+
+// Info row for the locked-prediction view (icon + label + optional right value).
+const lockedBoxSx = {
+  display: "flex", alignItems: "center", gap: 1.5, px: 1.75, py: 1.5,
+  borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)",
+  border: "1px solid var(--color-surface-border)",
+};
 
 const StepLabel = ({ children, sx }) => (
   <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", ...sx }}>
@@ -215,7 +222,7 @@ export default function LiigaPredict() {
       </Box>
 
       {/* 2. score */}
-      <StepLabel sx={{ mb: 1.25 }}>2. Veikkaa lopputulos</StepLabel>
+      {!locked && <StepLabel sx={{ mb: 1.25 }}>2. Veikkaa lopputulos</StepLabel>}
       {settled ? (
         <Box sx={{ textAlign: "center", py: 1 }}>
           {isSavedGame ? (
@@ -227,13 +234,30 @@ export default function LiigaPredict() {
           )}
         </Box>
       ) : locked ? (
-        <Box sx={{ textAlign: "center", py: 1 }}>
-          <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>
-            {isSavedGame
-              ? `Veikkasit ${data.myPrediction.homeGoals}–${data.myPrediction.awayGoals} · lukittu tälle jaksolle`
-              : "Peli on päättynyt — et voi veikata tätä ottelua."}
-          </Typography>
-        </Box>
+        isSavedGame ? (
+          <>
+            <Stack spacing={1.25}>
+              <Box sx={lockedBoxSx}>
+                <IconCircle icon={LuLock} size={40} />
+                <Typography sx={{ flex: 1, fontWeight: 700, color: "text.primary", lineHeight: 1.3 }}>Veikkaus lukittu tälle jaksolle</Typography>
+              </Box>
+              <Box sx={lockedBoxSx}>
+                <IconCircle icon={LuTrophy} size={40} />
+                <Typography sx={{ flex: 1, fontWeight: 700, color: "text.primary" }}>Veikkauksesi</Typography>
+                <Box component="span" sx={{ fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 22, color: "primary.main" }}>
+                  {data.myPrediction.homeGoals} – {data.myPrediction.awayGoals}
+                </Box>
+              </Box>
+            </Stack>
+            <Typography sx={{ textAlign: "center", color: "text.disabled", mt: 2, fontSize: 13 }}>
+              Pisteet ratkeavat jakson päätyttyä.
+            </Typography>
+          </>
+        ) : (
+          <Box sx={{ textAlign: "center", py: 1 }}>
+            <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>Peli on päättynyt — et voi veikata tätä ottelua.</Typography>
+          </Box>
+        )
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.25, rowGap: 0.75 }}>
           <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1, "& .MuiSelect-select": scoreSelectSx }} MenuProps={menuProps}>
