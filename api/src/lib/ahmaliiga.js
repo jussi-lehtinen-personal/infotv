@@ -184,8 +184,9 @@ async function getSquad(userId) {
 // player/goalie cards, sum of prices ≤ budget, captain in the squad. Lock-in: kept
 // cards retain their buyPrice; new cards cost the current price. ≤ transfersPerRound
 // card swaps per round (the first-ever build is free). Throws badRequest on any
-// violation. NOTE: the Lineups per-game freeze (rolling lock) is wired in M2 with
-// the settlement poller + game schedule; here we just store the current squad.
+// violation. ROLLING LOCK: already-started games of the round are frozen (with the
+// pre-edit squad) before the edit applies, so an edit only affects not-yet-started
+// games; the current squad is otherwise overwritten.
 async function saveSquad(userId, cardIds, captainId, nickname) {
   const season = await getActiveSeason();
   if (!season) throw badRequest('Kausi ei ole käynnissä.');
@@ -207,6 +208,14 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const rounds = await getRounds(season.rowKey);
   const curRound = activeRoundNo(season, rounds);
   const prev = await getSquad(userId);
+
+  // Rolling lock: before applying this edit, freeze any game of the current round
+  // that has ALREADY started, keeping the PRE-edit squad for it — so you can't swap
+  // a card/captain for a game in progress and have it count. Not-yet-started games
+  // stay editable. Snapshots are insert-once, so the earliest freeze wins.
+  if (prev && prev.cards && prev.cards.length) {
+    try { await freezeStartedGames(season, curRound, userId, prev.cards.map((c) => c.id), prev.captainId); } catch (e) { /* best-effort */ }
+  }
 
   // Money-in-hand: `bank` is stored and moves per transaction — selling a card
   // credits its CURRENT price, buying one debits the current price (so a price rise
@@ -349,11 +358,14 @@ async function settleRound(seasonId, round) {
   // LIVE: compute this round's results from tulospalvelu (games + box scores) and
   // persist them into AhmaliigaResults — replaces the offline loadResults. Robust:
   // if the runtime compute fails or comes back empty (worker down, games not synced),
-  // fall back to whatever is already stored so settlement never breaks.
+  // fall back to whatever is already stored so settlement never breaks. `perGame`
+  // (per-game card points) drives the rolling-lock attribution; null → aggregate.
+  let perGame = null, liveGames = null;
   try {
     const live = await computeRoundResults(seasonId, round);
     if (live && live.results && Object.keys(live.results).length) {
       await writeRoundResults(seasonId, round, live.results, live.reasons);
+      perGame = live.perGame; liveGames = live.gameList;
     }
   } catch (e) { /* keep existing AhmaliigaResults */ }
   const resJ = await getResults(seasonId, round);
@@ -363,7 +375,7 @@ async function settleRound(seasonId, round) {
   const managers = await listManagers();
 
   // prediction bonus inputs for this round
-  const games = await getRoundGames(seasonId, round);
+  const games = liveGames || await getRoundGames(seasonId, round);
   const gameMap = {};
   for (const g of games) gameMap[g.gameId] = g;
   const predRows = await listByPartition(T.predictions, `${seasonId}|${round}`);
@@ -373,34 +385,59 @@ async function settleRound(seasonId, round) {
   const ownerCount = {};
   const roundRows = [];
   for (const m of managers) {
-    // reuse a previously frozen lineup so re-settle is stable
     const existing = await getEntity(T.scores, `${seasonId}|${round}`, m.userId);
-    let ids, captainId, penalty = 0;
-    if (existing && existing.cards) {
-      try { const p = JSON.parse(existing.cards); ids = p.ids; captainId = p.captainId; penalty = Number(existing.penalty) || 0; } catch { ids = null; }
+    const sq = await getSquad(m.userId);
+    if ((!sq || !sq.cards.length) && !(existing && existing.cards)) continue;
+    const curIds = sq ? sq.cards.map((c) => c.id) : [];
+    const curCaptain = sq ? sq.captainId : null;
+
+    // Rolling lock: the round is being finalised → freeze a snapshot for EVERY game
+    // still unfrozen (current squad = the squad at those kickoffs, since no later
+    // edit froze them). After this every game has an immutable snapshot → scoring
+    // and re-settle read only snapshots, never the (possibly moved-on) current squad.
+    if (curIds.length) {
+      try { await freezeStartedGames(seasonRow, round, m.userId, curIds, curCaptain, games, true); } catch (e) { /* best-effort */ }
     }
-    if (!ids) {
-      const sq = await getSquad(m.userId);
-      if (!sq || !sq.cards.length) continue;
-      ids = sq.cards.map((c) => c.id); captainId = sq.captainId;
-      // extra transfers beyond the free allowance cost points — but only count
-      // transfers actually made IN this round (else a stale count from an earlier
-      // round would wrongly penalise a manager who didn't touch their squad).
-      const usedThisRound = Number(sq.roundNo) === round ? (sq.transfersUsedThisRound || 0) : 0;
-      penalty = ECON.transferPenalty * Math.max(0, usedThisRound - ECON.transfersPerRound);
+    const lineups = await getLineupsMap(seasonId, m.userId);
+
+    const breakdown = {}; let total = 0;
+    if (perGame) {
+      // Score each game against the squad frozen at ITS kickoff (captain 2× per game).
+      const owned = new Set();
+      for (const g of games) {
+        const pg = perGame[g.gameId]; if (!pg) continue;
+        const { ids, captainId } = effectiveSquad(g, lineups, curIds, curCaptain);
+        for (const id of ids) {
+          owned.add(id);
+          const pts = pg[id]; if (!pts) continue;
+          const eff = id === captainId ? pts * 2 : pts;
+          breakdown[id] = (breakdown[id] || 0) + eff; total += eff;
+        }
+      }
+      for (const id of owned) ownerCount[id] = (ownerCount[id] || 0) + 1;
+    } else {
+      // Fallback (no per-game data): aggregate scoring with the current/frozen squad.
+      let ids = curIds, captainId = curCaptain;
+      if (existing && existing.cards) { try { const p = JSON.parse(existing.cards); if (p.ids) { ids = p.ids; captainId = p.captainId; } } catch { /* keep */ } }
+      for (const id of ids) {
+        const pts = resJ[id] || 0; const eff = id === captainId ? pts * 2 : pts;
+        breakdown[id] = eff; total += eff;
+        ownerCount[id] = (ownerCount[id] || 0) + 1;
+      }
     }
-    let total = 0; const breakdown = {};
-    for (const id of ids) {
-      const pts = resJ[id] || 0;
-      const eff = id === captainId ? pts * 2 : pts;
-      breakdown[id] = eff; total += eff;
-      ownerCount[id] = (ownerCount[id] || 0) + 1;
-    }
+
+    // Transfer penalty: reuse the frozen value on re-settle (the current squad may
+    // have moved to a later round), else compute from transfers made this round.
+    let penalty = 0;
+    if (existing && existing.penalty != null && existing.penalty !== '') penalty = Number(existing.penalty) || 0;
+    else if (sq && Number(sq.roundNo) === round) penalty = ECON.transferPenalty * Math.max(0, (sq.transfersUsedThisRound || 0) - ECON.transfersPerRound);
+
     const pred = predMap[m.userId];
     const pbonus = pred ? predictionBonus(pred, gameMap[pred.gameId]) : 0;
     if (pbonus) { breakdown._predict = pbonus; total += pbonus; }
     if (penalty) { breakdown._transfers = -penalty; total -= penalty; }
-    roundRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids, captainId, breakdown, penalty });
+    for (const k of Object.keys(breakdown)) breakdown[k] = Math.round(breakdown[k] * 10) / 10;
+    roundRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids: curIds, captainId: curCaptain, breakdown, penalty });
   }
   roundRows.sort((a, b) => b.total - a.total);
   roundRows.forEach((r, i) => { r.rank = i + 1; });
@@ -426,12 +463,14 @@ async function settleRound(seasonId, round) {
   for (const r of roundRows) {
     if (wasSettled || !humanIds.has(r.userId)) continue;
     const msgs = [{ kind: 'round', title: `Jakso ${round + 1} ratkaistu`, body: `Sijoituit sijalle ${r.rank}.`, points: r.total }];
-    if (r.captainId && cardMap[r.captainId]) {
-      const capPts = Math.round((resJ[r.captainId] || 0) * 2 * 10) / 10;
+    if (r.captainId && cardMap[r.captainId] && r.breakdown[r.captainId]) {
+      const capPts = Math.round((r.breakdown[r.captainId] || 0) * 10) / 10; // already ×2
       msgs.push({ kind: 'captain', title: `Kapteeni: ${cardMap[r.captainId].name}`, body: `Toi ${capPts} p (2×).`, points: capPts });
     }
+    // best card = the manager's highest-scoring card this round (from their actual,
+    // rolling-lock breakdown — captains excluded from the raw compare via the raw pts)
     let best = null;
-    for (const id of r.ids) { const p = resJ[id] || 0; if (!best || p > best.p) best = { id, p }; }
+    for (const [id, p] of Object.entries(r.breakdown)) { if (id.startsWith('_')) continue; if (!best || p > best.p) best = { id, p }; }
     if (best && best.p > 0 && cardMap[best.id]) msgs.push({ kind: 'best', title: `Paras korttisi: ${cardMap[best.id].name}`, body: `Toi ${best.p} p tässä jaksossa.`, points: best.p });
     if (predMap[r.userId]) {
       const pb = r.breakdown._predict || 0;
@@ -640,6 +679,68 @@ async function getRoundGames(seasonId, round) {
   })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
+// ===== ROLLING LOCK (Phase 3): a game's deadline = its kickoff. A manager's squad
+// for a game is the snapshot frozen at that game's kickoff, else the current squad
+// (no snapshot ⇒ no edit happened after the kickoff ⇒ the current squad IS what
+// stood at kickoff). Snapshots are insert-once = immutable → re-settle is stable. =====
+
+// A game's kickoff key for the Lineups snapshot — sortable + table-safe: date-time
+// with the space→T and colons dropped ("2026-01-15 18:30" → "2026-01-15T1830").
+const kickoffKey = (date) => String(date || '').trim().replace(' ', 'T').replace(/:/g, '');
+
+// Has a game kicked off? Sim (day-granular) → its day ≤ simDate; live → kickoff ≤ now.
+function gameStarted(game, season) {
+  const simDate = season && season.simMode ? season.simDate : null;
+  const day = String(game.date || '').slice(0, 10);
+  if (simDate) return !!day && day <= simDate;
+  return new Date(String(game.date || '').replace(' ', 'T')).getTime() <= Date.now();
+}
+
+// One frozen snapshot per (manager, kickoff moment). Insert-once — never overwrite,
+// so the squad as it stood at a game's kickoff stays immutable.
+async function freezeLineup(seasonId, userId, key, kickoff, round, ids, captainId) {
+  const pk = `${seasonId}|${userId}`;
+  if (await getEntity(T.lineups, pk, key)) return false;
+  await upsertEntity(T.lineups, {
+    partitionKey: pk, rowKey: key, kickoff: kickoff || '', round,
+    cards: JSON.stringify(ids || []), captainId: captainId || '', frozenAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+// Freeze games of `round` that have no snapshot yet for this manager, using the
+// given squad. Lazily on edit → only ALREADY-STARTED games (pre-edit squad); at
+// settlement → `all` freezes every game (the round is being finalised) so re-settle
+// reads only snapshots.
+async function freezeStartedGames(season, round, userId, ids, captainId, gamesArg, all) {
+  const games = gamesArg || (await getRoundGames(season.rowKey, round));
+  let n = 0;
+  for (const g of games) {
+    if (!all && !gameStarted(g, season)) continue;
+    if (await freezeLineup(season.rowKey, userId, kickoffKey(g.date), g.date, round, ids, captainId)) n++;
+  }
+  return n;
+}
+
+// All of a manager's frozen snapshots for a season → { kickoffKey: {ids, captainId} }.
+async function getLineupsMap(seasonId, userId) {
+  const rows = await listByPartition(T.lineups, `${seasonId}|${userId}`);
+  const map = {};
+  for (const r of rows) {
+    let ids = []; try { ids = JSON.parse(r.cards || '[]'); } catch { ids = []; }
+    map[r.rowKey] = { ids, captainId: r.captainId || null };
+  }
+  return map;
+}
+
+// The effective squad for one game: the snapshot frozen at its kickoff, else the
+// fallback (current) squad.
+function effectiveSquad(game, lineupsMap, fallbackIds, fallbackCaptain) {
+  const snap = lineupsMap[kickoffKey(game.date)];
+  if (snap) return { ids: snap.ids || [], captainId: snap.captainId || null };
+  return { ids: fallbackIds || [], captainId: fallbackCaptain || null };
+}
+
 // ===== LIVE (Phase 2): compute results at runtime from tulospalvelu instead of a
 // precomputed results-<season>.json. See scoring.js + roundResults.js. =====
 
@@ -702,7 +803,14 @@ async function computeRoundResults(seasonId, round) {
   const reports = {};
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
   const { results, reasons } = computeRoundPoints({ games, reports });
-  return { results, reasons, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
+  // Per-game card points too, so settlement can attribute each game to the squad
+  // frozen at ITS kickoff (rolling lock).
+  const perGame = {};
+  for (const g of games) {
+    const rep = reports[g.gameId];
+    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {} }).results;
+  }
+  return { results, reasons, perGame, gameList: games, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
 }
 
 // Safety gate before switching settlement over: compare the runtime engine to the
@@ -754,16 +862,20 @@ async function jaksoProgress(seasonId, round, userId) {
 
   const ids = squad.cards.map((c) => c.id);
   const captainId = squad.captainId;
+  // Rolling lock: an already-played game scores against the squad frozen at ITS
+  // kickoff (else the current squad) — so live points match what settlement awards.
+  const lineups = await getLineupsMap(seasonId, userId);
 
   // Live points: run the locked scoring per played game (so we get a per-game figure
-  // for the timeline), take the squad's cards, apply the captain 2×, and sum.
+  // for the timeline), take that game's effective squad, apply the captain 2×, sum.
   const perGame = {};
   let livePoints = 0;
   for (const g of playedGames) {
     const rep = reports[g.gameId];
     const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {} });
+    const eff = effectiveSquad(g, lineups, ids, captainId);
     let gPts = 0;
-    for (const id of ids) { const p = results[id]; if (p) gPts += id === captainId ? p * 2 : p; }
+    for (const id of eff.ids) { const p = results[id]; if (p) gPts += id === eff.captainId ? p * 2 : p; }
     gPts = Math.round(gPts * 10) / 10;
     if (gPts) { perGame[g.gameId] = gPts; livePoints += gPts; }
   }
