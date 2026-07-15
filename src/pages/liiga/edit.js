@@ -8,7 +8,7 @@ import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
   LuStar,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog, BAND_LABEL, TrendTag } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
@@ -167,7 +167,7 @@ export default function LiigaEdit() {
             borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)",
             border: `1px solid ${isCap ? "rgba(249,115,22,0.4)" : "var(--color-surface-border)"}` }}>
       <Box sx={{ position: "relative", flexShrink: 0, display: "flex" }}>
-        <RingAvatar card={c} size={44} />
+        <RingAvatar card={c} size={52} />
         {isCap && (
           <Box sx={{ position: "absolute", bottom: -3, left: -3, width: 18, height: 18, borderRadius: "50%",
                 bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>
@@ -176,7 +176,15 @@ export default function LiigaEdit() {
         )}
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{c.name}</Typography>
+        {/* players: first name on top line, surname below → 3-line card like the market */}
+        {c.kind === "team" ? (
+          <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{c.name}</Typography>
+        ) : (
+          playerNameLines(c.name).map((ln, i) => (
+            <Typography key={i} noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ln}</Typography>
+          ))
+        )}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.25, minWidth: 0, overflow: "hidden" }}>
           <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.3 }}>{bandSub(c)}</Typography>
           {(c.trend === "up" || c.trend === "down") && (
