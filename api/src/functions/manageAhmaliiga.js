@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, loadResults, loadGames, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -30,25 +30,6 @@ app.http('manageAhmaliiga', {
         return { jsonBody: { ok: true, ...result } };
       }
 
-      if (action === 'loadResults') {
-        if (!body.results || typeof body.results !== 'object') {
-          return { status: 400, jsonBody: { error: 'results puuttuu.' } };
-        }
-        const season = await getActiveSeason();
-        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
-        const result = await loadResults(season.rowKey, body.results, body.reasons);
-        return { jsonBody: { ok: true, ...result } };
-      }
-
-      if (action === 'loadGames') {
-        if (!body.games || typeof body.games !== 'object') {
-          return { status: 400, jsonBody: { error: 'games puuttuu.' } };
-        }
-        const season = await getActiveSeason();
-        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
-        const result = await loadGames(season.rowKey, body.games);
-        return { jsonBody: { ok: true, ...result } };
-      }
 
       if (action === 'seedBots') {
         const season = await getActiveSeason();

@@ -81,12 +81,11 @@ export default function LiigaAdmin() {
               border: "1px solid var(--color-surface-border)", px: 2, py: 1, mb: 2 }}>
           <Row k="Kausi" v={s.season} />
           <Row k="Sim-päivä" v={s.simDate || "—"} />
-          <Row k="Automaatti" v={s.autoStep ? "PÄÄLLÄ (1 pv / tunti)" : "pois"} />
+          <Row k="Automaatti" v={s.autoStep ? "PÄÄLLÄ" : "pois"} />
           <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
           <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
-          <Row k="Tulokset ladattu" v={s.resultsLoaded ? "kyllä" : "EI"} />
-          <Row k="Ottelut ladattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
+          <Row k="Pelit synkattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
         </Box>
       ) : (
         <Alert severity="warning" sx={{ mb: 2 }}>Kausi ei ole käynnissä. Aja ensin siemennys koneelta.</Alert>
@@ -97,7 +96,7 @@ export default function LiigaAdmin() {
       <Stack spacing={1.25}>
         {/* Sim clock — step the replay a day/week, or let the hourly cron run it */}
         <AdminBtn icon={s && s.autoStep ? LuZap : LuClock}
-                  label={s && s.autoStep ? "Automaatti: PÄÄLLÄ — sammuta" : "Käynnistä automaatti (1 pv / tunti)"}
+                  label={s && s.autoStep ? "Automaatti: PÄÄLLÄ — sammuta" : "Käynnistä automaatti"}
                   busy={busy === "setAuto"} disabled={!s}
                   onClick={() => run("setAuto", s && s.autoStep ? "Automaatti sammutettu" : "Automaatti käynnistetty", null, { on: !(s && s.autoStep) }, "setAuto")} />
         <AdminBtn icon={LuClock} label="Steppaa 1 päivä"
@@ -133,9 +132,9 @@ export default function LiigaAdmin() {
                   onClick={() => run("resetAll", "Kaikki nollattu", "Nollataanko KAIKKI? Tämä tyhjentää lisäksi kaikki joukkueet (budjetit täyteen), veikkaukset ja botit. Ihmiskäyttäjät säilyvät mutta menettävät joukkueensa. Kortit ja tulokset säilyvät.")} />
       </Stack>
 
-      {s && !s.resultsLoaded && (
+      {s && !s.gamesLoaded && (
         <Typography variant="caption" sx={{ display: "block", mt: 2, color: "text.disabled" }}>
-          Tulokset ladataan kerran koneelta: <code>node tools/sim.js setup</code>. Sen jälkeen kaikki hoituu näistä napeista.
+          Aja ensin <b>Synkkaa pelit</b> (hakee otteluohjelman workerista). Tulokset lasketaan tulospalvelusta automaattisesti kun jakso ratkeaa — ei esiseedattua dataa.
         </Typography>
       )}
     </Screen>
