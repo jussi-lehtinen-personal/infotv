@@ -65,7 +65,7 @@ export default function LiigaTimeline() {
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
         <YCell value={summary && summary.settled ? summary.total : "—"} unit="pistettä" accent />
         <YCell value={summary && summary.settled ? (summary.managerCount ? `${summary.rank}/${summary.managerCount}` : `${summary.rank}`) : "—"} unit="sijoitus" />
-        <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="korttia" />
+        <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="korttia pelannut" />
       </Stack>
 
       {/* Timeline */}
