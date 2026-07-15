@@ -103,12 +103,19 @@ export default function LiigaHome() {
       </Box>
 
       {/* Running round — countdown + progress + your live points so far this jakso
-          (from the games already played; final tally at settle) */}
+          (from the games already played; final tally at settle). The whole card is a
+          button to the jakso timeline. */}
       {round && (
-        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
-              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2 }}>
-          <Eyebrow sx={{ mb: 1.25 }}>Käynnissä oleva jakso</Eyebrow>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+        <ButtonBase onClick={() => nav("/ahmaliiga/timeline")}
+          sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
+              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2,
+              "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
+          <Stack direction="row" sx={{ alignItems: "center", mb: 1.25 }}>
+            <Eyebrow sx={{ flex: 1, minWidth: 0 }}>Käynnissä oleva jakso</Eyebrow>
+            <Box component="span" sx={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 0.25, color: "text.disabled", fontSize: 12, fontWeight: 700 }}>Aikajana <LuChevronRight size={14} /></Box>
+          </Stack>
+          <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
               <IconCircle icon={LuCalendarDays} size={44} />
               <Box sx={{ minWidth: 0 }}>
@@ -140,7 +147,7 @@ export default function LiigaHome() {
               <Typography sx={{ flexShrink: 0, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 34, lineHeight: 1, color: "primary.main" }}>{progress.livePoints}</Typography>
             </Box>
           )}
-        </Box>
+        </ButtonBase>
       )}
 
       {/* Seuraavat tapahtumat — YOUR cards' next games + jakso end, link to timeline */}
