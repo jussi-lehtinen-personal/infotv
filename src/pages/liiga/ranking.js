@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuChevronRight, LuClipboardList } from "react-icons/lu";
-import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar } from "./_shared";
+import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
 // Ranking — leaderboard (current round / whole season) + a "Kaikki jaksot" tab that
@@ -17,7 +17,8 @@ const TABS = [
 
 const ManagerAvatar = ({ avatar, nickname, size }) => {
   const [err, setErr] = useState(false);
-  if (!avatar || err) return <CardAvatar card={{ kind: "player", name: nickname }} size={size} />;
+  // Nicknames are Firstname-Surname → natural-order initials ("Lasse Ketvell" → "LK").
+  if (!avatar || err) return <CardAvatar card={{ kind: "player", name: nickname }} size={size} label={initialsNatural(nickname)} />;
   return (
     <Box component="img" src={avatar} alt="" onError={() => setErr(true)}
       sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", objectPosition: "center",

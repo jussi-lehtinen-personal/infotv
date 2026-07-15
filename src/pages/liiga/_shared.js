@@ -21,6 +21,16 @@ export const initials = (name) => {
   return (parts[parts.length - 1].charAt(0) + parts[0].charAt(0)).toLocaleUpperCase("fi");
 };
 
+// Initials in READING order (first word + last word) for a natural-order display
+// name / nickname → "Lasse Ketvell" → "LK". (Card player names are SURNAME-first,
+// so they use `initials` above instead; manager nicknames use this.)
+export const initialsNatural = (name) => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].charAt(0).toLocaleUpperCase("fi");
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toLocaleUpperCase("fi");
+};
+
 // Short badge for a team card: the age (U15) or ED / N — the tiny crest looked bad.
 export const teamAbbr = (name) => {
   const s = String(name || "").trim();
@@ -33,14 +43,14 @@ export const teamAbbr = (name) => {
 
 // Avatar for a card: the player's Jopox photo if we have one, else a text badge —
 // teams show ED / N / U15, players their initials. Body font, optically centred.
-export const CardAvatar = ({ card, size }) => {
+export const CardAvatar = ({ card, size, label: labelOverride }) => {
   if (card && card.photo) {
     return <Box component="img" src={card.photo} alt=""
                 sx={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", objectPosition: "top", flexShrink: 0,
                       bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />;
   }
   const isTeam = card && card.kind === "team";
-  const label = isTeam ? teamAbbr(card && card.name) : initials(card && card.name);
+  const label = labelOverride || (isTeam ? teamAbbr(card && card.name) : initials(card && card.name));
   return (
     <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0,
                display: "flex", alignItems: "center", justifyContent: "center",
