@@ -78,7 +78,7 @@ export function buildEvents(state, myKeys, opts) {
     .map((g) => ({
       type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate),
       // shape the box score page (/gamezone/game/:id) expects via router state
-      game: { id: g.gameId, date: g.date, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId,
+      game: { id: g.gameId, date: g.date, level: g.level, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId,
         home: g.home, away: g.away, home_logo: g.homeLogo, away_logo: g.awayLogo, home_goals: g.homeGoals, away_goals: g.awayGoals },
     }))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
