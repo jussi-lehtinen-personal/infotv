@@ -149,8 +149,11 @@ export default function LiigaPredict() {
   const { settled, games } = data;
   // Once the game I predicted has been played, my whole jakso veikkaus is frozen —
   // lock the picker to that game so it can't be moved to another upcoming match.
-  const frozen = !settled && !!data.predictionLocked;
-  const shownId = frozen && data.myPrediction ? data.myPrediction.gameId : gameId;
+  // Derive it from MY prediction game's own `locked` flag (robust) + the server hint.
+  const myPredId = data.myPrediction && data.myPrediction.gameId;
+  const myPredGame = myPredId ? games.find((g) => g.gameId === myPredId) : null;
+  const frozen = !settled && (!!(myPredGame && myPredGame.locked) || !!data.predictionLocked);
+  const shownId = frozen && myPredId ? myPredId : gameId;
   const game = games.find((g) => g.gameId === shownId) || games[0];
   const isSavedGame = savedId === game.gameId;
   const locked = frozen || (!settled && !!game.locked);
