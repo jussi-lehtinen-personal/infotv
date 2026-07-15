@@ -32,12 +32,15 @@ export function gameTeamKey(g) {
   return age + (col ? ` ${col.charAt(0).toLocaleUpperCase("fi")}${col.slice(1)}` : "");
 }
 
+// A squad card's team-card key: team card id = "T:<teamKey>"; player card `sub` = its team.
+export const cardTeamKey = (c) => (c.kind === "team" ? String(c.id || "").replace(/^T:/, "") : String(c.sub || ""));
+// The set of teams the squad "owns" — used to filter events to your own cards.
+export const squadTeamKeys = (squadCards) => new Set((squadCards || []).map(cardTeamKey).filter(Boolean));
+
 // How many of the squad's cards had a game that's already been PLAYED this jakso.
-// Team card id = "T:<teamKey>"; player card `sub` = its teamKey.
 export function playedCardCount(squadCards, games, simDate) {
   const playedKeys = new Set((games || []).filter((g) => !isUpcoming(g.date, simDate)).map(gameTeamKey));
-  const keyOf = (c) => (c.kind === "team" ? String(c.id || "").replace(/^T:/, "") : String(c.sub || ""));
-  return (squadCards || []).filter((c) => playedKeys.has(keyOf(c))).length;
+  return (squadCards || []).filter((c) => playedKeys.has(cardTeamKey(c))).length;
 }
 
 // A game hasn't happened yet if its day is after the sim day (replay) or its
@@ -63,21 +66,29 @@ export function relTime(dateStr, simDate) {
   return `${Math.max(1, Math.floor(ms / 60000))} min päästä`;
 }
 
-// Build the ordered event list (upcoming games + the jakso-end marker).
-export function buildEvents(state) {
+// Build the ordered event list. `myKeys` (a Set of the squad's team keys) filters
+// to your OWN cards' teams. With `opts.includePast`, past games are kept too (each
+// tagged `played`) so the timeline can show progress; otherwise only upcoming.
+export function buildEvents(state, myKeys, opts) {
+  const includePast = !!(opts && opts.includePast);
   const simDate = state && state.simMode ? state.simDate : null;
   const round = state && state.currentRound;
-  const events = (state && state.games ? state.games : [])
-    .filter((g) => isUpcoming(g.date, simDate))
-    .map((g) => ({ type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g) }));
-  if (round && round.endDate) events.push({ type: "end", date: `${round.endDate} 23:59`, title: "Jakson päättyy" });
-  return events.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  let games = (state && state.games ? state.games : [])
+    .filter((g) => !myKeys || myKeys.has(gameTeamKey(g)))
+    .map((g) => ({ type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate) }))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if (!includePast) games = games.filter((e) => !e.played);
+  const events = [...games];
+  // Jakso end is ALWAYS the last event (a game on the end day still comes before it).
+  if (round && round.endDate) events.push({ type: "end", date: `${round.endDate} 23:59`, title: "Jakso päättyy", played: false });
+  return events;
 }
 
 // One event row — icon + title + (relTime · date klo time) + chevron. `highlight`
 // tints it like the next-up event; `onClick` makes it a button.
 export function EventRow({ ev, simDate, highlight, onClick, sx }) {
   const Icon = ev.type === "end" ? LuTrophy : LuCalendarDays;
+  const played = !!ev.played;
   const inner = (
     <>
       <IconCircle icon={Icon} size={40}
@@ -86,7 +97,10 @@ export function EventRow({ ev, simDate, highlight, onClick, sx }) {
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{ev.title}</Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.25, minWidth: 0 }}>
-          <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, color: highlight ? "primary.main" : "text.secondary", flexShrink: 0 }}>{relTime(ev.date, simDate)}</Box>
+          <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0,
+                color: played ? "text.disabled" : highlight ? "primary.main" : "text.secondary" }}>
+            {played ? "Pelattu" : relTime(ev.date, simDate)}
+          </Box>
           <Box component="span" sx={{ fontSize: 12, color: "text.disabled", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {shortDate(ev.date)}</Box>
         </Box>
       </Box>
@@ -95,7 +109,7 @@ export function EventRow({ ev, simDate, highlight, onClick, sx }) {
   );
   const base = {
     display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", px: 1.75, py: 1.4,
-    borderRadius: "var(--radius-item)",
+    borderRadius: "var(--radius-item)", opacity: played ? 0.6 : 1,
     border: `1px solid ${highlight ? "rgba(249,115,22,0.5)" : "var(--color-surface-border)"}`,
     bgcolor: highlight ? "rgba(249,115,22,0.08)" : "var(--color-surface)", ...sx,
   };

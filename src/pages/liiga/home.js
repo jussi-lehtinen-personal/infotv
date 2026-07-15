@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
-import { buildEvents, EventRow } from "./events";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
+import { buildEvents, EventRow, squadTeamKeys } from "./events";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -73,12 +73,14 @@ export default function LiigaHome() {
   const [state, setState] = useState(null);
   const [top, setTop] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [squad, setSquad] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
     getAhmaliigaRanking("kausi").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
     getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
+    getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -127,9 +129,9 @@ export default function LiigaHome() {
         </Box>
       )}
 
-      {/* Seuraavat tapahtumat — next games + jakso end, with a link to the timeline */}
+      {/* Seuraavat tapahtumat — YOUR cards' next games + jakso end, link to timeline */}
       {round && (() => {
-        const events = buildEvents(state);
+        const events = buildEvents(state, squadTeamKeys(squad && squad.cards));
         const gameEvents = events.filter((e) => e.type === "game");
         const endEv = events.find((e) => e.type === "end");
         const shown = [...gameEvents.slice(0, 2), ...(endEv ? [endEv] : [])];

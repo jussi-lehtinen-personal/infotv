@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
 import { Screen, PageHead, Loading, StatCard } from "./_shared";
-import { buildEvents, EventRow, playedCardCount } from "./events";
+import { buildEvents, EventRow, playedCardCount, squadTeamKeys } from "./events";
 import { getAhmaliigaState, getAhmaliigaSummary, getMySquad } from "../../lib/ahmaliigaApi";
 
 // Jakso timeline (reached from the dashboard "Näytä kaikki"): the jakso yhteenveto
@@ -34,7 +34,9 @@ export default function LiigaTimeline() {
   if (!round) return <Screen><PageHead title="Aikajana" /><Typography sx={{ color: "text.secondary" }}>Kausi ei ole käynnissä.</Typography></Screen>;
 
   const simDate = state.simMode ? state.simDate : null;
-  const events = buildEvents(state);
+  // Only my cards' events; include past ones so the timeline shows progress.
+  const events = buildEvents(state, squadTeamKeys(squad && squad.cards), { includePast: true });
+  const firstUpcoming = events.findIndex((e) => !e.played); // the "current" position
   const dl = daysLeft(round.endDate, simDate);
   const played = squad ? playedCardCount(squad.cards, state.games, simDate) : null;
   const squadSize = (squad && squad.cards && squad.cards.length) || 5;
@@ -59,21 +61,23 @@ export default function LiigaTimeline() {
       {/* Timeline */}
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1.5 }}>Tulevat tapahtumat</Typography>
       {events.map((ev, i) => {
-        const isFirst = i === 0, isLast = i === events.length - 1;
+        const isLast = i === events.length - 1;
+        const isNext = i === firstUpcoming;
+        const filled = ev.played || isNext;                 // dot is solid up to (incl.) the current position
+        const DOT = "22px";                                 // dot centre from the rail top (mt 16 + ~6)
+        const seg = (done) => ({ position: "absolute", left: "50%", ml: "-1px", width: 2, bgcolor: done ? "var(--color-primary)" : "var(--color-surface-border)" });
         return (
           <Box key={ev.type + ev.date} sx={{ display: "flex", gap: 1.25, alignItems: "stretch" }}>
-            {/* rail: connecting line + dot */}
+            {/* progress rail: line above (done if the previous event is played) + below (done if this event is played) + dot */}
             <Box sx={{ width: 20, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" }}>
-              {events.length > 1 && (
-                <Box sx={{ position: "absolute", left: "50%", ml: "-1px", width: 2, bgcolor: "var(--color-surface-border)",
-                      ...(isFirst ? { top: "22px", bottom: 0 } : isLast ? { top: 0, height: "22px" } : { top: 0, bottom: 0 }) }} />
-              )}
+              {i > 0 && <Box sx={{ ...seg(events[i - 1].played), top: 0, height: DOT }} />}
+              {!isLast && <Box sx={{ ...seg(ev.played), top: DOT, bottom: 0 }} />}
               <Box sx={{ position: "relative", mt: "16px", width: 13, height: 13, borderRadius: "50%", flexShrink: 0,
-                    border: `2px solid ${isFirst ? "var(--color-primary)" : "var(--color-surface-border)"}`,
-                    bgcolor: isFirst ? "var(--color-primary)" : "var(--color-bg)" }} />
+                    border: `2px solid ${filled ? "var(--color-primary)" : "var(--color-surface-border)"}`,
+                    bgcolor: filled ? "var(--color-primary)" : "var(--color-bg)" }} />
             </Box>
             <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
-              <EventRow ev={ev} simDate={simDate} highlight={isFirst}
+              <EventRow ev={ev} simDate={simDate} highlight={isNext}
                 onClick={ev.type === "game" ? () => nav("/ahmaliiga/veikkaus") : undefined} />
             </Box>
           </Box>
