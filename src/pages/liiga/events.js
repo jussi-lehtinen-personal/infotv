@@ -115,10 +115,8 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
         </Box>
       </Box>
       {hasPts && (
-        <Box component="span" sx={{ flexShrink: 0, px: 1, py: 0.35, borderRadius: 999, fontSize: 12.5, fontWeight: 800,
-              whiteSpace: "nowrap", color: points > 0 ? "primary.main" : "text.disabled",
-              bgcolor: points > 0 ? "rgba(249,115,22,0.12)" : "rgba(255,255,255,0.05)",
-              border: `1px solid ${points > 0 ? "rgba(249,115,22,0.35)" : "var(--color-surface-border)"}` }}>
+        <Box component="span" sx={{ flexShrink: 0, fontSize: 14, fontWeight: 800, whiteSpace: "nowrap",
+              color: points > 0 ? "primary.main" : "text.disabled" }}>
           {points > 0 ? `+${points}` : points} p
         </Box>
       )}
