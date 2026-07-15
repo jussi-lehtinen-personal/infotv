@@ -34,7 +34,12 @@ app.http('ahmaliigaState', {
       let games = [];
       if (cur) {
         const gs = await getRoundGames(season.rowKey, curNo);
-        games = gs.map((g) => ({ gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome, date: g.date, level: g.level }));
+        games = gs.map((g) => ({
+          gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome, date: g.date, level: g.level,
+          // extra fields so the client can open the box score (/gamezone/game/:id)
+          homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId,
+          homeLogo: g.homeLogo, awayLogo: g.awayLogo, homeGoals: g.homeGoals, awayGoals: g.awayGoals,
+        }));
       }
 
       let standing = null;

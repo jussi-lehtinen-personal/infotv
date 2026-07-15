@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
-import { Screen, PageHead, Loading, StatCard } from "./_shared";
+import { Screen, PageHead, Loading } from "./_shared";
 import { buildEvents, EventRow, playedCardCount, squadTeamKeys } from "./events";
 import { getAhmaliigaState, getAhmaliigaSummary, getMySquad } from "../../lib/ahmaliigaApi";
 
 // Jakso timeline (reached from the dashboard "Näytä kaikki"): the jakso yhteenveto
 // on top, then a vertical timeline of the remaining events (games + jakso end).
+
+// Yhteenveto cell: a big value with a lowercase descriptor below (no top label →
+// no "Pisteesi" + "pistettä" double-up).
+const YCell = ({ value, unit, accent }) => (
+  <Box sx={{ flex: 1, borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
+        border: "1px solid var(--color-surface-border)", py: 2, px: 1, textAlign: "center" }}>
+    <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+          fontSize: 30, lineHeight: 1, color: accent ? "primary.main" : "text.primary" }}>{value}</Typography>
+    <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "text.disabled", mt: 0.75 }}>{unit}</Typography>
+  </Box>
+);
 
 const daysLeft = (endDate, simDate) => {
   if (!endDate) return null;
@@ -52,14 +63,13 @@ export default function LiigaTimeline() {
       {/* Yhteenveto — before the timeline */}
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Yhteenveto</Typography>
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
-        <StatCard label="Pisteesi" value={summary && summary.settled ? summary.total : "—"} accent />
-        <StatCard label="Ranking" value={summary && summary.settled ? `#${summary.rank}` : "—"}
-                  sub={summary && summary.settled && summary.managerCount ? `/ ${summary.managerCount}` : null} />
-        <StatCard label="Pelannut" value={played != null ? `${played}/${squadSize}` : "—"} sub={played != null ? "korttia" : null} />
+        <YCell value={summary && summary.settled ? summary.total : "—"} unit="pistettä" accent />
+        <YCell value={summary && summary.settled ? (summary.managerCount ? `${summary.rank}/${summary.managerCount}` : `${summary.rank}`) : "—"} unit="sijoitus" />
+        <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="korttia" />
       </Stack>
 
       {/* Timeline */}
-      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1.5 }}>Tulevat tapahtumat</Typography>
+      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1.5 }}>Tapahtumat</Typography>
       {events.map((ev, i) => {
         const isLast = i === events.length - 1;
         const isNext = i === firstUpcoming;
@@ -78,7 +88,9 @@ export default function LiigaTimeline() {
             </Box>
             <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
               <EventRow ev={ev} simDate={simDate} highlight={isNext}
-                onClick={ev.type === "game" ? () => nav("/ahmaliiga/veikkaus") : undefined} />
+                onClick={ev.type !== "game" ? undefined
+                  : ev.played ? () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game } })
+                  : () => nav("/ahmaliiga/veikkaus")} />
             </Box>
           </Box>
         );
