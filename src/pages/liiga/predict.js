@@ -243,7 +243,7 @@ export default function LiigaPredict() {
               </Box>
               <Box sx={lockedBoxSx}>
                 <IconCircle icon={LuTrophy} size={40} />
-                <Typography sx={{ flex: 1, fontWeight: 700, color: "text.primary" }}>Veikkauksesi</Typography>
+                <Typography sx={{ fontWeight: 700, color: "text.primary" }}>Veikkauksesi</Typography>
                 <Box component="span" sx={{ fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 22, color: "primary.main" }}>
                   {data.myPrediction.homeGoals} – {data.myPrediction.awayGoals}
                 </Box>
