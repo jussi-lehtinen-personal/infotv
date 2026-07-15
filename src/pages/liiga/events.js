@@ -73,8 +73,11 @@ export function buildEvents(state, myKeys, opts) {
   const includePast = !!(opts && opts.includePast);
   const simDate = state && state.simMode ? state.simDate : null;
   const round = state && state.currentRound;
+  const endDay = round && round.endDate;
   let games = (state && state.games ? state.games : [])
     .filter((g) => !myKeys || myKeys.has(gameTeamKey(g)))
+    // stay within the jakso window — a game after the end belongs to the next jakso
+    .filter((g) => !endDay || String(g.date).slice(0, 10) <= endDay)
     .map((g) => ({
       type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate),
       // shape the box score page (/gamezone/game/:id) expects via router state

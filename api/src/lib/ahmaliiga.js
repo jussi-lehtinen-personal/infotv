@@ -644,7 +644,6 @@ async function getRoundGames(seasonId, round) {
 // precomputed results-<season>.json. See scoring.js + roundResults.js. =====
 
 const FRIENDLY_RE = /harjoitus/i;
-const JAKSO_MS = 2 * 7 * 86400000; // must match tools/lib/model CFG.jaksoWeeks
 
 // Schedule sync: pull the season's whole game list from the Worker (1 cached call)
 // and UPSERT into AhmaliigaGames with the team ids (needed to fetch box scores) and
@@ -657,12 +656,21 @@ async function syncSeasonGames(seasonId) {
   const games = all.filter((g) =>
     g.finished == 1 && g.home_goals != null && g.away_goals != null &&
     !FRIENDLY_RE.test(g.league || '') && !FRIENDLY_RE.test(g.level || ''));
-  if (!games.length) return { fetched: all.length, kept: 0, upserted: 0 };
-  const anchor = new Date(games.reduce((m, g) => (g.date < m ? g.date : m), games[0].date).replace(' ', 'T')).getTime();
-  const jaksoOf = (g) => Math.floor((new Date(String(g.date).replace(' ', 'T')).getTime() - anchor) / JAKSO_MS);
+  const rounds = await getRounds(seasonId);
+  // Clear first: a game can move jakso between syncs (window-based), so upsert alone
+  // would leave a stale copy in the old partition.
+  for (const r of rounds) await clearPartition(T.games, `${seasonId}|${r.rowKey}`);
+  if (!games.length) return { fetched: all.length, kept: 0, upserted: 0, skipped: 0 };
+  // Assign each game to the jakso whose WINDOW (startDate..endDate) holds its date —
+  // matches the actual jakso boundaries (a floor-from-anchor could be a day off).
+  const jaksoOfDay = (day) => { const r = rounds.find((j) => j.startDate <= day && day <= j.endDate); return r ? String(r.rowKey) : null; };
   const byPart = {};
+  let skipped = 0;
   for (const g of games) {
-    const pk = `${seasonId}|${jaksoOf(g)}`;
+    const day = String(g.date || '').slice(0, 10);
+    const j = jaksoOfDay(day);
+    if (j == null) { skipped++; continue; } // outside every jakso window
+    const pk = `${seasonId}|${j}`;
     (byPart[pk] = byPart[pk] || []).push({
       partitionKey: pk, rowKey: String(g.id),
       home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
@@ -673,7 +681,8 @@ async function syncSeasonGames(seasonId) {
     });
   }
   for (const pk of Object.keys(byPart)) await upsertBatch(T.games, byPart[pk]);
-  return { fetched: all.length, kept: games.length, upserted: games.length, jaksot: Object.keys(byPart).length };
+  const upserted = Object.values(byPart).reduce((s, a) => s + a.length, 0);
+  return { fetched: all.length, kept: games.length, upserted, skipped, jaksot: Object.keys(byPart).length };
 }
 
 // Box score for one game via the Worker (permanently KV-cached → 1 tulospalvelu
