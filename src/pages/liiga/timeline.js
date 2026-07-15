@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
+import { LuClock } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { buildEvents, EventRow, playedCardCount, squadTeamKeys } from "./events";
 import { getAhmaliigaState, getAhmaliigaSummary, getMySquad } from "../../lib/ahmaliigaApi";
@@ -18,13 +19,6 @@ const YCell = ({ value, unit, accent }) => (
     <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "text.disabled", mt: 0.75 }}>{unit}</Typography>
   </Box>
 );
-
-const daysLeft = (endDate, simDate) => {
-  if (!endDate) return null;
-  const end = new Date(endDate + "T23:59:59");
-  const now = simDate ? new Date(simDate + "T00:00:00") : new Date();
-  return Math.max(0, Math.round((end - now) / 86400000));
-};
 
 export default function LiigaTimeline() {
   const nav = useNavigate();
@@ -48,23 +42,27 @@ export default function LiigaTimeline() {
   // Only my cards' events; include past ones so the timeline shows progress.
   const events = buildEvents(state, squadTeamKeys(squad && squad.cards), { includePast: true });
   const firstUpcoming = events.findIndex((e) => !e.played); // the "current" position
-  const dl = daysLeft(round.endDate, simDate);
+  const dl = state.daysLeft;                                // single source of truth (from /state)
+  const st = state.standing;                                // your SEASON standing (consistent, not a past jakso)
   const played = squad ? playedCardCount(squad.cards, state.games, simDate) : null;
   const squadSize = (squad && squad.cards && squad.cards.length) || 5;
 
   return (
     <Screen>
       <PageHead eyebrow={`Jakso ${round.no + 1}`} title="Aikajana"
-        right={dl != null && <Box sx={{ textAlign: "right" }}>
-          <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "primary.main" }}>{dl}</Typography>
-          <Typography sx={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>päivää jäljellä</Typography>
-        </Box>} />
+        right={dl != null && (
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1.25, py: 0.6, borderRadius: 999,
+                bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
+            <Box component={LuClock} sx={{ fontSize: 14, color: "primary.main", display: "block" }} />
+            <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, color: "primary.main", whiteSpace: "nowrap" }}>{dl} pv jäljellä</Box>
+          </Box>
+        )} />
 
-      {/* Yhteenveto — before the timeline */}
+      {/* Yhteenveto — your season standing + this jakso's progress (before the timeline) */}
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Yhteenveto</Typography>
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
-        <YCell value={summary && summary.settled ? summary.total : "—"} unit="pistettä" accent />
-        <YCell value={summary && summary.settled ? (summary.managerCount ? `${summary.rank}/${summary.managerCount}` : `${summary.rank}`) : "—"} unit="sijoitus" />
+        <YCell value={st && st.seasonPts != null ? st.seasonPts : "—"} unit="pistettä" accent />
+        <YCell value={st && st.seasonRank != null ? (summary && summary.managerCount ? `${st.seasonRank}/${summary.managerCount}` : `${st.seasonRank}`) : "—"} unit="sijoitus" />
         <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="pelannut" />
       </Stack>
 

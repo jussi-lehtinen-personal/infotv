@@ -34,7 +34,7 @@ const CountUnit = ({ n, label, big }) => (
 
 // Time left to the round end. Replay (simDate) = day-granular days; live = a real
 // ticking d/h/m/s countdown to the end of the last day.
-function Countdown({ endDate, simDate }) {
+function Countdown({ endDate, simDate, daysLeft }) {
   const [, force] = useState(0);
   useEffect(() => {
     if (simDate) return undefined; // sim is day-granular → no per-second tick
@@ -43,7 +43,8 @@ function Countdown({ endDate, simDate }) {
   }, [simDate]);
 
   if (simDate) {
-    const dd = Math.max(0, Math.round((new Date(endDate + "T00:00:00") - new Date(simDate + "T00:00:00")) / 86400000));
+    // days-left comes from /state (single source of truth) so it can't disagree with the timeline
+    const dd = daysLeft != null ? daysLeft : 0;
     return <CountUnit n={dd} label={dd === 1 ? "päivä" : "päivää"} big />;
   }
   const ms = Math.max(0, new Date(endDate + "T23:59:59") - new Date());
@@ -116,7 +117,7 @@ export default function LiigaHome() {
             <VDivider />
             <Box sx={{ textAlign: "center", flexShrink: 0 }}>
               <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.75 }}>Jäljellä</Typography>
-              <Countdown endDate={round.endDate} simDate={simDate} />
+              <Countdown endDate={round.endDate} simDate={simDate} daysLeft={state.daysLeft} />
             </Box>
           </Box>
           <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mt: 2, mb: 0.75 }}>Jakson edistyminen</Typography>

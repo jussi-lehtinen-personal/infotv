@@ -21,6 +21,16 @@ app.http('ahmaliigaState', {
       let bands = {};
       try { bands = JSON.parse(season.bands || '{}'); } catch { bands = {}; }
 
+      // Days left in the current round — computed ONCE here (single source of truth)
+      // so the dashboard + timeline can never disagree. Clock = the sim date in a
+      // replay, else the wall clock; both measured at day start.
+      const clockMs = season.simMode && season.simDate
+        ? new Date(season.simDate + 'T00:00:00').getTime()
+        : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
+      const daysLeft = cur && cur.endDate
+        ? Math.max(0, Math.round((new Date(cur.endDate + 'T00:00:00').getTime() - clockMs) / 86400000))
+        : null;
+
       // The last SETTLED round (previous-round dashboard card); null before any settle.
       const settledNo = cur && cur.status === 'settled' ? curNo : Math.max(0, curNo - 1);
       const prevRow = rounds.find((j) => Number(j.rowKey) === settledNo);
@@ -68,6 +78,7 @@ app.http('ahmaliigaState', {
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,
           prevRound,
+          daysLeft,
           games,
           standing,
         },
