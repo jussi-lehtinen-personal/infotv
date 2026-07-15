@@ -39,6 +39,21 @@ const gameLabel = (g) => {
   return `${h} – ${a}`;
 };
 
+// Two-line game option (dropdown + closed value): date · series on top (small,
+// muted), the match below — so Naiset vs miehet reads at a glance, no clicking.
+const GameOption = ({ g }) => (
+  <Box sx={{ minWidth: 0, width: "100%" }}>
+    <Box sx={{ fontSize: 11, fontWeight: 600, color: "text.disabled", lineHeight: 1.3,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      {shortDate(g.date)} · {g.level}
+    </Box>
+    <Box sx={{ fontSize: 14, fontWeight: 700, color: "text.primary", lineHeight: 1.3,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      {gameLabel(g)}
+    </Box>
+  </Box>
+);
+
 const StepLabel = ({ children, sx }) => (
   <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", ...sx }}>
     {children}
@@ -168,9 +183,12 @@ export default function LiigaPredict() {
 
       {/* 1. select match */}
       <StepLabel sx={{ mb: 1 }}>1. Valitse ottelu</StepLabel>
-      <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} sx={selectSx} MenuProps={menuProps}>
+      <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} sx={selectSx} MenuProps={menuProps}
+              renderValue={(val) => <GameOption g={games.find((x) => x.gameId === val) || game} />}>
         {games.map((g) => (
-          <MenuItem key={g.gameId} value={g.gameId}>{gameLabel(g)}</MenuItem>
+          <MenuItem key={g.gameId} value={g.gameId} sx={{ whiteSpace: "normal", alignItems: "stretch" }}>
+            <GameOption g={g} />
+          </MenuItem>
         ))}
       </Select>
 
