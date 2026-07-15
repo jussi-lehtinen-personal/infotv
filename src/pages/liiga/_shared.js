@@ -31,6 +31,14 @@ export const initialsNatural = (name) => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toLocaleUpperCase("fi");
 };
 
+// Player card names are stored "SURNAME Firstname" → [firstName, surname] so a card
+// can show the FIRST name on the top line, surname below. Non-two-word names (rare)
+// return a single element.
+export const playerNameLines = (name) => {
+  const p = String(name || "").trim().split(/\s+/).filter(Boolean);
+  return p.length === 2 ? [p[1], p[0]] : [String(name || "")];
+};
+
 // Short badge for a team card: the age (U15) or ED / N — the tiny crest looked bad.
 export const teamAbbr = (name) => {
   const s = String(name || "").trim();

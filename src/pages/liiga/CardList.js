@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Box, Typography, Stack, ButtonBase, InputBase } from "@mui/material";
 import { LuSearch } from "react-icons/lu";
-import { PricePill, CardAvatar, ListCard, signed, PillButton, TrendTag } from "./_shared";
+import { PricePill, CardAvatar, ListCard, signed, PillButton, TrendTag, playerNameLines } from "./_shared";
 
 // THE one card-list component, used in three modes:
 //   browse  (Korttimarkkina) — tap opens the card details
@@ -96,9 +96,16 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
               <>
                 <CardAvatar card={c} size={52} />
                 <Box sx={{ minWidth: 0 }}>
-                  {/* name wraps to 2 lines so long names (e.g. "Rasmus Johansson") fit */}
-                  <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary",
-                        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.name}</Typography>
+                  {/* players: first name on top line, surname below (always → 3-line
+                      card with the sub row); teams keep their single short name */}
+                  {c.kind === "team" ? (
+                    <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary" }}>{c.name}</Typography>
+                  ) : (
+                    playerNameLines(c.name).map((ln, i) => (
+                      <Typography key={i} noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ln}</Typography>
+                    ))
+                  )}
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.3, minWidth: 0, overflow: "hidden" }}>
                     <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.2 }}>
                       {c.kind === "team" ? "Joukkue" : c.sub}
