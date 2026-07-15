@@ -10,9 +10,9 @@ name: Ahmaliiga sim tick
 
 on:
   schedule:
-    # NOT on the hour — the top of the hour is GitHub's busiest window and
-    # scheduled runs get delayed/skipped there. Minute 17 is off-peak.
-    - cron: "17 * * * *"
+    # 1 sim-day per 30 min (twice an hour). Off-peak minutes (:07/:37) — the top of
+    # the hour is GitHub's busiest window where scheduled runs get delayed/skipped.
+    - cron: "7,37 * * * *"
   workflow_dispatch: {} # allow a manual tick from the Actions tab
 
 jobs:
