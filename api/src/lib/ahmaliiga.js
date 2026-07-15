@@ -618,10 +618,14 @@ async function getCardDetail(seasonId, cardId) {
   const rounds = await getRounds(seasonId);
   const roundDate = {};
   for (const j of rounds) roundDate[Number(j.rowKey)] = j.endDate || j.startDate || '';
+  // Only PLAYED rounds — cardHistory can hold stale rows from an earlier full
+  // replay; without this filter the card shows points for not-yet-played rounds.
+  const settledRounds = new Set(rounds.filter((j) => j.status === 'settled').map((j) => Number(j.rowKey)));
   const histRows = await listByPartition(T.cardHistory, `${seasonId}|${cardId}`);
   const history = histRows
     .map((r) => ({ round: Number(r.rowKey), date: roundDate[Number(r.rowKey)] || '', price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
-    .sort((a, b) => a.jakso - b.jakso);
+    .filter((h) => settledRounds.has(h.round))
+    .sort((a, b) => a.round - b.round);
 
   // Match the card's team's games by age group, and by peliryhmä colour when the
   // card has one (so U15 Musta doesn't pull in U15 Valkoinen games). Falls back to
