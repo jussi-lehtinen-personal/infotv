@@ -1,11 +1,12 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getRounds, activeRoundNo, jaksoPlayedCards } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, jaksoProgress } = require('../lib/ahmaliiga');
 
-// GET /api/ahmaliiga/jaksoProgress — how many of the signed-in manager's cards have
-// ACTUALLY featured this jakso (accurate: player cards checked against box-score
-// rosters). Separate from /state because it fetches box scores.
+// GET /api/ahmaliiga/jaksoProgress — the signed-in manager's LIVE progress this
+// jakso: how many cards have actually featured (accurate: player cards checked
+// against box-score rosters), running points so far, and per-game points. Separate
+// from /state because it fetches box scores.
 app.http('ahmaliigaJaksoProgress', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -16,9 +17,9 @@ app.http('ahmaliigaJaksoProgress', {
       if (!userId) return { status: 401, jsonBody: { error: 'Kirjautuminen vaaditaan.' } };
       await ensureTables();
       const season = await getActiveSeason();
-      if (!season) return { jsonBody: { played: 0, total: 0 } };
+      if (!season) return { jsonBody: { played: 0, total: 0, livePoints: 0, perGame: {} } };
       const round = activeRoundNo(season, await getRounds(season.rowKey));
-      const res = await jaksoPlayedCards(season.rowKey, round, userId);
+      const res = await jaksoProgress(season.rowKey, round, userId);
       return { jsonBody: res };
     } catch (err) {
       context.log('ahmaliigaJaksoProgress failed: ' + (err && err.stack || err));

@@ -719,14 +719,20 @@ async function validateRoundResults(seasonId, round) {
   return { round, games, eligible, reportsFetched, cards: ids.size, mismatches: diffs.length, diffs: diffs.slice(0, 20) };
 }
 
-// How many of the manager's cards have ACTUALLY featured this jakso — accurate,
-// using box-score rosters. Team card = its team has a played game; player card =
-// the player is in the lineup of one of their team's played games (so a player
-// whose team played but who didn't dress is NOT counted). Bounded fetches (≤ the
-// squad's few player cards × their played games, KV-cached).
-async function jaksoPlayedCards(seasonId, round, userId) {
+// The signed-in manager's LIVE progress this (unsettled) jakso, from the games
+// already played — accurate, using box-score rosters + the LOCKED scoring:
+//   played/total — how many of my cards have ACTUALLY featured (team card = its
+//     team has a played game; player card = the player dressed in one of their
+//     team's played games — a player whose team played but who didn't dress is NOT
+//     counted).
+//   livePoints — my running points so far (captain 2× + prediction bonus once the
+//     predicted game is played), i.e. what I'd score if the jakso ended now.
+//   perGame — { gameId: my points from that game } so the timeline can show "+X p".
+// Bounded fetches (≤ the played player-eligible games, KV-cached, reused for both
+// the roster check and the points).
+async function jaksoProgress(seasonId, round, userId) {
   const squad = await getSquad(userId);
-  if (!squad || !squad.cards || !squad.cards.length) return { played: 0, total: 0 };
+  if (!squad || !squad.cards || !squad.cards.length) return { played: 0, total: 0, livePoints: 0, perGame: {} };
   const season = await getEntity(T.season, 'season', seasonId);
   const simDate = season && season.simMode ? season.simDate : null;
   const cardsList = await getCards(seasonId);
@@ -739,10 +745,40 @@ async function jaksoPlayedCards(seasonId, round, userId) {
   };
   const playedGames = games.filter(isPlayed);
   const playedTeamKeys = new Set(playedGames.map(teamKey));
+
+  // Box scores for the played, player-eligible games (bounded, KV-cached) — fetched
+  // ONCE and reused for BOTH the roster "did this player dress" check and the points.
+  const reports = {};
+  const eligible = playedGames.filter((g) => isPlayerEligible(teamKey(g)));
+  await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
+
+  const ids = squad.cards.map((c) => c.id);
+  const captainId = squad.captainId;
+
+  // Live points: run the locked scoring per played game (so we get a per-game figure
+  // for the timeline), take the squad's cards, apply the captain 2×, and sum.
+  const perGame = {};
+  let livePoints = 0;
+  for (const g of playedGames) {
+    const rep = reports[g.gameId];
+    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {} });
+    let gPts = 0;
+    for (const id of ids) { const p = results[id]; if (p) gPts += id === captainId ? p * 2 : p; }
+    gPts = Math.round(gPts * 10) / 10;
+    if (gPts) { perGame[g.gameId] = gPts; livePoints += gPts; }
+  }
+  // Prediction bonus counts once its predicted game has been played.
+  const pred = await getEntity(T.predictions, `${seasonId}|${round}`, userId);
+  if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {
+    const pg = playedGames.find((g) => String(g.gameId) === String(pred.gameId));
+    const pb = predictionBonus({ gameId: pred.gameId, homeGoals: pred.homeGoals, awayGoals: pred.awayGoals }, pg);
+    if (pb) livePoints += pb;
+  }
+  livePoints = Math.round(livePoints * 10) / 10;
+
   // order-independent name match (roster is Last/First; the card name may be either)
   const tokens = (s) => new Set(String(s || '').toLocaleUpperCase('fi').split(/\s+/).filter(Boolean));
   const sameName = (a, b) => { const ta = tokens(a), tb = tokens(b); if (!ta.size || ta.size !== tb.size) return false; for (const x of ta) if (!tb.has(x)) return false; return true; };
-
   let played = 0;
   for (const sc of squad.cards) {
     const card = cardMap[sc.id] || {};
@@ -754,14 +790,14 @@ async function jaksoPlayedCards(seasonId, round, userId) {
     const playerTeam = card.sub || card.teamKey || '';
     let didPlay = false;
     for (const g of playedGames.filter((x) => teamKey(x) === playerTeam)) {
-      const rep = await fetchGameReport(g);
+      const rep = reports[g.gameId];
       const roster = rep && rep.rosters ? (g.ahmaHome ? rep.rosters.home : rep.rosters.away) : null;
       const list = (roster && roster.players) || [];
       if (list.some((p) => sameName(playerName, `${p.last} ${p.first}`))) { didPlay = true; break; }
     }
     if (didPlay) played++;
   }
-  return { played, total: squad.cards.length };
+  return { played, total: squad.cards.length, livePoints, perGame };
 }
 
 // Extract the age group ("U15") from a game level or team name; '' if none.
@@ -1126,5 +1162,5 @@ module.exports = {
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, computeRoundResults, validateRoundResults, jaksoPlayedCards,
+  syncSeasonGames, computeRoundResults, validateRoundResults, jaksoProgress,
 };

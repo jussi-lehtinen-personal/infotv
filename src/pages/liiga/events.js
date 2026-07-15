@@ -92,11 +92,13 @@ export function buildEvents(state, myKeys, opts) {
   return events;
 }
 
-// One event row — icon + title + (relTime · date klo time) + chevron. `highlight`
-// tints it like the next-up event; `onClick` makes it a button.
-export function EventRow({ ev, simDate, highlight, onClick, sx }) {
+// One event row — icon + title + (relTime · date klo time) + optional points pill +
+// chevron. `highlight` tints it like the next-up event; `onClick` makes it a button.
+// `points` (a number) shows the squad's points from that played game as a "+X p" pill.
+export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
   const Icon = ev.type === "end" ? LuTrophy : LuCalendarDays;
   const played = !!ev.played;
+  const hasPts = points != null;
   const inner = (
     <>
       <IconCircle icon={Icon} size={40}
@@ -112,6 +114,14 @@ export function EventRow({ ev, simDate, highlight, onClick, sx }) {
           <Box component="span" sx={{ fontSize: 12, color: "text.disabled", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {shortDate(ev.date)}</Box>
         </Box>
       </Box>
+      {hasPts && (
+        <Box component="span" sx={{ flexShrink: 0, px: 1, py: 0.35, borderRadius: 999, fontSize: 12.5, fontWeight: 800,
+              whiteSpace: "nowrap", color: points > 0 ? "primary.main" : "text.disabled",
+              bgcolor: points > 0 ? "rgba(249,115,22,0.12)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${points > 0 ? "rgba(249,115,22,0.35)" : "var(--color-surface-border)"}` }}>
+          {points > 0 ? `+${points}` : points} p
+        </Box>
+      )}
       {onClick && <Box component={LuChevronRight} sx={{ fontSize: 18, color: "text.disabled", flexShrink: 0, display: "block" }} />}
     </>
   );

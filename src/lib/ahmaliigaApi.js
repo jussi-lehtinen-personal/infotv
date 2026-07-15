@@ -78,10 +78,11 @@ export async function getAhmaliigaSummary(round) {
   return asJson(r);
 }
 
-// How many of my cards have actually featured this jakso (accurate, box-score rosters).
+// My LIVE progress this jakso from the games already played (accurate, box-score
+// rosters): cards featured, running points so far, and per-game points.
 export async function getAhmaliigaJaksoProgress() {
   const r = await fetch("/api/ahmaliiga/jaksoProgress", { headers: authHeaders() });
-  return asJson(r); // { played, total }
+  return asJson(r); // { played, total, livePoints, perGame: { gameId: pts } }
 }
 
 // Veikkaus — current round's games + my prediction (results hidden until settled).

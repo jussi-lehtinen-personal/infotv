@@ -58,9 +58,21 @@ export default function LiigaTimeline() {
           </Box>
         )} />
 
-      {/* Yhteenveto — THIS jakso's progress. "korttia pelannut" is accurate: player
-          cards are checked against box-score rosters (only counted if they dressed). */}
+      {/* Yhteenveto — THIS jakso's LIVE progress from the games already played.
+          "korttia pelannut" is accurate (player cards checked against box-score
+          rosters); points are the running total (captain 2× + prediction bonus). */}
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Jakson eteneminen</Typography>
+      {/* Running points banner — what you'd score if the jakso ended now. */}
+      <Box sx={{ mb: 1.25, px: 2, py: 1.5, borderRadius: "var(--radius-card)", display: "flex", alignItems: "center", justifyContent: "space-between",
+            bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.35)" }}>
+        <Box>
+          <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "primary.main" }}>Pisteesi tähän mennessä</Typography>
+          <Typography sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.25 }}>Pelatuista otteluista (ei vielä laskettu jaksoon)</Typography>
+        </Box>
+        <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 38, lineHeight: 1, color: "primary.main", flexShrink: 0 }}>
+          {progress ? progress.livePoints : "—"}
+        </Typography>
+      </Box>
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
         <YCell value={progress ? `${progress.played}/${progress.total}` : "—"} unit="korttia pelannut" accent />
         <YCell value={playedGames} unit="ottelua pelattu" />
@@ -87,6 +99,8 @@ export default function LiigaTimeline() {
             </Box>
             <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
               <EventRow ev={ev} simDate={simDate} highlight={isNext}
+                points={ev.type === "game" && ev.played && progress && progress.perGame
+                  ? (progress.perGame[ev.game.id] || 0) : undefined}
                 onClick={ev.type !== "game" ? undefined
                   : ev.played ? () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game } })
                   : () => nav("/ahmaliiga/veikkaus")} />
