@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
+import { buildEvents, EventRow } from "./events";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
@@ -125,6 +126,28 @@ export default function LiigaHome() {
           </Stack>
         </Box>
       )}
+
+      {/* Seuraavat tapahtumat — next games + jakso end, with a link to the timeline */}
+      {round && (() => {
+        const events = buildEvents(state);
+        const gameEvents = events.filter((e) => e.type === "game");
+        const endEv = events.find((e) => e.type === "end");
+        const shown = [...gameEvents.slice(0, 2), ...(endEv ? [endEv] : [])];
+        if (!shown.length) return null;
+        return (
+          <Box sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1, px: 0.5 }}>
+              <Typography sx={{ flex: 1, minWidth: 0, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 20, color: "text.primary" }}>Seuraavat tapahtumat</Typography>
+              <ButtonBase onClick={() => nav("/ahmaliiga/timeline")} sx={{ flexShrink: 0, color: "text.secondary", fontSize: 13, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 0.25 }}>
+                Näytä kaikki <LuChevronRight size={15} />
+              </ButtonBase>
+            </Stack>
+            <Stack spacing={1}>
+              {shown.map((ev, i) => <EventRow key={ev.type + ev.date} ev={ev} simDate={simDate} highlight={i === 0} onClick={() => nav("/ahmaliiga/timeline")} />)}
+            </Stack>
+          </Box>
+        );
+      })()}
 
       {/* Previous round — the whole card is one button to its summary */}
       {prev && summary && summary.settled && (

@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getRounds, activeRoundNo, getStanding } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, getStanding, getRoundGames } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/state — active season + current round (admin pointer in
 // sim/replay, else by date) + config. If authed, also the manager's standing
@@ -27,6 +27,15 @@ app.http('ahmaliigaState', {
       const prevRound = prevRow && prevRow.status === 'settled'
         ? { no: Number(prevRow.rowKey), startDate: prevRow.startDate, endDate: prevRow.endDate }
         : null;
+
+      // The current round's games — powers the dashboard "Seuraavat tapahtumat"
+      // list + the jakso timeline. The client filters upcoming + computes the
+      // relative time (days / hours) against the sim or wall clock.
+      let games = [];
+      if (cur) {
+        const gs = await getRoundGames(season.rowKey, curNo);
+        games = gs.map((g) => ({ gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome, date: g.date, level: g.level }));
+      }
 
       let standing = null;
       const userId = await requireAuth(request);
@@ -54,6 +63,7 @@ app.http('ahmaliigaState', {
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,
           prevRound,
+          games,
           standing,
         },
       };
