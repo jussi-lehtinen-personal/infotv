@@ -171,7 +171,6 @@ export default function LiigaHome() {
         const top3 = top.slice(0, 3);
         const myRow = top.find((r) => r.me);
         const showMe = myRow && myRow.rank > 3;
-        const nameOf = (r) => (r.me ? `${r.nickname} (sinä)` : r.nickname);
         return (
           <>
             <SectionHeader title="Top 3 · Koko kausi" onMore={() => nav("/ahmaliiga/ranking")} />
@@ -179,14 +178,14 @@ export default function LiigaHome() {
               {top3.map((r, i) => (
                 <ListRow key={r.userId} highlight={r.me} divider={i < top3.length - 1}
                   leading={<RankBadge rank={r.rank} highlight={r.me} />}
-                  title={nameOf(r)}
+                  title={r.nickname}
                   trailing={<RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>} />
               ))}
               {showMe && (
                 <Box sx={{ borderTop: "2px solid rgba(249,115,22,0.45)" }}>
                   <ListRow highlight
                     leading={<RankBadge rank={myRow.rank} highlight />}
-                    title={nameOf(myRow)}
+                    title={myRow.nickname}
                     trailing={<RowValue color="primary.main">{myRow.total}</RowValue>} />
                 </Box>
               )}
