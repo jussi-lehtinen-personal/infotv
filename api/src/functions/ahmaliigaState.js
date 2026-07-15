@@ -21,11 +21,17 @@ app.http('ahmaliigaState', {
       let bands = {};
       try { bands = JSON.parse(season.bands || '{}'); } catch { bands = {}; }
 
+      // The last SETTLED round (previous-round dashboard card); null before any settle.
+      const settledNo = cur && cur.status === 'settled' ? curNo : Math.max(0, curNo - 1);
+      const prevRow = rounds.find((j) => Number(j.rowKey) === settledNo);
+      const prevRound = prevRow && prevRow.status === 'settled'
+        ? { no: Number(prevRow.rowKey), startDate: prevRow.startDate, endDate: prevRow.endDate }
+        : null;
+
       let standing = null;
       const userId = await requireAuth(request);
       if (userId) {
         // show the last SETTLED round's standing if the current one isn't scored yet
-        const settledNo = cur && cur.status === 'settled' ? curNo : Math.max(0, curNo - 1);
         standing = await getStanding(season.rowKey, settledNo, userId);
         standing.jakso = settledNo;
       }
@@ -47,6 +53,7 @@ app.http('ahmaliigaState', {
           currentRound: cur
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,
+          prevRound,
           standing,
         },
       };

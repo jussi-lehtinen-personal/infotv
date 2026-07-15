@@ -1,35 +1,69 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuClock, LuChevronRight, LuClipboardList } from "react-icons/lu";
-import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, AccentPanel } from "./_shared";
+import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight } from "react-icons/lu";
+import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// Ahmaliiga Dashboard — season status (rank, round points, season total), the
-// round-summary CTA, and Top 5. Real backend data; stats show "—" before the
-// first round is settled.
+// Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
+// the previous round: points + ranking + a link to its summary) and the season
+// Top 3. Real backend data.
 
-function timeLeft(endDate, simDate) {
-  if (!endDate) return "—";
-  // In a replay the clock is simDate (day-granular); live uses the wall clock.
+// "2025-09-27" → "27.9." ; with year → "27.9.2025".
+const dm = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.` : ""; };
+const dmy = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.${p[0]}` : ""; };
+const dateRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
+
+// Progress through the round window (0..100). Uses the sim clock in a replay.
+const progressPct = (startDate, endDate, simDate) => {
+  const s = new Date(startDate + "T00:00:00"), e = new Date(endDate + "T23:59:59");
+  const now = simDate ? new Date(simDate + "T12:00:00") : new Date();
+  if (!(e > s)) return 0;
+  return Math.max(0, Math.min(100, Math.round(((now - s) / (e - s)) * 100)));
+};
+
+const CountUnit = ({ n, label, big }) => (
+  <Box sx={{ textAlign: "center", minWidth: big ? 56 : 38 }}>
+    <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+          fontSize: big ? 34 : 24, lineHeight: 1, color: "text.primary" }}>{n}</Typography>
+    <Typography sx={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+          color: "text.disabled", mt: 0.4 }}>{label}</Typography>
+  </Box>
+);
+
+// Time left to the round end. Replay (simDate) = day-granular days; live = a real
+// ticking d/h/m/s countdown to the end of the last day.
+function Countdown({ endDate, simDate }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (simDate) return undefined; // sim is day-granular → no per-second tick
+    const t = setInterval(() => force((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [simDate]);
+
   if (simDate) {
-    const dd = Math.round((new Date(endDate + "T00:00:00") - new Date(simDate + "T00:00:00")) / 86400000);
-    return dd > 0 ? `${dd} pv jäljellä` : "viimeinen päivä";
+    const dd = Math.max(0, Math.round((new Date(endDate + "T00:00:00") - new Date(simDate + "T00:00:00")) / 86400000));
+    return <CountUnit n={dd} label={dd === 1 ? "päivä" : "päivää"} big />;
   }
-  const ms = new Date(endDate + "T23:59:59") - new Date();
-  if (ms <= 0) return "jakso päättynyt";
-  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000);
-  return d > 0 ? `${d} pv ${h} h jäljellä` : `${h} h jäljellä`;
+  const ms = Math.max(0, new Date(endDate + "T23:59:59") - new Date());
+  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000),
+        m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
+  return (
+    <Stack direction="row" spacing={1}>
+      <CountUnit n={d} label="päivää" />
+      <CountUnit n={h} label="tuntia" />
+      <CountUnit n={m} label="min" />
+      <CountUnit n={s} label="sek" />
+    </Stack>
+  );
 }
 
-const StatBox = ({ label, value, accent }) => (
-  <Box sx={{ flex: 1, textAlign: "center", py: 1.25 }}>
-    <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-          fontSize: 30, lineHeight: 1, color: accent ? "primary.main" : "text.primary" }}>
-      {value}
-    </Typography>
-    <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
-          color: "text.disabled", mt: 0.5 }}>{label}</Typography>
+const VDivider = () => <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "var(--color-surface-border)", mx: { xs: 1.25, sm: 2 } }} />;
+
+const StatCol = ({ label, children }) => (
+  <Box sx={{ textAlign: "center", flexShrink: 0 }}>
+    <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.75 }}>{label}</Typography>
+    {children}
   </Box>
 );
 
@@ -48,9 +82,9 @@ export default function LiigaHome() {
   }, []);
 
   const round = state && state.active ? state.currentRound : null;
-  const st = state && state.standing;
-  const roundLabel = round ? `Jakso ${round.no + 1} / ${state.roundCount}` : "Esikatselu";
-  const dash = (v) => (v == null ? "—" : v);
+  const prev = state && state.active ? state.prevRound : null;
+  const simDate = state && state.simMode ? state.simDate : null;
+  const pct = round ? progressPct(round.startDate, round.endDate, simDate) : 0;
 
   return (
     <Screen>
@@ -58,51 +92,101 @@ export default function LiigaHome() {
         <Box component="img" src="/ahmaliiga_logo.png" alt="Ahmaliiga"
              sx={{ width: "min(60vw, 220px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 1, maxWidth: 320, mx: "auto" }}>
-          Kokoa unelmajoukkueesi Ahman korteista ja kerää pisteitä joka jakso.
+          Kasaa joukkue, tee viikkoveikkaukset ja kerää pisteitä.
         </Typography>
       </Box>
 
-      <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
-            border: "1px solid var(--color-surface-border)", overflow: "hidden", mb: 2 }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 2, pt: 1.5 }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}><Eyebrow>{roundLabel}</Eyebrow></Box>
-          {round && (
-            <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", color: "text.secondary", flexShrink: 0 }}>
-              <LuClock size={14} />
-              <Box component="span" sx={{ fontSize: 12, fontWeight: 600 }}>
-                {round.status === "settled"
-                  ? "Ratkaistu"
-                  : timeLeft(round.endDate, state.simMode ? state.simDate : null)}
+      {/* Running round — countdown + progress (no points until it settles) */}
+      {round && (
+        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
+              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2 }}>
+          <Eyebrow sx={{ mb: 1.25 }}>Käynnissä oleva jakso</Eyebrow>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
+              <IconCircle icon={LuCalendarDays} size={44} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+                      fontSize: 22, lineHeight: 1, color: "text.primary" }}>Jakso {round.no + 1}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.4 }}>{dateRange(round.startDate, round.endDate)}</Typography>
               </Box>
-            </Stack>
-          )}
-        </Stack>
-        <Stack direction="row" divider={<Box sx={{ width: "1px", bgcolor: "var(--color-surface-border)" }} />}>
-          <StatBox label="Sijoitus" value={st && st.seasonRank != null ? `${st.seasonRank}.` : "—"} accent />
-          <StatBox label="Jakson pisteet" value={dash(st && st.roundPts)} />
-          <StatBox label="Kausi yht." value={dash(st && st.seasonPts)} />
-        </Stack>
-      </Box>
+            </Box>
+            <VDivider />
+            <Box sx={{ textAlign: "center", flexShrink: 0 }}>
+              <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.75 }}>Jäljellä</Typography>
+              <Countdown endDate={round.endDate} simDate={simDate} />
+            </Box>
+          </Box>
+          <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mt: 2, mb: 0.75 }}>Jakson edistyminen</Typography>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+            <Box sx={{ flex: 1, height: 10, borderRadius: 999, bgcolor: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+              <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #f97316, #e4610f)" }} />
+            </Box>
+            <Box component="span" sx={{ flexShrink: 0, fontWeight: 800, fontSize: 15, color: "text.primary" }}>{pct}%</Box>
+          </Stack>
+        </Box>
+      )}
 
+      {/* Previous round — points + ranking + link to its summary */}
+      {prev && summary && summary.settled && (
+        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
+              border: "1px solid var(--color-surface-border)", p: 2, mb: 2.5 }}>
+          <Eyebrow sx={{ mb: 1.25, color: "text.disabled" }}>Edellinen jakso</Eyebrow>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
+              <IconCircle icon={LuTrophy} size={44} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+                      fontSize: 22, lineHeight: 1, color: "text.primary" }}>Jakso {prev.no + 1}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.4 }}>{dateRange(prev.startDate, prev.endDate)}</Typography>
+              </Box>
+            </Box>
+            <VDivider />
+            <StatCol label="Pisteet">
+              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "text.primary" }}>{summary.total}</Typography>
+            </StatCol>
+            <VDivider />
+            <StatCol label="Ranking">
+              <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 0.4 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "primary.main" }}>#{summary.rank}</Typography>
+                {summary.managerCount != null && <Typography sx={{ fontSize: 12, color: "text.disabled" }}>/ {summary.managerCount}</Typography>}
+              </Box>
+            </StatCol>
+          </Box>
+          <ButtonBase onClick={() => nav("/ahmaliiga/round")}
+            sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%", textAlign: "left", mt: 2, px: 1.5, py: 1.25,
+                  borderRadius: "var(--radius-item)", bgcolor: "rgba(255,255,255,0.03)", border: "1px solid var(--color-surface-border)",
+                  "&:hover": { borderColor: "primary.main" } }}>
+            <IconCircle icon={LuClipboardList} size={38} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: "text.primary", lineHeight: 1.25 }}>Näytä edellisen jakson data</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>Tilastot, pisteet ja sarjataulukko</Typography>
+            </Box>
+            <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
+          </ButtonBase>
+        </Box>
+      )}
+
+      {/* Season Top 3 */}
       {top && top.length > 0 && (() => {
         const top3 = top.slice(0, 3);
         const myRow = top.find((r) => r.me);
         const showMe = myRow && myRow.rank > 3;
+        const nameOf = (r) => (r.me ? `${r.nickname} (sinä)` : r.nickname);
         return (
           <>
-            <SectionHeader title="Top 3" onMore={() => nav("/ahmaliiga/ranking")} />
+            <SectionHeader title="Top 3 · Koko kausi" onMore={() => nav("/ahmaliiga/ranking")} />
             <ListCard sx={{ mb: 2.5 }}>
               {top3.map((r, i) => (
                 <ListRow key={r.userId} highlight={r.me} divider={i < top3.length - 1}
                   leading={<RankBadge rank={r.rank} highlight={r.me} />}
-                  title={r.nickname}
+                  title={nameOf(r)}
                   trailing={<RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>} />
               ))}
               {showMe && (
                 <Box sx={{ borderTop: "2px solid rgba(249,115,22,0.45)" }}>
                   <ListRow highlight
                     leading={<RankBadge rank={myRow.rank} highlight />}
-                    title={myRow.nickname}
+                    title={nameOf(myRow)}
                     trailing={<RowValue color="primary.main">{myRow.total}</RowValue>} />
                 </Box>
               )}
@@ -110,28 +194,6 @@ export default function LiigaHome() {
           </>
         );
       })()}
-
-      {/* Previous round summary — kept last, at the bottom of the page. */}
-      {summary && summary.settled && (
-        <AccentPanel onClick={() => nav("/ahmaliiga/round")}>
-          <Box sx={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
-                bgcolor: "rgba(249,115,22,0.18)" }}>
-            <Box component={LuClipboardList} sx={{ fontSize: 24, color: "primary.main" }} />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
-              Jakso {summary.round + 1} ratkaistu
-            </Typography>
-            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-                  fontSize: 22, lineHeight: 1.1, color: "text.primary" }}>Jakson yhteenveto</Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Sait {summary.total} pistettä · katso mistä ne tulivat
-            </Typography>
-          </Box>
-          <Box component={LuChevronRight} sx={{ color: "primary.main", fontSize: 22, flexShrink: 0 }} />
-        </AccentPanel>
-      )}
-
     </Screen>
   );
 }
