@@ -383,8 +383,11 @@ async function settleRound(seasonId, round) {
       const sq = await getSquad(m.userId);
       if (!sq || !sq.cards.length) continue;
       ids = sq.cards.map((c) => c.id); captainId = sq.captainId;
-      // extra transfers beyond the free allowance cost points
-      penalty = ECON.transferPenalty * Math.max(0, (sq.transfersUsedThisRound || 0) - ECON.transfersPerRound);
+      // extra transfers beyond the free allowance cost points — but only count
+      // transfers actually made IN this round (else a stale count from an earlier
+      // round would wrongly penalise a manager who didn't touch their squad).
+      const usedThisRound = Number(sq.roundNo) === round ? (sq.transfersUsedThisRound || 0) : 0;
+      penalty = ECON.transferPenalty * Math.max(0, usedThisRound - ECON.transfersPerRound);
     }
     let total = 0; const breakdown = {};
     for (const id of ids) {
