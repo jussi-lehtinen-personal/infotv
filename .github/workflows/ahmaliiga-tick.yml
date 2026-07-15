@@ -1,0 +1,26 @@
+name: Ahmaliiga sim tick
+
+# Steps the Ahmaliiga REPLAY forward one sim-day each hour (a compressed stand-in
+# for wall-clock). Hits /api/runAhmaliigaTick, which only advances when the active
+# season has autoStep on (flipped from the admin panel) and auto-settles any round
+# whose 2-week window has passed. Groundwork for the real-season settlement job.
+#
+# Requires repo secret AHMALIIGA_CRON_KEY (same value as the SWA app-setting).
+# See memory: project_ahmaliiga_plan.
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly, on the hour (UTC)
+  workflow_dispatch: {} # allow a manual tick from the Actions tab
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Advance the sim clock one day
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --retry-delay 10 \
+            -X POST "https://gamezone.kiekko-ahma.fi/api/runAhmaliigaTick" \
+            -H "x-ahmaliiga-key: ${{ secrets.AHMALIIGA_CRON_KEY }}"
+          echo

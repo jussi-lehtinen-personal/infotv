@@ -101,8 +101,10 @@ async function seedSeason(seed) {
     name: `Kausi ${seasonId}`, pricedFrom: String(seed.pricedFrom || ''),
     budget: seed.budget ?? ECON.budget, squadSize: seed.squadSize ?? ECON.squadSize,
     maxPlayers: seed.maxPlayers ?? ECON.maxPlayers, bands: JSON.stringify(seed.bands || {}),
-    // Sim/replay: an admin-advanced round pointer (settlement moves it forward).
+    // Sim/replay: an admin-advanced round pointer (settlement moves it forward) +
+    // a sim clock (day-stepped by the cron; starts at the first round).
     currentRound: 0, simMode: true,
+    simDate: (seed.jaksot && seed.jaksot[0] && seed.jaksot[0].startDate) || '', autoStep: false,
   });
 
   for (const j of seed.jaksot || []) {
@@ -815,8 +817,10 @@ async function deleteNotification(userId, id) {
 async function resetSim(seasonId, opts = {}) {
   const seasonRow = await getEntity(T.season, 'season', seasonId);
   if (!seasonRow) throw badRequest('Kausi puuttuu.');
-  await upsertEntity(T.season, { ...seasonRow, currentRound: 0 });
   const rounds = await getRounds(seasonId);
+  // Rewind the pointer + sim clock (back to the first round's start), auto off.
+  await upsertEntity(T.season, { ...seasonRow, currentRound: 0,
+    simDate: (rounds[0] && rounds[0].startDate) || '', autoStep: false });
   for (const j of rounds) if (j.status && j.status !== 'open') await upsertEntity(T.rounds, { ...j, status: 'open' });
   const cards = await getCards(seasonId);
   await upsertBatch(T.cards, cards.map((c) => {
@@ -850,6 +854,52 @@ async function resetSim(seasonId, opts = {}) {
     wiped = { ...wiped, squads: squads.length, bots: bots.length };
   }
   return { reset: true, rounds: rounds.length, wiped };
+}
+
+// ===== Sim clock — advance a REPLAY one day at a time (a compressed stand-in for
+// wall-clock; a GitHub Actions cron bumps it hourly). When the sim date passes a
+// round's end, that round settles automatically. This is the M5 groundwork: for a
+// real season, swap simDate → the real date and the same job settles rounds as
+// they actually end. =====
+
+// Turn the automatic stepping (cron) on/off for a season.
+async function setAutoStep(seasonId, on) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) throw badRequest('Kausi puuttuu.');
+  await upsertEntity(T.season, { ...season, autoStep: !!on });
+  return { autoStep: !!on };
+}
+
+// Advance the sim clock by `days` and settle any round whose window has now fully
+// passed (ascending). Idempotent-friendly: settlement itself is idempotent and the
+// clock only moves forward. Auto-stepping switches off once the last round settles.
+async function stepSim(seasonId, days = 1) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) throw badRequest('Kausi puuttuu.');
+  const rounds = await getRounds(seasonId);
+  if (!rounds.length) return { simDate: season.simDate || '', settled: [] };
+
+  // Initialise the clock at the first round's start if unset/invalid.
+  let sim = /^\d{4}-\d{2}-\d{2}$/.test(season.simDate || '') ? season.simDate : rounds[0].startDate;
+  const d = new Date(sim + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + Math.max(1, Number(days) || 1));
+  sim = d.toISOString().slice(0, 10);
+
+  // Settle each not-yet-settled round whose end has passed; stop at the first that
+  // hasn't ended (rounds are ordered).
+  const settled = [];
+  for (const j of rounds) {
+    if (j.status === 'settled') continue;
+    if (j.endDate && j.endDate <= sim) { await settleRound(seasonId, Number(j.rowKey)); settled.push(Number(j.rowKey)); }
+    else break;
+  }
+
+  // settleRound rewrote currentRound; re-read, store the new date, and stop auto
+  // once everything is settled.
+  const after = await getEntity(T.season, 'season', seasonId);
+  const allSettled = (await getRounds(seasonId)).every((j) => j.status === 'settled');
+  await upsertEntity(T.season, { ...after, simDate: sim, autoStep: allSettled ? false : after.autoStep });
+  return { simDate: sim, settled, done: allSettled };
 }
 
 // Recompute every squad's money-in-hand bank from its holdings (budget minus the
@@ -887,6 +937,8 @@ async function getSimStatus(seasonId) {
     bots: managers.filter((m) => m.isBot).length,
     resultsLoaded,
     gamesLoaded,
+    simDate: (season && season.simDate) || '',
+    autoStep: !!(season && season.autoStep),
   };
 }
 
@@ -894,7 +946,7 @@ module.exports = {
   ECON, T, badRequest,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, getSimStatus, enrichPhotos,
+  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification,

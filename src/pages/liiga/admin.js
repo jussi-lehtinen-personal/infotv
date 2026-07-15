@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -40,11 +40,11 @@ export default function LiigaAdmin() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const run = async (action, label, confirmText) => {
+  const run = async (action, label, confirmText, extra, busyKey) => {
     if (confirmText && !window.confirm(confirmText)) return;
-    setBusy(action); setMsg(null);
+    setBusy(busyKey || action); setMsg(null);
     try {
-      const r = await ahmaliigaAdmin(action);
+      const r = await ahmaliigaAdmin(action, extra);
       setMsg({ type: "success", text: `${label} ✓ ${JSON.stringify(r).replace(/[{}"]/g, "").slice(0, 120)}` });
       load();
     } catch (e) {
@@ -80,6 +80,8 @@ export default function LiigaAdmin() {
         <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
               border: "1px solid var(--color-surface-border)", px: 2, py: 1, mb: 2 }}>
           <Row k="Kausi" v={s.season} />
+          <Row k="Sim-päivä" v={s.simDate || "—"} />
+          <Row k="Automaatti" v={s.autoStep ? "PÄÄLLÄ (1 pv / tunti)" : "pois"} />
           <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
           <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
@@ -93,6 +95,17 @@ export default function LiigaAdmin() {
       {msg && <Alert severity={msg.type} sx={{ mb: 2 }} onClose={() => setMsg(null)}>{msg.text}</Alert>}
 
       <Stack spacing={1.25}>
+        {/* Sim clock — step the replay a day/week, or let the hourly cron run it */}
+        <AdminBtn icon={s && s.autoStep ? LuZap : LuClock}
+                  label={s && s.autoStep ? "Automaatti: PÄÄLLÄ — sammuta" : "Käynnistä automaatti (1 pv / tunti)"}
+                  busy={busy === "setAuto"} disabled={!s}
+                  onClick={() => run("setAuto", s && s.autoStep ? "Automaatti sammutettu" : "Automaatti käynnistetty", null, { on: !(s && s.autoStep) }, "setAuto")} />
+        <AdminBtn icon={LuClock} label="Steppaa 1 päivä"
+                  busy={busy === "step1"} disabled={!s}
+                  onClick={() => run("step", "Steppasi 1 pv", null, { days: 1 }, "step1")} />
+        <AdminBtn icon={LuCalendarDays} label="Steppaa 1 viikko"
+                  busy={busy === "step7"} disabled={!s}
+                  onClick={() => run("step", "Steppasi 1 vk", null, { days: 7 }, "step7")} />
         <AdminBtn icon={LuPlay} label={s ? `Ratkaise jakso ${s.currentRound + 1}` : "Ratkaise jakso"}
                   busy={busy === "settleRound"} disabled={!s} onClick={() => run("settleRound", "Jakso ratkaistu")} />
         <AdminBtn icon={LuFastForward} label="Ratkaise koko kausi loppuun"

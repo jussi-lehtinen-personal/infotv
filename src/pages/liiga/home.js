@@ -9,8 +9,13 @@ import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary } from "../
 // round-summary CTA, and Top 5. Real backend data; stats show "—" before the
 // first round is settled.
 
-function timeLeft(endDate) {
+function timeLeft(endDate, simDate) {
   if (!endDate) return "—";
+  // In a replay the clock is simDate (day-granular); live uses the wall clock.
+  if (simDate) {
+    const dd = Math.round((new Date(endDate + "T00:00:00") - new Date(simDate + "T00:00:00")) / 86400000);
+    return dd > 0 ? `${dd} pv jäljellä` : "viimeinen päivä";
+  }
   const ms = new Date(endDate + "T23:59:59") - new Date();
   if (ms <= 0) return "jakso päättynyt";
   const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000);
@@ -65,9 +70,9 @@ export default function LiigaHome() {
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", color: "text.secondary", flexShrink: 0 }}>
               <LuClock size={14} />
               <Box component="span" sx={{ fontSize: 12, fontWeight: 600 }}>
-                {state.simMode
-                  ? (round.status === "settled" ? "Ratkaistu" : "Käynnissä")
-                  : timeLeft(round.endDate)}
+                {round.status === "settled"
+                  ? "Ratkaistu"
+                  : timeLeft(round.endDate, state.simMode ? state.simDate : null)}
               </Box>
             </Stack>
           )}
