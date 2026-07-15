@@ -938,6 +938,12 @@ export default {
       });
     }
 
+    // Diagnostic: last Ahmaliiga cron result (public — only a timestamp + status).
+    if (new URL(request.url).pathname === "/ahmaliigaCronStatus") {
+      const v = env.GAME_IDS ? await env.GAME_IDS.get("ahmaliiga:lastCron") : null;
+      return json(v ? JSON.parse(v) : { none: true });
+    }
+
     if (env.PROXY_KEY && request.headers.get("x-proxy-key") !== env.PROXY_KEY) {
       return json({ error: "forbidden" }, 403);
     }
@@ -990,12 +996,22 @@ export default {
   // active season has autoStep on, so this is a no-op otherwise.
   async scheduled(event, env, ctx) {
     const key = env.AHMALIIGA_CRON_KEY;
-    if (!key) return;
-    ctx.waitUntil(
-      fetch("https://gamezone.kiekko-ahma.fi/api/runAhmaliigaTick", {
-        method: "POST",
-        headers: { "x-ahmaliiga-key": key },
-      }).catch(() => {}) // best effort; the next tick retries
-    );
+    const rec = (status, body) => {
+      if (!env.GAME_IDS) return Promise.resolve();
+      return env.GAME_IDS.put("ahmaliiga:lastCron",
+        JSON.stringify({ at: new Date().toISOString(), status, body: String(body).slice(0, 200), hasKey: !!key })).catch(() => {});
+    };
+    if (!key) { ctx.waitUntil(rec("no-key", "")); return; }
+    ctx.waitUntil((async () => {
+      try {
+        const r = await fetch("https://gamezone.kiekko-ahma.fi/api/runAhmaliigaTick", {
+          method: "POST",
+          headers: { "x-ahmaliiga-key": key },
+        });
+        await rec(r.status, await r.text());
+      } catch (e) {
+        await rec("fetch-error", String((e && e.message) || e));
+      }
+    })());
   },
 };
