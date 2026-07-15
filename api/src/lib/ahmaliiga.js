@@ -268,6 +268,18 @@ async function getResults(seasonId, round) {
   return out;
 }
 
+// Persist a round's results into AhmaliigaResults (the runtime replacement for the
+// offline loadResults). Clears the round first so a stale card can't linger.
+async function writeRoundResults(seasonId, round, results, reasons) {
+  await clearPartition(T.results, `${seasonId}|${round}`);
+  const ents = Object.keys(results || {}).map((id) => ({
+    partitionKey: `${seasonId}|${round}`, rowKey: id,
+    pts: Number(results[id]) || 0, reason: (reasons && reasons[id]) || '',
+  }));
+  if (ents.length) await upsertBatch(T.results, ents);
+  return ents.length;
+}
+
 // {cardId: {pts, reason}} for a round — used by the summary "why" lines.
 async function getResultsFull(seasonId, round) {
   const rows = await listByPartition(T.results, `${seasonId}|${round}`);
@@ -330,6 +342,16 @@ async function settleRound(seasonId, round) {
   const seasonRow = await getEntity(T.season, 'season', seasonId);
   if (!seasonRow) throw badRequest('Kausi puuttuu.');
   const rounds = await getRounds(seasonId);
+  // LIVE: compute this round's results from tulospalvelu (games + box scores) and
+  // persist them into AhmaliigaResults — replaces the offline loadResults. Robust:
+  // if the runtime compute fails or comes back empty (worker down, games not synced),
+  // fall back to whatever is already stored so settlement never breaks.
+  try {
+    const live = await computeRoundResults(seasonId, round);
+    if (live && live.results && Object.keys(live.results).length) {
+      await writeRoundResults(seasonId, round, live.results, live.reasons);
+    }
+  } catch (e) { /* keep existing AhmaliigaResults */ }
   const resJ = await getResults(seasonId, round);
   const cards = await getCards(seasonId);
   const cardMap = {};
