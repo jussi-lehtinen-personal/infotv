@@ -158,8 +158,8 @@ export default function LiigaHome() {
                   "&:hover": { borderColor: "primary.main" } }}>
             <IconCircle icon={LuClipboardList} size={38} />
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: "text.primary", lineHeight: 1.25 }}>Näytä edellisen jakson data</Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>Tilastot, pisteet ja sarjataulukko</Typography>
+              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: "text.primary", lineHeight: 1.25 }}>Näytä edellisen jakson yhteenveto</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>Näet mistä pisteesi tulivat</Typography>
             </Box>
             <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
           </ButtonBase>
