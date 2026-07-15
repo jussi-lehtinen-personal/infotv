@@ -108,7 +108,7 @@ export default function LiigaAdmin() {
                   onClick={() => run("recomputeBanks", "Saldot korjattu")} />
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
-                  onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet ja hinnat resetoidaan. Pakat, botit ja tulokset säilyvät.")} />
+                  onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet, hinnat ja veikkaukset resetoidaan. Pakat, botit ja tulokset säilyvät.")} />
         <AdminBtn icon={LuTrash2} label="Nollaa KAIKKI (joukkueet, budjetit, botit)" danger
                   busy={busy === "resetAll"} disabled={!s}
                   onClick={() => run("resetAll", "Kaikki nollattu", "Nollataanko KAIKKI? Tämä tyhjentää lisäksi kaikki joukkueet (budjetit täyteen), veikkaukset ja botit. Ihmiskäyttäjät säilyvät mutta menettävät joukkueensa. Kortit ja tulokset säilyvät.")} />

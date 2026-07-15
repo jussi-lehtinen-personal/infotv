@@ -831,25 +831,25 @@ async function resetSim(seasonId, opts = {}) {
   }));
   for (let j = 0; j < rounds.length; j++) await clearPartition(T.scores, `${seasonId}|${j}`);
   await clearPartition(T.seasonScores, seasonId);
-  // Notifications are settlement output → clear them so a reset+re-settle starts clean.
+  // Predictions + notifications are per-round pick/settlement state → always clear
+  // on a reset so an old test's veikkaukset don't linger and re-settle themselves.
+  let predictions = 0;
+  for (const j of rounds) predictions += await clearPartition(T.predictions, `${seasonId}|${j.rowKey}`);
   const oldMsgs = await listEntities(T.messages);
   await inChunks(oldMsgs, 25, (r) => deleteEntity(T.messages, r.partitionKey, r.rowKey));
 
-  let wiped;
+  let wiped = { predictions };
   if (opts.hard) {
     // Every squad (human + bot) → gone, so teams empty + budget full + transfers reset.
     const squads = await listEntities(T.squads, "RowKey eq 'current'");
     await inChunks(squads, 25, (r) => deleteEntity(T.squads, r.partitionKey, r.rowKey));
-    // Every round's predictions.
-    let predictions = 0;
-    for (const j of rounds) predictions += await clearPartition(T.predictions, `${seasonId}|${j.rowKey}`);
     // Bot managers (human registrations kept — humans just lose their squad).
     const managers = await listEntities(T.managers, "RowKey eq 'profile'");
     const bots = managers.filter((m) => m.isBot);
     await inChunks(bots, 25, (r) => deleteEntity(T.managers, r.partitionKey, r.rowKey));
-    wiped = { squads: squads.length, predictions, bots: bots.length };
+    wiped = { ...wiped, squads: squads.length, bots: bots.length };
   }
-  return { reset: true, rounds: rounds.length, ...(wiped ? { wiped } : {}) };
+  return { reset: true, rounds: rounds.length, wiped };
 }
 
 // Recompute every squad's money-in-hand bank from its holdings (budget minus the
