@@ -22,10 +22,10 @@ app.http('ahmaliigaPrediction', {
       const cur = rounds.find((j) => Number(j.rowKey) === round);
       const settled = !!(cur && cur.status === 'settled');
 
-      // A game locks at its kickoff: in a replay the clock is the sim date (start of
-      // the sim day), live it's the wall clock. Locked = kickoff before the clock.
+      // A game locks once it has been played. In a replay the clock is the END of the
+      // sim day (23:59 → any game that day counts as played); live it's the wall clock.
       const clockMs = season.simMode && season.simDate
-        ? new Date(season.simDate + 'T00:00:00').getTime()
+        ? new Date(season.simDate + 'T23:59:59').getTime()
         : Date.now();
       const isLocked = (g) => {
         const k = new Date(String(g && g.date || '').replace(' ', 'T')).getTime();

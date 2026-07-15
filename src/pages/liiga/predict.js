@@ -46,7 +46,7 @@ const GameOption = ({ g }) => (
     <Box sx={{ fontSize: 11, fontWeight: 600, color: "text.disabled", lineHeight: 1.3,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
       {shortDate(g.date)} · {g.level}
-      {g.locked && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}> · Alkanut</Box>}
+      {g.locked && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}> · Päättynyt</Box>}
     </Box>
     <Box sx={{ fontSize: 14, fontWeight: 700, color: "text.primary", lineHeight: 1.3,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -140,9 +140,13 @@ export default function LiigaPredict() {
   }
 
   const { settled, games } = data;
-  const game = games.find((g) => g.gameId === gameId) || games[0];
+  // Once the game I predicted has been played, my whole jakso veikkaus is frozen —
+  // lock the picker to that game so it can't be moved to another upcoming match.
+  const frozen = !settled && !!data.predictionLocked;
+  const shownId = frozen && data.myPrediction ? data.myPrediction.gameId : gameId;
+  const game = games.find((g) => g.gameId === shownId) || games[0];
   const isSavedGame = savedId === game.gameId;
-  const locked = !settled && !!game.locked; // kickoff passed → can't predict this one
+  const locked = frozen || (!settled && !!game.locked);
   const left = !settled && !locked && timeLeft(game.date);
   const hs = splitTeam(game.home, game.level, game.ahmaHome);
   const as = splitTeam(game.away, game.level, !game.ahmaHome);
@@ -185,9 +189,9 @@ export default function LiigaPredict() {
         ))}
       </Box>
 
-      {/* 1. select match */}
-      <StepLabel sx={{ mb: 1 }}>1. Valitse ottelu</StepLabel>
-      <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} sx={selectSx} MenuProps={menuProps}
+      {/* 1. select match (locked to your pick once it has been played) */}
+      <StepLabel sx={{ mb: 1 }}>{frozen ? "Veikkaamasi ottelu" : "1. Valitse ottelu"}</StepLabel>
+      <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} disabled={frozen} sx={selectSx} MenuProps={menuProps}
               renderValue={(val) => <GameOption g={games.find((x) => x.gameId === val) || game} />}>
         {games.map((g) => (
           <MenuItem key={g.gameId} value={g.gameId} disabled={!settled && g.locked} sx={{ whiteSpace: "normal", alignItems: "stretch" }}>
@@ -226,8 +230,8 @@ export default function LiigaPredict() {
         <Box sx={{ textAlign: "center", py: 1 }}>
           <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>
             {isSavedGame
-              ? `Veikkasit ${data.myPrediction.homeGoals}–${data.myPrediction.awayGoals} · lukittu`
-              : "Peli on jo alkanut — et voi enää veikata tätä ottelua."}
+              ? `Veikkasit ${data.myPrediction.homeGoals}–${data.myPrediction.awayGoals} · lukittu tälle jaksolle`
+              : "Peli on päättynyt — et voi veikata tätä ottelua."}
           </Typography>
         </Box>
       ) : (
