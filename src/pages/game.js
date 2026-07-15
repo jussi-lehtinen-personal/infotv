@@ -148,10 +148,13 @@ const BoxScore = () => {
                 <Box>
                   <Timeline report={report} />
                   <WinningShots shots={report.winningShots} game={game} />
-                  <Goalies goalies={report.goalies} game={game} />
+                  <Goalies report={report} game={game} />
                   <Footer report={report} game={game} />
                 </Box>
-                <Stats report={report} game={game} />
+                <Box>
+                  <Stats report={report} game={game} />
+                  <Scorers report={report} game={game} />
+                </Box>
                 <Rosters rosters={report.rosters} game={game} />
               </SwipeableTabs>
             </>
@@ -308,33 +311,66 @@ const EventRow = ({ e }) => {
 const goalieName = (raw) =>
   String(raw || "").split(/\s+/).map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w)).join(" ").trim();
 
-const Goalies = ({ goalies, game }) => {
+// Time-attributed goals-against per keeper (matches scoring.js / the tulospalvelu MV
+// tab): a backup coming in late isn't charged the starter's goals. Returns { name: ga }.
+function goalieGA(report, side) {
+  const t = (report.goalies || []).find((x) => x.side === side);
+  if (!t || !t.keepers || !t.keepers.length) return {};
+  const oppSide = side === "home" ? "away" : "home";
+  const conceded = (report.goals || []).filter((x) => x.side === oppSide).map((x) => toSecs(x.time));
+  const gkEv = (report.extras || []).filter((x) => x.side === side && x.kind === "gk")
+    .map((x) => ({ time: toSecs(x.time), name: x.name, sub: x.sub })).sort((a, b) => a.time - b.time);
+  const names = t.keepers.map((k) => k.name);
+  const subsIn = new Set(gkEv.filter((e) => /vaihto/i.test(e.sub)).map((e) => e.name));
+  const starter = names.find((n) => !subsIn.has(n)) || names[0];
+  const tl = [{ time: 0, who: starter }];
+  for (const e of gkEv) tl.push({ time: e.time, who: /pois/i.test(e.sub) ? null : e.name });
+  const whoAt = (tt) => { let w = tl[0].who; for (const s of tl) if (s.time <= tt) w = s.who; return w; };
+  const ga = {};
+  for (const k of t.keepers) ga[k.name] = 0;
+  for (const c of conceded) { const w = whoAt(c); if (w && ga[w] != null) ga[w] += 1; }
+  return ga;
+}
+
+const pctStr = (v) => `${(Math.round(v * 10) / 10).toString().replace(".", ",")} %`;
+
+const Goalies = ({ report, game }) => {
+  const goalies = report.goalies;
   if (!goalies || goalies.length === 0) return null;
   const ordered = [...goalies].sort((a, b) => (a.side === "home" ? 0 : 1) - (b.side === "home" ? 0 : 1));
   return (
     <Box sx={{ mb: 2 }}>
       <Box sx={sectionTitleSx}>Maalivahdit</Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {ordered.map((t, i) =>
-          (t.keepers || []).map((k, j) => {
-            const logo = t.side === "home" ? game.home_logo : t.side === "away" ? game.away_logo : null;
+        {ordered.map((t, i) => {
+          const gaMap = goalieGA(report, t.side);
+          const logo = t.side === "home" ? game.home_logo : t.side === "away" ? game.away_logo : null;
+          return (t.keepers || []).map((k, j) => {
             const per = (k.saves || []).filter((s) => Number(s.period) !== 0);
             const totEntry = (k.saves || []).find((s) => Number(s.period) === 0);
-            const total = totEntry ? totEntry.saves : per.reduce((a, s) => a + (Number(s.saves) || 0), 0);
+            const total = Number(totEntry ? totEntry.saves : per.reduce((a, s) => a + (Number(s.saves) || 0), 0)) || 0;
             const breakdown = per.map((s) => s.saves).join(" + ");
             const out = (k.out || []).filter(Boolean);
+            const shots = total + (gaMap[k.name] || 0);
+            const pct = shots > 0 ? (total / shots) * 100 : null;
             return (
               <Box key={`${i}-${j}`} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 0.25, py: 0.5 }}>
                 <Box component="img" src={logo || ""} alt="" sx={logoSx(34, "3px")} />
                 <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
                   <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)" }}>{goalieName(k.name)}</Typography>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", mt: "1px" }}>{breakdown ? `${breakdown} = ${total}` : `${total} torjuntaa`}</Typography>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", mt: "1px" }}>{breakdown ? `${breakdown} = ${total}` : `${total}`} torjuntaa</Typography>
                   {out.length > 0 && <Typography sx={{ fontSize: 12, color: "var(--gz-text-tertiary)", mt: "1px" }}>(Poissa maalilta: {out.join(", ")})</Typography>}
                 </Box>
+                {pct != null && (
+                  <Box sx={{ flexShrink: 0, textAlign: "right" }}>
+                    <Typography sx={{ fontSize: 16, fontWeight: 800, color: "var(--color-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{pctStr(pct)}</Typography>
+                    <Typography sx={{ fontSize: 11, color: "var(--gz-text-tertiary)", mt: "2px", fontVariantNumeric: "tabular-nums" }}>{shots} laukausta</Typography>
+                  </Box>
+                )}
               </Box>
             );
-          })
-        )}
+          });
+        })}
       </Box>
     </Box>
   );
@@ -450,6 +486,48 @@ const Stats = ({ report }) => {
           <StatBar home={r.home ?? 0} away={r.away ?? 0} lowerBetter={r.lowerBetter} />
         </Box>
       ))}
+    </Box>
+  );
+};
+
+// Per-game scoring leaders: goals + assists tallied per player, ranked by points.
+// Built from the goal events (scorer +1 goal, each assist +1 assist; point = both).
+const Scorers = ({ report, game }) => {
+  const tally = {};
+  const add = (side, name, isGoal) => {
+    const key = `${side}|${name}`;
+    if (!tally[key]) tally[key] = { side, name, g: 0, a: 0 };
+    if (isGoal) tally[key].g += 1; else tally[key].a += 1;
+  };
+  for (const gl of report.goals || []) {
+    if (gl.scorer && gl.scorer.name) add(gl.side, gl.scorer.name, true);
+    for (const as of gl.assists || []) if (as) add(gl.side, as, false);
+  }
+  const rows = Object.values(tally).map((r) => ({ ...r, p: r.g + r.a }))
+    .sort((a, b) => b.p - a.p || b.g - a.g || String(a.name).localeCompare(String(b.name)));
+  if (!rows.length) return null;
+  const colSx = { flex: "0 0 30px", textAlign: "center", fontVariantNumeric: "tabular-nums" };
+  return (
+    <Box sx={{ mt: 3 }}>
+      <Box sx={sectionTitleSx}>Pistepörssi</Box>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.75, pb: 0.5, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--gz-text-tertiary)" }}>
+        <Box component="span" sx={{ flex: "0 0 20px" }} />
+        <Box component="span" sx={{ flex: "1 1 auto" }}>Pelaaja</Box>
+        <Box component="span" sx={colSx}>M</Box>
+        <Box component="span" sx={colSx}>S</Box>
+        <Box component="span" sx={{ ...colSx, color: "var(--color-primary)" }}>P</Box>
+      </Box>
+      <Box sx={{ display: "flex", flexDirection: "column" }}>
+        {rows.map((r, i) => (
+          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.75, py: "7px", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+            <Box component="img" src={r.side === "home" ? game.home_logo : game.away_logo} alt="" sx={{ ...logoSx(20, "2px"), boxShadow: "none" }} />
+            <Box component="span" sx={{ flex: "1 1 auto", minWidth: 0, color: "var(--gz-text-primary)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fullName(r.name)}</Box>
+            <Box component="span" sx={{ ...colSx, color: "var(--gz-text-secondary)", fontWeight: 700 }}>{r.g}</Box>
+            <Box component="span" sx={{ ...colSx, color: "var(--gz-text-secondary)", fontWeight: 700 }}>{r.a}</Box>
+            <Box component="span" sx={{ ...colSx, color: "var(--color-primary)", fontWeight: 800 }}>{r.p}</Box>
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 };
