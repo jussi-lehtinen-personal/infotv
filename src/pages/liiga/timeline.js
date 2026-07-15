@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
-import { LuClock } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
-import { buildEvents, EventRow, playedCardCount, squadTeamKeys } from "./events";
+import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { getAhmaliigaState, getMySquad } from "../../lib/ahmaliigaApi";
 
 // Jakso timeline (reached from the dashboard "Näytä kaikki"): the jakso yhteenveto
@@ -44,27 +43,19 @@ export default function LiigaTimeline() {
   const gameEvents = events.filter((e) => e.type === "game");
   const playedGames = gameEvents.filter((e) => e.played).length;
   const upcomingGames = gameEvents.length - playedGames;
-  const played = squad ? playedCardCount(squad.cards, state.games, simDate) : null;
-  const squadSize = (squad && squad.cards && squad.cards.length) || 5;
 
   return (
     <Screen>
-      <PageHead eyebrow={`Jakso ${round.no + 1}`} title="Aikajana"
-        right={dl != null && (
-          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1.25, py: 0.6, borderRadius: 999,
-                bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
-            <Box component={LuClock} sx={{ fontSize: 14, color: "primary.main", display: "block" }} />
-            <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, color: "primary.main", whiteSpace: "nowrap" }}>{dl} pv jäljellä</Box>
-          </Box>
-        )} />
+      <PageHead eyebrow={`Jakso ${round.no + 1}`} title="Aikajana" />
 
-      {/* Yhteenveto — THIS jakso's progress only (no points/ranking: the jakso isn't
-          settled yet, so mixing in season data would be inconsistent) */}
+      {/* Yhteenveto — THIS jakso's progress only. Game-based (accurate): we can't tell
+          from the frontend whether a PLAYER card actually featured, only that its team
+          played, so a per-card "played" count would over-count player cards. */}
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Jakson eteneminen</Typography>
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
-        <YCell value={played != null ? `${played}/${squadSize}` : "—"} unit="korttia pelannut" accent />
         <YCell value={playedGames} unit="ottelua pelattu" />
         <YCell value={upcomingGames} unit="ottelua tulossa" />
+        <YCell value={dl != null ? dl : "—"} unit="päivää jäljellä" accent />
       </Stack>
 
       {/* Timeline */}
