@@ -222,17 +222,21 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   if (bank < 0) throw badRequest('Budjetti ei riitä.');
   const squadCards = cardIds.map((id) => ({ id, buyPrice: prevBuy[id] != null ? prevBuy[id] : map[id].price }));
 
-  // Transfers: any card not in the squad you STARTED this round with costs a
-  // transfer. transfersPerRound are free; extra transfers are ALLOWED but cost
-  // TRANSFER_PENALTY points each at settlement. The first build (no complete
-  // round-start squad yet) is free. Counting vs the round-start snapshot means
-  // remove+re-add can't dodge the count. The snapshot rolls when the round advances.
+  // Transfers: every card ADDED costs a transfer; removals are free. Counted
+  // CUMULATIVELY across the round (each add vs the previous save), so re-picking the
+  // same slot twice costs two transfers — you can't dodge it by editing the same
+  // slot. transfersPerRound are free; extras are ALLOWED but cost TRANSFER_PENALTY
+  // points each at settlement. The first build (round started without a complete
+  // squad) is free. The round-start snapshot rolls when the round advances.
   const roundStart = prev && prev.roundNo === curRound
     ? (Array.isArray(prev.roundStart) ? prev.roundStart : (prev.cards || []).map((c) => c.id))
     : prev ? (prev.cards || []).map((c) => c.id)
     : [];
   const startComplete = roundStart.length === squadSize;
-  const transfersUsed = startComplete ? cardIds.filter((id) => !roundStart.includes(id)).length : 0;
+  const prevIds = prev && prev.roundNo === curRound ? (prev.cards || []).map((c) => c.id) : roundStart;
+  const prevUsed = prev && prev.roundNo === curRound ? (Number(prev.transfersUsedThisRound) || 0) : 0;
+  const addsNow = cardIds.filter((id) => !prevIds.includes(id)).length; // cards brought in since the last save
+  const transfersUsed = startComplete ? prevUsed + addsNow : 0;
 
   await ensureManager(userId, nickname);
   const row = {
