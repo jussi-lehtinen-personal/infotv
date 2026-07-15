@@ -4,7 +4,7 @@ import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -75,6 +75,7 @@ export default function LiigaHome() {
   const [top, setTop] = useState(null);
   const [summary, setSummary] = useState(null);
   const [squad, setSquad] = useState(null);
+  const [progress, setProgress] = useState(null); // live points this (running) jakso
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +83,7 @@ export default function LiigaHome() {
     getAhmaliigaRanking("kausi").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
     getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
+    getAhmaliigaJaksoProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -100,7 +102,8 @@ export default function LiigaHome() {
         </Typography>
       </Box>
 
-      {/* Running round — countdown + progress (no points until it settles) */}
+      {/* Running round — countdown + progress + your live points so far this jakso
+          (from the games already played; final tally at settle) */}
       {round && (
         <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
               border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2 }}>
@@ -127,6 +130,16 @@ export default function LiigaHome() {
             </Box>
             <Box component="span" sx={{ flexShrink: 0, fontWeight: 800, fontSize: 15, color: "text.primary" }}>{pct}%</Box>
           </Stack>
+          {/* Live points so far — what you'd score if the jakso ended now */}
+          {progress && (
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 2, pt: 1.75, borderTop: "1px solid var(--color-surface-border)" }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>Pisteesi tähän mennessä</Typography>
+                <Typography sx={{ fontSize: 11, color: "text.disabled", mt: 0.25 }}>{progress.played}/{progress.total} korttia pelannut · lopullinen jakson lopussa</Typography>
+              </Box>
+              <Typography sx={{ flexShrink: 0, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 34, lineHeight: 1, color: "primary.main" }}>{progress.livePoints}</Typography>
+            </Box>
+          )}
         </Box>
       )}
 
