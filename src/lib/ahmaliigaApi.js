@@ -78,6 +78,12 @@ export async function getAhmaliigaSummary(round) {
   return asJson(r);
 }
 
+// How many of my cards have actually featured this jakso (accurate, box-score rosters).
+export async function getAhmaliigaJaksoProgress() {
+  const r = await fetch("/api/ahmaliiga/jaksoProgress", { headers: authHeaders() });
+  return asJson(r); // { played, total }
+}
+
 // Veikkaus — current round's games + my prediction (results hidden until settled).
 export async function getAhmaliigaPrediction() {
   const r = await fetch("/api/ahmaliiga/prediction", { headers: authHeaders() });

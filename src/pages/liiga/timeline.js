@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
+import { LuClock } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
-import { getAhmaliigaState, getMySquad } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getMySquad, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
 
 // Jakso timeline (reached from the dashboard "Näytä kaikki"): the jakso yhteenveto
 // on top, then a vertical timeline of the remaining events (games + jakso end).
@@ -23,11 +24,13 @@ export default function LiigaTimeline() {
   const nav = useNavigate();
   const [state, setState] = useState(undefined);
   const [squad, setSquad] = useState(null);
+  const [progress, setProgress] = useState(null); // accurate cards-played (box-score rosters)
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState(null); });
     getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
+    getAhmaliigaJaksoProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -46,16 +49,22 @@ export default function LiigaTimeline() {
 
   return (
     <Screen>
-      <PageHead eyebrow={`Jakso ${round.no + 1}`} title="Aikajana" />
+      <PageHead eyebrow={`Jakso ${round.no + 1}`} title="Aikajana"
+        right={dl != null && (
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1.25, py: 0.6, borderRadius: 999,
+                bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
+            <Box component={LuClock} sx={{ fontSize: 14, color: "primary.main", display: "block" }} />
+            <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, color: "primary.main", whiteSpace: "nowrap" }}>{dl} pv jäljellä</Box>
+          </Box>
+        )} />
 
-      {/* Yhteenveto — THIS jakso's progress only. Game-based (accurate): we can't tell
-          from the frontend whether a PLAYER card actually featured, only that its team
-          played, so a per-card "played" count would over-count player cards. */}
+      {/* Yhteenveto — THIS jakso's progress. "korttia pelannut" is accurate: player
+          cards are checked against box-score rosters (only counted if they dressed). */}
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Jakson eteneminen</Typography>
       <Stack direction="row" spacing={1.25} sx={{ mb: 3 }}>
+        <YCell value={progress ? `${progress.played}/${progress.total}` : "—"} unit="korttia pelannut" accent />
         <YCell value={playedGames} unit="ottelua pelattu" />
         <YCell value={upcomingGames} unit="ottelua tulossa" />
-        <YCell value={dl != null ? dl : "—"} unit="päivää jäljellä" accent />
       </Stack>
 
       {/* Timeline */}

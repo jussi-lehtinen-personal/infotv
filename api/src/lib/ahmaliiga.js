@@ -719,6 +719,51 @@ async function validateRoundResults(seasonId, round) {
   return { round, games, eligible, reportsFetched, cards: ids.size, mismatches: diffs.length, diffs: diffs.slice(0, 20) };
 }
 
+// How many of the manager's cards have ACTUALLY featured this jakso — accurate,
+// using box-score rosters. Team card = its team has a played game; player card =
+// the player is in the lineup of one of their team's played games (so a player
+// whose team played but who didn't dress is NOT counted). Bounded fetches (≤ the
+// squad's few player cards × their played games, KV-cached).
+async function jaksoPlayedCards(seasonId, round, userId) {
+  const squad = await getSquad(userId);
+  if (!squad || !squad.cards || !squad.cards.length) return { played: 0, total: 0 };
+  const season = await getEntity(T.season, 'season', seasonId);
+  const simDate = season && season.simMode ? season.simDate : null;
+  const cardsList = await getCards(seasonId);
+  const cardMap = {};
+  for (const c of cardsList) cardMap[c.rowKey] = c;
+  const games = await getRoundGames(seasonId, round);
+  const isPlayed = (g) => {
+    const day = String(g.date || '').slice(0, 10);
+    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
+  };
+  const playedGames = games.filter(isPlayed);
+  const playedTeamKeys = new Set(playedGames.map(teamKey));
+  // order-independent name match (roster is Last/First; the card name may be either)
+  const tokens = (s) => new Set(String(s || '').toLocaleUpperCase('fi').split(/\s+/).filter(Boolean));
+  const sameName = (a, b) => { const ta = tokens(a), tb = tokens(b); if (!ta.size || ta.size !== tb.size) return false; for (const x of ta) if (!tb.has(x)) return false; return true; };
+
+  let played = 0;
+  for (const sc of squad.cards) {
+    const card = cardMap[sc.id] || {};
+    if (card.kind === 'team') {
+      if (playedTeamKeys.has(String(sc.id).replace(/^T:/, ''))) played++;
+      continue;
+    }
+    const playerName = card.personName || String(sc.id).replace(/^P:/, '');
+    const playerTeam = card.sub || card.teamKey || '';
+    let didPlay = false;
+    for (const g of playedGames.filter((x) => teamKey(x) === playerTeam)) {
+      const rep = await fetchGameReport(g);
+      const roster = rep && rep.rosters ? (g.ahmaHome ? rep.rosters.home : rep.rosters.away) : null;
+      const list = (roster && roster.players) || [];
+      if (list.some((p) => sameName(playerName, `${p.last} ${p.first}`))) { didPlay = true; break; }
+    }
+    if (didPlay) played++;
+  }
+  return { played, total: squad.cards.length };
+}
+
 // Extract the age group ("U15") from a game level or team name; '' if none.
 function ageOf(s) { const m = String(s || '').match(/U\s*\d+/i); return m ? m[0].replace(/\s+/g, '').toUpperCase() : ''; }
 
@@ -1081,5 +1126,5 @@ module.exports = {
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, computeRoundResults, validateRoundResults,
+  syncSeasonGames, computeRoundResults, validateRoundResults, jaksoPlayedCards,
 };
