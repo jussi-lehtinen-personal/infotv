@@ -126,12 +126,15 @@ export default function LiigaHome() {
         </Box>
       )}
 
-      {/* Previous round — points + ranking + link to its summary */}
+      {/* Previous round — the whole card is one button to its summary */}
       {prev && summary && summary.settled && (
-        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
-              border: "1px solid var(--color-surface-border)", p: 2, mb: 2.5 }}>
+        <ButtonBase onClick={() => nav("/ahmaliiga/round")}
+          sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
+                borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
+                border: "1px solid var(--color-surface-border)", p: 2, mb: 2.5,
+                "&:hover": { borderColor: "primary.main" } }}>
           <Eyebrow sx={{ mb: 1.25, color: "text.disabled" }}>Edellinen jakso</Eyebrow>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
               <IconCircle icon={LuTrophy} size={44} />
               <Box sx={{ minWidth: 0 }}>
@@ -152,18 +155,17 @@ export default function LiigaHome() {
               </Box>
             </StatCol>
           </Box>
-          <ButtonBase onClick={() => nav("/ahmaliiga/round")}
-            sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%", textAlign: "left", mt: 2, px: 1.5, py: 1.25,
-                  borderRadius: "var(--radius-item)", bgcolor: "rgba(255,255,255,0.03)", border: "1px solid var(--color-surface-border)",
-                  "&:hover": { borderColor: "primary.main" } }}>
+          {/* divider, then the summary link row (icon + texts + chevron kept as-is) */}
+          <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", my: 1.75 }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%" }}>
             <IconCircle icon={LuClipboardList} size={38} />
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: "text.primary", lineHeight: 1.25 }}>Näytä edellisen jakson yhteenveto</Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>Näet mistä pisteesi tulivat</Typography>
             </Box>
             <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
-          </ButtonBase>
-        </Box>
+          </Box>
+        </ButtonBase>
       )}
 
       {/* Season Top 3 */}
