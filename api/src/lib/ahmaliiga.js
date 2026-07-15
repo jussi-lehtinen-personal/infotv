@@ -384,14 +384,16 @@ async function settleRound(seasonId, round) {
   }
 
   // Per-manager notifications (humans only) — a round-level summary from the data
-  // on hand. Deterministic RK per (round, kind) so re-settling UPSERTS, never dupes;
+  // on hand. Emitted ONLY on the FIRST settlement of a round (not on re-settle),
+  // so notifications a manager has read or deleted don't come back to life.
   // reverse-round prefix so the inbox lists the newest round first.
+  const wasSettled = rounds.some((j) => Number(j.rowKey) === round && j.status === 'settled');
   const humanIds = new Set(managers.filter((m) => !m.isBot).map((m) => m.userId));
   const nowIso = new Date().toISOString();
   const revRound = String(1000 - round).padStart(4, '0');
   const MSG_ORDER = { round: 0, captain: 1, best: 2, predict: 3, penalty: 4 };
   for (const r of roundRows) {
-    if (!humanIds.has(r.userId)) continue;
+    if (wasSettled || !humanIds.has(r.userId)) continue;
     const msgs = [{ kind: 'round', title: `Jakso ${round + 1} ratkaistu`, body: `Sijoituit sijalle ${r.rank}.`, points: r.total }];
     if (r.captainId && cardMap[r.captainId]) {
       const capPts = Math.round((resJ[r.captainId] || 0) * 2 * 10) / 10;
@@ -808,6 +810,13 @@ async function deleteNotification(userId, id) {
   return { deleted: String(id) };
 }
 
+// Remove ALL of a manager's notifications ("Tyhjennä kaikki").
+async function clearNotifications(userId) {
+  const rows = await listByPartition(T.messages, userId);
+  await inChunks(rows, 25, (r) => deleteEntity(T.messages, r.partitionKey, r.rowKey));
+  return { cleared: rows.length };
+}
+
 // Reset the replay: pointer → round 0, rounds → open, cards restored to seed
 // prices, all Scores/SeasonScores cleared. Card ownership/lastPts zeroed.
 // By default KEEPS squads, bots, managers and results (so you can just settle
@@ -949,5 +958,5 @@ module.exports = {
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
-  getNotifications, markNotificationsRead, deleteNotification,
+  getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
 };

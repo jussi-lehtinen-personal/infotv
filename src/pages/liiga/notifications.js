@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, ButtonBase } from "@mui/material";
-import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell, LuChevronRight } from "react-icons/lu";
-import { Screen, PageHead, Loading, EmptyState, ListCard, IconCircle, shortDate } from "./_shared";
-import { getAhmaliigaNotifications, deleteAhmaliigaNotification } from "../../lib/ahmaliigaApi";
+import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell, LuChevronRight, LuTrash2 } from "react-icons/lu";
+import { Screen, PageHead, Loading, EmptyState, ListCard, IconCircle, shortDate, PillButton } from "./_shared";
+import { getAhmaliigaNotifications, deleteAhmaliigaNotification, clearAhmaliigaNotifications } from "../../lib/ahmaliigaApi";
 
 // Ilmoitukset — the manager's inbox, filled by settlement (one round-summary batch
 // per settled round). Each notification is clickable: it opens the round's
@@ -54,6 +54,11 @@ export default function LiigaNotifications() {
     nav(targetOf(n));
   };
 
+  const clearAll = () => {
+    setItems([]);
+    clearAhmaliigaNotifications().catch(() => {});
+  };
+
   if (items === undefined) return <Loading screen />;
   if (!items || !items.length) {
     return <EmptyState icon={LuBell} title="Ei ilmoituksia"
@@ -62,7 +67,14 @@ export default function LiigaNotifications() {
 
   return (
     <Screen>
-      <PageHead title="Ilmoitukset" />
+      <PageHead title="Ilmoitukset" right={
+        <PillButton onClick={clearAll}>
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.6 }}>
+            <Box component={LuTrash2} sx={{ fontSize: 14, display: "block" }} />
+            Tyhjennä kaikki
+          </Box>
+        </PillButton>
+      } />
       <ListCard>
         {items.map((n, i) => {
           const k = KIND[n.kind] || KIND.round;
