@@ -9,11 +9,10 @@ name: Ahmaliiga sim tick
 # See memory: project_ahmaliiga_plan.
 
 on:
-  schedule:
-    # 1 sim-day per 30 min (twice an hour). Off-peak minutes (:07/:37) — the top of
-    # the hour is GitHub's busiest window where scheduled runs get delayed/skipped.
-    - cron: "7,37 * * * *"
-  workflow_dispatch: {} # allow a manual tick from the Actions tab
+  # No `schedule:` — GitHub Actions' scheduled crons proved unreliable (best-effort,
+  # silently skipped). The sim clock is now stepped by the Cloudflare Worker cron
+  # trigger (worker/wrangler.toml). This workflow stays as a MANUAL fallback only.
+  workflow_dispatch: {} # run a tick manually from the Actions tab
 
 jobs:
   tick:

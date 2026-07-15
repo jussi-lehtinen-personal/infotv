@@ -983,4 +983,19 @@ export default {
       return json({ error: String((e && e.message) || e) }, 500);
     }
   },
+
+  // Cron trigger: step the Ahmaliiga sim clock. GitHub Actions' scheduled crons
+  // proved unreliable (best-effort, silently skipped) → drive it from the Worker's
+  // cron trigger, which fires on time. The Azure endpoint only advances when the
+  // active season has autoStep on, so this is a no-op otherwise.
+  async scheduled(event, env, ctx) {
+    const key = env.AHMALIIGA_CRON_KEY;
+    if (!key) return;
+    ctx.waitUntil(
+      fetch("https://gamezone.kiekko-ahma.fi/api/runAhmaliigaTick", {
+        method: "POST",
+        headers: { "x-ahmaliiga-key": key },
+      }).catch(() => {}) // best effort; the next tick retries
+    );
+  },
 };
