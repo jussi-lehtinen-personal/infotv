@@ -19,7 +19,7 @@ const FILTERS = [
 
 const GRID = {
   display: "grid",
-  gridTemplateColumns: "44px minmax(0,1fr) 52px 46px 58px",
+  gridTemplateColumns: "56px minmax(0,1fr) 52px 46px 58px",
   alignItems: "center",
   columnGap: 1,
   px: 1.5,
@@ -94,9 +94,11 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
               borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0 };
             const body = (
               <>
-                <CardAvatar card={c} size={44} />
+                <CardAvatar card={c} size={52} />
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary" }}>{c.name}</Typography>
+                  {/* name wraps to 2 lines so long names (e.g. "Rasmus Johansson") fit */}
+                  <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: "text.primary",
+                        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.name}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.3, minWidth: 0, overflow: "hidden" }}>
                     <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.2 }}>
                       {c.kind === "team" ? "Joukkue" : c.sub}
