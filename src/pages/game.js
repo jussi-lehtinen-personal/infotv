@@ -140,10 +140,10 @@ const BoxScore = () => {
           {report && (
             <>
               <SwipeableTabs
-                tabs={[{ value: "events", label: "Tapahtumat" }, { value: "stats", label: "Tilastot" }, { value: "rosters", label: "Kokoonpanot" }]}
+                tabs={[{ value: "events", label: "Tapahtumat" }, { value: "stats", label: "Tilastot" }, { value: "points", label: "Pisteet" }, { value: "rosters", label: "Kokoonpanot" }]}
                 value={tab}
                 onChange={setTab}
-                tabsSx={{ mt: 0.25, mb: 1.75, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, fontSize: 14, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}
+                tabsSx={{ mt: 0.25, mb: 1.75, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, px: 0.5, fontSize: 12, fontWeight: 800, letterSpacing: ".01em", textTransform: "uppercase", whiteSpace: "nowrap", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}
               >
                 <Box>
                   <Timeline report={report} />
@@ -151,10 +151,8 @@ const BoxScore = () => {
                   <Goalies report={report} game={game} />
                   <Footer report={report} game={game} />
                 </Box>
-                <Box>
-                  <Stats report={report} game={game} />
-                  <Scorers report={report} game={game} />
-                </Box>
+                <Stats report={report} game={game} />
+                <Scorers report={report} game={game} />
                 <Rosters rosters={report.rosters} game={game} />
               </SwipeableTabs>
             </>
@@ -493,9 +491,10 @@ const Stats = ({ report }) => {
 // order-independent name key (scorer "SALONEN Jooa" ↔ roster last "Salonen" + first).
 const nameKey = (s) => Array.from(new Set(String(s || "").toLocaleUpperCase("fi").split(/\s+/).filter(Boolean))).sort().join(" ");
 
-// Per-game scoring leaders (tulospalvelu "Pisteet" style): goals + assists tallied
-// per player, ranked by points, each as jersey-circle + "M + S = P" + number/name +
-// team. Jersey numbers come from the rosters (goal events carry none).
+// Per-game scoring leaders (tulospalvelu "Pisteet"): goals + assists tallied per
+// player, ranked by points. Row = jersey number (left) · name / team / M+S=P
+// breakdown (stacked middle) · total points (right, tabular). Jersey numbers come
+// from the rosters (goal events carry none).
 const Scorers = ({ report, game }) => {
   const numByName = {};
   const idx = (players, side) => { for (const p of players || []) { const k = nameKey(`${p.last} ${p.first}`); if (k) numByName[`${side}|${k}`] = p.number; } };
@@ -513,28 +512,33 @@ const Scorers = ({ report, game }) => {
   }
   const rows = Object.values(tally).map((r) => ({ ...r, p: r.g + r.a, number: numByName[`${r.side}|${nameKey(r.name)}`] }))
     .sort((a, b) => b.p - a.p || b.g - a.g || String(a.name).localeCompare(String(b.name)));
-  if (!rows.length) return null;
+  if (!rows.length) return <Note>Tehopisteitä ei ole tälle ottelulle.</Note>;
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box sx={{ pt: 0.5 }}>
       <Box sx={sectionTitleSx}>Pistepörssi</Box>
       <Box sx={{ display: "flex", flexDirection: "column" }}>
         {rows.map((r, i) => {
           const logo = r.side === "home" ? game.home_logo : game.away_logo;
           const team = splitTeamName((r.side === "home" ? game.home : game.away) || "").main;
           return (
-            <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.75, py: 1.25, borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-              <Box sx={{ flexShrink: 0, width: 52, height: 52, borderRadius: "50%", bgcolor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", display: "grid", placeItems: "center" }}>
-                <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 23, lineHeight: 1, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", transform: "translateY(var(--font-display-shift))" }}>{r.number != null && r.number !== "" ? r.number : "–"}</Typography>
+            <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.25, borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+              {/* jersey number */}
+              <Box sx={{ flexShrink: 0, width: 34, height: 34, borderRadius: "50%", bgcolor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", display: "grid", placeItems: "center" }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 800, lineHeight: 1, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{r.number != null && r.number !== "" ? r.number : "–"}</Typography>
               </Box>
+              {/* name / team / breakdown */}
               <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: "var(--gz-text-secondary)" }}>
-                  {r.g} + {r.a} = <Box component="span" sx={{ color: "var(--color-primary)", fontSize: 16 }}>{r.p}</Box>
-                </Typography>
-                <Typography noWrap sx={{ fontSize: 14, fontWeight: 700, color: "var(--gz-text-primary)", mt: "1px" }}>{fullName(r.name)}</Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: "3px" }}>
-                  <Box component="img" src={logo} alt="" sx={{ width: 15, height: 15, borderRadius: "3px", objectFit: "contain", bgcolor: "#fff", p: "1px", flexShrink: 0 }} />
+                <Typography noWrap sx={{ fontSize: 14, fontWeight: 700, color: "var(--gz-text-primary)" }}>{fullName(r.name)}</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: "2px" }}>
+                  <Box component="img" src={logo} alt="" sx={{ width: 14, height: 14, borderRadius: "3px", objectFit: "contain", bgcolor: "#fff", p: "1px", flexShrink: 0 }} />
                   <Typography noWrap sx={{ fontSize: 12, color: "var(--gz-text-tertiary)" }}>{team}</Typography>
                 </Box>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", mt: "2px" }}>{r.g} + {r.a} = {r.p}</Typography>
+              </Box>
+              {/* total points */}
+              <Box sx={{ flexShrink: 0, textAlign: "right", minWidth: 40 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 30, lineHeight: 1, color: "var(--color-primary)", fontVariantNumeric: "tabular-nums", transform: "translateY(var(--font-display-shift))" }}>{r.p}</Typography>
+                <Typography sx={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--gz-text-tertiary)", mt: "1px" }}>pistettä</Typography>
               </Box>
             </Box>
           );
