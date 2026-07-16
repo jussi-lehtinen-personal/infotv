@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight } from "react-icons/lu";
+import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuTarget } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
+import { splitTeamName } from "../../Util";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaJaksoProgress, getAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -60,6 +61,70 @@ function Countdown({ endDate, simDate, daysLeft }) {
   );
 }
 
+// "2025-11-16 14:30" + level → "16.11. 14:30 · U14 Valkoinen".
+const matchHeader = (g) => {
+  const [d, t] = String(g.date || "").split(" ");
+  const p = String(d || "").split("-");
+  const date = p.length === 3 ? `${+p[2]}.${+p[1]}.` : "";
+  const time = t ? t.slice(0, 5) : "";
+  return [[date, time].filter(Boolean).join(" "), (g.level || "").trim()].filter(Boolean).join(" · ");
+};
+
+// One team column: logo + name (+ sub-name), for the predicted-match display.
+const TeamCol = ({ logo, name }) => {
+  const { main, sub } = splitTeamName(name || "");
+  return (
+    <Box sx={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.75 }}>
+      <Box component="img" src={logo} alt="" sx={{ width: 46, height: 46, borderRadius: 1.5, bgcolor: "#fff", objectFit: "contain", p: "5px", flexShrink: 0 }} />
+      <Box sx={{ minWidth: 0, width: "100%", textAlign: "center" }}>
+        <Typography noWrap sx={{ fontSize: 13, fontWeight: 800, color: "text.primary" }}>{main}</Typography>
+        {sub && <Typography noWrap sx={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "text.disabled" }}>{sub}</Typography>}
+      </Box>
+    </Box>
+  );
+};
+
+// Dashboard prediction widget: prompts you to veikkaa the jakso's game, or shows
+// your predicted match (score in place of "VS"). Hidden when the jakso has no games.
+// Whole card → /ahmaliiga/veikkaus.
+function PredictionWidget({ pred, onClick }) {
+  if (!pred || !pred.games || !pred.games.length) return null;
+  const my = pred.myPrediction;
+  const g = my ? pred.games.find((x) => String(x.gameId) === String(my.gameId)) : null;
+  return (
+    <ButtonBase onClick={onClick}
+      sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
+            borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
+            border: "1px solid var(--color-surface-border)", p: 2, mb: 2, "&:hover": { borderColor: "primary.main" } }}>
+      <Eyebrow sx={{ mb: 1.25 }}>Tulosveikkauksesi tässä jaksossa</Eyebrow>
+      {g ? (
+        <>
+          <Typography sx={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: "text.disabled", mb: 1.25 }}>{matchHeader(g)}</Typography>
+          <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+            <TeamCol logo={g.homeLogo} name={g.home} />
+            <Box sx={{ flexShrink: 0, px: 1.5, pt: 1, textAlign: "center" }}>
+              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 30, lineHeight: 1, color: "primary.main", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                {my.homeGoals}<Box component="span" sx={{ color: "text.disabled", mx: 0.5 }}>–</Box>{my.awayGoals}
+              </Typography>
+              <Typography sx={{ fontSize: 9, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "text.disabled", mt: 0.6 }}>Veikkaus</Typography>
+            </Box>
+            <TeamCol logo={g.awayLogo} name={g.away} />
+          </Box>
+        </>
+      ) : (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <IconCircle icon={LuTarget} size={44} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 800, color: "text.primary", lineHeight: 1.2 }}>Et ole vielä veikannut</Typography>
+            <Typography noWrap sx={{ fontSize: 13, color: "text.secondary", mt: 0.4 }}>Veikkaa jakson ottelun lopputulos ja kerää pisteitä.</Typography>
+          </Box>
+          <Box component={LuChevronRight} sx={{ fontSize: 22, color: "primary.main", flexShrink: 0, display: "block" }} />
+        </Box>
+      )}
+    </ButtonBase>
+  );
+}
+
 const VDivider = () => <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "var(--color-surface-border)", mx: { xs: 1.25, sm: 2 } }} />;
 
 const StatCol = ({ label, children }) => (
@@ -76,6 +141,7 @@ export default function LiigaHome() {
   const [summary, setSummary] = useState(null);
   const [squad, setSquad] = useState(null);
   const [progress, setProgress] = useState(null); // live points this (running) jakso
+  const [pred, setPred] = useState(null); // prediction status this jakso
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +150,7 @@ export default function LiigaHome() {
     getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
     getAhmaliigaJaksoProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
+    getAhmaliigaPrediction().then((d) => { if (!cancelled) setPred(d); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -149,6 +216,9 @@ export default function LiigaHome() {
           )}
         </ButtonBase>
       )}
+
+      {/* Tulosveikkaus — prompt to predict (or confirm done) this jakso */}
+      {round && <PredictionWidget pred={pred} onClick={() => nav("/ahmaliiga/veikkaus")} />}
 
       {/* Seuraavat tapahtumat — YOUR cards' next games + jakso end, link to timeline */}
       {round && (() => {
