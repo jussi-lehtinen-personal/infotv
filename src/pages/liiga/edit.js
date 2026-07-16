@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
+  LuWallet, LuLayers, LuTrophy,
 } from "react-icons/lu";
 import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
@@ -17,11 +18,14 @@ import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmal
 // Every change persists to the server immediately (direct edit); a partial squad
 // (fewer than 5 cards) is allowed — the server enforces the rest of the rules.
 
-// Top stat card (Budjetti jäljellä / Kortteja / Pisteet). Value is centred via sx.
-const StatCell = ({ label, children }) => (
+// Top stat card: icon + label on top, value below (centred). No sublabel row.
+const StatCell = ({ icon: Icon, label, children }) => (
   <Box sx={{ flex: 1, minWidth: 0, textAlign: "center", py: 1.5, px: 1, borderRadius: "var(--radius-item)",
         bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-    <Typography noWrap sx={{ fontSize: 11, fontWeight: 700, color: "text.disabled", mb: 0.75 }}>{label}</Typography>
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", justifyContent: "center", mb: 0.75, minWidth: 0 }}>
+      {Icon && <Box component={Icon} sx={{ fontSize: 12, color: "primary.main", display: "block", flexShrink: 0 }} />}
+      <Typography noWrap sx={{ fontSize: 11, fontWeight: 700, color: "text.disabled" }}>{label}</Typography>
+    </Stack>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 22 }}>{children}</Box>
   </Box>
 );
@@ -36,6 +40,11 @@ const RingAvatar = ({ card, size }) => (
 );
 const bandSub = (c) => (c.kind === "team" ? "Joukkue" : c.sub);
 
+// "2025-04-27" → "27.4." / "27.4.2025"; a jakso's date range for the header line.
+const dm = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.` : ""; };
+const dmy = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.${p[0]}` : ""; };
+const jaksoRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
+
 export default function LiigaEdit() {
   const nav = useNavigate();
   const [all, setAll] = useState(null);
@@ -47,6 +56,7 @@ export default function LiigaEdit() {
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
   const [perCard, setPerCard] = useState(null); // this jakso's points per card
+  const [round, setRound] = useState(null);     // current jakso (for the header line)
   const [error, setError] = useState("");
 
   // Overlay/dialog state
@@ -84,6 +94,7 @@ export default function LiigaEdit() {
         setBank(squadRes && squadRes.bank != null ? squadRes.bank : (squadRes && squadRes.budget) || 120);
         if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
+        if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
         setPerCard(progRes && progRes.perCard ? progRes.perCard : {});
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
@@ -220,16 +231,27 @@ export default function LiigaEdit() {
 
   return (
     <Screen sx={{ overflowX: "hidden" }}>
-      <PageHead title="Oma joukkue" />
+      <PageHead title="Oma joukkue" sx={{ mb: round ? 0.75 : 2 }} />
+      {round && (
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, flexWrap: "wrap" }}>
+          <Box component="span" sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "primary.main" }}>Jakso {round.no + 1}</Box>
+          {jaksoRange(round.startDate, round.endDate) && (
+            <>
+              <Box component="span" sx={{ color: "text.disabled" }}>·</Box>
+              <Box component="span" sx={{ fontSize: 12.5, fontWeight: 600, color: "text.disabled" }}>{jaksoRange(round.startDate, round.endDate)}</Box>
+            </>
+          )}
+        </Stack>
+      )}
 
       {/* top stats — Budjetti / Siirrot / Kortteja / Pisteet */}
       <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
-        <StatCell label="Budjetti"><Coins value={bank} size={15} /></StatCell>
-        <StatCell label="Siirrot">
+        <StatCell icon={LuWallet} label="Budjetti"><Coins value={bank} size={15} /></StatCell>
+        <StatCell icon={LuArrowLeftRight} label="Siirrot">
           <StatNum><Box component="span" sx={{ color: transfersLeft > 0 ? "text.primary" : "#f87171" }}>{transfersLeft}</Box> / {transfers.free}</StatNum>
         </StatCell>
-        <StatCell label="Kortteja"><StatNum>{ids.length} / 5</StatNum></StatCell>
-        <StatCell label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
+        <StatCell icon={LuLayers} label="Kortteja"><StatNum>{ids.length} / 5</StatNum></StatCell>
+        <StatCell icon={LuTrophy} label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
       </Box>
 
       {/* Kokoonpano — 3-2 formation, captain lifted in the centre, side cards fanned.
