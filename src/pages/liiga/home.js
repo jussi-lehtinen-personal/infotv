@@ -74,19 +74,21 @@ const matchHeader = (g) => {
 const TeamCol = ({ logo, name }) => {
   const { main, sub } = splitTeamName(name || "");
   return (
-    <Box sx={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.75 }}>
-      <Box component="img" src={logo} alt="" sx={{ width: 46, height: 46, borderRadius: 1.5, bgcolor: "#fff", objectFit: "contain", p: "5px", flexShrink: 0 }} />
+    <Box sx={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.6 }}>
+      <Box component="img" src={logo} alt="" sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: "#fff", objectFit: "contain", p: "4px", flexShrink: 0 }} />
       <Box sx={{ minWidth: 0, width: "100%", textAlign: "center" }}>
-        <Typography noWrap sx={{ fontSize: 13, fontWeight: 800, color: "text.primary" }}>{main}</Typography>
-        {sub && <Typography noWrap sx={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "text.disabled" }}>{sub}</Typography>}
+        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 800, color: "text.primary" }}>{main}</Typography>
+        {sub && <Typography noWrap sx={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "text.disabled" }}>{sub}</Typography>}
       </Box>
     </Box>
   );
 };
 
-// Dashboard prediction widget: prompts you to veikkaa the jakso's game, or shows
-// your predicted match (score in place of "VS"). Hidden when the jakso has no games.
-// Whole card → /ahmaliiga/veikkaus.
+// Dashboard prediction widget. Consistent layout in BOTH states so it stays
+// balanced under the left-aligned eyebrow: target icon + divider always on the
+// left, content on the right (a prompt when not predicted, the predicted match —
+// score in place of "VS" — when set). Hidden when the jakso has no games. Whole
+// card → /ahmaliiga/veikkaus.
 function PredictionWidget({ pred, onClick }) {
   if (!pred || !pred.games || !pred.games.length) return null;
   const my = pred.myPrediction;
@@ -96,31 +98,33 @@ function PredictionWidget({ pred, onClick }) {
       sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
             borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
             border: "1px solid var(--color-surface-border)", p: 2, mb: 2, "&:hover": { borderColor: "primary.main" } }}>
-      <Eyebrow sx={{ mb: 1.25 }}>Tulosveikkauksesi tässä jaksossa</Eyebrow>
-      {g ? (
-        <>
-          <Typography sx={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: "text.disabled", mb: 1.25 }}>{matchHeader(g)}</Typography>
-          <Box sx={{ display: "flex", alignItems: "flex-start" }}>
-            <TeamCol logo={g.homeLogo} name={g.home} />
-            <Box sx={{ flexShrink: 0, px: 1.5, pt: 1, textAlign: "center" }}>
-              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 30, lineHeight: 1, color: "primary.main", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                {my.homeGoals}<Box component="span" sx={{ color: "text.disabled", mx: 0.5 }}>–</Box>{my.awayGoals}
-              </Typography>
-              <Typography sx={{ fontSize: 9, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "text.disabled", mt: 0.6 }}>Veikkaus</Typography>
-            </Box>
-            <TeamCol logo={g.awayLogo} name={g.away} />
-          </Box>
-        </>
-      ) : (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <IconCircle icon={LuTarget} size={44} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 16, fontWeight: 800, color: "text.primary", lineHeight: 1.2 }}>Et ole vielä veikannut</Typography>
-            <Typography noWrap sx={{ fontSize: 13, color: "text.secondary", mt: 0.4 }}>Veikkaa jakson ottelun lopputulos ja kerää pisteitä.</Typography>
-          </Box>
-          <Box component={LuChevronRight} sx={{ fontSize: 22, color: "primary.main", flexShrink: 0, display: "block" }} />
+      <Eyebrow sx={{ mb: 1.5 }}>Tulosveikkauksesi tässä jaksossa</Eyebrow>
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <IconCircle icon={LuTarget} size={44} />
+        <VDivider />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {g ? (
+            <>
+              <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 700, color: "text.disabled", mb: 1 }}>{matchHeader(g)}</Typography>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                <TeamCol logo={g.homeLogo} name={g.home} />
+                <Box sx={{ flexShrink: 0, px: 0.5, pt: 0.5, textAlign: "center" }}>
+                  <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "primary.main", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    {my.homeGoals}<Box component="span" sx={{ color: "text.disabled", mx: 0.4 }}>–</Box>{my.awayGoals}
+                  </Typography>
+                  <Typography sx={{ fontSize: 9, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "text.disabled", mt: 0.5 }}>Veikkaus</Typography>
+                </Box>
+                <TeamCol logo={g.awayLogo} name={g.away} />
+              </Box>
+            </>
+          ) : (
+            <>
+              <Typography sx={{ fontSize: 16, fontWeight: 800, color: "text.primary", lineHeight: 1.2 }}>Et ole vielä veikannut</Typography>
+              <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.4 }}>Veikkaa jakson ottelun lopputulos ja kerää pisteitä.</Typography>
+            </>
+          )}
         </Box>
-      )}
+      </Box>
     </ButtonBase>
   );
 }
