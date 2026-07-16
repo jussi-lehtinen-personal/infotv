@@ -176,8 +176,8 @@ export default function LiigaEdit() {
         sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: "3 / 4",
               borderRadius: "14px", overflow: "hidden", transformOrigin: "bottom center", zIndex: lifted ? 2 : 1,
               transform: `${lifted ? "translateY(-10px) scale(1.06) " : ""}rotate(${rotate}deg)`,
-              border: `1.5px solid ${isCap ? "rgba(249,115,22,0.9)" : "rgba(255,255,255,0.14)"}`,
-              boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.35)" : "0 6px 16px rgba(0,0,0,0.45)",
+              border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
+              boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
               background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)" }}>
         {c.photo ? (
           <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
@@ -185,6 +185,12 @@ export default function LiigaEdit() {
           <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "30%", display: "grid", placeItems: "center", px: 1 }}>
             <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "70%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
           </Box>
+        )}
+        {/* captain: the Ahmaliiga logo over the card art (kept above the name/points) */}
+        {isCap && (
+          <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "38%",
+                transform: "translate(-50%, -50%)", width: "58%", height: "auto", objectFit: "contain",
+                pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
         )}
         {/* bottom gradient + text: name (centred, bigger) then points (BL) + price (BR) */}
         <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 1, px: 1.1,
@@ -195,7 +201,7 @@ export default function LiigaEdit() {
             ))}
           </Box>
           <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", mt: 0.4 }}>
-            <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1, color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: isCap ? 21 : 18, lineHeight: 1, color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
               {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
             </Typography>
             <Box sx={{ display: "inline-flex", alignItems: "center", px: 0.75, py: "3px", borderRadius: 999,
