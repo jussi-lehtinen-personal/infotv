@@ -189,64 +189,72 @@ export default function LiigaEdit() {
   const formationCard = (c, { isCap = false, rotate = 0, lifted = false, width } = {}) => {
     const pts = cardPts(c.id);
     const nameLines = c.kind === "team" ? [c.name] : playerNameLines(c.name);
-    return (
-      <ButtonBase key={c.id} disableRipple {...pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)))}
-        sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: CARD_AR,
-              WebkitTapHighlightColor: "transparent", "&:focus, &.Mui-focusVisible": { outline: "none" },
-              borderRadius: "14px", overflow: "hidden", transformOrigin: lifted ? "center" : "bottom center", zIndex: lifted ? 2 : 1,
-              transform: `${lifted ? "scale(1.22) " : ""}rotate(${rotate}deg)`,
-              border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
-              boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
-              background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)" }}>
-        {/* card art: player photo · team → Ahma logo · player w/o photo → initials */}
-        {c.photo ? (
-          <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
-        ) : c.kind === "team" ? (
-          <Box sx={{ position: "absolute", top: "0%", left: 0, right: 0, bottom: "42%", display: "grid", placeItems: "center", px: 0.5 }}>
-            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "96%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
-          </Box>
-        ) : (
-          <Box sx={{ position: "absolute", top: "0%", left: 0, right: 0, bottom: "46%", display: "grid", placeItems: "center" }}>
-            <Box component="span" sx={{ fontWeight: 900, fontSize: 46, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
-          </Box>
-        )}
-        {/* captain: the Ahmaliiga logo over the chest */}
-        {isCap && (
+    const baseSx = {
+      position: "relative", ...(width ? { width } : {}), aspectRatio: CARD_AR,
+      WebkitTapHighlightColor: "transparent", "&:focus, &.Mui-focusVisible": { outline: "none" },
+      borderRadius: "14px", overflow: "hidden", transformOrigin: lifted ? "center" : "bottom center", zIndex: lifted ? 2 : 1,
+      transform: `${lifted ? "scale(1.22) " : ""}rotate(${rotate}deg)`,
+      border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
+      boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
+      background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)",
+    };
+    const press = pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)));
+
+    // Captain: photo fills the card + Ahmaliiga logo over the chest + bottom overlay.
+    if (isCap) {
+      return (
+        <ButtonBase key={c.id} disableRipple {...press} sx={{ ...baseSx, display: "block" }}>
+          {c.photo ? (
+            <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+          ) : (
+            <Box sx={{ position: "absolute", top: "0%", left: 0, right: 0, bottom: "42%", display: "grid", placeItems: "center", px: 0.5 }}>
+              <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "96%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+            </Box>
+          )}
           <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
                 transform: "translate(-50%, -50%)", width: "90%", height: "auto", objectFit: "contain",
                 pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
-        )}
-        {/* bottom gradient + text */}
-        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 3, pb: 1, px: 1, textAlign: "center",
-              background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 50%, #0e0e0e 100%)" }}>
-          {!isCap && <Box sx={{ height: "2px", width: "56%", mx: "auto", mb: 0.75, borderRadius: 2, bgcolor: "var(--color-primary)" }} />}
-          {nameLines.map((ln, i) => (
-            <Typography key={i} noWrap sx={{ fontSize: isCap ? 14 : 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
-          ))}
-          {isCap ? (
-            // captain: points (left) · divider · price (right)
+          <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 3, pb: 1, px: 1, textAlign: "center",
+                background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 50%, #0e0e0e 100%)" }}>
+            {nameLines.map((ln, i) => (
+              <Typography key={i} noWrap sx={{ fontSize: 14, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
+            ))}
             <Box sx={{ display: "flex", alignItems: "center", mt: 1.1 }}>
               <Box sx={{ flex: 1 }}>{ptsEl(pts, 21)}</Box>
               <Box sx={{ width: "1px", height: 20, bgcolor: "rgba(255,255,255,0.2)", mx: 0.5 }} />
               <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}><Coins value={c.price} size={12} /></Box>
             </Box>
-          ) : (
-            // others: name → points → divider → price, stacked + centred
-            <>
-              <Box sx={{ mt: 1 }}>{ptsEl(pts, 18)}</Box>
-              <Box sx={{ height: "1px", width: "58%", mx: "auto", my: 0.6, bgcolor: "rgba(255,255,255,0.14)" }} />
-              <Box sx={{ display: "flex", justifyContent: "center" }}><Coins value={c.price} size={11} /></Box>
-            </>
-          )}
-        </Box>
-        {/* captain indicator: orange top-left corner ribbon with "C" */}
-        {isCap && (
-          <>
-            <Box sx={{ position: "absolute", top: 0, left: 0, width: 0, height: 0,
-                  borderTop: "42px solid var(--color-primary)", borderRight: "42px solid transparent" }} />
-            <Box component="span" sx={{ position: "absolute", top: 6, left: 8, fontSize: 14, fontWeight: 900, color: "#0e0e0e", lineHeight: 1 }}>C</Box>
-          </>
+          </Box>
+          <Box sx={{ position: "absolute", top: 0, left: 0, width: 0, height: 0,
+                borderTop: "42px solid var(--color-primary)", borderRight: "42px solid transparent" }} />
+          <Box component="span" sx={{ position: "absolute", top: 6, left: 8, fontSize: 14, fontWeight: 900, color: "#0e0e0e", lineHeight: 1 }}>C</Box>
+        </ButtonBase>
+      );
+    }
+
+    // Others: a flex column so the orange divider auto-centres in the gap between the
+    // art (Ahma logo / initials) and the name — no hardcoded offset.
+    return (
+      <ButtonBase key={c.id} disableRipple {...press}
+        sx={{ ...baseSx, display: "flex", flexDirection: "column", alignItems: "center", pt: 1.25, px: 1, pb: 1.25 }}>
+        {c.kind === "team" ? (
+          <Box component="img" src={AHMA_LOGO} alt="" sx={{ flexShrink: 0, maxWidth: "88%", maxHeight: "42%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+        ) : (
+          <Box component="span" sx={{ flexShrink: 0, mt: 0.5, fontWeight: 900, fontSize: 46, lineHeight: 1, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
         )}
+        {/* gap: the orange divider is centred here between the art and the name */}
+        <Box sx={{ flex: 1, minHeight: 0, width: "100%", display: "grid", placeItems: "center" }}>
+          <Box sx={{ height: "2px", width: "56%", borderRadius: 2, bgcolor: "var(--color-primary)" }} />
+        </Box>
+        {/* info: name → points → divider → price */}
+        <Box sx={{ flexShrink: 0, width: "100%", textAlign: "center" }}>
+          {nameLines.map((ln, i) => (
+            <Typography key={i} noWrap sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
+          ))}
+          <Box sx={{ mt: 1 }}>{ptsEl(pts, 18)}</Box>
+          <Box sx={{ height: "1px", width: "58%", mx: "auto", my: 0.6, bgcolor: "rgba(255,255,255,0.14)" }} />
+          <Box sx={{ display: "flex", justifyContent: "center" }}><Coins value={c.price} size={11} /></Box>
+        </Box>
       </ButtonBase>
     );
   };
