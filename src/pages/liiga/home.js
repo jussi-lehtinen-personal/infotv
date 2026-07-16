@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuTarget } from "react-icons/lu";
+import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
@@ -100,12 +100,12 @@ function PredictionWidget({ pred, onClick }) {
             border: "1px solid var(--color-surface-border)", p: 2, mb: 2, "&:hover": { borderColor: "primary.main" } }}>
       <Eyebrow sx={{ mb: 1.5 }}>Tulosveikkauksesi tässä jaksossa</Eyebrow>
       <Box sx={{ display: "flex", alignItems: "center" }}>
-        <IconCircle icon={LuTarget} size={44} />
+        <IconCircle icon={LuCrosshair} size={44} />
         <VDivider />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {g ? (
             <>
-              <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 700, color: "text.disabled", mb: 1 }}>{matchHeader(g)}</Typography>
+              <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 700, color: "text.disabled", mb: 1, textAlign: "center" }}>{matchHeader(g)}</Typography>
               <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
                 <TeamCol logo={g.homeLogo} name={g.home} />
                 <Box sx={{ flexShrink: 0, px: 0.5, pt: 0.5, textAlign: "center" }}>
@@ -168,8 +168,8 @@ export default function LiigaHome() {
       <Box sx={{ textAlign: "center", pt: 1, pb: 2 }}>
         <Box component="img" src="/ahmaliiga_logo.png" alt="Ahmaliiga"
              sx={{ width: "min(60vw, 220px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 1, maxWidth: 320, mx: "auto" }}>
-          Kasaa joukkue, tee viikkoveikkaukset ja kerää pisteitä.
+        <Typography sx={{ color: "text.secondary", mt: 1, fontSize: 14.5, fontWeight: 600, letterSpacing: ".01em", whiteSpace: "nowrap" }}>
+          Kokoa kortisto, kisaa kärjestä.
         </Typography>
       </Box>
 
@@ -248,6 +248,8 @@ export default function LiigaHome() {
 
       {/* Previous round — the whole card is one button to its summary */}
       {prev && summary && summary.settled && (
+        <>
+        <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", mb: 2.5 }} />
         <ButtonBase onClick={() => nav("/ahmaliiga/round")}
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
                 borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)",
@@ -286,6 +288,7 @@ export default function LiigaHome() {
             <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
           </Box>
         </ButtonBase>
+        </>
       )}
 
       {/* Season Top 3 */}
@@ -295,6 +298,7 @@ export default function LiigaHome() {
         const showMe = myRow && myRow.rank > 3;
         return (
           <>
+            <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", mb: 2.5 }} />
             <SectionHeader title="Top 3 · Koko kausi" onMore={() => nav("/ahmaliiga/ranking")} />
             <ListCard sx={{ mb: 2.5 }}>
               {top3.map((r, i) => (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, Button, Select, MenuItem, Alert } from "@mui/material";
-import { LuGoal, LuTrophy, LuTarget, LuStar, LuLock, LuCheck, LuPencil } from "react-icons/lu";
+import { LuGoal, LuTrophy, LuTarget, LuStar, LuLock, LuCheck, LuPencil, LuCrosshair } from "react-icons/lu";
 import { Screen, PageHead, EmptyState, Loading, CardAvatar, shortDate, IconCircle } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
@@ -133,7 +133,7 @@ function StatusBanner({ set, frozen }) {
   const bg = set ? "rgba(34,197,94,0.06)" : "var(--color-surface)";
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 2, mb: 2.5, borderRadius: "var(--radius-card)", bgcolor: bg, border: `1px solid ${border}` }}>
-      <IconCircle icon={set ? LuCheck : LuTarget} size={44}
+      <IconCircle icon={set ? LuCheck : LuCrosshair} size={44}
         tint={set ? "rgba(34,197,94,0.14)" : undefined} color={set ? "var(--color-live)" : undefined} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2, color: set ? "var(--color-live)" : "text.primary" }}>
