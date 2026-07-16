@@ -45,6 +45,15 @@ const dm = (iso) => { const p = String(iso || "").split("-"); return p.length ==
 const dmy = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.${p[0]}` : ""; };
 const jaksoRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
 
+// Taller portrait cards (reference proportions).
+const CARD_AR = "62 / 100";
+// Initials for a player card without a photo (reference "JV" style).
+const initialsOf = (name) => {
+  const p = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (p.length >= 2) return (p[0][0] + p[p.length - 1][0]).toLocaleUpperCase("fi");
+  return String(name || "").slice(0, 2).toLocaleUpperCase("fi");
+};
+
 export default function LiigaEdit() {
   const nav = useNavigate();
   const [all, setAll] = useState(null);
@@ -168,52 +177,72 @@ export default function LiigaEdit() {
   // One formation card (portrait "playing card"): photo (player) / crest (team) +
   // name + this jakso's points (big, orange) + price (small). Captain gets a "C" +
   // glow and is lifted. Tap = action sheet; long-press = set captain.
+  // Points element (Bebas number + "p").
+  const ptsEl = (pts, size) => (
+    <Typography sx={{ display: "inline-block", fontFamily: "var(--font-family-display)", fontSize: size, lineHeight: 1,
+          color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
+      {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
+    </Typography>
+  );
+
   const formationCard = (c, { isCap = false, rotate = 0, lifted = false, width } = {}) => {
     const pts = cardPts(c.id);
     const nameLines = c.kind === "team" ? [c.name] : playerNameLines(c.name);
     return (
       <ButtonBase key={c.id} {...pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)))}
-        sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: "3 / 4",
+        sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: CARD_AR,
               borderRadius: "14px", overflow: "hidden", transformOrigin: "bottom center", zIndex: lifted ? 2 : 1,
-              transform: `${lifted ? "translateY(-10px) scale(1.06) " : ""}rotate(${rotate}deg)`,
+              transform: `${lifted ? "translateY(-10px) scale(1.05) " : ""}rotate(${rotate}deg)`,
               border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
               boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
               background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)" }}>
+        {/* card art: player photo · team → Ahma logo · player w/o photo → initials */}
         {c.photo ? (
           <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+        ) : c.kind === "team" ? (
+          <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "36%", display: "grid", placeItems: "center", px: 1 }}>
+            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "72%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+          </Box>
         ) : (
-          <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "30%", display: "grid", placeItems: "center", px: 1 }}>
-            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "70%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+          <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "36%", display: "grid", placeItems: "center" }}>
+            <Box component="span" sx={{ fontWeight: 900, fontSize: 44, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
           </Box>
         )}
-        {/* captain: the Ahmaliiga logo over the card art (kept above the name/points) */}
+        {/* captain: the Ahmaliiga logo over the chest */}
         {isCap && (
-          <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "38%",
-                transform: "translate(-50%, -50%)", width: "58%", height: "auto", objectFit: "contain",
+          <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
+                transform: "translate(-50%, -50%)", width: "66%", height: "auto", objectFit: "contain",
                 pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
         )}
-        {/* bottom gradient + text: name (centred, bigger) then points (BL) + price (BR) */}
-        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 1, px: 1.1,
-              background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 55%, #0e0e0e 100%)" }}>
-          <Box sx={{ textAlign: "center" }}>
-            {nameLines.map((ln, i) => (
-              <Typography key={i} noWrap sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
-            ))}
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", mt: 0.4 }}>
-            <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: isCap ? 21 : 18, lineHeight: 1, color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
-              {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
-            </Typography>
-            <Box sx={{ display: "inline-flex", alignItems: "center", px: 0.75, py: "3px", borderRadius: 999,
-                  bgcolor: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
-              <Coins value={c.price} size={11} />
+        {/* bottom gradient + text */}
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 3, pb: 1, px: 1, textAlign: "center",
+              background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 50%, #0e0e0e 100%)" }}>
+          {nameLines.map((ln, i) => (
+            <Typography key={i} noWrap sx={{ fontSize: isCap ? 14 : 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
+          ))}
+          {isCap ? (
+            // captain: points (left) · divider · price (right)
+            <Box sx={{ display: "flex", alignItems: "center", mt: 0.75 }}>
+              <Box sx={{ flex: 1 }}>{ptsEl(pts, 21)}</Box>
+              <Box sx={{ width: "1px", height: 20, bgcolor: "rgba(255,255,255,0.2)", mx: 0.5 }} />
+              <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}><Coins value={c.price} size={12} /></Box>
             </Box>
-          </Box>
+          ) : (
+            // others: name → points → divider → price, stacked + centred
+            <>
+              <Box sx={{ mt: 0.5 }}>{ptsEl(pts, 18)}</Box>
+              <Box sx={{ height: "1px", width: "58%", mx: "auto", my: 0.6, bgcolor: "rgba(255,255,255,0.14)" }} />
+              <Box sx={{ display: "flex", justifyContent: "center" }}><Coins value={c.price} size={11} /></Box>
+            </>
+          )}
         </Box>
+        {/* captain indicator: orange top-left corner ribbon with "C" */}
         {isCap && (
-          <Box sx={{ position: "absolute", top: 6, right: 6, width: 20, height: 20, borderRadius: "50%",
-                bgcolor: "primary.main", color: "#0e0e0e", display: "grid", placeItems: "center",
-                fontSize: 12, fontWeight: 900, boxShadow: "0 2px 6px rgba(0,0,0,0.5)" }}>C</Box>
+          <>
+            <Box sx={{ position: "absolute", top: 0, left: 0, width: 0, height: 0,
+                  borderTop: "38px solid var(--color-primary)", borderRight: "38px solid transparent" }} />
+            <Box component="span" sx={{ position: "absolute", top: 2, left: 5, fontSize: 14, fontWeight: 900, color: "#0e0e0e", lineHeight: 1 }}>C</Box>
+          </>
         )}
       </ButtonBase>
     );
@@ -222,7 +251,7 @@ export default function LiigaEdit() {
   // Empty formation slot → opens the add-card list.
   const addSlot = ({ rotate = 0, width } = {}) => (
     <ButtonBase key={`add-${rotate}-${width || ""}`} onClick={() => setAddOpen(true)}
-      sx={{ ...(width ? { width } : {}), aspectRatio: "3 / 4", borderRadius: "14px", transform: `rotate(${rotate}deg)`,
+      sx={{ ...(width ? { width } : {}), aspectRatio: CARD_AR, borderRadius: "14px", transform: `rotate(${rotate}deg)`,
             display: "grid", placeItems: "center", color: "text.disabled",
             border: "1.5px dashed rgba(255,255,255,0.22)", bgcolor: "rgba(255,255,255,0.02)" }}>
       <LuPlus size={22} />
@@ -231,7 +260,7 @@ export default function LiigaEdit() {
 
   // Fill a formation position: the card, an add slot (if the squad isn't full), or
   // an empty spacer (keeps the grid aligned when the squad is full).
-  const slot = (c, opts) => (c ? formationCard(c, opts) : (ids.length < 5 ? addSlot(opts) : <Box sx={{ ...(opts && opts.width ? { width: opts.width } : {}), aspectRatio: "3 / 4" }} />));
+  const slot = (c, opts) => (c ? formationCard(c, opts) : (ids.length < 5 ? addSlot(opts) : <Box sx={{ ...(opts && opts.width ? { width: opts.width } : {}), aspectRatio: CARD_AR }} />));
 
   if (all === null) return <Loading screen />;
 
@@ -279,11 +308,22 @@ export default function LiigaEdit() {
           </Box>
         );
       })()}
-      <Box sx={{ textAlign: "center", mb: 0.5 }}>
-        <Typography variant="caption" sx={{ color: "text.disabled" }}>Napauta korttia muokataksesi · pitkä painallus = kapteeni</Typography>
-      </Box>
 
-      {error && <Alert severity="error" sx={{ mt: 0.5 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mt: 0.5, mb: 1 }}>{error}</Alert>}
+
+      {/* bottom hint bar: two info texts with a divider (reference) */}
+      <Stack direction="row" spacing={2} sx={{ mt: 3, py: 1.25, alignItems: "center", justifyContent: "center",
+            borderTop: "1px solid var(--color-surface-border)" }}>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
+          <Box component={LuInfo} sx={{ fontSize: 14, color: "text.disabled", display: "block", flexShrink: 0 }} />
+          <Typography noWrap sx={{ fontSize: 11.5, color: "text.disabled" }}>Napsauta korttia muokataksesi</Typography>
+        </Stack>
+        <Box sx={{ width: "1px", height: 16, bgcolor: "var(--color-surface-border)", flexShrink: 0 }} />
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
+          <Box component={LuCrown} sx={{ fontSize: 14, color: "text.disabled", display: "block", flexShrink: 0 }} />
+          <Typography noWrap sx={{ fontSize: 11.5, color: "text.disabled" }}>Pitkä painallus = kapteeni</Typography>
+        </Stack>
+      </Stack>
 
       {/* 2A. Action sheet (bottom). elevation=0 kills MUI's dark-mode paper overlay
           (the grey tint); solid dark bg + a hairline top border like the concept. */}
