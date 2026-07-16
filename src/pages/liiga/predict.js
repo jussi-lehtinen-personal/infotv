@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Stack, Button, Select, MenuItem, Alert } from "@mui/material";
-import { LuGoal, LuTrophy, LuTarget, LuStar, LuClock, LuLock } from "react-icons/lu";
+import { LuGoal, LuTrophy, LuTarget, LuStar, LuLock, LuCheck, LuPencil } from "react-icons/lu";
 import { Screen, PageHead, EmptyState, Loading, CardAvatar, shortDate, IconCircle } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
@@ -39,19 +39,28 @@ const gameLabel = (g) => {
   return `${h} – ${a}`;
 };
 
-// Two-line game option (dropdown + closed value): date · series on top (small,
-// muted), the match below — so Naiset vs miehet reads at a glance, no clicking.
-const GameOption = ({ g }) => (
-  <Box sx={{ minWidth: 0, width: "100%" }}>
-    <Box sx={{ fontSize: 11, fontWeight: 600, color: "text.disabled", lineHeight: 1.3,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-      {shortDate(g.date)} · {g.level}
-      {g.locked && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}> · Päättynyt</Box>}
+// Two-line game option (dropdown + closed value): date · series on top (bigger, the
+// key info), the match below — so Naiset vs miehet reads at a glance, no clicking.
+// `predicted` marks the game you've veikannut with a green tag.
+const GameOption = ({ g, predicted }) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, width: "100%" }}>
+    <Box sx={{ minWidth: 0, flex: 1 }}>
+      <Box sx={{ fontSize: 13, fontWeight: 700, color: "text.secondary", lineHeight: 1.3,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {shortDate(g.date)} · {g.level}
+        {g.locked && <Box component="span" sx={{ color: "#ef4444", fontWeight: 700 }}> · Päättynyt</Box>}
+      </Box>
+      <Box sx={{ fontSize: 14, fontWeight: 700, color: "text.primary", lineHeight: 1.3,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {gameLabel(g)}
+      </Box>
     </Box>
-    <Box sx={{ fontSize: 14, fontWeight: 700, color: "text.primary", lineHeight: 1.3,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-      {gameLabel(g)}
-    </Box>
+    {predicted && (
+      <Box component="span" sx={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 0.4,
+            color: "var(--color-live)", fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase" }}>
+        <Box component={LuCheck} sx={{ fontSize: 13, display: "block" }} /> Veikattu
+      </Box>
+    )}
   </Box>
 );
 
@@ -118,6 +127,54 @@ const TeamName = ({ base, sub }) => (
   </Box>
 );
 
+// Top status banner: orange "not predicted yet" prompt, or green "prediction set".
+function StatusBanner({ set, frozen }) {
+  const border = set ? "rgba(34,197,94,0.4)" : "var(--color-surface-border)";
+  const bg = set ? "rgba(34,197,94,0.06)" : "var(--color-surface)";
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 2, mb: 2.5, borderRadius: "var(--radius-card)", bgcolor: bg, border: `1px solid ${border}` }}>
+      <IconCircle icon={set ? LuCheck : LuTarget} size={44}
+        tint={set ? "rgba(34,197,94,0.14)" : undefined} color={set ? "var(--color-live)" : undefined} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2, color: set ? "var(--color-live)" : "text.primary" }}>
+          {set ? "Veikkauksesi on asetettu" : "Et ole vielä tehnyt veikkausta"}
+        </Typography>
+        <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.4, lineHeight: 1.35 }}>
+          {set
+            ? (frozen ? "Ottelu on alkanut — veikkaus on lukittu." : "Voit muuttaa veikkausta, kunnes ottelu alkaa.")
+            : "Voit veikata yhtä ottelua tässä jaksossa. Valitse ottelu ja arvaa lopputulos."}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+// "Näin pisteitä kertyy" — the bonus tiers, shown at the bottom so players see how
+// scoring works.
+function BonusTiers() {
+  return (
+    <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mt: 3,
+          bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+      <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
+        <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+          <Box component={LuGoal} sx={{ color: "primary.main", fontSize: 17, display: "block" }} />
+        </Box>
+        <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>Näin pisteitä kertyy</Typography>
+      </Stack>
+      {BONUS.map((b, i) => (
+        <Stack key={i} direction="row" spacing={1.25}
+               sx={{ alignItems: "center", px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+          <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+            <Box component={b.icon} sx={{ color: "text.secondary", fontSize: 17, display: "block" }} />
+          </Box>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>{b.label}</Typography>
+          <Box sx={{ flexShrink: 0, fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 15, color: "primary.main" }}>{b.pts}</Box>
+        </Stack>
+      ))}
+    </Box>
+  );
+}
+
 export default function LiigaPredict() {
   const [data, setData] = useState(undefined);
   const [gameId, setGameId] = useState("");
@@ -151,6 +208,7 @@ export default function LiigaPredict() {
   // lock the picker to that game so it can't be moved to another upcoming match.
   // Derive it from MY prediction game's own `locked` flag (robust) + the server hint.
   const myPredId = data.myPrediction && data.myPrediction.gameId;
+  const predictionSet = !!data.myPrediction;
   const myPredGame = myPredId ? games.find((g) => g.gameId === myPredId) : null;
   const frozen = !settled && (!!(myPredGame && myPredGame.locked) || !!data.predictionLocked);
   const shownId = frozen && myPredId ? myPredId : gameId;
@@ -178,34 +236,16 @@ export default function LiigaPredict() {
     <Screen>
       <PageHead eyebrow="Jakson veikkaus" title="Veikkaa ottelu" />
 
-      {/* bonus tiers */}
-      <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mb: 2.5,
-            bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
-          <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-            <Box component={LuGoal} sx={{ color: "primary.main", fontSize: 17, display: "block" }} />
-          </Box>
-          <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>Bonuspisteet</Typography>
-        </Stack>
-        {BONUS.map((b, i) => (
-          <Stack key={i} direction="row" spacing={1.25}
-                 sx={{ alignItems: "center", px: 2, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
-            <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-              <Box component={b.icon} sx={{ color: "text.secondary", fontSize: 17, display: "block" }} />
-            </Box>
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>{b.label}</Typography>
-            <Box sx={{ flexShrink: 0, fontFamily: "var(--font-family-base)", fontWeight: 800, fontSize: 15, color: "primary.main" }}>{b.pts}</Box>
-          </Stack>
-        ))}
-      </Box>
+      {/* status banner (hidden once the jakso is settled) */}
+      {!settled && <StatusBanner set={predictionSet} frozen={frozen} />}
 
       {/* 1. select match (locked to your pick once it has been played) */}
-      <StepLabel sx={{ mb: 1 }}>{frozen ? "Veikkaamasi ottelu" : "1. Valitse ottelu"}</StepLabel>
+      <StepLabel sx={{ mb: 1 }}>{frozen ? "Veikkaamasi ottelu" : `1. Valitse ottelu${predictionSet ? " (veikattu)" : ""}`}</StepLabel>
       <Select fullWidth value={game.gameId} onChange={(e) => selectGame(e.target.value)} disabled={frozen} sx={selectSx} MenuProps={menuProps}
-              renderValue={(val) => <GameOption g={games.find((x) => x.gameId === val) || game} />}>
+              renderValue={(val) => <GameOption g={games.find((x) => x.gameId === val) || game} predicted={val === myPredId} />}>
         {games.map((g) => (
           <MenuItem key={g.gameId} value={g.gameId} disabled={!settled && g.locked} sx={{ whiteSpace: "normal", alignItems: "stretch" }}>
-            <GameOption g={g} />
+            <GameOption g={g} predicted={g.gameId === myPredId} />
           </MenuItem>
         ))}
       </Select>
@@ -222,10 +262,15 @@ export default function LiigaPredict() {
           <Box sx={{ gridColumn: 1, gridRow: 2, minWidth: 0 }}><TeamName base={hs.base} sub={hs.sub} /></Box>
           <Box sx={{ gridColumn: 3, gridRow: 2, minWidth: 0 }}><TeamName base={as.base} sub={as.sub} /></Box>
         </Box>
+        {isSavedGame && !settled && (
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.6, mt: 1.5, color: "var(--color-live)", fontSize: 13, fontWeight: 700 }}>
+            <Box component={LuCheck} sx={{ fontSize: 16, display: "block" }} /> Valittu ottelu
+          </Box>
+        )}
       </Box>
 
       {/* 2. score */}
-      {!locked && <StepLabel sx={{ mb: 1.25 }}>2. Veikkaa lopputulos</StepLabel>}
+      {!locked && <StepLabel sx={{ mb: 1.25 }}>{isSavedGame ? "2. Veikkasi" : "2. Veikkaa lopputulos"}</StepLabel>}
       {settled ? (
         <Box sx={{ textAlign: "center", py: 1 }}>
           {isSavedGame ? (
@@ -263,11 +308,11 @@ export default function LiigaPredict() {
         )
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.25, rowGap: 0.75 }}>
-          <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1, "& .MuiSelect-select": scoreSelectSx }} MenuProps={menuProps}>
+          <Select value={home} onChange={(e) => setHome(e.target.value)} sx={{ ...selectSx, gridColumn: 1, gridRow: 1, "& .MuiSelect-select": scoreSelectSx, ...(isSavedGame && { "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-live)" } }) }} MenuProps={menuProps}>
             {GOALS.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
           </Select>
           <Box sx={{ gridColumn: 2, gridRow: 1, color: "text.disabled", fontSize: 26 }}>—</Box>
-          <Select value={away} onChange={(e) => setAway(e.target.value)} sx={{ ...selectSx, gridColumn: 3, gridRow: 1, "& .MuiSelect-select": scoreSelectSx }} MenuProps={menuProps}>
+          <Select value={away} onChange={(e) => setAway(e.target.value)} sx={{ ...selectSx, gridColumn: 3, gridRow: 1, "& .MuiSelect-select": scoreSelectSx, ...(isSavedGame && { "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-live)" } }) }} MenuProps={menuProps}>
             {GOALS.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
           </Select>
           <Box sx={{ gridColumn: 1, gridRow: 2, ...nameSx, fontSize: 12, color: "text.disabled" }}>{hs.base}</Box>
@@ -278,21 +323,24 @@ export default function LiigaPredict() {
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
       {!settled && !locked && (
-        <Button fullWidth variant="contained" disabled={saving} onClick={save} sx={{ py: 1.3, mt: 2.5 }}>
-          {saving ? "Tallennetaan…" : isSavedGame ? "Veikkaus tallennettu — päivitä" : "Tallenna veikkaus"}
+        <Button fullWidth disabled={saving} onClick={save}
+          variant={isSavedGame ? "outlined" : "contained"}
+          startIcon={isSavedGame ? <LuPencil size={16} /> : undefined}
+          sx={{ py: 1.3, mt: 2.5 }}>
+          {saving ? "Tallennetaan…" : isSavedGame ? "Muokkaa veikkausta" : "Tallenna veikkaus"}
         </Button>
       )}
 
-      {left && (
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2, px: 1.75, py: 1.25, borderRadius: "var(--radius-item)",
-              bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-          <Box component={LuClock} sx={{ color: "text.secondary", fontSize: 20, flexShrink: 0 }} />
-          <Box>
-            <Typography variant="caption" sx={{ color: "text.disabled", display: "block", lineHeight: 1.2 }}>Veikkausaikaa jäljellä</Typography>
-            <Typography sx={{ fontWeight: 700, color: "text.primary" }}>{left}</Typography>
-          </Box>
+      {/* footer: lock note (upcoming) or time-left */}
+      {!settled && !locked && (
+        <Stack direction="row" spacing={0.75} sx={{ justifyContent: "center", alignItems: "center", mt: 2, color: "text.disabled" }}>
+          <Box component={LuLock} sx={{ fontSize: 14, display: "block" }} />
+          <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>Veikkaus lukittuu, kun ottelu alkaa{left ? ` · ${left}` : ""}</Typography>
         </Stack>
       )}
+
+      {/* how points work — kept at the bottom */}
+      <BonusTiers />
     </Screen>
   );
 }
