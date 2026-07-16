@@ -58,14 +58,12 @@ export const CardAvatar = ({ card, size, label: labelOverride }) => {
                       bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />;
   }
   const isTeam = card && card.kind === "team";
-  // Team cards → the Ahma logo (unless a caller forces a text label).
+  // Team cards → just the Ahma logo (no circle), filling the box (unless a caller
+  // forces a text label).
   if (isTeam && !labelOverride) {
     return (
-      <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", overflow: "hidden",
-                 background: "linear-gradient(160deg, rgba(249,115,22,0.24), rgba(249,115,22,0.06))",
-                 border: "1px solid rgba(249,115,22,0.45)" }}>
-        <Box component="img" src={AHMA_LOGO} alt="" sx={{ width: "72%", height: "72%", objectFit: "contain" }} />
-      </Box>
+      <Box component="img" src={AHMA_LOGO} alt="" sx={{ width: size, height: size, objectFit: "contain", flexShrink: 0,
+            filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }} />
     );
   }
   const label = labelOverride || (isTeam ? teamAbbr(card && card.name) : initials(card && card.name));

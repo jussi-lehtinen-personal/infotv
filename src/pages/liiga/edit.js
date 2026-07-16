@@ -194,7 +194,7 @@ export default function LiigaEdit() {
         sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: CARD_AR,
               WebkitTapHighlightColor: "transparent", "&:focus, &.Mui-focusVisible": { outline: "none" },
               borderRadius: "14px", overflow: "hidden", transformOrigin: lifted ? "center" : "bottom center", zIndex: lifted ? 2 : 1,
-              transform: `${lifted ? "scale(1.18) " : ""}rotate(${rotate}deg)`,
+              transform: `${lifted ? "scale(1.22) " : ""}rotate(${rotate}deg)`,
               border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
               boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
               background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)" }}>
@@ -202,18 +202,18 @@ export default function LiigaEdit() {
         {c.photo ? (
           <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
         ) : c.kind === "team" ? (
-          <Box sx={{ position: "absolute", top: "5%", left: 0, right: 0, bottom: "34%", display: "grid", placeItems: "center", px: 0.5 }}>
-            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "90%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+          <Box sx={{ position: "absolute", top: "2%", left: 0, right: 0, bottom: "38%", display: "grid", placeItems: "center", px: 0.5 }}>
+            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "96%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
           </Box>
         ) : (
-          <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "36%", display: "grid", placeItems: "center" }}>
-            <Box component="span" sx={{ fontWeight: 900, fontSize: 44, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
+          <Box sx={{ position: "absolute", top: "2%", left: 0, right: 0, bottom: "40%", display: "grid", placeItems: "center" }}>
+            <Box component="span" sx={{ fontWeight: 900, fontSize: 46, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
           </Box>
         )}
         {/* captain: the Ahmaliiga logo over the chest */}
         {isCap && (
           <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
-                transform: "translate(-50%, -50%)", width: "82%", height: "auto", objectFit: "contain",
+                transform: "translate(-50%, -50%)", width: "90%", height: "auto", objectFit: "contain",
                 pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
         )}
         {/* bottom gradient + text */}
@@ -299,15 +299,15 @@ export default function LiigaEdit() {
         const GAP = 8;
         const wCalc = `calc((100% - ${2 * GAP}px) / 3)`;
         return (
-          <Box sx={{ mb: 2.5, pt: 4, px: 0.5 }}>
+          <Box sx={{ mb: 2.5, pt: 4, px: { xs: 0.5, sm: 3 } }}>
             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", columnGap: `${GAP}px`, alignItems: "end" }}>
               {slot(rest[0], { rotate: -5 })}
               {slot(captain, { isCap: !!captain, lifted: true })}
               {slot(rest[1], { rotate: 5 })}
             </Box>
             <Box sx={{ display: "flex", justifyContent: "center", gap: `${GAP}px`, mt: `${GAP + 8}px` }}>
-              {slot(rest[2], { width: wCalc })}
-              {slot(rest[3], { width: wCalc })}
+              {slot(rest[2], { width: wCalc, rotate: -4 })}
+              {slot(rest[3], { width: wCalc, rotate: 4 })}
             </Box>
           </Box>
         );
