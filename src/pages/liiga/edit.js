@@ -185,7 +185,7 @@ export default function LiigaEdit() {
             {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
           </Typography>
           <Box sx={{ display: "flex", justifyContent: "center", mt: 0.25 }}>
-            <Coins value={c.price} size={10} color="text.disabled" />
+            <Coins value={c.price} size={11} color="text.disabled" iconColor="text.disabled" />
           </Box>
         </Box>
         {isCap && (
@@ -233,7 +233,7 @@ export default function LiigaEdit() {
         const GAP = 8;
         const wCalc = `calc((100% - ${2 * GAP}px) / 3)`;
         return (
-          <Box sx={{ mb: 2.5, pt: 1.5, px: 0.5 }}>
+          <Box sx={{ mb: 2.5, pt: 4, px: 0.5 }}>
             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", columnGap: `${GAP}px`, alignItems: "end" }}>
               {slot(rest[0], { rotate: -5 })}
               {slot(captain, { isCap: !!captain, lifted: true })}
