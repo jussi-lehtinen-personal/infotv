@@ -7,7 +7,7 @@ import {
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
 
@@ -171,12 +171,12 @@ export default function LiigaEdit() {
         {c.photo ? (
           <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
         ) : (
-          <Box sx={{ position: "absolute", top: "8%", left: 0, right: 0, display: "grid", placeItems: "center" }}>
-            <CardAvatar card={c} size={54} />
+          <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "30%", display: "grid", placeItems: "center", px: 1 }}>
+            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "70%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
           </Box>
         )}
         {/* bottom gradient + text: name (centred, bigger) then points (BL) + price (BR) */}
-        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 0.6, px: 0.75,
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 1, px: 1.1,
               background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 55%, #0e0e0e 100%)" }}>
           <Box sx={{ textAlign: "center" }}>
             {nameLines.map((ln, i) => (
