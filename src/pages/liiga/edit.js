@@ -202,11 +202,11 @@ export default function LiigaEdit() {
         {c.photo ? (
           <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
         ) : c.kind === "team" ? (
-          <Box sx={{ position: "absolute", top: "2%", left: 0, right: 0, bottom: "38%", display: "grid", placeItems: "center", px: 0.5 }}>
+          <Box sx={{ position: "absolute", top: "0%", left: 0, right: 0, bottom: "42%", display: "grid", placeItems: "center", px: 0.5 }}>
             <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "96%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
           </Box>
         ) : (
-          <Box sx={{ position: "absolute", top: "2%", left: 0, right: 0, bottom: "40%", display: "grid", placeItems: "center" }}>
+          <Box sx={{ position: "absolute", top: "0%", left: 0, right: 0, bottom: "46%", display: "grid", placeItems: "center" }}>
             <Box component="span" sx={{ fontWeight: 900, fontSize: 46, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
           </Box>
         )}
