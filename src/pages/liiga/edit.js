@@ -47,10 +47,11 @@ const jaksoRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
 
 // Taller portrait cards (reference proportions).
 const CARD_AR = "62 / 100";
-// Initials for a player card without a photo (reference "JV" style).
+// Initials for a player card without a photo, first name first (card name is
+// "Surname Firstname" → "Jori" + "Väisänen" = "JV").
 const initialsOf = (name) => {
   const p = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (p.length >= 2) return (p[0][0] + p[p.length - 1][0]).toLocaleUpperCase("fi");
+  if (p.length >= 2) return (p[p.length - 1][0] + p[0][0]).toLocaleUpperCase("fi");
   return String(name || "").slice(0, 2).toLocaleUpperCase("fi");
 };
 
@@ -200,8 +201,8 @@ export default function LiigaEdit() {
         {c.photo ? (
           <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
         ) : c.kind === "team" ? (
-          <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "36%", display: "grid", placeItems: "center", px: 1 }}>
-            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "72%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+          <Box sx={{ position: "absolute", top: "5%", left: 0, right: 0, bottom: "34%", display: "grid", placeItems: "center", px: 0.5 }}>
+            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "90%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
           </Box>
         ) : (
           <Box sx={{ position: "absolute", top: "6%", left: 0, right: 0, bottom: "36%", display: "grid", placeItems: "center" }}>
@@ -222,7 +223,7 @@ export default function LiigaEdit() {
           ))}
           {isCap ? (
             // captain: points (left) · divider · price (right)
-            <Box sx={{ display: "flex", alignItems: "center", mt: 0.75 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mt: 1.1 }}>
               <Box sx={{ flex: 1 }}>{ptsEl(pts, 21)}</Box>
               <Box sx={{ width: "1px", height: 20, bgcolor: "rgba(255,255,255,0.2)", mx: 0.5 }} />
               <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}><Coins value={c.price} size={12} /></Box>
@@ -230,7 +231,7 @@ export default function LiigaEdit() {
           ) : (
             // others: name → points → divider → price, stacked + centred
             <>
-              <Box sx={{ mt: 0.5 }}>{ptsEl(pts, 18)}</Box>
+              <Box sx={{ mt: 1 }}>{ptsEl(pts, 18)}</Box>
               <Box sx={{ height: "1px", width: "58%", mx: "auto", my: 0.6, bgcolor: "rgba(255,255,255,0.14)" }} />
               <Box sx={{ display: "flex", justifyContent: "center" }}><Coins value={c.price} size={11} /></Box>
             </>
@@ -240,8 +241,8 @@ export default function LiigaEdit() {
         {isCap && (
           <>
             <Box sx={{ position: "absolute", top: 0, left: 0, width: 0, height: 0,
-                  borderTop: "38px solid var(--color-primary)", borderRight: "38px solid transparent" }} />
-            <Box component="span" sx={{ position: "absolute", top: 2, left: 5, fontSize: 14, fontWeight: 900, color: "#0e0e0e", lineHeight: 1 }}>C</Box>
+                  borderTop: "42px solid var(--color-primary)", borderRight: "42px solid transparent" }} />
+            <Box component="span" sx={{ position: "absolute", top: 6, left: 8, fontSize: 14, fontWeight: 900, color: "#0e0e0e", lineHeight: 1 }}>C</Box>
           </>
         )}
       </ButtonBase>
