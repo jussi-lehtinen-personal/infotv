@@ -175,17 +175,22 @@ export default function LiigaEdit() {
             <CardAvatar card={c} size={54} />
           </Box>
         )}
-        {/* bottom gradient + text */}
-        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 0.75, px: 0.5, textAlign: "center",
+        {/* bottom gradient + text: name (centred, bigger) then points (BL) + price (BR) */}
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 0.6, px: 0.75,
               background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 55%, #0e0e0e 100%)" }}>
-          {nameLines.map((ln, i) => (
-            <Typography key={i} noWrap sx={{ fontSize: 11, fontWeight: 800, lineHeight: 1.15, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
-          ))}
-          <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1, mt: 0.4, color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
-            {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
-          </Typography>
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 0.25 }}>
-            <Coins value={c.price} size={11} color="text.disabled" iconColor="text.disabled" />
+          <Box sx={{ textAlign: "center" }}>
+            {nameLines.map((ln, i) => (
+              <Typography key={i} noWrap sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
+            ))}
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", mt: 0.4 }}>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1, color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
+              {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
+            </Typography>
+            <Box sx={{ display: "inline-flex", alignItems: "center", px: 0.75, py: "3px", borderRadius: 999,
+                  bgcolor: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <Coins value={c.price} size={11} />
+            </Box>
           </Box>
         </Box>
         {isCap && (

@@ -49,8 +49,8 @@ export const teamAbbr = (name) => {
   return s.slice(0, 3).toUpperCase();
 };
 
-// Avatar for a card: the player's Jopox photo if we have one, else a text badge —
-// teams show ED / N / U15, players their initials. Body font, optically centred.
+// Avatar for a card: the player's Jopox photo if we have one, else — for teams the
+// Ahma logo, for players their initials. Body font, optically centred.
 export const CardAvatar = ({ card, size, label: labelOverride }) => {
   if (card && card.photo) {
     return <Box component="img" src={card.photo} alt=""
@@ -58,6 +58,16 @@ export const CardAvatar = ({ card, size, label: labelOverride }) => {
                       bgcolor: "#222", border: "1px solid rgba(255,255,255,0.12)" }} />;
   }
   const isTeam = card && card.kind === "team";
+  // Team cards → the Ahma logo (unless a caller forces a text label).
+  if (isTeam && !labelOverride) {
+    return (
+      <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", overflow: "hidden",
+                 background: "linear-gradient(160deg, rgba(249,115,22,0.24), rgba(249,115,22,0.06))",
+                 border: "1px solid rgba(249,115,22,0.45)" }}>
+        <Box component="img" src={AHMA_LOGO} alt="" sx={{ width: "72%", height: "72%", objectFit: "contain" }} />
+      </Box>
+    );
+  }
   const label = labelOverride || (isTeam ? teamAbbr(card && card.name) : initials(card && card.name));
   return (
     <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0,
