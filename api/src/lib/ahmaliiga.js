@@ -840,7 +840,7 @@ async function validateRoundResults(seasonId, round) {
 // the roster check and the points).
 async function jaksoProgress(seasonId, round, userId) {
   const squad = await getSquad(userId);
-  if (!squad || !squad.cards || !squad.cards.length) return { played: 0, total: 0, livePoints: 0, perGame: {} };
+  if (!squad || !squad.cards || !squad.cards.length) return { played: 0, total: 0, livePoints: 0, perGame: {}, perCard: {} };
   const season = await getEntity(T.season, 'season', seasonId);
   const simDate = season && season.simMode ? season.simDate : null;
   const cardsList = await getCards(seasonId);
@@ -868,17 +868,25 @@ async function jaksoProgress(seasonId, round, userId) {
 
   // Live points: run the locked scoring per played game (so we get a per-game figure
   // for the timeline), take that game's effective squad, apply the captain 2×, sum.
+  // perCard = each card's own jakso contribution (captain 2×) for the team view.
   const perGame = {};
+  const perCard = {};
   let livePoints = 0;
   for (const g of playedGames) {
     const rep = reports[g.gameId];
     const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {} });
     const eff = effectiveSquad(g, lineups, ids, captainId);
     let gPts = 0;
-    for (const id of eff.ids) { const p = results[id]; if (p) gPts += id === eff.captainId ? p * 2 : p; }
+    for (const id of eff.ids) {
+      const p = results[id]; if (!p) continue;
+      const e = id === eff.captainId ? p * 2 : p;
+      gPts += e;
+      perCard[id] = (perCard[id] || 0) + e;
+    }
     gPts = Math.round(gPts * 10) / 10;
     if (gPts) { perGame[g.gameId] = gPts; livePoints += gPts; }
   }
+  for (const id of Object.keys(perCard)) perCard[id] = Math.round(perCard[id] * 10) / 10;
   // Prediction bonus counts once its predicted game has been played.
   const pred = await getEntity(T.predictions, `${seasonId}|${round}`, userId);
   if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {
@@ -909,7 +917,7 @@ async function jaksoProgress(seasonId, round, userId) {
     }
     if (didPlay) played++;
   }
-  return { played, total: squad.cards.length, livePoints, perGame };
+  return { played, total: squad.cards.length, livePoints, perGame, perCard };
 }
 
 // Extract the age group ("U15") from a game level or team name; '' if none.

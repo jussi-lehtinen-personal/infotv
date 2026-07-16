@@ -6,11 +6,10 @@ import {
 } from "@mui/material";
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
-  LuStar,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, PricePill, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines } from "./_shared";
 import CardList from "./CardList";
-import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
 
 // Oma joukkue — the squad, edited in place. Captain hero + a grid of the other
 // cards. Tapping a card opens an action sheet (Korvaa / Kapteeni / Näytä tiedot /
@@ -29,14 +28,6 @@ const StatCell = ({ label, children }) => (
 const StatNum = ({ children }) => (
   <Box component="span" sx={{ fontWeight: 800, fontSize: 19, color: "text.primary", lineHeight: 1 }}>{children}</Box>
 );
-// Orange section header (★ KAPTEENI / MUUT KORTIT).
-const SectionLabel = ({ icon: Icon, children, sx }) => (
-  <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 1, ...sx }}>
-    {Icon && <Box component={Icon} sx={{ fontSize: 15, color: "primary.main", display: "block" }} fill="currentColor" />}
-    <Box component="span" sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>{children}</Box>
-  </Stack>
-);
-
 // Card avatar with an orange ring (squad look).
 const RingAvatar = ({ card, size }) => (
   <Box sx={{ flexShrink: 0, borderRadius: "50%", boxShadow: "0 0 0 2px rgba(249,115,22,0.55)" }}>
@@ -55,6 +46,7 @@ export default function LiigaEdit() {
   const [transfers, setTransfers] = useState({ used: 0, free: 2 });
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
+  const [perCard, setPerCard] = useState(null); // this jakso's points per card
   const [error, setError] = useState("");
 
   // Overlay/dialog state
@@ -83,8 +75,8 @@ export default function LiigaEdit() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAhmaliigaCards(), getMySquad().catch(() => ({})), getAhmaliigaState().catch(() => null)])
-      .then(([cardsRes, squadRes, stateRes]) => {
+    Promise.all([getAhmaliigaCards(), getMySquad().catch(() => ({})), getAhmaliigaState().catch(() => null), getAhmaliigaJaksoProgress().catch(() => null)])
+      .then(([cardsRes, squadRes, stateRes, progRes]) => {
         if (cancelled) return;
         setAll(cardsRes.cards || []);
         setSettled(!!cardsRes.settled);
@@ -92,6 +84,7 @@ export default function LiigaEdit() {
         setBank(squadRes && squadRes.bank != null ? squadRes.bank : (squadRes && squadRes.budget) || 120);
         if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
+        setPerCard(progRes && progRes.perCard ? progRes.perCard : {});
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
       })
@@ -158,47 +151,65 @@ export default function LiigaEdit() {
   const canAdd = (c) =>
     ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < 2);
 
-  // A squad row (captain or bench). Same flex + alignItems:center base as the
-  // shared ListRow (v9-safe alignment), 3 lines (name / team / price+trend) + a
-  // Pisteet box + chevron. Tap = action sheet; long-press = set captain.
-  const squadRow = (c, isCap) => (
-    <ButtonBase key={c.id} {...pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)))}
-      sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", p: 1.5,
-            borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)",
-            border: `1px solid ${isCap ? "rgba(249,115,22,0.4)" : "var(--color-surface-border)"}` }}>
-      <Box sx={{ position: "relative", flexShrink: 0, display: "flex" }}>
-        <RingAvatar card={c} size={52} />
-        {isCap && (
-          <Box sx={{ position: "absolute", bottom: -3, left: -3, width: 18, height: 18, borderRadius: "50%",
-                bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>
-            <Box component={LuStar} sx={{ fontSize: 11, color: "primary.main", display: "block" }} fill="currentColor" />
+  // This jakso's points for a card (null until loaded → shown as "—").
+  const cardPts = (id) => (perCard ? (perCard[id] || 0) : null);
+
+  // One formation card (portrait "playing card"): photo (player) / crest (team) +
+  // name + this jakso's points (big, orange) + price (small). Captain gets a "C" +
+  // glow and is lifted. Tap = action sheet; long-press = set captain.
+  const formationCard = (c, { isCap = false, rotate = 0, lifted = false, width } = {}) => {
+    const pts = cardPts(c.id);
+    const nameLines = c.kind === "team" ? [c.name] : playerNameLines(c.name);
+    return (
+      <ButtonBase key={c.id} {...pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)))}
+        sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: "3 / 4",
+              borderRadius: "14px", overflow: "hidden", transformOrigin: "bottom center", zIndex: lifted ? 2 : 1,
+              transform: `${lifted ? "translateY(-10px) scale(1.06) " : ""}rotate(${rotate}deg)`,
+              border: `1.5px solid ${isCap ? "rgba(249,115,22,0.9)" : "rgba(255,255,255,0.14)"}`,
+              boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.35)" : "0 6px 16px rgba(0,0,0,0.45)",
+              background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)" }}>
+        {c.photo ? (
+          <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+        ) : (
+          <Box sx={{ position: "absolute", top: "8%", left: 0, right: 0, display: "grid", placeItems: "center" }}>
+            <CardAvatar card={c} size={54} />
           </Box>
         )}
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        {/* players: first name on top line, surname below → 3-line card like the market */}
-        {c.kind === "team" ? (
-          <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{c.name}</Typography>
-        ) : (
-          playerNameLines(c.name).map((ln, i) => (
-            <Typography key={i} noWrap sx={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, color: "text.primary",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ln}</Typography>
-          ))
-        )}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.25, minWidth: 0, overflow: "hidden" }}>
-          <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.3 }}>{bandSub(c)}</Typography>
-          {(c.trend === "up" || c.trend === "down") && (
-            <>
-              <Box component="span" sx={{ color: "text.disabled", fontSize: 12, lineHeight: 1 }}>·</Box>
-              <TrendTag trend={c.trend} sx={{ fontSize: 12 }} />
-            </>
-          )}
+        {/* bottom gradient + text */}
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2.5, pb: 0.75, px: 0.5, textAlign: "center",
+              background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 55%, #0e0e0e 100%)" }}>
+          {nameLines.map((ln, i) => (
+            <Typography key={i} noWrap sx={{ fontSize: 11, fontWeight: 800, lineHeight: 1.15, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
+          ))}
+          <Typography sx={{ fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1, mt: 0.4, color: "primary.main", letterSpacing: "var(--font-display-tracking)", fontVariantNumeric: "tabular-nums" }}>
+            {pts == null ? "—" : Number(pts).toFixed(1)}<Box component="span" sx={{ fontSize: 10, ml: 0.25 }}>p</Box>
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 0.25 }}>
+            <Coins value={c.price} size={10} color="text.disabled" />
+          </Box>
         </Box>
-      </Box>
-      <PricePill value={c.price} />
-      <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
+        {isCap && (
+          <Box sx={{ position: "absolute", top: 6, right: 6, width: 20, height: 20, borderRadius: "50%",
+                bgcolor: "primary.main", color: "#0e0e0e", display: "grid", placeItems: "center",
+                fontSize: 12, fontWeight: 900, boxShadow: "0 2px 6px rgba(0,0,0,0.5)" }}>C</Box>
+        )}
+      </ButtonBase>
+    );
+  };
+
+  // Empty formation slot → opens the add-card list.
+  const addSlot = ({ rotate = 0, width } = {}) => (
+    <ButtonBase key={`add-${rotate}-${width || ""}`} onClick={() => setAddOpen(true)}
+      sx={{ ...(width ? { width } : {}), aspectRatio: "3 / 4", borderRadius: "14px", transform: `rotate(${rotate}deg)`,
+            display: "grid", placeItems: "center", color: "text.disabled",
+            border: "1.5px dashed rgba(255,255,255,0.22)", bgcolor: "rgba(255,255,255,0.02)" }}>
+      <LuPlus size={22} />
     </ButtonBase>
   );
+
+  // Fill a formation position: the card, an add slot (if the squad isn't full), or
+  // an empty spacer (keeps the grid aligned when the squad is full).
+  const slot = (c, opts) => (c ? formationCard(c, opts) : (ids.length < 5 ? addSlot(opts) : <Box sx={{ ...(opts && opts.width ? { width: opts.width } : {}), aspectRatio: "3 / 4" }} />));
 
   if (all === null) return <Loading screen />;
 
@@ -216,25 +227,28 @@ export default function LiigaEdit() {
         <StatCell label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
       </Box>
 
-      {captain && (
-        <>
-          <SectionLabel icon={LuStar}>Kapteeni</SectionLabel>
-          {squadRow(captain, true)}
-        </>
-      )}
-
-      <SectionLabel sx={{ mt: captain ? 2.5 : 0 }}>Muut kortit</SectionLabel>
-      <Stack spacing={1}>
-        {rest.map((c) => squadRow(c, false))}
-        {ids.length < 5 && (
-          <ButtonBase onClick={() => setAddOpen(true)}
-            sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, width: "100%", p: 1.5,
-                  borderRadius: "var(--radius-item)", border: "1px dashed rgba(255,255,255,0.25)", color: "text.secondary" }}>
-            <LuPlus size={18} />
-            <Box component="span" sx={{ fontSize: 14, fontWeight: 700 }}>Lisää kortti</Box>
-          </ButtonBase>
-        )}
-      </Stack>
+      {/* Kokoonpano — 3-2 formation, captain lifted in the centre, side cards fanned.
+          Tap a card = actions; long-press = captain. Empty spots = add slots. */}
+      {(() => {
+        const GAP = 8;
+        const wCalc = `calc((100% - ${2 * GAP}px) / 3)`;
+        return (
+          <Box sx={{ mb: 2.5, pt: 1.5, px: 0.5 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", columnGap: `${GAP}px`, alignItems: "end" }}>
+              {slot(rest[0], { rotate: -5 })}
+              {slot(captain, { isCap: !!captain, lifted: true })}
+              {slot(rest[1], { rotate: 5 })}
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "center", gap: `${GAP}px`, mt: `${GAP + 8}px` }}>
+              {slot(rest[2], { width: wCalc })}
+              {slot(rest[3], { width: wCalc })}
+            </Box>
+          </Box>
+        );
+      })()}
+      <Box sx={{ textAlign: "center", mb: 0.5 }}>
+        <Typography variant="caption" sx={{ color: "text.disabled" }}>Napauta korttia muokataksesi · pitkä painallus = kapteeni</Typography>
+      </Box>
 
       {error && <Alert severity="error" sx={{ mt: 0.5 }}>{error}</Alert>}
 

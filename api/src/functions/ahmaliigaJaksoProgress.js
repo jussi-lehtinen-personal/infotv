@@ -17,7 +17,7 @@ app.http('ahmaliigaJaksoProgress', {
       if (!userId) return { status: 401, jsonBody: { error: 'Kirjautuminen vaaditaan.' } };
       await ensureTables();
       const season = await getActiveSeason();
-      if (!season) return { jsonBody: { played: 0, total: 0, livePoints: 0, perGame: {} } };
+      if (!season) return { jsonBody: { played: 0, total: 0, livePoints: 0, perGame: {}, perCard: {} } };
       const round = activeRoundNo(season, await getRounds(season.rowKey));
       const res = await jaksoProgress(season.rowKey, round, userId);
       return { jsonBody: res };
