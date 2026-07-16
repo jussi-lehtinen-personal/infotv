@@ -190,10 +190,11 @@ export default function LiigaEdit() {
     const pts = cardPts(c.id);
     const nameLines = c.kind === "team" ? [c.name] : playerNameLines(c.name);
     return (
-      <ButtonBase key={c.id} {...pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)))}
+      <ButtonBase key={c.id} disableRipple {...pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)))}
         sx={{ position: "relative", display: "block", ...(width ? { width } : {}), aspectRatio: CARD_AR,
-              borderRadius: "14px", overflow: "hidden", transformOrigin: "bottom center", zIndex: lifted ? 2 : 1,
-              transform: `${lifted ? "translateY(-10px) scale(1.05) " : ""}rotate(${rotate}deg)`,
+              WebkitTapHighlightColor: "transparent", "&:focus, &.Mui-focusVisible": { outline: "none" },
+              borderRadius: "14px", overflow: "hidden", transformOrigin: lifted ? "center" : "bottom center", zIndex: lifted ? 2 : 1,
+              transform: `${lifted ? "scale(1.18) " : ""}rotate(${rotate}deg)`,
               border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
               boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
               background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)" }}>
@@ -212,12 +213,13 @@ export default function LiigaEdit() {
         {/* captain: the Ahmaliiga logo over the chest */}
         {isCap && (
           <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
-                transform: "translate(-50%, -50%)", width: "66%", height: "auto", objectFit: "contain",
+                transform: "translate(-50%, -50%)", width: "82%", height: "auto", objectFit: "contain",
                 pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
         )}
         {/* bottom gradient + text */}
         <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 3, pb: 1, px: 1, textAlign: "center",
               background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 50%, #0e0e0e 100%)" }}>
+          {!isCap && <Box sx={{ height: "2px", width: "56%", mx: "auto", mb: 0.75, borderRadius: 2, bgcolor: "var(--color-primary)" }} />}
           {nameLines.map((ln, i) => (
             <Typography key={i} noWrap sx={{ fontSize: isCap ? 14 : 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
           ))}
@@ -251,9 +253,10 @@ export default function LiigaEdit() {
 
   // Empty formation slot → opens the add-card list.
   const addSlot = ({ rotate = 0, width } = {}) => (
-    <ButtonBase key={`add-${rotate}-${width || ""}`} onClick={() => setAddOpen(true)}
+    <ButtonBase key={`add-${rotate}-${width || ""}`} disableRipple onClick={() => setAddOpen(true)}
       sx={{ ...(width ? { width } : {}), aspectRatio: CARD_AR, borderRadius: "14px", transform: `rotate(${rotate}deg)`,
-            display: "grid", placeItems: "center", color: "text.disabled",
+            display: "grid", placeItems: "center", color: "text.disabled", WebkitTapHighlightColor: "transparent",
+            "&:focus, &.Mui-focusVisible": { outline: "none" },
             border: "1.5px dashed rgba(255,255,255,0.22)", bgcolor: "rgba(255,255,255,0.02)" }}>
       <LuPlus size={22} />
     </ButtonBase>
