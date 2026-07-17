@@ -7,16 +7,16 @@ import {
   StatCard, ListCard, ListRow, RowValue, signed,
 } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
-import { getAhmaliigaState, getMySquad, getAhmaliigaJaksoProgress, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// One jakso, two views. Round-parameterised (?round=N) so it works for the current
-// (live) jakso AND any settled past one — merging the old "Jakson yhteenveto" and
-// "Aikajana" pages. Both routes (/round + /timeline) render this; the default tab is
-// Aikajana for the live jakso, Tulokset for a settled one.
+// One round, two views. Round-parameterised (?round=N) so it works for the current
+// (live) round AND any settled past one — merging the old results-summary and
+// timeline pages. Both routes (/round + /timeline) render this; the default tab is
+// the timeline for the live round, results for a settled one.
 
 const TABS = [
-  { key: "tulokset", label: "Tulokset" },
-  { key: "aikajana", label: "Aikajana" },
+  { key: "results", label: "Tulokset" },
+  { key: "timeline", label: "Aikajana" },
 ];
 
 // ---- Tulokset (per-card breakdown + rank + best card) ----
@@ -115,7 +115,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent }) {
   const gameEvents = events.filter((e) => e.type === "game");
   const playedGames = gameEvents.filter((e) => e.played).length;
   const upcomingGames = gameEvents.length - playedGames;
-  // Live jakso → running points ("if it ended now"); settled → the final total.
+  // Live round → running points ("if it ended now"); settled → the final total.
   const headPts = isCurrent ? progress.livePoints : (summary && summary.settled ? summary.total : progress.livePoints);
 
   return (
@@ -164,7 +164,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent }) {
                 points={ev.type === "game" && ev.played && progress.perGame ? (progress.perGame[ev.game.id] || 0) : undefined}
                 onClick={ev.type !== "game" ? undefined
                   : ev.played ? () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game } })
-                  : isCurrent ? () => nav("/ahmaliiga/veikkaus") : undefined} />
+                  : isCurrent ? () => nav("/ahmaliiga/predict") : undefined} />
             </Box>
           </Box>
         );
@@ -173,7 +173,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent }) {
   );
 }
 
-export default function LiigaJakso() {
+export default function LiigaRound() {
   const { pathname } = useLocation();
   const [params] = useSearchParams();
   const roundParam = params.get("round");
@@ -203,7 +203,7 @@ export default function LiigaJakso() {
     let cancelled = false;
     setSummary(undefined); setProgress(undefined);
     getAhmaliigaSummary(targetRound).then((d) => { if (!cancelled) setSummary(d); }).catch(() => { if (!cancelled) setSummary(null); });
-    getAhmaliigaJaksoProgress(targetRound).then((d) => { if (!cancelled) setProgress(d); }).catch(() => { if (!cancelled) setProgress(null); });
+    getAhmaliigaRoundProgress(targetRound).then((d) => { if (!cancelled) setProgress(d); }).catch(() => { if (!cancelled) setProgress(null); });
     return () => { cancelled = true; };
   }, [targetRound]);
 
@@ -213,9 +213,9 @@ export default function LiigaJakso() {
   }
   if (summary === undefined || progress === undefined) return <Loading screen />;
 
-  const activeTab = tab || (isCurrent ? "aikajana" : "tulokset");
+  const activeTab = tab || (isCurrent ? "timeline" : "results");
   const dl = isCurrent ? state.daysLeft : null;
-  // Own teams: the settled jakso's actual squad, else the current squad.
+  // Own teams: the settled round's actual squad, else the current squad.
   const myKeys = summary && summary.settled ? squadTeamKeys(summary.cards) : squadTeamKeys(squad && squad.cards);
 
   return (
@@ -235,7 +235,7 @@ export default function LiigaJakso() {
         ))}
       </Stack>
 
-      {activeTab === "tulokset"
+      {activeTab === "results"
         ? <ResultsTab summary={summary} />
         : <TimelineTab progress={progress} summary={summary} myKeys={myKeys} isCurrent={isCurrent} />}
     </Screen>

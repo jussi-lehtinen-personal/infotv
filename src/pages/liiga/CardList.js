@@ -7,7 +7,7 @@ import { PricePill, CardAvatar, ListCard, signed, PillButton, TrendTag, playerNa
 //   browse  (Korttimarkkina) — tap opens the card details
 //   replace (Korvaa kortti)  — tap picks a replacement; canPick() gates affordability/type
 //   add     (Lisää kortti)   — tap adds a card; canPick() gates the same
-// Non-selectable rows dim + show a lock. The columns (Jakso / Kausi / Hinta) share
+// Non-selectable rows dim + show a lock. The columns (round / season / price) share
 // ONE grid template with the header row so they always line up.
 
 const FILTERS = [
@@ -34,9 +34,9 @@ const GRID = {
   columnGap: 1,
   px: 1.5,
 };
-// Stat columns (Jakso/Kausi/Hinta) centre both the header and the value in the
+// Stat columns (round/season/price) centre both the header and the value in the
 // same grid cell → their optical centres line up regardless of text width. The
-// first column (Pelaaja) stays left-aligned.
+// first column (player) stays left-aligned.
 const StatVal = ({ children }) => (
   <Box sx={{ textAlign: "center", fontSize: 13, fontWeight: 800, color: "text.secondary" }}>{children}</Box>
 );
@@ -150,7 +150,7 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
         </Box>
       ) : (
         <ListCard>
-          {/* header — same grid as the rows so Jakso/Kausi/Hinta sit above their
+          {/* header — same grid as the rows so round/season/price sit above their
               values; each cell is clickable and drives `sort` (active = orange) */}
           <Box sx={{ ...GRID, py: 1, borderBottom: "1px solid var(--color-surface-divider)" }}>
             <SortHead colKey="name" left>Pelaaja</SortHead>

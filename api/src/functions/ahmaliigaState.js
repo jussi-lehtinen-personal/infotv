@@ -39,7 +39,7 @@ app.http('ahmaliigaState', {
         : null;
 
       // The current round's games — powers the dashboard "Seuraavat tapahtumat"
-      // list + the jakso timeline. The client filters upcoming + computes the
+      // list + the round timeline. The client filters upcoming + computes the
       // relative time (days / hours) against the sim or wall clock.
       let games = [];
       if (cur) games = shapeGamesForClient(await getRoundGames(season.rowKey, curNo));
@@ -49,7 +49,7 @@ app.http('ahmaliigaState', {
       if (userId) {
         // show the last SETTLED round's standing if the current one isn't scored yet
         standing = await getStanding(season.rowKey, settledNo, userId);
-        standing.jakso = settledNo;
+        standing.round = settledNo;
       }
 
       return {

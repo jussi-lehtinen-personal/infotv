@@ -18,7 +18,7 @@ export async function getAhmaliigaState() {
   // it's optional server-side, but without it `standing` comes back null.
   const r = await fetch("/api/ahmaliiga/state", { headers: authHeaders() });
   if (!r.ok) throw new Error(`state ${r.status}`);
-  return r.json(); // { active, season, currentJakso, roundCount, budget, standing, ... } | { active:false }
+  return r.json(); // { active, season, currentRound, roundCount, budget, standing, ... } | { active:false }
 }
 
 export async function getAhmaliigaCards(filter) {
@@ -62,7 +62,7 @@ export async function getAhmaliigaRounds() {
   return asJson(r); // { rounds: [{ no, startDate, endDate, winner, me }] }
 }
 
-// Leaderboard. scope = "round" | "kausi". Rows: { rank, nickname, total, me }.
+// Leaderboard. scope = "round" | "season". Rows: { rank, nickname, total, me }.
 export async function getAhmaliigaRanking(scope, round) {
   const p = new URLSearchParams();
   if (scope) p.set("scope", scope);
@@ -78,13 +78,13 @@ export async function getAhmaliigaSummary(round) {
   return asJson(r);
 }
 
-// My progress for a jakso from the games already played (accurate, box-score
+// My progress for a round from the games already played (accurate, box-score
 // rosters): cards featured, running points, per-game/per-card points, plus the
-// jakso's games + meta so the Jakso page can render the timeline for ANY round.
-// `round` omitted → the active (in-progress) jakso.
-export async function getAhmaliigaJaksoProgress(round) {
+// round's games + meta so the round page can render the timeline for ANY round.
+// `round` omitted → the active (in-progress) round.
+export async function getAhmaliigaRoundProgress(round) {
   const q = round != null ? `?round=${round}` : "";
-  const r = await fetch(`/api/ahmaliiga/jaksoProgress${q}`, { headers: authHeaders() });
+  const r = await fetch(`/api/ahmaliiga/roundProgress${q}`, { headers: authHeaders() });
   return asJson(r); // { played, total, livePoints, perGame, perCard, round, status, endDate, isCurrent, simMode, simDate, daysLeft, games }
 }
 

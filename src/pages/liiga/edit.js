@@ -11,7 +11,7 @@ import {
 import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
 import { isUpcoming } from "./events";
-import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaRoundProgress } from "../../lib/ahmaliigaApi";
 
 // Oma joukkue — the squad, edited in place. Captain hero + a grid of the other
 // cards. Tapping a card opens an action sheet (Korvaa / Kapteeni / Näytä tiedot /
@@ -36,10 +36,10 @@ const StatNum = ({ children }) => (
 // Card avatar with an orange ring (squad look).
 const bandSub = (c) => (c.kind === "team" ? "Joukkue" : c.sub);
 
-// "2025-04-27" → "27.4." / "27.4.2025"; a jakso's date range for the header line.
+// "2025-04-27" → "27.4." / "27.4.2025"; a round's date range for the header line.
 const dm = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.` : ""; };
 const dmy = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.${p[0]}` : ""; };
-const jaksoRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
+const roundRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
 
 // Taller portrait cards (reference proportions).
 const CARD_AR = "62 / 100";
@@ -61,10 +61,10 @@ export default function LiigaEdit() {
   const [transfers, setTransfers] = useState({ used: 0, free: 2 });
   const [ids, setIds] = useState([]);
   const [captainId, setCaptainId] = useState(null);
-  const [perCard, setPerCard] = useState(null); // this jakso's points per card
-  const [round, setRound] = useState(null);     // current jakso (for the header line)
+  const [perCard, setPerCard] = useState(null); // this round's points per card
+  const [round, setRound] = useState(null);     // current round (for the header line)
   const [maxPlayers, setMaxPlayers] = useState(3); // player-card cap (from /state; ECON-authoritative)
-  const [captainLocked, setCaptainLocked] = useState(false); // a jakso game has started → captain frozen for the jakso
+  const [captainLocked, setCaptainLocked] = useState(false); // a round game has started → captain frozen for the round
   const [error, setError] = useState("");
 
   // Overlay/dialog state
@@ -93,7 +93,7 @@ export default function LiigaEdit() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAhmaliigaCards(), getMySquad().catch(() => ({})), getAhmaliigaState().catch(() => null), getAhmaliigaJaksoProgress().catch(() => null)])
+    Promise.all([getAhmaliigaCards(), getMySquad().catch(() => ({})), getAhmaliigaState().catch(() => null), getAhmaliigaRoundProgress().catch(() => null)])
       .then(([cardsRes, squadRes, stateRes, progRes]) => {
         if (cancelled) return;
         setAll(cardsRes.cards || []);
@@ -104,7 +104,7 @@ export default function LiigaEdit() {
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
         if (stateRes && stateRes.maxPlayers != null) setMaxPlayers(stateRes.maxPlayers);
-        // Captain is frozen for the whole jakso once any of its games has ACTUALLY
+        // Captain is frozen for the whole round once any of its games has ACTUALLY
         // started (real time, ignoring the sim clock) — matches the backend reject.
         if (stateRes && stateRes.active) {
           setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, null)));
@@ -176,11 +176,11 @@ export default function LiigaEdit() {
   const canAdd = (c) =>
     ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < maxPlayers);
 
-  // This jakso's points for a card (null until loaded → shown as "—").
+  // This round's points for a card (null until loaded → shown as "—").
   const cardPts = (id) => (perCard ? (perCard[id] || 0) : null);
 
   // One formation card (portrait "playing card"): photo (player) / crest (team) +
-  // name + this jakso's points (big, orange) + price (small). Captain gets a "C" +
+  // name + this round's points (big, orange) + price (small). Captain gets a "C" +
   // glow and is lifted. Tap = action sheet; long-press = set captain.
   // Points element (Bebas number + "p").
   const ptsEl = (pts, size) => (
@@ -286,10 +286,10 @@ export default function LiigaEdit() {
       {round && (
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, flexWrap: "wrap" }}>
           <Box component="span" sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "primary.main" }}>Jakso {round.no + 1}</Box>
-          {jaksoRange(round.startDate, round.endDate) && (
+          {roundRange(round.startDate, round.endDate) && (
             <>
               <Box component="span" sx={{ color: "text.disabled" }}>·</Box>
-              <Box component="span" sx={{ fontSize: 12.5, fontWeight: 600, color: "text.disabled" }}>{jaksoRange(round.startDate, round.endDate)}</Box>
+              <Box component="span" sx={{ fontSize: 12.5, fontWeight: 600, color: "text.disabled" }}>{roundRange(round.startDate, round.endDate)}</Box>
             </>
           )}
         </Stack>
@@ -370,7 +370,7 @@ export default function LiigaEdit() {
                 <SheetAction icon={LuCrown} label="Kapteeni lukittu" sub="Jakson pelit ovat alkaneet" disabled />
               )}
               <SheetAction icon={LuInfo} label="Näytä tiedot" sub="Avaa kortin tiedot"
-                onClick={() => nav(`/ahmaliiga/kortti/${encodeURIComponent(menuCard.id)}`)} />
+                onClick={() => nav(`/ahmaliiga/card/${encodeURIComponent(menuCard.id)}`)} />
               <SheetAction icon={LuTrash2} label="Poista kortti" sub="Poista kortti joukkueesta" danger
                 onClick={() => { const c = menuCard; setMenuCard(null); setRemoveConfirm(c); }} />
             </Stack>

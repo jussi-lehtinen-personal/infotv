@@ -2,8 +2,8 @@ import React from "react";
 import { Box, Typography } from "@mui/material";
 import { Screen, Title } from "./_shared";
 
-// Placeholder for Ahmaliiga screens not yet built (Muokkaa joukkuetta, Kortin
-// tiedot, Profiili, Saavutukset, Jakson yhteenveto…). Shows what will live here.
+// Placeholder for Ahmaliiga screens not yet built (edit squad, card details,
+// profile, achievements, round summary…). Shows what will live here.
 export const LiigaStub = ({ title, desc, icon: Icon }) => (
   <Screen sx={{ pt: 6, textAlign: "center" }}>
     {Icon && (

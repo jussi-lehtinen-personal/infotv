@@ -15,9 +15,9 @@ import { getAhmaliigaNotifications } from "../lib/ahmaliigaApi";
 
 const TABS = [
   { to: "/ahmaliiga", label: "Etusivu", Icon: LuHome },
-  { to: "/ahmaliiga/joukkue", label: "Joukkue", Icon: LuShieldCheck },
-  { to: "/ahmaliiga/markkina", label: "Markkina", Icon: LuStore },
-  { to: "/ahmaliiga/veikkaus", label: "Veikkaus", Icon: LuGoal },
+  { to: "/ahmaliiga/squad", label: "Joukkue", Icon: LuShieldCheck },
+  { to: "/ahmaliiga/market", label: "Markkina", Icon: LuStore },
+  { to: "/ahmaliiga/predict", label: "Veikkaus", Icon: LuGoal },
   { to: "/ahmaliiga/ranking", label: "Ranking", Icon: LuMedal },
 ];
 
@@ -99,13 +99,13 @@ export const AhmaliigaLayout = () => {
               <LuSettings size={18} />
             </IconButton>
           )}
-          <IconButton component={Link} to="/ahmaliiga/ilmoitukset" aria-label="Ilmoitukset" sx={topBtnSx}>
+          <IconButton component={Link} to="/ahmaliiga/notifications" aria-label="Ilmoitukset" sx={topBtnSx}>
             <Badge badgeContent={unread} color="primary" overlap="circular"
                    sx={{ "& .MuiBadge-badge": { fontSize: 10, height: 16, minWidth: 16, fontWeight: 800 } }}>
               <LuBell size={18} />
             </Badge>
           </IconButton>
-          <IconButton component={Link} to="/ahmaliiga/saannot" aria-label="Säännöt" sx={topBtnSx}>
+          <IconButton component={Link} to="/ahmaliiga/rules" aria-label="Säännöt" sx={topBtnSx}>
             <LuInfo size={18} />
           </IconButton>
           <Button onClick={() => nav("/")} aria-label="Takaisin Gamezoneen"

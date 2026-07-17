@@ -5,7 +5,7 @@ import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair 
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaJaksoProgress, getAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -87,8 +87,8 @@ const TeamCol = ({ logo, name }) => {
 // Dashboard prediction widget. Consistent layout in BOTH states so it stays
 // balanced under the left-aligned eyebrow: target icon + divider always on the
 // left, content on the right (a prompt when not predicted, the predicted match —
-// score in place of "VS" — when set). Hidden when the jakso has no games. Whole
-// card → /ahmaliiga/veikkaus.
+// score in place of "VS" — when set). Hidden when the round has no games. Whole
+// card → /ahmaliiga/predict.
 function PredictionWidget({ pred, onClick }) {
   if (!pred || !pred.games || !pred.games.length) return null;
   const my = pred.myPrediction;
@@ -144,16 +144,16 @@ export default function LiigaHome() {
   const [top, setTop] = useState(null);
   const [summary, setSummary] = useState(null);
   const [squad, setSquad] = useState(null);
-  const [progress, setProgress] = useState(null); // live points this (running) jakso
-  const [pred, setPred] = useState(null); // prediction status this jakso
+  const [progress, setProgress] = useState(null); // live points this (running) round
+  const [pred, setPred] = useState(null); // prediction status this round
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
-    getAhmaliigaRanking("kausi").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
+    getAhmaliigaRanking("season").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
     getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
-    getAhmaliigaJaksoProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
+    getAhmaliigaRoundProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
     getAhmaliigaPrediction().then((d) => { if (!cancelled) setPred(d); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -173,9 +173,9 @@ export default function LiigaHome() {
         </Typography>
       </Box>
 
-      {/* Running round — countdown + progress + your live points so far this jakso
+      {/* Running round — countdown + progress + your live points so far this round
           (from the games already played; final tally at settle). The whole card is a
-          button to the jakso timeline. */}
+          button to the round timeline. */}
       {round && (
         <ButtonBase onClick={() => nav("/ahmaliiga/timeline")}
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
@@ -208,7 +208,7 @@ export default function LiigaHome() {
             </Box>
             <Box component="span" sx={{ flexShrink: 0, fontWeight: 800, fontSize: 15, color: "text.primary" }}>{pct}%</Box>
           </Stack>
-          {/* Live points so far — what you'd score if the jakso ended now */}
+          {/* Live points so far — what you'd score if the round ended now */}
           {progress && (
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 2, pt: 1.75, borderTop: "1px solid var(--color-surface-border)" }}>
               <Box sx={{ minWidth: 0 }}>
@@ -221,10 +221,10 @@ export default function LiigaHome() {
         </ButtonBase>
       )}
 
-      {/* Tulosveikkaus — prompt to predict (or confirm done) this jakso */}
-      {round && <PredictionWidget pred={pred} onClick={() => nav("/ahmaliiga/veikkaus")} />}
+      {/* Tulosveikkaus — prompt to predict (or confirm done) this round */}
+      {round && <PredictionWidget pred={pred} onClick={() => nav("/ahmaliiga/predict")} />}
 
-      {/* Seuraavat tapahtumat — YOUR cards' next games + jakso end, link to timeline */}
+      {/* Seuraavat tapahtumat — YOUR cards' next games + round end, link to timeline */}
       {round && (() => {
         const events = buildEvents(state, squadTeamKeys(squad && squad.cards));
         const gameEvents = events.filter((e) => e.type === "game");

@@ -3,7 +3,7 @@ const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { getActiveSeason, getRounds, activeRoundNo, getLeaderboard } = require('../lib/ahmaliiga');
 
-// GET /api/ahmaliiga/ranking?scope=round|kausi[&round=N] — leaderboard. Marks the
+// GET /api/ahmaliiga/ranking?scope=round|season[&round=N] — leaderboard. Marks the
 // signed-in manager's own row (me) when authed.
 app.http('ahmaliigaRanking', {
   methods: ['GET'],
@@ -14,7 +14,7 @@ app.http('ahmaliigaRanking', {
       await ensureTables();
       const season = await getActiveSeason();
       if (!season) return { jsonBody: { rows: [] } };
-      const scope = request.query?.get('scope') === 'kausi' ? 'kausi' : 'round';
+      const scope = request.query?.get('scope') === 'season' ? 'season' : 'round';
       const rounds = await getRounds(season.rowKey);
       const curNo = activeRoundNo(season, rounds);
       const cur = rounds.find((j) => Number(j.rowKey) === curNo);

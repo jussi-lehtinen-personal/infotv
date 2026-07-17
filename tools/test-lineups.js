@@ -106,7 +106,7 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
     await saveSquad('mgrD', [X, Z, ...fillers3], X, 'D');       // captain X (its game already started → locks captain=X)
     let capRejected = false;
     try { await saveSquad('mgrD', [X, Z, ...fillers3], Z, 'D'); } catch { capRejected = true; } // switch to Z → REJECTED
-    assert(capRejected, 'captain switch after a jakso game started is REJECTED by saveSquad');
+    assert(capRejected, 'captain switch after a round game started is REJECTED by saveSquad');
   } else {
     console.log(`SKIP captain-freeze sub-test — D not affordable (${costD}/${budget})`);
   }

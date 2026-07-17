@@ -7,7 +7,7 @@ import { getAhmaliigaNotifications, deleteAhmaliigaNotification, clearAhmaliigaN
 
 // Ilmoitukset — the manager's inbox, filled by settlement (one round-summary batch
 // per settled round). Each notification is clickable: it opens the round's
-// Jakson yhteenveto AND is removed (handled → disappears).
+// summary AND is removed (handled → disappears).
 
 // Icon + tint per notification kind.
 const KIND = {

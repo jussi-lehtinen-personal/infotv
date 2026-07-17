@@ -5,7 +5,7 @@ const { getActiveSeason, getRounds, activeRoundNo, getCards, getRoundScore, getR
 
 // GET /api/ahmaliiga/summary?round=N — the signed-in manager's round breakdown:
 // each card's points (captain doubled), total, rank, best card. Powers the
-// "Jakson yhteenveto" screen + the dashboard's latest-points list.
+// round-summary screen + the dashboard's latest-points list.
 app.http('ahmaliigaSummary', {
   methods: ['GET'],
   authLevel: 'anonymous',

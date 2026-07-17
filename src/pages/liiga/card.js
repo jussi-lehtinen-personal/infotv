@@ -18,7 +18,7 @@ const RANGES = [
   { key: "7", label: "7 pv", days: 7 },
   { key: "30", label: "30 pv", days: 30 },
   { key: "90", label: "90 pv", days: 90 },
-  { key: "kaikki", label: "Kaikki", days: Infinity },
+  { key: "all", label: "Kaikki", days: Infinity },
 ];
 const dayDiff = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
 // Players are stored "SURNAME Firstname" → hero shows first name on line 1,
@@ -104,13 +104,13 @@ const LineChart = ({ points, coin }) => {
 // Hintakehitys tab: current price + change badge, chart, range pills, history.
 // `current` = the card's LIVE price (card.price). cardHistory only holds SETTLED
 // rounds, so its last row is one reband behind — it's the price DURING the last
-// settled jakso, not the price now. Use the live price as "Nykyinen hinta" (so it
+// settled round, not the price now. Use the live price as "Nykyinen hinta" (so it
 // matches the card header) and extend the chart to it with a "Nyt" point.
 const PriceHistory = ({ history, current }) => {
-  const [range, setRange] = useState("kaikki");
+  const [range, setRange] = useState("all");
   const lastSettled = history[history.length - 1];
   const curPrice = current != null ? current : lastSettled.price;
-  const change = curPrice - lastSettled.price; // live price vs last settled jakso
+  const change = curPrice - lastSettled.price; // live price vs last settled round
   const pct = lastSettled.price ? ((change / lastSettled.price) * 100).toFixed(1) : "0.0";
   const up = change > 0;
   const days = (RANGES.find((r) => r.key === range) || {}).days ?? Infinity;
@@ -149,7 +149,7 @@ const PriceHistory = ({ history, current }) => {
       <Section title="Historia">
         {/* the live price as a "Nyt" row on top (matches the chart's Nyt point +
             Nykyinen hinta) so the newest listed price equals the card's price;
-            below it the settled-jakso snapshots, newest first */}
+            below it the settled-round snapshots, newest first */}
         {[
           ...(current != null ? [{ round: "nyt", date: "", price: curPrice, live: true }] : []),
           ...[...history].reverse(),

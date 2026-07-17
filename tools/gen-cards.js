@@ -13,7 +13,7 @@ const { CFG, buildSeason, buildPlayerCards, buildPrevPrior, parseDate } = requir
 const season = process.argv[2] || "2026";
 const prevSeason = process.argv[3] || "2025";
 
-const { cards: teamKeys, cj, start, nJaksot } = buildSeason(season);
+const { cards: teamKeys, cj, start, nJaksot: nRounds } = buildSeason(season);
 const { players } = buildPlayerCards(season, start);
 const prior = buildPrevPrior(prevSeason);
 
@@ -70,14 +70,14 @@ const cards = [
   })),
 ];
 
-// Jakso schedule: 2-week windows over the season's date range (derived from the
+// Round schedule: 2-week windows over the season's date range (derived from the
 // games). Rolling model → no single lockAt; each game locks at its own kickoff.
-const JAKSO_MS = CFG.jaksoWeeks * 7 * 86400000;
+const ROUND_MS = CFG.jaksoWeeks * 7 * 86400000;
 const iso = (d) => d.toISOString().slice(0, 10);
-const jaksot = Array.from({ length: nJaksot }, (_, j) => ({
+const rounds = Array.from({ length: nRounds }, (_, j) => ({
   no: j,
-  startDate: iso(new Date(start.getTime() + j * JAKSO_MS)),
-  endDate: iso(new Date(start.getTime() + (j + 1) * JAKSO_MS - 86400000)),
+  startDate: iso(new Date(start.getTime() + j * ROUND_MS)),
+  endDate: iso(new Date(start.getTime() + (j + 1) * ROUND_MS - 86400000)),
 }));
 
 const seed = {
@@ -88,7 +88,7 @@ const seed = {
   maxPlayers: CFG.maxPlayers,
   bands: { team: CFG.bandTiers, player: CFG.playerBandTiers },
   generatedFromLocalData: true,
-  jaksot,
+  rounds,
   cards,
 };
 

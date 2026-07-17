@@ -19,13 +19,13 @@ const ECON = {
   // bucket skew (playerSkew) → a few elite + many cheap "finds". No-form → mid tier.
   playerBand: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail
-  priceStepCap: 10, // max price move per jakso (coins) → appreciation is a slow skill play, not a one-settle windfall
+  priceStepCap: 10, // max price move per round (coins) → appreciation is a slow skill play, not a one-settle windfall
   predict: { winner: 1, margin: 2, exact: 3 }, // score-prediction bonus tiers
 };
 
 const T = {
   season: 'AhmaliigaSeason',
-  rounds: 'AhmaliigaJaksot',
+  rounds: 'AhmaliigaRounds',
   cards: 'AhmaliigaCards',
   cardHistory: 'AhmaliigaCardHistory',
   managers: 'AhmaliigaManagers',
@@ -52,8 +52,21 @@ async function getCards(seasonId) {
   return listByPartition(T.cards, seasonId);
 }
 
+// The physical rounds table was renamed AhmaliigaJaksot → AhmaliigaRounds. This
+// one-time lazy migration copies a season's rows into the new table on first read
+// if they aren't there yet, then the legacy table is never consulted again. Safe
+// to remove once every environment has been read at least once.
+const LEGACY_ROUNDS_TABLE = 'AhmaliigaJaksot';
+
 async function getRounds(seasonId) {
-  const rows = await listByPartition(T.rounds, seasonId);
+  let rows = await listByPartition(T.rounds, seasonId);
+  if (!rows.length) {
+    const legacy = await listByPartition(LEGACY_ROUNDS_TABLE, seasonId).catch(() => []);
+    if (legacy.length) {
+      await upsertBatch(T.rounds, legacy.map(({ etag, timestamp, ...r }) => r));
+      rows = await listByPartition(T.rounds, seasonId);
+    }
+  }
   return rows.sort((a, b) => Number(a.rowKey) - Number(b.rowKey));
 }
 
@@ -69,10 +82,9 @@ function currentRoundNo(rounds, now = new Date()) {
 
 // The current round: the admin-advanced pointer (sim/replay), else by date.
 function activeRoundNo(season, rounds) {
-  // Read the new column, falling back to the legacy 'currentJakso' until a re-settle
-  // rewrites the season row with 'currentRound'.
-  const cur = season ? (season.currentRound != null && season.currentRound !== '' ? season.currentRound : season.currentJakso) : null;
-  if (cur != null && cur !== '') return Number(cur);
+  // The admin-advanced round pointer (sim/replay); settlement moves it forward.
+  const cur = season && season.currentRound != null && season.currentRound !== '' ? season.currentRound : null;
+  if (cur != null) return Number(cur);
   return currentRoundNo(rounds);
 }
 
@@ -109,10 +121,10 @@ async function seedSeason(seed) {
     // Sim/replay: an admin-advanced round pointer (settlement moves it forward) +
     // a sim clock (day-stepped by the cron; starts at the first round).
     currentRound: 0, simMode: true,
-    simDate: (seed.jaksot && seed.jaksot[0] && seed.jaksot[0].startDate) || '', autoStep: false,
+    simDate: (seed.rounds && seed.rounds[0] && seed.rounds[0].startDate) || '', autoStep: false,
   });
 
-  for (const j of seed.jaksot || []) {
+  for (const j of seed.rounds || []) {
     await upsertEntity(T.rounds, {
       partitionKey: seasonId, rowKey: String(j.no),
       startDate: j.startDate, endDate: j.endDate,
@@ -137,7 +149,7 @@ async function seedSeason(seed) {
     price: c.price, band: c.band, pts: 0, ownerCount: 0, ownerPct: 0,
   }));
 
-  return { seasonId, rounds: (seed.jaksot || []).length, cards: cards.length };
+  return { seasonId, rounds: (seed.rounds || []).length, cards: cards.length };
 }
 
 // --- M1: managers + squads ---
@@ -215,16 +227,16 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const prev = await getSquad(userId);
   const roundGames = await getRoundGames(season.rowKey, curRound);
   // Uses REAL wall-clock time (NOT the sim date) so the lock is simple + reliable: the
-  // moment any jakso game has actually kicked off, the captain is fixed — regardless of
+  // moment any round game has actually kicked off, the captain is fixed — regardless of
   // where the admin's sim clock happens to be.
   const now = Date.now();
-  const jaksoStarted = roundGames.some((g) => new Date(String(g.date || '').replace(' ', 'T')).getTime() <= now);
+  const roundStarted = roundGames.some((g) => new Date(String(g.date || '').replace(' ', 'T')).getTime() <= now);
 
-  // Captain lock: the captain is frozen for the WHOLE jakso once any of its games has
+  // Captain lock: the captain is frozen for the WHOLE round once any of its games has
   // started (games aren't simultaneous → switching per-game was exploitable). REJECT
   // an attempt to move the captaincy to a different, still-owned card. Removing the
   // captain card (it leaves the squad) is still allowed; scoring keeps the frozen one.
-  if (jaksoStarted && prev && prev.captainId && captainId && captainId !== prev.captainId && cardIds.includes(prev.captainId)) {
+  if (roundStarted && prev && prev.captainId && captainId && captainId !== prev.captainId && cardIds.includes(prev.captainId)) {
     throw badRequest('Kapteenia ei voi enää vaihtaa — jakson pelit ovat alkaneet.');
   }
 
@@ -423,8 +435,8 @@ async function settleRound(seasonId, round) {
     const breakdown = {}; let total = 0;
     if (perGame) {
       // Score each game against the squad frozen at ITS kickoff (rolling lock), but the
-      // CAPTAIN is jakso-wide (locked at the first kickoff), not per-game.
-      const jaksoCaptain = jaksoCaptainOf(lineups, round, curCaptain);
+      // CAPTAIN is round-wide (locked at the first kickoff), not per-game.
+      const roundCaptain = roundCaptainOf(lineups, round, curCaptain);
       const owned = new Set();
       for (const g of games) {
         const pg = perGame[g.gameId]; if (!pg) continue;
@@ -432,7 +444,7 @@ async function settleRound(seasonId, round) {
         for (const id of ids) {
           owned.add(id);
           const pts = pg[id]; if (!pts) continue;
-          const eff = id === jaksoCaptain ? pts * 2 : pts;
+          const eff = id === roundCaptain ? pts * 2 : pts;
           breakdown[id] = (breakdown[id] || 0) + eff; total += eff;
         }
       }
@@ -526,7 +538,7 @@ async function settleRound(seasonId, round) {
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
     const old = Number(c.price);
-    // Gradual: move at most priceStepCap coins toward the form target this jakso, so a
+    // Gradual: move at most priceStepCap coins toward the form target this round, so a
     // card can't jump min→max in one settle (appreciation is a slow skill play).
     const target = targetPrice[c.rowKey];
     const price = old + Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
@@ -595,9 +607,9 @@ async function seedBots(seasonId) {
   return { bots: made };
 }
 
-// Leaderboard (round or kausi) with nicknames.
+// Leaderboard (round or season) with nicknames.
 // Rank map at the PREVIOUS point (for the leaderboard's up/down trend): the prior
-// round's rank (round scope) or the cumulative-through-previous-round rank (kausi).
+// round's rank (round scope) or the cumulative-through-previous-round rank (season).
 async function previousRankMap(seasonId, scope, round) {
   if (!(round > 0)) return null;
   if (scope === 'round') {
@@ -617,7 +629,7 @@ async function previousRankMap(seasonId, scope, round) {
   return m;
 }
 
-// All settled rounds (newest first) for the ranking "Kaikki jaksot" tab: each with
+// All settled rounds (newest first) for the ranking all-rounds tab: each with
 // its winner and, if authed, the signed-in manager's points/rank that round.
 async function getRoundList(seasonId, userId) {
   const rounds = await getRounds(seasonId);
@@ -641,7 +653,7 @@ async function getRoundList(seasonId, userId) {
 }
 
 async function getLeaderboard(seasonId, scope, round) {
-  const rows = scope === 'kausi'
+  const rows = scope === 'season'
     ? await listByPartition(T.seasonScores, seasonId)
     : await listByPartition(T.scores, `${seasonId}|${round}`);
   const managers = await listManagers();
@@ -713,12 +725,12 @@ async function getRoundGames(seasonId, round) {
 // with the space→T and colons dropped ("2026-01-15 18:30" → "2026-01-15T1830").
 const kickoffKey = (date) => String(date || '').trim().replace(' ', 'T').replace(/:/g, '');
 
-// The jakso-captain-lock rowKey in AhmaliigaLineups — distinct from kickoff keys
+// The round-captain-lock rowKey in AhmaliigaLineups — distinct from kickoff keys
 // (which contain dashes + 'T'), so it never collides.
 const captainKey = (round) => `CAP-${round}`;
-// The captain frozen for the whole jakso (locked at its first kickoff), else the
+// The captain frozen for the whole round (locked at its first kickoff), else the
 // current/fallback captain (before any game has started).
-const jaksoCaptainOf = (lineupsMap, round, fallback) => {
+const roundCaptainOf = (lineupsMap, round, fallback) => {
   const lock = lineupsMap && lineupsMap[captainKey(round)];
   return lock && lock.captainId ? lock.captainId : (fallback || null);
 };
@@ -755,7 +767,7 @@ async function freezeStartedGames(season, round, userId, ids, captainId, gamesAr
     anyStarted = true;
     if (await freezeLineup(season.rowKey, userId, kickoffKey(g.date), g.date, round, ids, captainId)) n++;
   }
-  // Lock the jakso captain at the FIRST kickoff (insert-once, key `CAP-<round>`) so it
+  // Lock the round captain at the FIRST kickoff (insert-once, key `CAP-<round>`) so it
   // can't be switched per-game later (games aren't simultaneous → that was exploitable).
   if (anyStarted) await freezeLineup(season.rowKey, userId, captainKey(round), '', round, [], captainId);
   return n;
@@ -787,8 +799,8 @@ const FRIENDLY_RE = /harjoitus/i;
 
 // Schedule sync: pull the season's whole game list from the Worker (1 cached call)
 // and UPSERT into AhmaliigaGames with the team ids (needed to fetch box scores) and
-// the jakso derived by date. Discovers new series mid-season automatically. Filter +
-// jakso anchor match tools/lib/model.loadSeason / gen-games so the grouping is
+// the round derived by date. Discovers new series mid-season automatically. Filter +
+// round anchor match tools/lib/model.loadSeason / gen-games so the grouping is
 // identical to the seeded data (the validation relies on this).
 async function syncSeasonGames(seasonId) {
   const data = await workerGet(`/getSeasonGames?season=${encodeURIComponent(seasonId)}`);
@@ -797,19 +809,19 @@ async function syncSeasonGames(seasonId) {
     g.finished == 1 && g.home_goals != null && g.away_goals != null &&
     !FRIENDLY_RE.test(g.league || '') && !FRIENDLY_RE.test(g.level || ''));
   const rounds = await getRounds(seasonId);
-  // Clear first: a game can move jakso between syncs (window-based), so upsert alone
+  // Clear first: a game can move round between syncs (window-based), so upsert alone
   // would leave a stale copy in the old partition.
   for (const r of rounds) await clearPartition(T.games, `${seasonId}|${r.rowKey}`);
   if (!games.length) return { fetched: all.length, kept: 0, upserted: 0, skipped: 0 };
-  // Assign each game to the jakso whose WINDOW (startDate..endDate) holds its date —
-  // matches the actual jakso boundaries (a floor-from-anchor could be a day off).
-  const jaksoOfDay = (day) => { const r = rounds.find((j) => j.startDate <= day && day <= j.endDate); return r ? String(r.rowKey) : null; };
+  // Assign each game to the round whose WINDOW (startDate..endDate) holds its date —
+  // matches the actual round boundaries (a floor-from-anchor could be a day off).
+  const roundOfDay = (day) => { const r = rounds.find((j) => j.startDate <= day && day <= j.endDate); return r ? String(r.rowKey) : null; };
   const byPart = {};
   let skipped = 0;
   for (const g of games) {
     const day = String(g.date || '').slice(0, 10);
-    const j = jaksoOfDay(day);
-    if (j == null) { skipped++; continue; } // outside every jakso window
+    const j = roundOfDay(day);
+    if (j == null) { skipped++; continue; } // outside every round window
     const pk = `${seasonId}|${j}`;
     (byPart[pk] = byPart[pk] || []).push({
       partitionKey: pk, rowKey: String(g.id),
@@ -822,7 +834,7 @@ async function syncSeasonGames(seasonId) {
   }
   for (const pk of Object.keys(byPart)) await upsertBatch(T.games, byPart[pk]);
   const upserted = Object.values(byPart).reduce((s, a) => s + a.length, 0);
-  return { fetched: all.length, kept: games.length, upserted, skipped, jaksot: Object.keys(byPart).length };
+  return { fetched: all.length, kept: games.length, upserted, skipped, rounds: Object.keys(byPart).length };
 }
 
 // Box score for one game via the Worker (permanently KV-cached → 1 tulospalvelu
@@ -866,18 +878,18 @@ async function validateRoundResults(seasonId, round) {
   return { round, games, eligible, reportsFetched, cards: ids.size, mismatches: diffs.length, diffs: diffs.slice(0, 20) };
 }
 
-// The signed-in manager's LIVE progress this (unsettled) jakso, from the games
+// The signed-in manager's LIVE progress this (unsettled) round, from the games
 // already played — accurate, using box-score rosters + the LOCKED scoring:
 //   played/total — how many of my cards have ACTUALLY featured (team card = its
 //     team has a played game; player card = the player dressed in one of their
 //     team's played games — a player whose team played but who didn't dress is NOT
 //     counted).
 //   livePoints — my running points so far (captain 2× + prediction bonus once the
-//     predicted game is played), i.e. what I'd score if the jakso ended now.
+//     predicted game is played), i.e. what I'd score if the round ended now.
 //   perGame — { gameId: my points from that game } so the timeline can show "+X p".
 // Bounded fetches (≤ the played player-eligible games, KV-cached, reused for both
 // the roster check and the points).
-async function jaksoProgress(seasonId, round, userId) {
+async function roundProgress(seasonId, round, userId) {
   const squad = await getSquad(userId);
   if (!squad || !squad.cards || !squad.cards.length) return { played: 0, total: 0, livePoints: 0, perGame: {}, perCard: {} };
   const season = await getEntity(T.season, 'season', seasonId);
@@ -903,13 +915,13 @@ async function jaksoProgress(seasonId, round, userId) {
   const captainId = squad.captainId;
   // Rolling lock: an already-played game scores against the squad frozen at ITS
   // kickoff (else the current squad) — so live points match what settlement awards.
-  // Captain is jakso-wide (locked at the first kickoff), not per-game.
+  // Captain is round-wide (locked at the first kickoff), not per-game.
   const lineups = await getLineupsMap(seasonId, userId);
-  const jaksoCaptain = jaksoCaptainOf(lineups, round, captainId);
+  const roundCaptain = roundCaptainOf(lineups, round, captainId);
 
   // Live points: run the locked scoring per played game (so we get a per-game figure
   // for the timeline), take that game's effective squad, apply the captain 2×, sum.
-  // perCard = each card's own jakso contribution (captain 2×) for the team view.
+  // perCard = each card's own round contribution (captain 2×) for the team view.
   const perGame = {};
   const perCard = {};
   let livePoints = 0;
@@ -920,7 +932,7 @@ async function jaksoProgress(seasonId, round, userId) {
     let gPts = 0;
     for (const id of eff.ids) {
       const p = results[id]; if (!p) continue;
-      const e = id === jaksoCaptain ? p * 2 : p;
+      const e = id === roundCaptain ? p * 2 : p;
       gPts += e;
       perCard[id] = (perCard[id] || 0) + e;
     }
@@ -962,7 +974,7 @@ async function jaksoProgress(seasonId, round, userId) {
 }
 
 // Shape a round's stored games into the client form used by the dashboard event
-// list + the jakso timeline (buildEvents). ONE place so /state and /jaksoProgress
+// list + the round timeline (buildEvents). ONE place so /state and /roundProgress
 // never drift.
 function shapeGamesForClient(gs) {
   return (gs || []).map((g) => ({
@@ -1331,7 +1343,7 @@ async function getSimStatus(seasonId) {
   const gamesLoaded = (await listByPartition(T.games, `${seasonId}|0`)).length > 0;
   return {
     season: seasonId,
-    currentRound: season ? Number(season.currentRound != null ? season.currentRound : (season.currentJakso != null ? season.currentJakso : 0)) : 0,
+    currentRound: season ? Number(season.currentRound != null ? season.currentRound : 0) : 0,
     roundCount: rounds.length,
     settled,
     humans: managers.filter((m) => !m.isBot).length,
@@ -1351,5 +1363,5 @@ module.exports = {
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, computeRoundResults, validateRoundResults, jaksoProgress,
+  syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
 };

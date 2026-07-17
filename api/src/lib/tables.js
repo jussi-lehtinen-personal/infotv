@@ -9,7 +9,7 @@ const CONN = process.env.TABLES_CONNECTION_STRING;
 const TABLE_NAMES = [
   'Users', 'Credentials', 'GoogleIndex', 'Usernames', 'Reservations',
   // Ahmaliiga (fantasy game) — see docs/ahmaliiga-plan.md.
-  'AhmaliigaSeason', 'AhmaliigaJaksot', 'AhmaliigaCards', 'AhmaliigaCardHistory',
+  'AhmaliigaSeason', 'AhmaliigaRounds', 'AhmaliigaCards', 'AhmaliigaCardHistory',
   'AhmaliigaManagers', 'AhmaliigaSquads', 'AhmaliigaLineups',
   'AhmaliigaPredictions', 'AhmaliigaScores', 'AhmaliigaSeasonScores',
   'AhmaliigaResults', 'AhmaliigaGames', 'AhmaliigaMessages',

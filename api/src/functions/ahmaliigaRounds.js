@@ -4,7 +4,7 @@ const { ensureTables } = require('../lib/tables');
 const { getActiveSeason, getRoundList } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/rounds — every settled round (oldest→newest) with its winner
-// and, if authed, the signed-in manager's points that round. Ranking "Kaikki jaksot".
+// and, if authed, the signed-in manager's points that round. Ranking all-rounds list.
 app.http('ahmaliigaRounds', {
   methods: ['GET'],
   authLevel: 'anonymous',

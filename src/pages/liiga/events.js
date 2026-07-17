@@ -3,7 +3,7 @@ import { Box, Typography, ButtonBase } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuChevronRight } from "react-icons/lu";
 import { IconCircle, shortDate } from "./_shared";
 
-// Upcoming-events model for the dashboard "Seuraavat tapahtumat" + the jakso
+// Upcoming-events model for the dashboard "Seuraavat tapahtumat" + the round
 // timeline. Built from /state (currentRound + its games). The relative time is the
 // headline info: DAYS to the event, and HOURS when it's under a day (live only —
 // the sim clock is day-granular, so a replay shows days + Tänään/Huomenna).
@@ -22,7 +22,7 @@ const AHMA_AGE = (level) => {
 export const gameTitle = (g) => `${AHMA_AGE(g.level)} vs ${g.ahmaHome ? g.away : g.home}`;
 
 // A game's team-card key (age + peliryhmä colour) — mirrors the backend teamKey so
-// squad cards can be matched to the jakso's games ("montako korttia on pelannut").
+// squad cards can be matched to the round's games ("montako korttia on pelannut").
 const COLOURS = ["musta", "valkoinen", "oranssi", "keltainen", "sininen", "punainen", "vihreä", "harmaa"];
 export function gameTeamKey(g) {
   const m = String(g.level || "").match(/U\s*(\d+)/i);
@@ -37,7 +37,7 @@ export const cardTeamKey = (c) => (c.kind === "team" ? String(c.id || "").replac
 // The set of teams the squad "owns" — used to filter events to your own cards.
 export const squadTeamKeys = (squadCards) => new Set((squadCards || []).map(cardTeamKey).filter(Boolean));
 
-// How many of the squad's cards had a game that's already been PLAYED this jakso.
+// How many of the squad's cards had a game that's already been PLAYED this round.
 export function playedCardCount(squadCards, games, simDate) {
   const playedKeys = new Set((games || []).filter((g) => !isUpcoming(g.date, simDate)).map(gameTeamKey));
   return (squadCards || []).filter((c) => playedKeys.has(cardTeamKey(c))).length;
@@ -76,7 +76,7 @@ export function buildEvents(state, myKeys, opts) {
   const endDay = round && round.endDate;
   let games = (state && state.games ? state.games : [])
     .filter((g) => !myKeys || myKeys.has(gameTeamKey(g)))
-    // stay within the jakso window — a game after the end belongs to the next jakso
+    // stay within the round window — a game after the end belongs to the next round
     .filter((g) => !endDay || String(g.date).slice(0, 10) <= endDay)
     .map((g) => ({
       type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate),
@@ -87,8 +87,8 @@ export function buildEvents(state, myKeys, opts) {
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (!includePast) games = games.filter((e) => !e.played);
   const events = [...games];
-  // Jakso end is ALWAYS the last event (a game on the end day still comes before it).
-  // `played` = the end has already passed (a settled/past jakso) so the timeline shows
+  // Round end is ALWAYS the last event (a game on the end day still comes before it).
+  // `played` = the end has already passed (a settled/past round) so the timeline shows
   // "Päättyi" instead of relTime clamping a long-past date to "Tänään"/"Nyt".
   if (round && round.endDate) {
     const endDate = `${round.endDate} 23:59`;
@@ -103,7 +103,7 @@ export function buildEvents(state, myKeys, opts) {
 export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
   const Icon = ev.type === "end" ? LuTrophy : LuCalendarDays;
   const played = !!ev.played;
-  const endDone = ev.type === "end" && played; // a past jakso's end (dimmed, not active)
+  const endDone = ev.type === "end" && played; // a past round's end (dimmed, not active)
   const hasPts = points != null;
   const inner = (
     <>

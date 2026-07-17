@@ -5,16 +5,16 @@ import { LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
-// Ranking — leaderboard (last settled round / whole season) + a "Kaikki jaksot" tab
+// Ranking — leaderboard (last settled round / whole season) + an all-rounds tab
 // that lists every settled round, each linking to that round's summary. Airy rows;
 // the signed-in manager's own row is highlighted orange. NOTE: the "round" scope is
-// the LAST SETTLED jakso (the in-progress jakso has no standings yet), hence the
+// the LAST SETTLED round (the in-progress round has no standings yet), hence the
 // "Viime jakso" label — see ahmaliigaRanking.js (settledNo = curNo - 1).
 
 const TABS = [
   { key: "round", label: "Viime jakso" },
-  { key: "kausi", label: "Koko kausi" },
-  { key: "jaksot", label: "Kaikki jaksot" },
+  { key: "season", label: "Koko kausi" },
+  { key: "rounds", label: "Kaikki jaksot" },
 ];
 
 const ManagerAvatar = ({ avatar, nickname, size }) => {
@@ -45,12 +45,12 @@ export default function LiigaRanking() {
   const nav = useNavigate();
   const [tab, setTab] = useState("round");
   const [data, setData] = useState({});     // leaderboard rows per scope
-  const [rounds, setRounds] = useState(null); // "Kaikki jaksot" list
+  const [rounds, setRounds] = useState(null); // all-rounds list
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    if (tab === "jaksot") {
+    if (tab === "rounds") {
       if (rounds != null) { setLoading(false); return; }
       setLoading(true);
       getAhmaliigaRounds()
@@ -82,7 +82,7 @@ export default function LiigaRanking() {
         ))}
       </Stack>
 
-      {tab === "jaksot" ? (
+      {tab === "rounds" ? (
         loading || rounds == null ? (
           <Loading />
         ) : rounds.length === 0 ? (

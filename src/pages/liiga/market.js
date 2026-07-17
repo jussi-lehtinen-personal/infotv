@@ -27,7 +27,7 @@ export default function LiigaMarket() {
         <Loading />
       ) : (
         <CardList cards={cards} settled={settled}
-          onPick={(c) => nav(`/ahmaliiga/kortti/${encodeURIComponent(c.id)}`)}
+          onPick={(c) => nav(`/ahmaliiga/card/${encodeURIComponent(c.id)}`)}
           emptyText={cards.length === 0 ? "Kausi ei ole vielä käynnissä." : "Ei osumia."} />
       )}
     </Screen>

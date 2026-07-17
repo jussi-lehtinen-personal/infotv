@@ -204,7 +204,7 @@ export default function LiigaPredict() {
   }
 
   const { settled, games } = data;
-  // Once the game I predicted has been played, my whole jakso veikkaus is frozen —
+  // Once the game I predicted has been played, my whole round prediction is frozen —
   // lock the picker to that game so it can't be moved to another upcoming match.
   // Derive it from MY prediction game's own `locked` flag (robust) + the server hint.
   const myPredId = data.myPrediction && data.myPrediction.gameId;
@@ -236,7 +236,7 @@ export default function LiigaPredict() {
     <Screen>
       <PageHead eyebrow="Jakson veikkaus" title="Veikkaa ottelu" />
 
-      {/* status banner (hidden once the jakso is settled) */}
+      {/* status banner (hidden once the round is settled) */}
       {!settled && <StatusBanner set={predictionSet} frozen={frozen} />}
 
       {/* 1. select match (locked to your pick once it has been played) */}
