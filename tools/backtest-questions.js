@@ -37,7 +37,7 @@ function buildUniverse(year) {
   const nJaksot = Math.max(...games.map(jaksoOf)) + 1;
 
   const cardType = {}, cardJakso = {}, cardPlays = {}, perGame = [];
-  const teamJaksot = {}, pteam = {};
+  const teamJaksot = {}, pteam = {}, isGoalie = {};
   const bump = (id, type, J, pts) => {
     cardType[id] = type;
     (cardPlays[id] = cardPlays[id] || new Set()).add(J);
@@ -59,7 +59,7 @@ function buildUniverse(year) {
           const side = g.ahmaHome ? "home" : "away";
           const addP = (name, pts) => { if (!name) return; const id = "P:" + name; pteam[id] = tk; bump(id, "player", J, pts); contrib[id] = (contrib[id] || 0) + pts; };
           for (const goal of r.goals || []) { if (goal.side !== side) continue; addP(goal.scorer && goal.scorer.name, CFG.player.goal); for (const a of goal.assists || []) addP(a, CFG.player.assist); }
-          const gp = goaliePoints(r, g); if (gp) addP(gp.name, gp.pts);
+          const gp = goaliePoints(r, g); if (gp) { addP(gp.name, gp.pts); isGoalie["P:" + gp.name] = true; }
         }
       }
     }
@@ -74,7 +74,7 @@ function buildUniverse(year) {
     }
   }
   perGame.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  return { year, nJaksot, cardType, cardJakso, cardPlays, perGame,
+  return { year, nJaksot, cardType, cardJakso, cardPlays, perGame, isGoalie,
     ids: Object.keys(cardType), teamIds: Object.keys(cardType).filter((id) => cardType[id] === "team"),
     playerIds: Object.keys(cardType).filter((id) => cardType[id] === "player") };
 }
@@ -466,6 +466,112 @@ function teamPriceReport(universes) {
   }
 }
 
+// ---- ADVANCED BALANCE (new proposed setup) -----------------------------------
+// No player cap · player prices 10-75 · steep skew (few top, long cheap tail →
+// "finds") · no-prior → mid · gradual rise max 10/jakso (absolute) · teams unchanged.
+const BAL = {
+  budget: 120, squadSize: 5, maxPlayers: Infinity,
+  ladderT: [30, 25, 20, 15, 10], skewT: 1,        // teams unchanged
+  ladderP: [75, 58, 44, 32, 22, 14, 10], skewP: 2.6, // players: wide, steep, long tail
+  noPrior: 3.2, absCap: 10,
+};
+
+// Price trajectory with a PER-TYPE skew + an ABSOLUTE ±cap/jakso (continuous prices).
+function priceTrajAbs(u, prior, cfg) {
+  const traj = []; let prev = null;
+  for (let J = 0; J < u.nJaksot; J++) {
+    const cur = {};
+    for (const [type, ladder, skew] of [["team", cfg.ladderT, cfg.skewT], ["player", cfg.ladderP, cfg.skewP]]) {
+      const ids = u.ids.filter((id) => u.cardType[id] === type);
+      const withF = ids.map((id) => ({ id, f: rForm(u, id, J, prior, cfg) })).sort((a, b) => b.f - a.f);
+      const n = withF.length, T = ladder.length;
+      withF.forEach((x, i) => {
+        const target = ladder[tierOf((i + 0.5) / n, T, skew)];
+        cur[x.id] = prev && prev[x.id] != null ? prev[x.id] + Math.max(-cfg.absCap, Math.min(cfg.absCap, target - prev[x.id])) : target;
+      });
+    }
+    traj.push(cur); prev = cur;
+  }
+  return traj;
+}
+
+// Pick a squad of EXACTLY Nt teams + Np players by form, fitting budget (swap the
+// priciest pick down to a cheaper same-type card until affordable).
+function pickComp(u, J, price, Nt, Np, score, budget) {
+  const byForm = (type) => availAt(u, J).filter((id) => u.cardType[id] === type).sort((a, b) => score(b) - score(a));
+  const teams = byForm("team"), players = byForm("player");
+  if (teams.length < Nt || players.length < Np) return null;
+  let sel = [...teams.slice(0, Nt), ...players.slice(0, Np)];
+  let cost = sel.reduce((s, id) => s + price[id], 0), guard = 0;
+  while (cost > budget && guard++ < 300) {
+    const victim = sel.slice().sort((a, b) => price[b] - price[a])[0];
+    const pool = (u.cardType[victim] === "team" ? teams : players).filter((id) => !sel.includes(id) && price[id] < price[victim]);
+    const repl = pool.sort((a, b) => score(b) - score(a))[0];
+    if (!repl) break;
+    sel = sel.filter((id) => id !== victim).concat(repl);
+    cost = sel.reduce((s, id) => s + price[id], 0);
+  }
+  return cost <= budget ? sel : null;
+}
+
+const activeMeanPts = (u, id) => { const v = Object.values(u.cardJakso[id] || {}); return v.length ? mean(v) : 0; };
+
+function advancedBalance(universes) {
+  console.log(`\n\n████████ UUSI ASETELMA: ei kattoa · pelaajat ${BAL.ladderP[0]}-${BAL.ladderP[BAL.ladderP.length - 1]} · jyrkkä skew ${BAL.skewP} · no-prior→mid · ±${BAL.absCap}/jakso · joukkueet ennallaan ████████`);
+  for (const u of universes) {
+    const prevY = String(Number(u.year) - 1);
+    const prior = fs.existsSync(path.join(DATA, `season-${prevY}.json`)) ? model.buildPrevPrior(prevY) : null;
+    const traj = priceTrajAbs(u, prior, BAL);
+    const score = (id) => (J) => rForm(u, id, J, prior, BAL); // curried per J below
+    console.log(`\n──────── ${u.year} ────────`);
+
+    // verify the long tail: player price distribution at a mid jakso
+    const midJ = Math.floor(u.nJaksot / 2);
+    const pp = u.playerIds.map((id) => traj[midJ][id]).sort((a, b) => b - a);
+    const bucket = (lo, hi) => pp.filter((p) => p >= lo && p < hi).length;
+    console.log(`pelaajahintajakauma (jakso ${midJ}): ≥60: ${bucket(60, 999)} · 40-59: ${bucket(40, 60)} · 25-39: ${bucket(25, 40)} · 15-24: ${bucket(15, 25)} · ≤14: ${bucket(0, 15)}  (yht ${pp.length})`);
+
+    // 1) strategy eval: 5 teams … 0 teams
+    console.log(`\n1) STRATEGIAT (kokonaispisteet kaudessa):`);
+    console.log(`   koostumus        | pisteet`);
+    for (let Nt = 5; Nt >= 0; Nt--) {
+      const Np = 5 - Nt;
+      let total = 0;
+      for (let J = 0; J < u.nJaksot; J++) {
+        if (!availAt(u, J).length) continue;
+        const sq = pickComp(u, J, traj[J], Nt, Np, (id) => rForm(u, id, J, prior, BAL), BAL.budget);
+        if (sq) total += jaksoPoints(u, J, sq, "jakso-fixed");
+      }
+      console.log(`   ${Nt} joukkuetta + ${Np} pelaajaa | ${total.toFixed(0).padStart(4)}`);
+    }
+
+    // 2) goalie vs skater
+    const goalies = u.playerIds.filter((id) => u.isGoalie[id]);
+    const skaters = u.playerIds.filter((id) => !u.isGoalie[id]);
+    const grpStat = (ids) => {
+      const scoring = ids.filter((id) => activeMeanPts(u, id) > 0);
+      const ptsA = scoring.map((id) => activeMeanPts(u, id));
+      const priceA = scoring.map((id) => mean(traj.map((t) => t[id])));
+      const valA = scoring.map((id) => activeMeanPts(u, id) / mean(traj.map((t) => t[id])) * 100);
+      return { n: ids.length, scoring: scoring.length, pt: mean(ptsA), price: mean(priceA), val: mean(valA), max: Math.max(0, ...ptsA) };
+    };
+    const gk = grpStat(goalies), sk = grpStat(skaters);
+    console.log(`\n2) MV vs KENTTÄPELAAJA:`);
+    console.log(`   maalivahdit:    ${gk.n} korttia (${gk.scoring} pisteitä) · pt/jakso ${gk.pt.toFixed(1)} (max ${gk.max.toFixed(1)}) · hinta ${gk.price.toFixed(0)} · arvo ${gk.val.toFixed(1)} pt/100c`);
+    console.log(`   kenttäpelaajat: ${sk.n} korttia (${sk.scoring} pisteitä) · pt/jakso ${sk.pt.toFixed(1)} (max ${sk.max.toFixed(1)}) · hinta ${sk.price.toFixed(0)} · arvo ${sk.val.toFixed(1)} pt/100c`);
+
+    // 3) team vs player value
+    const teamStat = (() => {
+      const ids = u.teamIds.filter((id) => activeMeanPts(u, id) > 0);
+      return { pt: mean(ids.map((id) => activeMeanPts(u, id))), price: mean(ids.map((id) => mean(traj.map((t) => t[id])))), val: mean(ids.map((id) => activeMeanPts(u, id) / mean(traj.map((t) => t[id])) * 100)) };
+    })();
+    const playerStat = grpStat(u.playerIds);
+    console.log(`\n3) JOUKKUE vs PELAAJA (arvo = pisteet per 100 coinia):`);
+    console.log(`   joukkueet: pt/jakso ${teamStat.pt.toFixed(1)} · hinta ${teamStat.price.toFixed(0)} · arvo ${teamStat.val.toFixed(1)} pt/100c`);
+    console.log(`   pelaajat:  pt/jakso ${playerStat.pt.toFixed(1)} · hinta ${playerStat.price.toFixed(0)} · arvo ${playerStat.val.toFixed(1)} pt/100c`);
+  }
+}
+
 // ==================== RUN ====================
 console.log(`Ahmaliiga backtest — 6 questions · seasons ${YEARS.join(", ")} · jaksoWeeks ${CFG.jaksoWeeks}`);
 const universes = YEARS.map(buildUniverse);
@@ -478,4 +584,5 @@ q6();
 appreciation();
 maxPlayersCompare(universes);
 teamPriceReport(universes);
+advancedBalance(universes);
 console.log(`\n(2 seasons + partial reports → directional. Interpretation follows.)`);
