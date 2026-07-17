@@ -214,7 +214,11 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const curRound = activeRoundNo(season, rounds);
   const prev = await getSquad(userId);
   const roundGames = await getRoundGames(season.rowKey, curRound);
-  const jaksoStarted = roundGames.some((g) => gameStarted(g, season));
+  // Uses REAL wall-clock time (NOT the sim date) so the lock is simple + reliable: the
+  // moment any jakso game has actually kicked off, the captain is fixed — regardless of
+  // where the admin's sim clock happens to be.
+  const now = Date.now();
+  const jaksoStarted = roundGames.some((g) => new Date(String(g.date || '').replace(' ', 'T')).getTime() <= now);
 
   // Captain lock: the captain is frozen for the WHOLE jakso once any of its games has
   // started (games aren't simultaneous → switching per-game was exploitable). REJECT

@@ -104,11 +104,10 @@ export default function LiigaEdit() {
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
         if (stateRes && stateRes.maxPlayers != null) setMaxPlayers(stateRes.maxPlayers);
-        // Captain is frozen for the whole jakso once any of its games has started
-        // (matches the backend freeze). Uses the app clock (sim date in sim mode).
+        // Captain is frozen for the whole jakso once any of its games has ACTUALLY
+        // started (real time, ignoring the sim clock) — matches the backend reject.
         if (stateRes && stateRes.active) {
-          const sim = stateRes.simMode ? stateRes.simDate : null;
-          setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, sim)));
+          setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, null)));
         }
         setPerCard(progRes && progRes.perCard ? progRes.perCard : {});
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
