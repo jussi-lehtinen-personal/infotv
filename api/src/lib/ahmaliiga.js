@@ -17,7 +17,7 @@ const ECON = {
   band: [30, 25, 20, 15, 10],
   // Player/goalie tiers (2026-07-17): wide 75→10 with a long cheap tail via a steep
   // bucket skew (playerSkew) → a few elite + many cheap "finds". No-form → mid tier.
-  playerBand: [75, 58, 44, 32, 22, 14, 10],
+  playerBand: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail
   priceStepCap: 10, // max price move per jakso (coins) → appreciation is a slow skill play, not a one-settle windfall
   predict: { winner: 1, margin: 2, exact: 3 }, // score-prediction bonus tiers

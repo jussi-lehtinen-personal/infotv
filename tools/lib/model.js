@@ -26,7 +26,7 @@ const CFG = {
   // teams unchanged (even buckets). The 3-value `band`/`playerBand` above stay ONLY for
   // the frozen backtest.js (reserve math / best-deck).
   bandTiers: [30, 25, 20, 15, 10],
-  playerBandTiers: [75, 58, 44, 32, 22, 14, 10],
+  playerBandTiers: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail (even for teams)
   maxPlayers: 3,
 };

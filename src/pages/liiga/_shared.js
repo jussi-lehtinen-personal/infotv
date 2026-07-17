@@ -85,7 +85,6 @@ export const Screen = ({ children, sx }) => (
 );
 
 // ===== Ahmaliiga domain helpers (shared so the labels/format live in ONE place) =====
-export const BAND_LABEL = { kallis: "Kallis", keski: "Keski", halpa: "Halpa" };
 export const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
 
 // Rising/falling price tag: "▲ Nousussa" (green) / "▼ Laskussa" (red); nothing if flat.

@@ -8,7 +8,7 @@ import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
   LuWallet, LuLayers, LuTrophy,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, BAND_LABEL, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
+import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
 
@@ -33,11 +33,6 @@ const StatNum = ({ children }) => (
   <Box component="span" sx={{ fontWeight: 800, fontSize: 19, color: "text.primary", lineHeight: 1 }}>{children}</Box>
 );
 // Card avatar with an orange ring (squad look).
-const RingAvatar = ({ card, size }) => (
-  <Box sx={{ flexShrink: 0, borderRadius: "50%", boxShadow: "0 0 0 2px rgba(249,115,22,0.55)" }}>
-    <CardAvatar card={card} size={size} />
-  </Box>
-);
 const bandSub = (c) => (c.kind === "team" ? "Joukkue" : c.sub);
 
 // "2025-04-27" → "27.4." / "27.4.2025"; a jakso's date range for the header line.
@@ -435,20 +430,13 @@ export default function LiigaEdit() {
               <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}><Box component={LuArrowRight} sx={{ fontSize: 22, color: "primary.main", display: "block" }} /></Box>
               <SwapCard card={swapIn} price={swapIn.price} label="Sisään" tone="in" />
             </Stack>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
-              <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, px: 1.5, py: 1.15,
-                    borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.disabled", lineHeight: 1.15 }}>Budjetti<br />jäljellä</Typography>
-                <Coins value={bank} size={14} />
-              </Box>
-              <Box component={LuArrowRight} sx={{ fontSize: 18, color: "text.disabled", flexShrink: 0 }} />
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, px: 1.5, py: 1.15, flexShrink: 0,
-                    borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-                <Box component="span" sx={{ fontSize: 13, fontWeight: 700, color: "text.disabled", textDecoration: "line-through" }}>{bank}</Box>
-                <Box component={LuArrowRight} sx={{ fontSize: 13, color: "text.disabled" }} />
-                <Coins value={bank + replaceFor.price - swapIn.price} size={14} />
-              </Box>
-            </Stack>
+            {/* budget: current → after the swap */}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.5, mt: 2, py: 1.15,
+                  borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+              <Coins value={bank} size={16} color="text.disabled" iconColor="text.disabled" />
+              <Box component={LuArrowRight} sx={{ fontSize: 17, color: "text.disabled", display: "block" }} />
+              <Coins value={bank + replaceFor.price - swapIn.price} size={16} />
+            </Box>
             {transfersLeft === 0 && (
               <Typography sx={{ mt: 2, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#f87171" }}>
                 Siirrot käytetty — tämä vaihto maksaa −5 pistettä.
@@ -510,10 +498,10 @@ const SwapCard = ({ card, price, label, tone }) => (
         border: `1px solid ${tone === "out" ? "rgba(249,115,22,0.4)" : "var(--color-surface-border)"}` }}>
     <Box component="span" sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
           color: tone === "in" ? "var(--color-live)" : "#f87171" }}>{label}</Box>
-    <Box sx={{ display: "flex", justifyContent: "center", my: 1 }}><RingAvatar card={card} size={52} /></Box>
+    <Box sx={{ display: "flex", justifyContent: "center", my: 1 }}><CardAvatar card={card} size={62} /></Box>
     <Typography noWrap sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.2 }}>{card.name}</Typography>
     <Box sx={{ mt: 0.25, fontSize: 10.5, fontWeight: 700, color: "text.disabled", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-      {bandSub(card)}{card.band && <Box component="span" sx={{ color: "primary.main", fontWeight: 800, textTransform: "uppercase" }}> · {BAND_LABEL[card.band]}</Box>}
+      {bandSub(card)}
     </Box>
     <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center", mt: 0.75, minHeight: 18 }}>
       <TrendTag trend={card.trend} />
