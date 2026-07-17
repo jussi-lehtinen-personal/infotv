@@ -5,12 +5,14 @@ import { LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
-// Ranking — leaderboard (current round / whole season) + a "Kaikki jaksot" tab that
-// lists every settled round, each linking to that round's summary. Airy rows; the
-// signed-in manager's own row is highlighted orange.
+// Ranking — leaderboard (last settled round / whole season) + a "Kaikki jaksot" tab
+// that lists every settled round, each linking to that round's summary. Airy rows;
+// the signed-in manager's own row is highlighted orange. NOTE: the "round" scope is
+// the LAST SETTLED jakso (the in-progress jakso has no standings yet), hence the
+// "Viime jakso" label — see ahmaliigaRanking.js (settledNo = curNo - 1).
 
 const TABS = [
-  { key: "round", label: "Nykyinen jakso" },
+  { key: "round", label: "Viime jakso" },
   { key: "kausi", label: "Koko kausi" },
   { key: "jaksot", label: "Kaikki jaksot" },
 ];

@@ -78,11 +78,14 @@ export async function getAhmaliigaSummary(round) {
   return asJson(r);
 }
 
-// My LIVE progress this jakso from the games already played (accurate, box-score
-// rosters): cards featured, running points so far, and per-game points.
-export async function getAhmaliigaJaksoProgress() {
-  const r = await fetch("/api/ahmaliiga/jaksoProgress", { headers: authHeaders() });
-  return asJson(r); // { played, total, livePoints, perGame: { gameId: pts }, perCard: { cardId: pts } }
+// My progress for a jakso from the games already played (accurate, box-score
+// rosters): cards featured, running points, per-game/per-card points, plus the
+// jakso's games + meta so the Jakso page can render the timeline for ANY round.
+// `round` omitted → the active (in-progress) jakso.
+export async function getAhmaliigaJaksoProgress(round) {
+  const q = round != null ? `?round=${round}` : "";
+  const r = await fetch(`/api/ahmaliiga/jaksoProgress${q}`, { headers: authHeaders() });
+  return asJson(r); // { played, total, livePoints, perGame, perCard, round, status, endDate, isCurrent, simMode, simDate, daysLeft, games }
 }
 
 // Veikkaus — current round's games + my prediction (results hidden until settled).

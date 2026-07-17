@@ -920,6 +920,18 @@ async function jaksoProgress(seasonId, round, userId) {
   return { played, total: squad.cards.length, livePoints, perGame, perCard };
 }
 
+// Shape a round's stored games into the client form used by the dashboard event
+// list + the jakso timeline (buildEvents). ONE place so /state and /jaksoProgress
+// never drift.
+function shapeGamesForClient(gs) {
+  return (gs || []).map((g) => ({
+    gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome, date: g.date, level: g.level,
+    // extra fields so the client can open the box score (/gamezone/game/:id)
+    homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId,
+    homeLogo: g.homeLogo, awayLogo: g.awayLogo, homeGoals: g.homeGoals, awayGoals: g.awayGoals,
+  }));
+}
+
 // Extract the age group ("U15") from a game level or team name; '' if none.
 function ageOf(s) { const m = String(s || '').match(/U\s*\d+/i); return m ? m[0].replace(/\s+/g, '').toUpperCase() : ''; }
 
@@ -1275,7 +1287,7 @@ async function getSimStatus(seasonId) {
 }
 
 module.exports = {
-  ECON, T, badRequest,
+  ECON, T, badRequest, shapeGamesForClient,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos,

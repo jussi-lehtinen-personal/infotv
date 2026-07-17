@@ -147,14 +147,22 @@ const PriceHistory = ({ history, current }) => {
       </Stack>
 
       <Section title="Historia">
-        {[...history].reverse().map((h, i, arr) => {
+        {/* the live price as a "Nyt" row on top (matches the chart's Nyt point +
+            Nykyinen hinta) so the newest listed price equals the card's price;
+            below it the settled-jakso snapshots, newest first */}
+        {[
+          ...(current != null ? [{ round: "nyt", date: "", price: curPrice, live: true }] : []),
+          ...[...history].reverse(),
+        ].map((h, i, arr) => {
           const p = arr[i + 1];
           const ch = p ? h.price - p.price : 0;
           const pc = p && p.price ? ((ch / p.price) * 100).toFixed(1) : null;
           return (
-            <Box key={h.round} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
+            <Box key={h.live ? "nyt" : h.round} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
+                  bgcolor: h.live ? "rgba(249,115,22,0.06)" : "transparent",
                   borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
-              <Box sx={{ width: 52, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(h.date)}</Box>
+              <Box sx={{ width: 52, flexShrink: 0, fontSize: 12, fontWeight: h.live ? 800 : 400,
+                    color: h.live ? "primary.main" : "text.disabled" }}>{h.live ? "Nyt" : shortDate(h.date)}</Box>
               <Box sx={{ flex: 1, minWidth: 0 }}><Coins value={h.price} size={13} /></Box>
               <Box sx={{ flexShrink: 0, fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap",
                     color: ch > 0 ? "var(--color-live)" : ch < 0 ? "#ef4444" : "text.disabled" }}>
