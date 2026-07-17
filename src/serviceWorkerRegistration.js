@@ -9,6 +9,8 @@ const isLocalhost = Boolean(
   )
 );
 
+let swRegistration = null;
+
 export function register(config) {
   if ('serviceWorker' in navigator) {
 
@@ -17,6 +19,17 @@ export function register(config) {
         if (refreshing) return;
         refreshing = true;
         window.location.reload();
+    });
+
+    // When the app returns to the foreground (resume), check for a new version and, if
+    // one is waiting, activate it right away (→ controllerchange → reload). Without this
+    // a resumed PWA keeps serving the stale cached shell (old layout / NaN) until it is
+    // fully closed. A real page load still shows the "Päivitä" bar for mid-session updates.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !swRegistration) return;
+      swRegistration.update()
+        .then(() => { if (swRegistration.waiting) swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' }); })
+        .catch(() => {});
     });
 
     const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
@@ -43,6 +56,7 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      swRegistration = registration; // for the resume-time update check
       // An update may already be installed + waiting when the app loads
       // (e.g. detected on a previous session). Prompt for it immediately.
       if (registration.waiting && navigator.serviceWorker.controller) {

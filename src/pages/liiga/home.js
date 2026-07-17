@@ -246,8 +246,10 @@ export default function LiigaHome() {
         );
       })()}
 
-      {/* Previous round — the whole card is one button to its summary */}
-      {prev && summary && summary.settled && (
+      {/* Previous round — the whole card is one button to its summary.
+          Guard prev.no (avoid "Jakso NaN" if a stale bundle sees a differently
+          shaped prevRound). */}
+      {prev && prev.no != null && summary && summary.settled && (
         <>
         <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", mb: 2.5 }} />
         <ButtonBase onClick={() => nav("/ahmaliiga/round")}

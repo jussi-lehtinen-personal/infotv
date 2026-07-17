@@ -72,11 +72,12 @@ export const AhmaliigaLayout = () => {
 
   return (
     <Gate>
-      {/* overscroll: stop pull-to-refresh wiping in-progress squad edits.
-          svg display:block: react-icons render inline <svg> which sit on the text
+      {/* svg display:block: react-icons render inline <svg> which sit on the text
           baseline (a few px low) → text looks higher; block removes that gap so
-          icon + text share the same centre line everywhere. */}
-      <GlobalStyles styles={{ "html, body": { overscrollBehaviorY: "contain" }, svg: { display: "block" } }} />
+          icon + text share the same centre line everywhere.
+          Pull-to-refresh is intentionally LEFT ON now — squad edits persist
+          immediately, so a refresh no longer wipes in-progress selections. */}
+      <GlobalStyles styles={{ svg: { display: "block" } }} />
       <Box sx={{ minHeight: "100dvh", bgcolor: "var(--color-bg)", color: "text.primary",
             pb: "calc(84px + env(safe-area-inset-bottom))" }}>
         {/* top bar — matches the box-score header (game.js) */}
