@@ -13,20 +13,22 @@ const CFG = {
   team: { win: 3, tie: 1, loss: 0, cleanSheet: 2, goalDiffPer: 0.5, goalDiffCap: 2 },
   predict: { winner: 1, margin: 2, exact: 3 },
   player: { goal: 3, assist: 2 },
+  // Goalie save-% bonus tiers: 88/92 (2026-07-17, matches api/src/lib/scoring.js).
   goalie: { win: 3, cleanSheet: 2, sv92: 2, sv95: 3, minShots: 15 },
   captainX: 2,
   squadSize: 5,
   budget: 120,
   band: { kallis: 30, keski: 20, halpa: 10 },
   playerBand: { kallis: 50, keski: 40, halpa: 30 },
-  // 5-tier price ladders (highest→lowest) — the granularity the IN-SEASON reband
-  // uses (mirrors ECON.band/playerBand in api/src/lib/ahmaliiga.js). Seed pricing
-  // buckets into these five too, so a card's launch price and its later rebands
-  // share the same ladder. The 3-value `band`/`playerBand` above stay for the
-  // frozen backtest.js (reserve math, best-deck) and are tiers[0]/[2]/[4] of these.
+  // Price ladders (highest→lowest) — mirror ECON.band/playerBand in ahmaliiga.js so a
+  // card's SEED price sits on the same ladder its rebands use. 2026-07-17: players →
+  // wide 75→10 with a long cheap tail, bucketed by `playerSkew` (few elite + "finds");
+  // teams unchanged (even buckets). The 3-value `band`/`playerBand` above stay ONLY for
+  // the frozen backtest.js (reserve math / best-deck).
   bandTiers: [30, 25, 20, 15, 10],
-  playerBandTiers: [50, 45, 40, 35, 30],
-  maxPlayers: 2,
+  playerBandTiers: [75, 58, 44, 32, 22, 14, 10],
+  playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail (even for teams)
+  maxPlayers: 3,
 };
 
 // Player (individual) cards are eligible for U18 and older — decision 2026-07-13
@@ -113,7 +115,7 @@ function goaliePoints(r, g) {
   for (const c of conceded) { const w = whoAt(c); if (w && ga[w] != null) ga[w]++; }
   const primary = names.slice().sort((a, b) => sv[b] - sv[a])[0];
   const G = ga[primary], S = sv[primary], shots = S + G, pct = shots > 0 ? (S / shots) * 100 : 0;
-  const cs = G === 0 && shots > 0, p95 = shots >= CFG.goalie.minShots && pct >= 95, p92 = shots >= CFG.goalie.minShots && pct >= 92 && !p95;
+  const cs = G === 0 && shots > 0, p95 = shots >= CFG.goalie.minShots && pct >= 92, p92 = shots >= CFG.goalie.minShots && pct >= 88 && !p95;
   const gp = CFG.goalie; const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (p95 ? gp.sv95 : p92 ? gp.sv92 : 0);
   return { name: primary, pts, pct, won, cs, shots };
 }

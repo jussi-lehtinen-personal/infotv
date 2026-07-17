@@ -18,16 +18,17 @@ const { players } = buildPlayerCards(season, start);
 const prior = buildPrevPrior(prevSeason);
 
 // Assign a launch price by ranking a pool on prior form and bucketing into the
-// 5-tier ladder (best form → tiers[0] highest, worst → tiers[last]). Identical
-// quintile math to the in-season reband (bandPricesFrom in ahmaliiga.js) so a
-// card's seed price sits on the SAME ladder it will later move along. Entries
-// with NO prior (aged-up / new) default to the middle tier.
-function assignBands(entries, tiers) {
+// ladder (best form → tiers[0] highest, worst → tiers[last]). `skew` shapes the
+// buckets: 1 = even (teams); >1 = few in the top tiers + a long cheap tail (players).
+// IDENTICAL math to the in-season reband (bandPricesFrom in ahmaliiga.js) so a card's
+// seed price sits on the same ladder it later moves along. No prior → the middle tier.
+function assignBands(entries, tiers, skew = 1) {
   const T = tiers.length;
   const withPrior = entries.filter((e) => e.prior != null).sort((a, b) => b.prior - a.prior);
   const n = withPrior.length;
   const priceOf = {};
-  withPrior.forEach((e, i) => { priceOf[e.id] = tiers[Math.min(T - 1, Math.floor((i * T) / (n || 1)))]; });
+  const tierOf = (frac) => { let t = 0; while (t < T - 1 && frac > Math.pow((t + 1) / T, skew)) t++; return t; };
+  withPrior.forEach((e, i) => { priceOf[e.id] = tiers[tierOf((i + 0.5) / (n || 1))]; });
   const mid = tiers[Math.floor(T / 2)];
   for (const e of entries) if (e.prior == null) priceOf[e.id] = mid;
   return priceOf;
@@ -50,7 +51,7 @@ const playerEntries = Object.keys(players).map((name) => ({
   id: "P:" + name, name, team: players[name].team, gk: players[name].gk,
   prior: prior.playerByName[name] ?? null,
 }));
-const playerPrice = assignBands(playerEntries, CFG.playerBandTiers);
+const playerPrice = assignBands(playerEntries, CFG.playerBandTiers, CFG.playerSkew);
 
 const round1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
