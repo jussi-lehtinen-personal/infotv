@@ -333,6 +333,139 @@ function appreciation() {
   console.log(`→ jos no-prior→min, tulevat tähdet voi DRAFTATA halvalla J0:ssa → 3 tähteä mahtuu. Silloin maxPlayers 3 EI ole harmiton (toisin kuin staattinen sim väitti). Lievennys: no-prior→mid + kapteenin lukitus + hillitympi arvonnousu.`);
 }
 
+// ---- Price trajectory WITH a per-jakso change cap (±cap tiers) ----------------
+// Real prices shouldn't jump min→max in one settle. Each jakso a card moves at most
+// `cap` ladder steps toward its form-target tier (cap=Infinity → instant, the old
+// behaviour). Preserves "spot a riser = skill" (you still profit, over 2-3 jaksot)
+// while killing the one-settle windfall.
+function priceTrajCapped(u, prior, cfg, cap) {
+  const traj = []; let prev = null;
+  for (let J = 0; J < u.nJaksot; J++) {
+    const cur = {};
+    for (const [type, ladder] of [["team", cfg.ladderT], ["player", cfg.ladderP]]) {
+      const ids = u.ids.filter((id) => u.cardType[id] === type);
+      const withF = ids.map((id) => ({ id, f: rForm(u, id, J, prior, cfg) })).sort((a, b) => b.f - a.f);
+      const n = withF.length, T = ladder.length;
+      withF.forEach((x, i) => {
+        const target = tierOf((i + 0.5) / n, T, cfg.skew);
+        let idx = target;
+        if (prev && prev[x.id] != null && cap !== Infinity) {
+          const pIdx = ladder.indexOf(prev[x.id]);
+          idx = pIdx + Math.sign(target - pIdx) * Math.min(cap, Math.abs(target - pIdx));
+        }
+        cur[x.id] = ladder[idx];
+      });
+    }
+    traj.push(cur); prev = cur;
+  }
+  return traj;
+}
+
+// A PERSISTENT manager: draft at J0 (lock-in buy price), then ≤transfers swaps/jakso,
+// selling at current price + buying risers at current price. This is what lets the
+// appreciation exploit surface (buy a cheap future star, hold as it climbs) — the
+// spot re-pick model can't, so maxPlayers looked inert there. pform(id,J) = perceived
+// rolling form × the manager's scouting noise.
+function persistentManager(u, traj, cfg, pform, transfers) {
+  const cheapest = Math.min(...cfg.ladderT, ...cfg.ladderP);
+  let bank = cfg.budget; const held = new Set(); let np = 0;
+  const order0 = u.ids.slice().sort((a, b) => pform(b, 0) - pform(a, 0));
+  for (const id of order0) {
+    if (held.size >= cfg.squadSize) break;
+    if (u.cardType[id] === "player" && np >= cfg.maxPlayers) continue;
+    const reserve = (cfg.squadSize - held.size - 1) * cheapest;
+    if (traj[0][id] <= bank - reserve) { held.add(id); bank -= traj[0][id]; if (u.cardType[id] === "player") np++; }
+  }
+  let total = 0; const squadsByJ = []; let pSum = 0;
+  for (let J = 0; J < u.nJaksot; J++) {
+    const price = traj[J];
+    if (J > 0) for (let t = 0; t < transfers; t++) {
+      const heldArr = [...held]; const npNow = heldArr.filter((id) => u.cardType[id] === "player").length;
+      let best = null;
+      for (const s of heldArr) {
+        const afterBank = bank + price[s];
+        for (const b of u.ids) {
+          if (held.has(b)) continue;
+          const newNp = npNow - (u.cardType[s] === "player" ? 1 : 0) + (u.cardType[b] === "player" ? 1 : 0);
+          if (newNp > cfg.maxPlayers) continue;
+          if (price[b] <= afterBank && pform(b, J) > pform(s, J) + 0.01) {
+            const gain = pform(b, J) - pform(s, J);
+            if (!best || gain > best.gain) best = { s, b, gain, afterBank };
+          }
+        }
+      }
+      if (!best) break;
+      held.delete(best.s); held.add(best.b); bank = best.afterBank - price[best.b];
+    }
+    total += jaksoPoints(u, J, [...held], "jakso-fixed");
+    squadsByJ.push(new Set(held));
+    pSum += [...held].filter((id) => u.cardType[id] === "player").length;
+  }
+  return { total, squadsByJ, avgP: pSum / u.nJaksot };
+}
+
+// Q — maxPlayers 2 vs 3 vs no-cap with PERSISTENT lock-in trading: does raising the
+// slots let skilled managers stack (cheap-bought) stars, and does it diversify squads
+// (11 teams is the convergence bottleneck) — measured by squad overlap.
+function maxPlayersCompare(universes) {
+  console.log(`\n══════ maxPlayers 2 / 3 / ei-rajaa — persistentti kauppa · konvergenssi ══════`);
+  console.log(`(overlap% = montako 5:stä kortista kaksi manageria jakaa; matalampi = monimuotoisempi)`);
+  const K = 14, noise = 0.4, cap = 1, transfers = 2;
+  const cfgBase = { ...DEFAULT, ladderP: [50, 45, 40, 35, 30], skew: 1, noPrior: 3.2 };
+  for (const u of universes) {
+    const prevY = String(Number(u.year) - 1);
+    const prior = fs.existsSync(path.join(DATA, `season-${prevY}.json`)) ? model.buildPrevPrior(prevY) : null;
+    const traj = priceTrajCapped(u, prior, cfgBase, cap);
+    const noiseMap = Array.from({ length: K }, () => { const m = {}; for (const id of u.ids) m[id] = 1 + (Math.random() * 2 - 1) * noise; return m; });
+    const seasonPts = {}; for (const id of u.ids) seasonPts[id] = Object.values(u.cardJakso[id]).reduce((a, b) => a + b, 0);
+    console.log(`\n── ${u.year} (hintaraja ±${cap}/jakso · ${transfers} siirtoa · ${K} manageria) ──`);
+    console.log(`maxP | overlap% team-ov(/3) | avgP  uniikkeja | form: paras/heikoin | SKAUTTI: pisteet (avgP)`);
+    for (const mp of [2, 3, Infinity]) {
+      const cfg = { ...cfgBase, maxPlayers: mp };
+      const mgrs = noiseMap.map((nz) => persistentManager(u, traj, cfg, (id, J) => rForm(u, id, J, prior, cfg) * nz[id], transfers));
+      let overlap = 0, teamOv = 0, pairs = 0; const uniq = new Set();
+      for (let J = 0; J < u.nJaksot; J++) {
+        const squads = mgrs.map((m) => m.squadsByJ[J]);
+        for (const sq of squads) for (const id of sq) uniq.add(id);
+        for (let a = 0; a < K; a++) for (let b = a + 1; b < K; b++) {
+          let ov = 0, tov = 0; for (const id of squads[b]) if (squads[a].has(id)) { ov++; if (u.cardType[id] === "team") tov++; }
+          overlap += ov / DEFAULT.squadSize; teamOv += tov; pairs++;
+        }
+      }
+      const totals = mgrs.map((m) => m.total);
+      // scout = perfect foresight of season points → drafts the future stars while cheap at J0
+      const scout = persistentManager(u, traj, cfg, (id) => seasonPts[id], transfers);
+      const lab = mp === Infinity ? "∞" : String(mp);
+      console.log(`${lab.padEnd(4)} |   ${(overlap / pairs * 100).toFixed(0).padStart(3)}     ${(teamOv / pairs).toFixed(1)}      | ${mean(mgrs.map((m) => m.avgP)).toFixed(1)}    ${String(uniq.size).padStart(3)}     | ${Math.max(...totals).toFixed(0)} / ${Math.min(...totals).toFixed(0)}       | ${scout.total.toFixed(0)} (${scout.avgP.toFixed(1)})`);
+    }
+  }
+  console.log(`→ form-manageri: budjetti sitoo (avgP~1). SKAUTTI (foresight) draftaa halvat tulevat tähdet → jos sen avgP ja pisteet nousevat 3:lla/∞:llä, korkeampi katto palkitsee skautingia (taitokatto ↑, mutta ero kasuaaliin kasvaa).`);
+}
+
+// Q — how do TEAM prices live under the change cap: do teams even reach the top tier,
+// and how many at once? 11 teams + even thirds → ~top third should be "kallis".
+function teamPriceReport(universes) {
+  console.log(`\n══════ Joukkueiden hintakehitys — yltääkö top-tieriin, montako ══════`);
+  const cfg = { ...DEFAULT, ladderP: [50, 45, 40, 35, 30], skew: 1, noPrior: 3.2 };
+  for (const u of universes) {
+    const prevY = String(Number(u.year) - 1);
+    const prior = fs.existsSync(path.join(DATA, `season-${prevY}.json`)) ? model.buildPrevPrior(prevY) : null;
+    console.log(`\n── ${u.year} (${u.teamIds.length} joukkuetta · top-tier = ${cfg.ladderT[0]}) ──`);
+    console.log(`hintaraja | top-tier joukkueita/jakso | eri joukkueita joskus top | esimerkkirata (paras joukkue)`);
+    // pick the team with the highest season points to show its price path
+    const seasonPts = {}; for (const id of u.teamIds) seasonPts[id] = Object.values(u.cardJakso[id]).reduce((a, b) => a + b, 0);
+    const bestTeam = u.teamIds.slice().sort((a, b) => seasonPts[b] - seasonPts[a])[0];
+    for (const cap of [1, 2, Infinity]) {
+      const traj = priceTrajCapped(u, prior, cfg, cap);
+      const top = cfg.ladderT[0]; const ever = new Set(); let sum = 0;
+      for (let J = 0; J < u.nJaksot; J++) { let c = 0; for (const id of u.teamIds) if (traj[J][id] === top) { ever.add(id); c++; } sum += c; }
+      const path5 = traj.slice(0, Math.min(8, u.nJaksot)).map((t) => t[bestTeam]).join("→");
+      const capLab = cap === Infinity ? "∞ " : `±${cap}`;
+      console.log(`  ${capLab}      |          ${(sum / u.nJaksot).toFixed(1).padStart(4)}            |           ${String(ever.size).padStart(2)}            | ${bestTeam.replace(/^T:/, "")}: ${path5}`);
+    }
+  }
+}
+
 // ==================== RUN ====================
 console.log(`Ahmaliiga backtest — 6 questions · seasons ${YEARS.join(", ")} · jaksoWeeks ${CFG.jaksoWeeks}`);
 const universes = YEARS.map(buildUniverse);
@@ -343,4 +476,6 @@ q4(universes);
 q5(universes);
 q6();
 appreciation();
+maxPlayersCompare(universes);
+teamPriceReport(universes);
 console.log(`\n(2 seasons + partial reports → directional. Interpretation follows.)`);
