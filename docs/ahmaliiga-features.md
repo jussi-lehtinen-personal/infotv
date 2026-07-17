@@ -18,6 +18,7 @@ tässä ei enää lyödä lukkoon numeroita, vaan listataan toiminnallisuudet.
 - **F2.2** Jaksot (2 vk) — aikataulu, "nykyinen jakso", **lukitusaika** (esim. ma 18:00).
 - **F2.3** KAKSI leaderboardia: jakso (nollautuu) + kausi (kumulatiivinen).
 - **F2.4** Jakson lukitus — kokoonpano + kapteeni + veikkaus lukkiutuvat deadlineen. *Backend: `Season`/`Jaksot` config; settlement lukee tästä.*
+- **F2.5** (ROADMAP 2026-07-17) **Reaaliaikainen kausikello.** Kausi pyörii nyt sim-tilassa (`simMode:true` + `simDate`), joten "alkanut / pelattu / pisteet / timeline" seuraavat admin-sim-kelloa, ei oikeaa aikaa. **Kapteenilukko tehtiin jo reaaliaikaiseksi** (wall-clock, riippumaton sim-kellosta — commit 754dc50). TODO: siirrä koko kausi **live-tilaan** (`simMode:false`) tai pidä sim-kello aina nykyisenä, jotta myös alkanut/pelattu/pisteet/timeline kulkevat reaaliajassa ja ovat keskenään yhdenmukaiset. ⚠️ Live-tilaan vaihto aiheuttaa kertaluontoisen uudelleenlaskennan käynnissä olevan jakson pisteille (jos sim-kello oli jäljessä).
 
 ## 3. Kortit & kortisto (pool)
 - **F3.1** Joukkuekortit (kaikki ikäluokat) — lähde tulospalvelu `teamKey` (age + peliryhmä-väri).
