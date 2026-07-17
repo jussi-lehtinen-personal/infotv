@@ -962,6 +962,19 @@ function shapeGamesForClient(gs) {
 // Extract the age group ("U15") from a game level or team name; '' if none.
 function ageOf(s) { const m = String(s || '').match(/U\s*\d+/i); return m ? m[0].replace(/\s+/g, '').toUpperCase() : ''; }
 
+// The card/game GROUP key for matching a card to its games — like `ageOf` but also
+// recognises the ageless senior groups (mirrors teamKey in tools/lib/model.js): a
+// U-number, else "Naiset" (women), else "Edustus". So Edustus/Naiset player + team
+// cards match their games instead of falling through `ageOf`'s '' → no games.
+function groupOf(s) {
+  const t = String(s || '').trim();
+  if (!t) return '';
+  const m = t.match(/U\s*\d+/i);
+  if (m) return m[0].replace(/\s+/g, '').toUpperCase();
+  if (/nais/i.test(t)) return 'Naiset';
+  return 'Edustus';
+}
+
 // Kortin tiedot — the card + ownership %, per-round history (price + points from
 // cardHistory) and the card's games (matched by age group; result only, no
 // per-game points). Public read.
@@ -987,17 +1000,20 @@ async function getCardDetail(seasonId, cardId) {
   // card has one (so U15 Musta doesn't pull in U15 Valkoinen games). Falls back to
   // age-only when a game carries no colour (can't distinguish).
   const COLORS = /(musta|valkoinen|oranssi|keltainen|sininen|punainen|vihre|harmaa)/i;
-  const cardAge = ageOf(card.age || card.teamKey || (card.kind === 'team' ? card.name : card.sub));
-  const cardColor = ((card.teamKey || card.sub || card.name || '').match(COLORS) || [])[0];
+  // Group (U-age / Naiset / Edustus). Teams have age/teamKey/name; players carry the
+  // team in `sub`. Colour from teamKey/sub only (NOT the player name — a surname could
+  // contain a colour word).
+  const cardGroup = groupOf(card.age || card.teamKey || (card.kind === 'team' ? card.name : card.sub));
+  const cardColor = ((card.teamKey || card.sub || '').match(COLORS) || [])[0];
   const matchGame = (g) => {
-    if (ageOf(g.level) !== cardAge) return false;
+    if (groupOf(g.level) !== cardGroup) return false;
     if (!cardColor) return true;
     const ahmaTeam = g.ahmaHome ? g.home : g.away;
     const gColor = ((String(g.level).match(COLORS) || [])[0]) || ((String(ahmaTeam).match(COLORS) || [])[0]);
     return !gColor || gColor.toLowerCase() === cardColor.toLowerCase();
   };
   let games = [];
-  if (cardAge) {
+  if (cardGroup) {
     for (const j of rounds) {
       if (j.status !== 'settled') continue; // only played rounds (no future results)
       const gs = await getRoundGames(seasonId, Number(j.rowKey));
