@@ -17,35 +17,40 @@ const { cards: teamKeys, cj, start, nJaksot } = buildSeason(season);
 const { players } = buildPlayerCards(season, start);
 const prior = buildPrevPrior(prevSeason);
 
-// Assign a price band by ranking a pool on prior form: top third Kallis, mid
-// Keski, bottom Halpa. Entries with NO prior (aged-up / new) default to Keski.
-function assignBands(entries, band) {
+// Assign a launch price by ranking a pool on prior form and bucketing into the
+// 5-tier ladder (best form → tiers[0] highest, worst → tiers[last]). Identical
+// quintile math to the in-season reband (bandPricesFrom in ahmaliiga.js) so a
+// card's seed price sits on the SAME ladder it will later move along. Entries
+// with NO prior (aged-up / new) default to the middle tier.
+function assignBands(entries, tiers) {
+  const T = tiers.length;
   const withPrior = entries.filter((e) => e.prior != null).sort((a, b) => b.prior - a.prior);
   const n = withPrior.length;
   const priceOf = {};
-  withPrior.forEach((e, i) => {
-    priceOf[e.id] = i < n / 3 ? band.kallis : i < (2 * n) / 3 ? band.keski : band.halpa;
-  });
-  for (const e of entries) if (e.prior == null) priceOf[e.id] = band.keski;
+  withPrior.forEach((e, i) => { priceOf[e.id] = tiers[Math.min(T - 1, Math.floor((i * T) / (n || 1)))]; });
+  const mid = tiers[Math.floor(T / 2)];
+  for (const e of entries) if (e.prior == null) priceOf[e.id] = mid;
   return priceOf;
 }
 
-const bandName = (price, band) =>
-  price === band.kallis ? "kallis" : price === band.keski ? "keski" : "halpa";
+// Coarse 3-label band for the UI: top tier = kallis, bottom = halpa, the in-between
+// steps = keski (matches bandNameOf in ahmaliiga.js).
+const bandName = (price, tiers) =>
+  price >= tiers[0] ? "kallis" : price <= tiers[tiers.length - 1] ? "halpa" : "keski";
 
 // Team cards — priced BY AGE from the prior.
 const teamEntries = teamKeys.map((k) => {
   const age = k.split(" ")[0];
   return { id: "T:" + k, teamKey: k, age, prior: prior.teamByAge[age] ?? null };
 });
-const teamPrice = assignBands(teamEntries, CFG.band);
+const teamPrice = assignBands(teamEntries, CFG.bandTiers);
 
 // Player/goalie cards (U18+) — priced BY NAME from the prior.
 const playerEntries = Object.keys(players).map((name) => ({
   id: "P:" + name, name, team: players[name].team, gk: players[name].gk,
   prior: prior.playerByName[name] ?? null,
 }));
-const playerPrice = assignBands(playerEntries, CFG.playerBand);
+const playerPrice = assignBands(playerEntries, CFG.playerBandTiers);
 
 const round1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
@@ -53,13 +58,13 @@ const cards = [
   ...teamEntries.map((e) => ({
     id: e.id, kind: "team", name: e.teamKey, sub: e.age,
     teamKey: e.teamKey, age: e.age,
-    band: bandName(teamPrice[e.id], CFG.band), price: teamPrice[e.id],
+    band: bandName(teamPrice[e.id], CFG.bandTiers), price: teamPrice[e.id],
     priorForm: round1(e.prior),
   })),
   ...playerEntries.map((e) => ({
     id: e.id, kind: e.gk ? "goalie" : "player", name: e.name, sub: e.team,
     personName: e.name, team: e.team,
-    band: bandName(playerPrice[e.id], CFG.playerBand), price: playerPrice[e.id],
+    band: bandName(playerPrice[e.id], CFG.playerBandTiers), price: playerPrice[e.id],
     priorForm: round1(e.prior),
   })),
 ];
@@ -80,7 +85,7 @@ const seed = {
   budget: CFG.budget,
   squadSize: CFG.squadSize,
   maxPlayers: CFG.maxPlayers,
-  bands: { team: CFG.band, player: CFG.playerBand },
+  bands: { team: CFG.bandTiers, player: CFG.playerBandTiers },
   generatedFromLocalData: true,
   jaksot,
   cards,

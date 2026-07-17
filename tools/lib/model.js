@@ -19,6 +19,13 @@ const CFG = {
   budget: 120,
   band: { kallis: 30, keski: 20, halpa: 10 },
   playerBand: { kallis: 50, keski: 40, halpa: 30 },
+  // 5-tier price ladders (highest→lowest) — the granularity the IN-SEASON reband
+  // uses (mirrors ECON.band/playerBand in api/src/lib/ahmaliiga.js). Seed pricing
+  // buckets into these five too, so a card's launch price and its later rebands
+  // share the same ladder. The 3-value `band`/`playerBand` above stay for the
+  // frozen backtest.js (reserve math, best-deck) and are tiers[0]/[2]/[4] of these.
+  bandTiers: [30, 25, 20, 15, 10],
+  playerBandTiers: [50, 45, 40, 35, 30],
   maxPlayers: 2,
 };
 
