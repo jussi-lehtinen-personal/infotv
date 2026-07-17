@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getRounds, activeRoundNo, getStanding, getRoundGames, shapeGamesForClient } = require('../lib/ahmaliiga');
+const { ECON, getActiveSeason, getRounds, activeRoundNo, getStanding, getRoundGames, shapeGamesForClient } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/state — active season + current round (admin pointer in
 // sim/replay, else by date) + config. If authed, also the manager's standing
@@ -63,7 +63,7 @@ app.http('ahmaliigaState', {
           simDate: season.simDate || (season.simMode && cur ? cur.startDate : null),
           budget: season.budget,
           squadSize: season.squadSize,
-          maxPlayers: season.maxPlayers,
+          maxPlayers: ECON.maxPlayers, // ECON is authoritative → balance change applies to the running season
           bands,
           roundCount: rounds.length,
           currentRound: cur

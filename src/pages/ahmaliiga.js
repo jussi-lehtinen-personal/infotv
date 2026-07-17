@@ -180,7 +180,7 @@ const Ahmaliiga = () => {
           <Lead>
             Sinulla on <b>budjetti</b> (esim. 10 <b>Ahma-coinia</b> 🪙) ja poimit esim.
             <b> 5 korttia</b>. Joukkueet ovat halvempia ja tasaisempia, tähtipelaajat kalliimpia ja boom/bust
-            (max ~2 pelaajakorttia). Yksi kortti <b>kapteeniksi</b> (2×). Voit eri
+            (max 3 pelaajakorttia). Yksi kortti <b>kapteeniksi</b> (2×). Voit eri
             jaksoissa painottaa eri tavalla:
           </Lead>
           <Stack spacing={1.25} sx={{ mt: 0.5 }}>

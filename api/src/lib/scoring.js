@@ -8,7 +8,9 @@
 const SCORING = {
   team: { win: 3, tie: 1, loss: 0, cleanSheet: 2, goalDiffPer: 0.5, goalDiffCap: 2 },
   player: { goal: 3, assist: 2 },
-  goalie: { win: 3, cleanSheet: 2, sv92: 2, sv95: 3, minShots: 15 },
+  // Save-% bonus tiers (2026-07-17: lowered from 92/95 → 88/92 — the old cut was too
+  // demanding, the bonus hit only ~30% of games; 88/92 makes goalies fair vs skaters).
+  goalie: { win: 3, cleanSheet: 2, svLoPct: 88, svLoBonus: 2, svHiPct: 92, svHiBonus: 3, minShots: 15 },
 };
 
 // Team-card points for ONE game from goals-for (gf) / goals-against (ga):
@@ -50,8 +52,8 @@ function goaliePoints(report, ctx) {
   const primary = names.slice().sort((a, b) => sv[b] - sv[a])[0];
   const G = ga[primary], S = sv[primary], shots = S + G, pct = shots > 0 ? (S / shots) * 100 : 0;
   const gp = SCORING.goalie;
-  const cs = G === 0 && shots > 0, p95 = shots >= gp.minShots && pct >= 95, p92 = shots >= gp.minShots && pct >= 92 && !p95;
-  const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (p95 ? gp.sv95 : p92 ? gp.sv92 : 0);
+  const cs = G === 0 && shots > 0, hi = shots >= gp.minShots && pct >= gp.svHiPct, lo = shots >= gp.minShots && pct >= gp.svLoPct && !hi;
+  const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (hi ? gp.svHiBonus : lo ? gp.svLoBonus : 0);
   return { name: primary, pts, pct, won, cs, shots };
 }
 

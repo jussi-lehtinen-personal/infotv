@@ -10,13 +10,16 @@ const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResult
 const ECON = {
   budget: 120,
   squadSize: 5,
-  maxPlayers: 2,
+  maxPlayers: 3, // 2026-07-17: 2→3 (players are the diversity engine; 11 teams is the bottleneck)
   transfersPerRound: 2,
   transferPenalty: 5, // points lost per extra transfer beyond the free allowance
-  // Price tiers, highest → lowest (5 tiers so cards can sit at the in-between
-  // 35/45 / 15/25 steps, not just 3 levels). Assigned by form quintile.
-  band: [30, 25, 20, 15, 10],       // team cards
-  playerBand: [50, 45, 40, 35, 30], // player / goalie cards
+  // Team price tiers, highest → lowest, assigned by form quintile (even buckets).
+  band: [30, 25, 20, 15, 10],
+  // Player/goalie tiers (2026-07-17): wide 75→10 with a long cheap tail via a steep
+  // bucket skew (playerSkew) → a few elite + many cheap "finds". No-form → mid tier.
+  playerBand: [75, 58, 44, 32, 22, 14, 10],
+  playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail
+  priceStepCap: 10, // max price move per jakso (coins) → appreciation is a slow skill play, not a one-settle windfall
   predict: { winner: 1, margin: 2, exact: 3 }, // score-prediction bonus tiers
 };
 
@@ -190,7 +193,9 @@ async function getSquad(userId) {
 async function saveSquad(userId, cardIds, captainId, nickname) {
   const season = await getActiveSeason();
   if (!season) throw badRequest('Kausi ei ole käynnissä.');
-  const budget = season.budget, squadSize = season.squadSize, maxPlayers = season.maxPlayers;
+  // maxPlayers from ECON (single source of truth) so a balance change applies to the
+  // running season immediately, without migrating the stored season row.
+  const budget = season.budget, squadSize = season.squadSize, maxPlayers = ECON.maxPlayers;
 
   const cards = await getCards(season.rowKey);
   const map = {};
@@ -318,15 +323,16 @@ async function cumForm(seasonId, round) {
   return { form, sums }; // form = avg/round (pricing), sums = season total pts
 }
 
-// Band by ranking a pool on form: top third Kallis, mid Keski, bottom Halpa; no
-// form (not yet played) → Keski.
-// Assign a price tier per card by form quintile: best form → prices[0] (highest),
-// worst → prices[last]. `prices` is a highest→lowest array. No form → middle tier.
-function bandPricesFrom(pool, form, prices) {
+// Assign a price tier per card by form rank: best form → prices[0] (highest), worst
+// → prices[last]. `prices` is a highest→lowest array. `skew` shapes the bucketing:
+// 1 = even buckets (teams); >1 = few cards in the top tiers + a long cheap tail
+// (players). No form (not yet played) → the middle tier.
+function bandPricesFrom(pool, form, prices, skew = 1) {
   const tiers = prices.length;
   const withForm = pool.filter((c) => form[c.rowKey] != null).sort((a, b) => form[b.rowKey] - form[a.rowKey]);
   const n = withForm.length, out = {};
-  withForm.forEach((c, i) => { out[c.rowKey] = prices[Math.min(tiers - 1, Math.floor((i * tiers) / (n || 1)))]; });
+  const tierOf = (frac) => { let t = 0; while (t < tiers - 1 && frac > Math.pow((t + 1) / tiers, skew)) t++; return t; };
+  withForm.forEach((c, i) => { out[c.rowKey] = prices[tierOf((i + 0.5) / (n || 1))]; });
   const mid = prices[Math.floor(tiers / 2)];
   for (const c of pool) if (form[c.rowKey] == null) out[c.rowKey] = mid;
   return out;
@@ -402,15 +408,17 @@ async function settleRound(seasonId, round) {
 
     const breakdown = {}; let total = 0;
     if (perGame) {
-      // Score each game against the squad frozen at ITS kickoff (captain 2× per game).
+      // Score each game against the squad frozen at ITS kickoff (rolling lock), but the
+      // CAPTAIN is jakso-wide (locked at the first kickoff), not per-game.
+      const jaksoCaptain = jaksoCaptainOf(lineups, round, curCaptain);
       const owned = new Set();
       for (const g of games) {
         const pg = perGame[g.gameId]; if (!pg) continue;
-        const { ids, captainId } = effectiveSquad(g, lineups, curIds, curCaptain);
+        const { ids } = effectiveSquad(g, lineups, curIds, curCaptain);
         for (const id of ids) {
           owned.add(id);
           const pts = pg[id]; if (!pts) continue;
-          const eff = id === captainId ? pts * 2 : pts;
+          const eff = id === jaksoCaptain ? pts * 2 : pts;
           breakdown[id] = (breakdown[id] || 0) + eff; total += eff;
         }
       }
@@ -499,12 +507,15 @@ async function settleRound(seasonId, round) {
   // reband for next round + snapshot this round's price/points/ownership
   const { form, sums } = await cumForm(seasonId, round);
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
-  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand);
-  const newPrice = { ...priceT, ...priceP };
+  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
+  const targetPrice = { ...priceT, ...priceP };
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
-    const price = newPrice[c.rowKey];
     const old = Number(c.price);
+    // Gradual: move at most priceStepCap coins toward the form target this jakso, so a
+    // card can't jump min→max in one settle (appreciation is a slow skill play).
+    const target = targetPrice[c.rowKey];
+    const price = old + Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
     return {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
@@ -688,6 +699,16 @@ async function getRoundGames(seasonId, round) {
 // with the space→T and colons dropped ("2026-01-15 18:30" → "2026-01-15T1830").
 const kickoffKey = (date) => String(date || '').trim().replace(' ', 'T').replace(/:/g, '');
 
+// The jakso-captain-lock rowKey in AhmaliigaLineups — distinct from kickoff keys
+// (which contain dashes + 'T'), so it never collides.
+const captainKey = (round) => `CAP-${round}`;
+// The captain frozen for the whole jakso (locked at its first kickoff), else the
+// current/fallback captain (before any game has started).
+const jaksoCaptainOf = (lineupsMap, round, fallback) => {
+  const lock = lineupsMap && lineupsMap[captainKey(round)];
+  return lock && lock.captainId ? lock.captainId : (fallback || null);
+};
+
 // Has a game kicked off? Sim (day-granular) → its day ≤ simDate; live → kickoff ≤ now.
 function gameStarted(game, season) {
   const simDate = season && season.simMode ? season.simDate : null;
@@ -714,11 +735,15 @@ async function freezeLineup(seasonId, userId, key, kickoff, round, ids, captainI
 // reads only snapshots.
 async function freezeStartedGames(season, round, userId, ids, captainId, gamesArg, all) {
   const games = gamesArg || (await getRoundGames(season.rowKey, round));
-  let n = 0;
+  let n = 0, anyStarted = false;
   for (const g of games) {
     if (!all && !gameStarted(g, season)) continue;
+    anyStarted = true;
     if (await freezeLineup(season.rowKey, userId, kickoffKey(g.date), g.date, round, ids, captainId)) n++;
   }
+  // Lock the jakso captain at the FIRST kickoff (insert-once, key `CAP-<round>`) so it
+  // can't be switched per-game later (games aren't simultaneous → that was exploitable).
+  if (anyStarted) await freezeLineup(season.rowKey, userId, captainKey(round), '', round, [], captainId);
   return n;
 }
 
@@ -864,7 +889,9 @@ async function jaksoProgress(seasonId, round, userId) {
   const captainId = squad.captainId;
   // Rolling lock: an already-played game scores against the squad frozen at ITS
   // kickoff (else the current squad) — so live points match what settlement awards.
+  // Captain is jakso-wide (locked at the first kickoff), not per-game.
   const lineups = await getLineupsMap(seasonId, userId);
+  const jaksoCaptain = jaksoCaptainOf(lineups, round, captainId);
 
   // Live points: run the locked scoring per played game (so we get a per-game figure
   // for the timeline), take that game's effective squad, apply the captain 2×, sum.
@@ -879,7 +906,7 @@ async function jaksoProgress(seasonId, round, userId) {
     let gPts = 0;
     for (const id of eff.ids) {
       const p = results[id]; if (!p) continue;
-      const e = id === eff.captainId ? p * 2 : p;
+      const e = id === jaksoCaptain ? p * 2 : p;
       gPts += e;
       perCard[id] = (perCard[id] || 0) + e;
     }

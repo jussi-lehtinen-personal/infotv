@@ -67,6 +67,7 @@ export default function LiigaEdit() {
   const [captainId, setCaptainId] = useState(null);
   const [perCard, setPerCard] = useState(null); // this jakso's points per card
   const [round, setRound] = useState(null);     // current jakso (for the header line)
+  const [maxPlayers, setMaxPlayers] = useState(3); // player-card cap (from /state; ECON-authoritative)
   const [error, setError] = useState("");
 
   // Overlay/dialog state
@@ -105,6 +106,7 @@ export default function LiigaEdit() {
         if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
+        if (stateRes && stateRes.maxPlayers != null) setMaxPlayers(stateRes.maxPlayers);
         setPerCard(progRes && progRes.perCard ? progRes.perCard : {});
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
@@ -167,10 +169,10 @@ export default function LiigaEdit() {
     if (!replaceFor) return false;
     const afford = c.price <= bank + replaceFor.price;
     const playersAfter = playerCount - (replaceFor.kind !== "team" ? 1 : 0) + (c.kind !== "team" ? 1 : 0);
-    return afford && playersAfter <= 2;
+    return afford && playersAfter <= maxPlayers;
   };
   const canAdd = (c) =>
-    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < 2);
+    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < maxPlayers);
 
   // This jakso's points for a card (null until loaded → shown as "—").
   const cardPts = (id) => (perCard ? (perCard[id] || 0) : null);

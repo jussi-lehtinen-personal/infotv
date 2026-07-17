@@ -88,7 +88,7 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
   assert(lineupsBefore.length === 0, 'no snapshots before any edit');
 
   await saveSquad('mgrB', [Z, ...fillers], captain, 'B');       // swap X→Z (lazy-freeze fires)
-  const snaps = await listByPartition('AhmaliigaLineups', `2026|mgrB`);
+  const snaps = (await listByPartition('AhmaliigaLineups', `2026|mgrB`)).filter((s) => !String(s.rowKey).startsWith('CAP-'));
   assert(snaps.length === started.length, `lazy-freeze created ${started.length} snapshot(s), got ${snaps.length}`);
   const anySnapHasX = snaps.some((s) => { try { return JSON.parse(s.cards).includes(X); } catch { return false; } });
   assert(anySnapHasX, 'frozen snapshot keeps the PRE-edit card X');
@@ -97,6 +97,17 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
 
   // --- control C: keeps X the whole round (no edit) ---
   await saveSquad('mgrC', [X, ...fillers], captain, 'C');
+
+  // --- captain FREEZE: D captains X (started game), tries to switch to Z after kickoff ---
+  const fillers3 = fillers.slice(0, 3);
+  const costD = price[X] + price[Z] + fillers3.reduce((t, id) => t + price[id], 0);
+  const testD = fillers3.length === 3 && costD <= budget && X !== captain && Z !== captain;
+  if (testD) {
+    await saveSquad('mgrD', [X, Z, ...fillers3], X, 'D');       // captain X (its game already started → locks captain=X)
+    await saveSquad('mgrD', [X, Z, ...fillers3], Z, 'D');       // try switching captain to Z → must be IGNORED (frozen)
+  } else {
+    console.log(`SKIP captain-freeze sub-test — D not affordable (${costD}/${budget})`);
+  }
 
   await settleRound('2026', R);
 
@@ -108,6 +119,13 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
   assert(r1(bB[X] || 0) === expX, `B: X scored its STARTED-game pts via snapshot (${bB[X] || 0} == ${expX})`);
   assert(r1(bB[Z] || 0) === expZ, `B: Z scored its NOT-STARTED-game pts (${bB[Z] || 0} == ${expZ})`);
   assert(r1(bC[X] || 0) === expXfull, `C (no edit): X scored the FULL round (${bC[X] || 0} == ${expXfull})`);
+
+  if (testD) {
+    const bD = JSON.parse((await getEntity('AhmaliigaScores', `2026|${R}`, 'mgrD')).breakdown);
+    // captain froze to X at first kickoff → X doubled all round; the switch to Z is ignored.
+    assert(r1(bD[X] || 0) === r1(2 * expXfull), `D: captain FROZEN to X → X doubled (${bD[X] || 0} == ${r1(2 * expXfull)})`);
+    assert(r1(bD[Z] || 0) === expZ, `D: switch to Z ignored → Z NOT doubled (${bD[Z] || 0} == ${expZ})`);
+  }
   // The rolling lock must MATTER: X in not-started games was dropped by the swap.
   const droppedByLock = r1(sumOver(notIds, X));
   assert(expXfull === r1(expX + droppedByLock), 'sanity: full = started + not-started for X');
