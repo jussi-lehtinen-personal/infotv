@@ -572,6 +572,98 @@ function advancedBalance(universes) {
   }
 }
 
+// ---- Player MAX price × cap sweep (what's a good top price? does the cap hold?) --
+const makeLadder = (max, T = 7) => Array.from({ length: T }, (_, i) => Math.round(max - (max - 10) * i / (T - 1)));
+
+function priceMaxSweep(universes) {
+  console.log(`\n\n████████ PELAAJAN MAX-HINTA × KATTO (skewP 2.0, muuten uusi asetelma) ████████`);
+  console.log(`(avgP = montako pelaajaa optimoija lataa; jos = katto → pelaajat halutaan täysillä; pisteet = kauden optimi)`);
+  for (const u of universes) {
+    const prevY = String(Number(u.year) - 1);
+    const prior = fs.existsSync(path.join(DATA, `season-${prevY}.json`)) ? model.buildPrevPrior(prevY) : null;
+    console.log(`\n── ${u.year} ──`);
+    console.log(`max | ${["katto 2", "katto 3", "ei kattoa"].join("        ")}`);
+    for (const max of [50, 75, 100]) {
+      const cfg = { ...BAL, ladderP: makeLadder(max), skewP: 2.0 };
+      const traj = priceTrajAbs(u, prior, cfg);
+      const cols = [2, 3, Infinity].map((cap) => {
+        let total = 0, pSum = 0, jc = 0;
+        for (let J = 0; J < u.nJaksot; J++) {
+          if (!availAt(u, J).length) continue;
+          const sq = pickSquad(u, J, traj[J], (id) => rForm(u, id, J, prior, cfg), { ...cfg, maxPlayers: cap });
+          if (sq.length) { total += jaksoPoints(u, J, sq, "jakso-fixed"); pSum += sq.filter((id) => u.cardType[id] === "player").length; jc++; }
+        }
+        return `${total.toFixed(0).padStart(4)}p ${(pSum / jc).toFixed(1)}pel`;
+      });
+      console.log(`${String(max).padStart(3)} | ${cols.join("   ")}`);
+    }
+  }
+  console.log(`→ korkeampi max + tiukempi katto suojaa joukkueita (vähemmän pelaajia ladataan). Etsi max jossa optimi EI ole "lataa pelaajat täysillä".`);
+}
+
+// ---- Goalie save-threshold sweep (are 92/95% too demanding?) ------------------
+// Local goalie scorer with CONFIGURABLE % thresholds (model's are hardcoded 92/95).
+function goaliePtsCfg(r, g, gc) {
+  const clockSec = model.clockSec;
+  const ahmaSide = g.ahmaHome ? "home" : "away", oppSide = g.ahmaHome ? "away" : "home";
+  const t = (r.goalies || []).find((x) => x.side === ahmaSide);
+  if (!t || !t.keepers || !t.keepers.length) return null;
+  const won = Number(g.ahmaHome ? g.home_goals : g.away_goals) > Number(g.ahmaHome ? g.away_goals : g.home_goals);
+  const conceded = (r.goals || []).filter((x) => x.side === oppSide).map((x) => clockSec(x.time));
+  const gkEv = (r.extras || []).filter((x) => x.side === ahmaSide && x.kind === "gk").map((x) => ({ time: clockSec(x.time), name: x.name, sub: x.sub })).sort((a, b) => a.time - b.time);
+  const names = t.keepers.map((k) => k.name);
+  const subsIn = new Set(gkEv.filter((e) => /vaihto/i.test(e.sub)).map((e) => e.name));
+  const starter = names.find((n) => !subsIn.has(n)) || names[0];
+  const tl = [{ time: 0, who: starter }];
+  for (const e of gkEv) tl.push({ time: e.time, who: /pois/i.test(e.sub) ? null : e.name });
+  const whoAt = (tt) => { let w = tl[0].who; for (const s of tl) if (s.time <= tt) w = s.who; return w; };
+  const ga = {}, sv = {};
+  for (const k of t.keepers) { ga[k.name] = 0; const tot = (k.saves || []).find((s) => Number(s.period) === 0); sv[k.name] = tot ? Number(tot.saves) : 0; }
+  for (const c of conceded) { const w = whoAt(c); if (w && ga[w] != null) ga[w]++; }
+  const primary = names.slice().sort((a, b) => sv[b] - sv[a])[0];
+  const G = ga[primary], S = sv[primary], shots = S + G, pct = shots > 0 ? (S / shots) * 100 : 0;
+  const cs = G === 0 && shots > 0, hi = shots >= gc.minShots && pct >= gc.hiPct, lo = shots >= gc.minShots && pct >= gc.loPct && !hi;
+  const pts = (won ? 3 : 0) + (cs ? 2 : 0) + (hi ? gc.hiBonus : lo ? gc.loBonus : 0);
+  return { pts, svBonus: hi || lo };
+}
+
+function goalieThresholdSweep(universes) {
+  console.log(`\n\n████████ MAALIVAHDIN TORJUNTAVAATIMUS-SWEEP ████████`);
+  console.log(`(nyk = 92/95%. matalampi kynnys → bonus laukeaa useammin → korkeampi keskiarvo; katto pysyy ~8 (voitto3+CS2+3))`);
+  const variants = [
+    { n: "nyk 92/95", loPct: 92, hiPct: 95 },
+    { n: "88/92", loPct: 88, hiPct: 92 },
+    { n: "85/90", loPct: 85, hiPct: 90 },
+    { n: "82/88", loPct: 82, hiPct: 88 },
+  ];
+  for (const u of universes) {
+    const year = u.year;
+    const games = loadSeason(year);
+    const start = parseDate(games.reduce((m, g) => (g.date < m ? g.date : m), games[0].date));
+    const jaksoOf = (g) => Math.floor((parseDate(g.date) - start) / (CFG.jaksoWeeks * 7 * 86400000));
+    // skater ceiling for reference
+    const skaterMax = Math.max(0, ...u.playerIds.filter((id) => !u.isGoalie[id]).map((id) => Math.max(0, ...Object.values(u.cardJakso[id]))));
+    console.log(`\n── ${year} (vertailu: kenttäpelaajan max/jakso ≈ ${skaterMax}) ──`);
+    console.log(`kynnys     | mv pt/jakso (0:t mukana) | max | bonus-osuma% peleistä`);
+    for (const v of variants) {
+      const gc = { minShots: 15, loPct: v.loPct, hiPct: v.hiPct, loBonus: 2, hiBonus: 3 };
+      const pj = {}; let hits = 0, gkGames = 0;
+      for (const g of games) {
+        if (!isPlayerEligible(teamKey(g))) continue;
+        const f = path.join(REP, `${year}__${g.id}.json`); if (!fs.existsSync(f)) continue;
+        let r; try { r = JSON.parse(fs.readFileSync(f, "utf8")); } catch { continue; }
+        const gp = goaliePtsCfg(r, g, gc); if (!gp) continue;
+        gkGames++; if (gp.svBonus) hits++;
+        const J = jaksoOf(g), id = "P:" + g.id + J; // per goalie-game cell approximation
+        (pj[id] = pj[id] || 0); pj[id] += gp.pts;
+      }
+      const cells = Object.values(pj);
+      console.log(`${v.n.padEnd(10)} | ${mean(cells).toFixed(2).padStart(22)} | ${Math.max(0, ...cells).toString().padStart(3)} | ${(gkGames ? hits / gkGames * 100 : 0).toFixed(0)}%`);
+    }
+  }
+  console.log(`→ kynnyksen lasku nostaa keskiarvoa + bonustiheyttä, mutta KATTO pysyy ~8 (< kenttäpelaajan ~12). Jos MV halutaan kapteenikelpoiseksi, nosta bonusta (ei vain laske kynnystä).`);
+}
+
 // ==================== RUN ====================
 console.log(`Ahmaliiga backtest — 6 questions · seasons ${YEARS.join(", ")} · jaksoWeeks ${CFG.jaksoWeeks}`);
 const universes = YEARS.map(buildUniverse);
@@ -585,4 +677,6 @@ appreciation();
 maxPlayersCompare(universes);
 teamPriceReport(universes);
 advancedBalance(universes);
+priceMaxSweep(universes);
+goalieThresholdSweep(universes);
 console.log(`\n(2 seasons + partial reports → directional. Interpretation follows.)`);
