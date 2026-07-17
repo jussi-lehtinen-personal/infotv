@@ -10,6 +10,7 @@ import {
 } from "react-icons/lu";
 import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
+import { isUpcoming } from "./events";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaJaksoProgress } from "../../lib/ahmaliigaApi";
 
 // Oma joukkue — the squad, edited in place. Captain hero + a grid of the other
@@ -63,6 +64,7 @@ export default function LiigaEdit() {
   const [perCard, setPerCard] = useState(null); // this jakso's points per card
   const [round, setRound] = useState(null);     // current jakso (for the header line)
   const [maxPlayers, setMaxPlayers] = useState(3); // player-card cap (from /state; ECON-authoritative)
+  const [captainLocked, setCaptainLocked] = useState(false); // a jakso game has started → captain frozen for the jakso
   const [error, setError] = useState("");
 
   // Overlay/dialog state
@@ -102,6 +104,12 @@ export default function LiigaEdit() {
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
         if (stateRes && stateRes.maxPlayers != null) setMaxPlayers(stateRes.maxPlayers);
+        // Captain is frozen for the whole jakso once any of its games has started
+        // (matches the backend freeze). Uses the app clock (sim date in sim mode).
+        if (stateRes && stateRes.active) {
+          const sim = stateRes.simMode ? stateRes.simDate : null;
+          setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, sim)));
+        }
         setPerCard(progRes && progRes.perCard ? progRes.perCard : {});
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
@@ -195,7 +203,7 @@ export default function LiigaEdit() {
       boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
       background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)",
     };
-    const press = pressProps(() => setMenuCard(c), () => (c.id === captainId ? undefined : setCapConfirm(c)));
+    const press = pressProps(() => setMenuCard(c), () => ((c.id === captainId || captainLocked) ? undefined : setCapConfirm(c)));
 
     // Captain: photo fills the card + Ahmaliiga logo over the chest + bottom overlay.
     if (isCap) {
@@ -329,8 +337,10 @@ export default function LiigaEdit() {
         </Stack>
         <Box sx={{ width: "1px", height: 16, bgcolor: "var(--color-surface-border)", flexShrink: 0 }} />
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
-          <Box component={LuCrown} sx={{ fontSize: 14, color: "text.disabled", display: "block", flexShrink: 0 }} />
-          <Typography noWrap sx={{ fontSize: 11.5, color: "text.disabled" }}>Pitkä painallus = kapteeni</Typography>
+          <Box component={LuCrown} sx={{ fontSize: 14, color: captainLocked ? "primary.main" : "text.disabled", display: "block", flexShrink: 0 }} />
+          <Typography noWrap sx={{ fontSize: 11.5, color: captainLocked ? "primary.main" : "text.disabled" }}>
+            {captainLocked ? "Kapteeni lukittu (pelit alkaneet)" : "Pitkä painallus = kapteeni"}
+          </Typography>
         </Stack>
       </Stack>
 
@@ -353,9 +363,12 @@ export default function LiigaEdit() {
             <Stack spacing={0.25}>
               <SheetAction icon={LuArrowLeftRight} label="Korvaa kortti" sub="Vaihda tämä kortti toiseen" chevron
                 onClick={() => { const c = menuCard; setMenuCard(null); setReplaceFor(c); }} />
-              {menuCard.id !== captainId && (
+              {menuCard.id !== captainId && !captainLocked && (
                 <SheetAction icon={LuCrown} label="Tee kapteeniksi" sub="Kapteenin pisteet ×2"
                   onClick={() => { const c = menuCard; setMenuCard(null); setCapConfirm(c); }} />
+              )}
+              {menuCard.id !== captainId && captainLocked && (
+                <SheetAction icon={LuCrown} label="Kapteeni lukittu" sub="Jakson pelit ovat alkaneet" disabled />
               )}
               <SheetAction icon={LuInfo} label="Näytä tiedot" sub="Avaa kortin tiedot"
                 onClick={() => nav(`/ahmaliiga/kortti/${encodeURIComponent(menuCard.id)}`)} />
@@ -475,9 +488,11 @@ const dialogPaper = { backgroundColor: "var(--color-bg)", backgroundImage: "none
 
 // One action-sheet row: rounded-square icon tile + title/subtitle, optional chevron.
 // Icon tile is a block grid (no baseline gap) so the icon centres cleanly.
-const SheetAction = ({ icon: Icon, label, sub, danger, chevron, onClick }) => (
-  <ButtonBase onClick={onClick} sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left",
-        px: 1, py: 1.15, borderRadius: "var(--radius-item)", "&:hover": { bgcolor: "rgba(255,255,255,0.04)" } }}>
+const SheetAction = ({ icon: Icon, label, sub, danger, chevron, onClick, disabled }) => (
+  <ButtonBase onClick={disabled ? undefined : onClick} disableRipple={disabled}
+        sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "default" : "pointer",
+        px: 1, py: 1.15, borderRadius: "var(--radius-item)", "&:hover": { bgcolor: disabled ? "transparent" : "rgba(255,255,255,0.04)" } }}>
     <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "var(--radius-small)", display: "grid", placeItems: "center",
           bgcolor: danger ? "rgba(239,68,68,0.12)" : "rgba(249,115,22,0.12)",
           border: `1px solid ${danger ? "rgba(239,68,68,0.28)" : "rgba(249,115,22,0.28)"}`,

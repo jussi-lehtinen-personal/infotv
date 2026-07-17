@@ -213,13 +213,23 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const rounds = await getRounds(season.rowKey);
   const curRound = activeRoundNo(season, rounds);
   const prev = await getSquad(userId);
+  const roundGames = await getRoundGames(season.rowKey, curRound);
+  const jaksoStarted = roundGames.some((g) => gameStarted(g, season));
+
+  // Captain lock: the captain is frozen for the WHOLE jakso once any of its games has
+  // started (games aren't simultaneous → switching per-game was exploitable). REJECT
+  // an attempt to move the captaincy to a different, still-owned card. Removing the
+  // captain card (it leaves the squad) is still allowed; scoring keeps the frozen one.
+  if (jaksoStarted && prev && prev.captainId && captainId && captainId !== prev.captainId && cardIds.includes(prev.captainId)) {
+    throw badRequest('Kapteenia ei voi enää vaihtaa — jakson pelit ovat alkaneet.');
+  }
 
   // Rolling lock: before applying this edit, freeze any game of the current round
   // that has ALREADY started, keeping the PRE-edit squad for it — so you can't swap
   // a card/captain for a game in progress and have it count. Not-yet-started games
   // stay editable. Snapshots are insert-once, so the earliest freeze wins.
   if (prev && prev.cards && prev.cards.length) {
-    try { await freezeStartedGames(season, curRound, userId, prev.cards.map((c) => c.id), prev.captainId); } catch (e) { /* best-effort */ }
+    try { await freezeStartedGames(season, curRound, userId, prev.cards.map((c) => c.id), prev.captainId, roundGames); } catch (e) { /* best-effort */ }
   }
 
   // Money-in-hand: `bank` is stored and moves per transaction — selling a card

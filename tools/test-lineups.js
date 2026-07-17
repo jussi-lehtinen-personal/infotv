@@ -104,7 +104,9 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
   const testD = fillers3.length === 3 && costD <= budget && X !== captain && Z !== captain;
   if (testD) {
     await saveSquad('mgrD', [X, Z, ...fillers3], X, 'D');       // captain X (its game already started → locks captain=X)
-    await saveSquad('mgrD', [X, Z, ...fillers3], Z, 'D');       // try switching captain to Z → must be IGNORED (frozen)
+    let capRejected = false;
+    try { await saveSquad('mgrD', [X, Z, ...fillers3], Z, 'D'); } catch { capRejected = true; } // switch to Z → REJECTED
+    assert(capRejected, 'captain switch after a jakso game started is REJECTED by saveSquad');
   } else {
     console.log(`SKIP captain-freeze sub-test — D not affordable (${costD}/${budget})`);
   }
