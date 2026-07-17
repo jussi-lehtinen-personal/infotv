@@ -88,7 +88,12 @@ export function buildEvents(state, myKeys, opts) {
   if (!includePast) games = games.filter((e) => !e.played);
   const events = [...games];
   // Jakso end is ALWAYS the last event (a game on the end day still comes before it).
-  if (round && round.endDate) events.push({ type: "end", date: `${round.endDate} 23:59`, title: "Jakso päättyy", played: false });
+  // `played` = the end has already passed (a settled/past jakso) so the timeline shows
+  // "Päättyi" instead of relTime clamping a long-past date to "Tänään"/"Nyt".
+  if (round && round.endDate) {
+    const endDate = `${round.endDate} 23:59`;
+    events.push({ type: "end", date: endDate, title: "Jakso päättyy", played: !isUpcoming(endDate, simDate) });
+  }
   return events;
 }
 
@@ -98,6 +103,7 @@ export function buildEvents(state, myKeys, opts) {
 export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
   const Icon = ev.type === "end" ? LuTrophy : LuCalendarDays;
   const played = !!ev.played;
+  const endDone = ev.type === "end" && played; // a past jakso's end (dimmed, not active)
   const hasPts = points != null;
   const inner = (
     <>
@@ -105,11 +111,11 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
         tint={highlight ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.06)"}
         color={highlight ? "primary.main" : "text.secondary"} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{ev.title}</Typography>
+        <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{endDone ? "Jakso päättyi" : ev.title}</Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.25, minWidth: 0 }}>
           <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0,
                 color: played ? "text.disabled" : highlight ? "primary.main" : "text.secondary" }}>
-            {played ? "Pelattu" : relTime(ev.date, simDate)}
+            {endDone ? "Päättyi" : played ? "Pelattu" : relTime(ev.date, simDate)}
           </Box>
           <Box component="span" sx={{ fontSize: 12, color: "text.disabled", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {shortDate(ev.date)}</Box>
         </Box>
