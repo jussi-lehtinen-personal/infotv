@@ -102,22 +102,27 @@ const LineChart = ({ points, coin }) => {
 };
 
 // Hintakehitys tab: current price + change badge, chart, range pills, history.
-const PriceHistory = ({ history }) => {
+// `current` = the card's LIVE price (card.price). cardHistory only holds SETTLED
+// rounds, so its last row is one reband behind — it's the price DURING the last
+// settled jakso, not the price now. Use the live price as "Nykyinen hinta" (so it
+// matches the card header) and extend the chart to it with a "Nyt" point.
+const PriceHistory = ({ history, current }) => {
   const [range, setRange] = useState("kaikki");
-  const cur = history[history.length - 1];
-  const prev = history[history.length - 2];
-  const change = prev ? cur.price - prev.price : 0;
-  const pct = prev && prev.price ? ((change / prev.price) * 100).toFixed(1) : "0.0";
+  const lastSettled = history[history.length - 1];
+  const curPrice = current != null ? current : lastSettled.price;
+  const change = curPrice - lastSettled.price; // live price vs last settled jakso
+  const pct = lastSettled.price ? ((change / lastSettled.price) * 100).toFixed(1) : "0.0";
   const up = change > 0;
   const days = (RANGES.find((r) => r.key === range) || {}).days ?? Infinity;
-  const inRange = cur && cur.date ? history.filter((h) => !h.date || dayDiff(cur.date, h.date) <= days) : history;
+  const inRange = lastSettled && lastSettled.date
+    ? history.filter((h) => !h.date || dayDiff(lastSettled.date, h.date) <= days) : history;
 
   return (
     <>
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
         <Box>
           <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 0.5 }}>Nykyinen hinta</Typography>
-          <Coins value={cur.price} size={22} />
+          <Coins value={curPrice} size={22} />
         </Box>
         {change !== 0 && (
           <Box sx={{ textAlign: "right", px: 1.25, py: 0.75, borderRadius: "var(--radius-item)",
@@ -130,7 +135,12 @@ const PriceHistory = ({ history }) => {
         )}
       </Box>
 
-      <Box sx={{ mb: 2 }}><LineChart points={inRange.map((h) => ({ v: h.price, label: shortDate(h.date) }))} coin /></Box>
+      <Box sx={{ mb: 2 }}>
+        <LineChart coin points={[
+          ...inRange.map((h) => ({ v: h.price, label: shortDate(h.date) })),
+          { v: curPrice, label: "Nyt" },
+        ]} />
+      </Box>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         {RANGES.map((r) => <PillButton key={r.key} active={range === r.key} onClick={() => setRange(r.key)} sx={{ flex: 1 }}>{r.label}</PillButton>)}
@@ -241,7 +251,7 @@ export default function LiigaCard() {
       )}
 
       {tab === "hinta" && (
-        history.length === 0 ? <Empty text="Ei hintahistoriaa." /> : <PriceHistory history={history} />
+        history.length === 0 ? <Empty text="Ei hintahistoriaa." /> : <PriceHistory history={history} current={card.price} />
       )}
     </Screen>
   );
