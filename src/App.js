@@ -50,6 +50,7 @@ import LiigaRound from "./pages/liiga/round";
 import LiigaAdmin from "./pages/liiga/admin";
 import LiigaRewards from "./pages/liiga/rewards";
 import LiigaKiosk from "./pages/liiga/kiosk";
+import LiigaPromo from "./pages/liiga/promo";
 import LiigaNotifications from "./pages/liiga/notifications";
 import { LiigaStub } from "./pages/liiga/stub";
 import { LuUser, LuAward } from "react-icons/lu";
@@ -132,6 +133,7 @@ function App() {
                 <Route path="achievements" element={<LiigaStub icon={LuAward} title="Saavutukset" desc="Ansiomerkit: ensimmäinen voitto, jakson voittaja, 100 pistettä, 10 oikeaa veikkausta." />} />
                 <Route path="notifications" element={<LiigaNotifications />} />
             </Route>
+            <Route path="/ahmaliiga/info" element={<LiigaPromo />} />
             <Route path="/ahmaliiga/rules" element={<RequireEnvAdmin><Ahmaliiga /></RequireEnvAdmin>} />
 
             <Route path="/report" element={<Report />} />

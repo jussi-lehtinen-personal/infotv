@@ -40,12 +40,15 @@ const FullScreenSpinner = () => (
   </Box>
 );
 
-// Gate: render children for ANY admin (env allowlist OR data-admin role); others
-// bounce to home; null (still loading) shows a spinner so a legit admin isn't
-// redirected early. (The sim admin panel gear is separately env-admin only.)
+// Gate: render children for ANY admin (env allowlist OR data-admin role); everyone
+// else is bounced to the public promo/beta page (the game itself is still admin-only
+// preview). null (still loading) shows a spinner so a legit admin isn't redirected
+// early. (The sim admin panel gear is separately env-admin only.)
+// TODO (beta launch): open the game to any registered user — change useAdminAccess()
+// here to "admin || has an account", and the promo's beta invite becomes the entry.
 const Gate = ({ children }) => {
   const allowed = useAdminAccess();
-  if (allowed === false) return <Navigate to="/" replace />;
+  if (allowed === false) return <Navigate to="/ahmaliiga/info" replace />;
   if (allowed === null) return <FullScreenSpinner />;
   return children;
 };

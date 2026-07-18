@@ -121,8 +121,9 @@ const Index = () => {
         >
           <HeroCarousel matches={heroMatches} loading={heroLoading} />
 
-          {/* Ahmaliiga launch teaser — preview, shown to any admin (env or data-role). */}
-          {(authUser?.isEnvAdmin || authUser?.isAdmin) && <AhmaliigaLaunchCard />}
+          {/* Ahmaliiga launch teaser — shown to everyone. Admins open the game; others
+              land on the public promo/beta page (routing handled by the Gate). */}
+          <AhmaliigaLaunchCard />
 
           <Box sx={sectionHeadingSx}>Pikatoiminnot</Box>
           <Box
