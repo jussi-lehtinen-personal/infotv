@@ -66,7 +66,7 @@ const Supporters = () => {
 
         <Box
           component="a"
-          href="https://www.kiekko-ahma.fi/"
+          href="https://www.kiekko-ahma.fi/lomakkeet/9377/kannattajajasen"
           target="_blank"
           rel="noopener noreferrer"
           sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.25, textAlign: "center", color: "primary.main", textDecoration: "none", py: 0.75, "&:hover": { textDecoration: "underline" } }}
