@@ -105,10 +105,38 @@ async function inChunks(items, size, fn) {
   }
 }
 
+// Generate contiguous round windows from a start date + cadence (F2.6). Pure. Round
+// n = [start + n*weeks, start + (n+1)*weeks - 1 day]. Used to create a real season's
+// schedule instead of seeding it (you can't know the exact fixtures up front).
+function buildRoundWindows(startDate, weeks, count) {
+  const wk = Math.max(1, Number(weeks) || 2);
+  const ms = wk * 7 * 86400000;
+  const start = new Date(startDate + 'T00:00:00Z').getTime();
+  const iso = (t) => new Date(t).toISOString().slice(0, 10);
+  return Array.from({ length: Math.max(0, Number(count) || 0) }, (_, n) => ({
+    no: n,
+    startDate: iso(start + n * ms),
+    endDate: iso(start + (n + 1) * ms - 86400000),
+  }));
+}
+
 // Load a generated seed (tools/gen-cards.js output) into Table Storage:
 // Season + Rounds + Cards + round-0 CardHistory snapshot. Idempotent (upserts).
 async function seedSeason(seed) {
   const seasonId = String(seed.season);
+
+  // Rounds are EITHER explicit (replay seed: gen-cards derives them from historical
+  // fixtures) OR generated from a start+cadence config (real season — F2.6). A
+  // generated season is tagged roundGen so syncSeasonGames can extend it as the real
+  // fixture list grows. The replay/running season keeps seed.rounds untouched.
+  let roundRows = seed.rounds;
+  const gen = {};
+  if ((!roundRows || !roundRows.length) && seed.roundConfig && seed.roundConfig.startDate) {
+    const { startDate, weeks = 2, count = 0 } = seed.roundConfig;
+    roundRows = buildRoundWindows(startDate, weeks, count);
+    gen.roundGen = true; gen.roundWeeks = weeks; gen.roundStart = startDate;
+  }
+  roundRows = roundRows || [];
 
   // Activate this season, deactivate any other.
   const existing = await listByPartition(T.season, 'season');
@@ -123,10 +151,11 @@ async function seedSeason(seed) {
     // Sim/replay: an admin-advanced round pointer (settlement moves it forward) +
     // a sim clock (day-stepped by the cron; starts at the first round).
     currentRound: 0, simMode: true,
-    simDate: (seed.rounds && seed.rounds[0] && seed.rounds[0].startDate) || '', autoStep: false,
+    simDate: (roundRows[0] && roundRows[0].startDate) || '', autoStep: false,
+    ...gen,
   });
 
-  for (const j of seed.rounds || []) {
+  for (const j of roundRows) {
     await upsertEntity(T.rounds, {
       partitionKey: seasonId, rowKey: String(j.no),
       startDate: j.startDate, endDate: j.endDate,
@@ -151,7 +180,35 @@ async function seedSeason(seed) {
     price: c.price, band: c.band, pts: 0, ownerCount: 0, ownerPct: 0,
   }));
 
-  return { seasonId, rounds: (seed.rounds || []).length, cards: cards.length };
+  return { seasonId, rounds: roundRows.length, cards: cards.length, generated: !!gen.roundGen };
+}
+
+// Extend a GENERATED season's round windows forward so they cover `throughDay`
+// (YYYY-MM-DD) — e.g. playoffs pushing past the initial cadence. No-op for
+// seed-defined (replay) seasons: only roundGen seasons carry roundWeeks/roundStart.
+// Idempotent (never rewrites existing rounds, never shrinks). Returns the rounds. F2.6.
+async function ensureRoundsCover(seasonId, throughDay) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  const rounds = await getRounds(seasonId);
+  if (!season || !season.roundGen || !/^\d{4}-\d{2}-\d{2}$/.test(String(throughDay || ''))) return rounds;
+  const weeks = Number(season.roundWeeks) || 2;
+  const startDate = season.roundStart || (rounds[0] && rounds[0].startDate);
+  if (!startDate) return rounds;
+  const lastEnd = rounds.length ? rounds[rounds.length - 1].endDate : null;
+  if (lastEnd && throughDay <= lastEnd) return rounds; // already covered
+  const ms = weeks * 7 * 86400000;
+  const start = new Date(startDate + 'T00:00:00Z').getTime();
+  const through = new Date(throughDay + 'T00:00:00Z').getTime();
+  const need = Math.max(rounds.length, Math.ceil((through - start + 86400000) / ms));
+  const have = new Set(rounds.map((r) => Number(r.rowKey)));
+  for (const w of buildRoundWindows(startDate, weeks, need)) {
+    if (have.has(w.no)) continue;
+    await upsertEntity(T.rounds, {
+      partitionKey: seasonId, rowKey: String(w.no),
+      startDate: w.startDate, endDate: w.endDate, predictGameId: '', status: 'open',
+    });
+  }
+  return getRounds(seasonId);
 }
 
 // --- M1: managers + squads ---
@@ -844,7 +901,15 @@ async function syncSeasonGames(seasonId) {
   const games = all.filter((g) =>
     g.finished == 1 && g.home_goals != null && g.away_goals != null &&
     !FRIENDLY_RE.test(g.league || '') && !FRIENDLY_RE.test(g.level || ''));
-  const rounds = await getRounds(seasonId);
+  const season = await getEntity(T.season, 'season', seasonId);
+  let rounds = await getRounds(seasonId);
+  // F2.6: a GENERATED season extends its round windows forward to cover any fixtures
+  // that fall past the last window (playoffs), instead of silently dropping them.
+  // Replay/running seasons (no roundGen) are unaffected.
+  if (season && season.roundGen && games.length) {
+    const maxDay = games.reduce((m, g) => { const d = String(g.date || '').slice(0, 10); return d > m ? d : m; }, '');
+    if (maxDay) rounds = await ensureRoundsCover(seasonId, maxDay);
+  }
   // Clear first: a game can move round between syncs (window-based), so upsert alone
   // would leave a stale copy in the old partition.
   for (const r of rounds) await clearPartition(T.games, `${seasonId}|${r.rowKey}`);
@@ -1496,6 +1561,7 @@ async function getSimStatus(seasonId) {
 module.exports = {
   ECON, T, badRequest, shapeGamesForClient,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
+  buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
