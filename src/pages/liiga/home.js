@@ -5,7 +5,7 @@ import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair 
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -146,10 +146,12 @@ export default function LiigaHome() {
   const [squad, setSquad] = useState(null);
   const [progress, setProgress] = useState(null); // live points this (running) round
   const [pred, setPred] = useState(null); // prediction status this round
+  const [rewards, setRewards] = useState(null); // my prize vouchers (F10)
 
   useEffect(() => {
     let cancelled = false;
     getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
+    getAhmaliigaVouchers().then((d) => { if (!cancelled) setRewards(d); }).catch(() => {});
     getAhmaliigaRanking("season").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
     getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
     getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
@@ -160,6 +162,7 @@ export default function LiigaHome() {
 
   const round = state && state.active ? state.currentRound : null;
   const prev = state && state.active ? state.prevRound : null;
+  const unclaimed = rewards ? (rewards.vouchers || []).filter((v) => v.status === "issued").length : 0;
   const simDate = state && state.simMode ? state.simDate : null;
   const pct = round ? progressPct(round.startDate, round.endDate, simDate) : 0;
 
@@ -172,6 +175,22 @@ export default function LiigaHome() {
           Kokoa kortisto ja nouse mestariksi.
         </Typography>
       </Box>
+
+      {/* Prize banner — you have unredeemed rewards → open Palkinnot (shows the QR). */}
+      {unclaimed > 0 && (
+        <ButtonBase onClick={() => nav("/ahmaliiga/rewards")}
+          sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%", textAlign: "left", mb: 2, px: 2, py: 1.5,
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.4)" }}>
+          <Box component={LuTrophy} sx={{ fontSize: 24, color: "primary.main", flexShrink: 0, display: "block" }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.2 }}>
+              {unclaimed === 1 ? "Voitit palkinnon! 🏆" : `Voitit ${unclaimed} palkintoa! 🏆`}
+            </Typography>
+            <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Näytä QR-koodi kentällä lunastaaksesi.</Typography>
+          </Box>
+          <Box component={LuChevronRight} sx={{ fontSize: 20, color: "primary.main", flexShrink: 0, display: "block" }} />
+        </ButtonBase>
+      )}
 
       {/* Running round — countdown + progress + your live points so far this round
           (from the games already played; final tally at settle). The whole card is a

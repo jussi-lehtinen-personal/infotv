@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -109,6 +109,12 @@ export default function LiigaAdmin() {
                   busy={busy === "settleRound"} disabled={!s} onClick={() => run("settleRound", "Jakso ratkaistu")} />
         <AdminBtn icon={LuFastForward} label="Ratkaise koko kausi loppuun"
                   busy={busy === "settleAll"} disabled={!s} onClick={() => run("settleAll", "Kausi ratkaistu")} />
+        <AdminBtn icon={LuTrophy} label={s && s.settled ? `Luo jakson ${s.settled} palkinnot (top 3)` : "Luo jakson palkinnot (top 3)"}
+                  busy={busy === "genRound"} disabled={!s || !s.settled}
+                  onClick={() => run("generateVouchers", "Jakson palkinnot luotu", null, { scope: "round", round: s.settled - 1 }, "genRound")} />
+        <AdminBtn icon={LuTrophy} label="Luo kauden palkinnot (top 3)"
+                  busy={busy === "genSeason"} disabled={!s}
+                  onClick={() => run("generateVouchers", "Kauden palkinnot luotu", null, { scope: "season" }, "genSeason")} />
         <AdminBtn icon={LuBot} label="Lisää / päivitä botit"
                   busy={busy === "seedBots"} disabled={!s} onClick={() => run("seedBots", "Botit lisätty")} />
         <AdminBtn icon={LuImage} label="Hae pelaajakuvat (Jopox)"

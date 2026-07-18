@@ -1,4 +1,5 @@
-const { getEntity, upsertEntity, deleteEntity, listByPartition, listEntities, transact } = require('./tables');
+const crypto = require('crypto');
+const { getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities, transact, updateEntityIfMatch } = require('./tables');
 const { avatarUrl } = require('./blob');
 const { workerGet } = require('./worker');
 const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResults');
@@ -37,6 +38,7 @@ const T = {
   results: 'AhmaliigaResults',
   games: 'AhmaliigaGames',
   messages: 'AhmaliigaMessages',
+  vouchers: 'AhmaliigaVouchers',
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -158,18 +160,42 @@ async function getManager(userId) {
   return getEntity(T.managers, userId, 'profile');
 }
 
+// A stable, opaque per-manager code that the manager's QR encodes (their identity
+// at the rink kiosk). Redemption authority lives in the kiosk role, not the code.
+const genQrCode = () => crypto.randomBytes(8).toString('hex');
+
 // Create the manager row on first join / first squad save. Fills a nickname the
-// first time one is known (from the Users profile).
+// first time one is known (from the Users profile). Every manager gets a stable
+// qrCode; older rows are backfilled here the next time they're touched.
 async function ensureManager(userId, nickname) {
   const existing = await getManager(userId);
   if (!existing) {
     await upsertEntity(T.managers, {
       partitionKey: userId, rowKey: 'profile',
-      nickname: nickname || '', joinedAt: new Date().toISOString(),
+      nickname: nickname || '', joinedAt: new Date().toISOString(), qrCode: genQrCode(),
     });
     return;
   }
-  if (nickname && !existing.nickname) await upsertEntity(T.managers, { ...existing, nickname });
+  const patch = {};
+  if (nickname && !existing.nickname) patch.nickname = nickname;
+  if (!existing.qrCode) patch.qrCode = genQrCode();
+  if (Object.keys(patch).length) await upsertEntity(T.managers, { ...existing, ...patch });
+}
+
+// The manager's QR code, creating the manager row + code if needed.
+async function ensureQrCode(userId, nickname) {
+  await ensureManager(userId, nickname);
+  const m = await getManager(userId);
+  return (m && m.qrCode) || null;
+}
+
+// Resolve a scanned QR code back to its manager row. Small scale → a filtered
+// table scan is fine (add a code→userId index entity later if it grows).
+async function getManagerByCode(qrCode) {
+  const code = String(qrCode || '').replace(/[^a-f0-9]/gi, '');
+  if (!code) return null;
+  const rows = await listEntities(T.managers, `qrCode eq '${code}'`);
+  return rows[0] || null;
 }
 
 async function joinManager(userId, nickname) {
@@ -1211,6 +1237,84 @@ async function clearNotifications(userId) {
   return { cleared: rows.length };
 }
 
+// --- M8: prize vouchers (F10) — top-3 rewards, redeemed at the rink via QR ---
+
+// prizeId encodes what the prize is for → deterministic, so re-running
+// generateVouchers never duplicates a (scope|round|rank).
+const prizeIdOf = (scope, round, rank) => `${scope}|${round}|${rank}`;
+
+const shapeVoucher = (r) => ({
+  prizeId: r.rowKey, scope: r.scope, round: r.round != null ? Number(r.round) : null,
+  rank: Number(r.rank) || 0, prize: r.prize || '', status: r.status || 'issued',
+  issuedAt: r.issuedAt || '', redeemedAt: r.redeemedAt || '', redeemedByName: r.redeemedByName || '',
+});
+// Issued (claimable) first, then by rank.
+const voucherSort = (a, b) => (a.status === b.status ? a.rank - b.rank : a.status === 'issued' ? -1 : 1);
+
+// Award top-`top` prize vouchers for a settled round (scope 'round') or the whole
+// season (scope 'season', round = -1) from the leaderboard. Idempotent per
+// (scope|round|rank); notifies each fresh winner. Bots are skipped.
+async function generateVouchers(seasonId, { scope, round, prizes, top = 3 } = {}) {
+  const sc = scope === 'season' ? 'season' : 'round';
+  const rnd = sc === 'season' ? -1 : Number(round);
+  const rows = await getLeaderboard(seasonId, sc, rnd);
+  const winners = rows.filter((r) => r.rank >= 1 && r.rank <= top).sort((a, b) => a.rank - b.rank);
+  const managers = await listManagers();
+  const humanIds = new Set(managers.filter((m) => !m.isBot).map((m) => m.userId));
+  const nowIso = new Date().toISOString();
+  const defaultPrize = (rank) => `${sc === 'season' ? 'Koko kausi' : `Jakso ${rnd + 1}`} — sija ${rank}`;
+  const created = [];
+  for (const w of winners) {
+    if (!humanIds.has(w.userId)) continue; // bots don't collect prizes
+    const prizeId = prizeIdOf(sc, rnd, w.rank);
+    const prize = (prizes && prizes[w.rank]) || defaultPrize(w.rank);
+    const ok = await insertEntity(T.vouchers, {
+      partitionKey: w.userId, rowKey: prizeId,
+      scope: sc, round: rnd, rank: w.rank, prize, nickname: w.nickname || '',
+      status: 'issued', issuedAt: nowIso, redeemedAt: '', redeemedBy: '', redeemedByName: '',
+    });
+    if (!ok) continue; // already awarded → idempotent skip
+    created.push({ userId: w.userId, nickname: w.nickname, rank: w.rank, prize });
+    // '!'-prefixed rowKey sorts before the round-summary messages → shows on top.
+    await upsertEntity(T.messages, {
+      partitionKey: w.userId, rowKey: `!reward|${prizeId}`,
+      kind: 'reward', title: 'Voitit palkinnon! 🏆',
+      body: `${prize}. Näytä QR-koodi kentällä lunastaaksesi.`,
+      points: null, round: sc === 'season' ? null : rnd, createdAt: nowIso, read: false,
+    });
+  }
+  return { scope: sc, round: rnd, top, created: created.length, winners: created };
+}
+
+// A manager's own vouchers (claimable + already redeemed).
+async function getMyVouchers(userId) {
+  const rows = await listByPartition(T.vouchers, userId);
+  return rows.map(shapeVoucher).sort(voucherSort);
+}
+
+// Kiosk view: resolve a scanned QR code → that manager's identity + vouchers.
+async function getVouchersForKiosk(qrCode) {
+  const m = await getManagerByCode(qrCode);
+  if (!m) return null;
+  const userId = m.partitionKey; // raw row → userId is the partition key
+  const vouchers = await getMyVouchers(userId);
+  return { userId, nickname: m.nickname || '', vouchers };
+}
+
+// Redeem ONE voucher, atomically. The ETag guard makes a double-scan safe: the
+// second writer loses the race (412) → treated as already redeemed.
+async function redeemVoucher(managerId, prizeId, redeemedBy, redeemedByName) {
+  const row = await getEntity(T.vouchers, managerId, String(prizeId || ''));
+  if (!row) throw badRequest('Palkintoa ei löytynyt.');
+  if (row.status === 'redeemed') throw badRequest('Palkinto on jo lunastettu.');
+  const ok = await updateEntityIfMatch(T.vouchers, {
+    ...row, status: 'redeemed', redeemedAt: new Date().toISOString(),
+    redeemedBy: redeemedBy || '', redeemedByName: redeemedByName || '',
+  }, row.etag);
+  if (!ok) throw badRequest('Palkinto on jo lunastettu.');
+  return { ok: true, prizeId: row.rowKey, prize: row.prize };
+}
+
 // Reset the replay: pointer → round 0, rounds → open, cards restored to seed
 // prices, all Scores/SeasonScores cleared. Card ownership/lastPts zeroed.
 // By default KEEPS squads, bots, managers and results (so you can just settle
@@ -1364,4 +1468,5 @@ module.exports = {
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
   syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
+  ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,
 };

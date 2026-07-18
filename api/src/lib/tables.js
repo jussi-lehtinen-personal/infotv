@@ -12,7 +12,7 @@ const TABLE_NAMES = [
   'AhmaliigaSeason', 'AhmaliigaRounds', 'AhmaliigaCards', 'AhmaliigaCardHistory',
   'AhmaliigaManagers', 'AhmaliigaSquads', 'AhmaliigaLineups',
   'AhmaliigaPredictions', 'AhmaliigaScores', 'AhmaliigaSeasonScores',
-  'AhmaliigaResults', 'AhmaliigaGames', 'AhmaliigaMessages',
+  'AhmaliigaResults', 'AhmaliigaGames', 'AhmaliigaMessages', 'AhmaliigaVouchers',
 ];
 const clients = {};
 let ensured = false;
@@ -104,4 +104,18 @@ async function transact(table, actions) {
   return client(table).submitTransaction(actions);
 }
 
-module.exports = { TABLE_NAMES, ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities, transact };
+// Optimistic-concurrency replace: only succeeds if the row still has `etag`.
+// Returns true if written, false if the ETag no longer matches (412 — someone
+// else changed the row first). Used to redeem a voucher exactly once even if two
+// kiosk devices scan the same manager at the same moment.
+async function updateEntityIfMatch(table, entity, etag) {
+  try {
+    await client(table).updateEntity(entity, 'Replace', { etag });
+    return true;
+  } catch (e) {
+    if (e.statusCode === 412) return false;
+    throw e;
+  }
+}
+
+module.exports = { TABLE_NAMES, ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities, transact, updateEntityIfMatch };

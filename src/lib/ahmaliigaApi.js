@@ -134,8 +134,26 @@ export async function clearAhmaliigaNotifications() {
   return asJson(r);
 }
 
+// Prizes (F10). No `code` → my own prizes + my QR code. With `code` → (kiosk/admin
+// only) a scanned manager's prizes.
+export async function getAhmaliigaVouchers(code) {
+  const q = code ? `?c=${encodeURIComponent(code)}` : "";
+  const r = await fetch(`/api/ahmaliiga/vouchers${q}`, { headers: authHeaders() });
+  return asJson(r); // own: { qrCode, vouchers, canRedeem } · kiosk: { kiosk, userId, nickname, vouchers }
+}
+// Kiosk/admin redeems ONE of manager `m`'s prizes (ETag-atomic server-side).
+export async function redeemAhmaliigaVoucher(m, prizeId) {
+  const r = await fetch("/api/ahmaliiga/redeem", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ m, prizeId }),
+  });
+  return asJson(r);
+}
+
 // Admin ops (env-admin gated server-side): status | settleRound | settleAll |
-// seedBots | resetSim. Drives the season replay from the in-app admin panel.
+// seedBots | resetSim | generateVouchers. Drives the season replay + prize
+// generation from the in-app admin panel.
 export async function ahmaliigaAdmin(action, extra) {
   const r = await fetch("/api/manageAhmaliiga", {
     method: "POST",

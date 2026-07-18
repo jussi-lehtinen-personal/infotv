@@ -48,6 +48,8 @@ import LiigaRanking from "./pages/liiga/ranking";
 import LiigaEdit from "./pages/liiga/edit";
 import LiigaRound from "./pages/liiga/round";
 import LiigaAdmin from "./pages/liiga/admin";
+import LiigaRewards from "./pages/liiga/rewards";
+import LiigaKiosk from "./pages/liiga/kiosk";
 import LiigaNotifications from "./pages/liiga/notifications";
 import { LiigaStub } from "./pages/liiga/stub";
 import { LuUser, LuAward } from "react-icons/lu";
@@ -124,6 +126,8 @@ function App() {
                 <Route path="round" element={<LiigaRound />} />
                 <Route path="timeline" element={<LiigaRound />} />
                 <Route path="admin" element={<LiigaAdmin />} />
+                <Route path="rewards" element={<LiigaRewards />} />
+                <Route path="kiosk" element={<LiigaKiosk />} />
                 <Route path="profile" element={<LiigaStub icon={LuUser} title="Profiili" desc="Fantasy-tilastosi: liittymispäivä, mestaruudet, paras ja keskimääräinen sijoitus, pelatut jaksot." />} />
                 <Route path="achievements" element={<LiigaStub icon={LuAward} title="Saavutukset" desc="Ansiomerkit: ensimmäinen voitto, jakson voittaja, 100 pistettä, 10 oikeaa veikkausta." />} />
                 <Route path="notifications" element={<LiigaNotifications />} />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles, Badge } from "@mui/material";
-import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuBell, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal } from "react-icons/lu";
+import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuBell, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal, LuTrophy } from "react-icons/lu";
 import { useEnvAdmin, useAdminAccess } from "../hooks/useEnvAdmin";
 import { getAhmaliigaNotifications } from "../lib/ahmaliigaApi";
 
@@ -99,6 +99,9 @@ export const AhmaliigaLayout = () => {
               <LuSettings size={18} />
             </IconButton>
           )}
+          <IconButton component={Link} to="/ahmaliiga/rewards" aria-label="Palkinnot" sx={topBtnSx}>
+            <LuTrophy size={18} />
+          </IconButton>
           <IconButton component={Link} to="/ahmaliiga/notifications" aria-label="Ilmoitukset" sx={topBtnSx}>
             <Badge badgeContent={unread} color="primary" overlap="circular"
                    sx={{ "& .MuiBadge-badge": { fontSize: 10, height: 16, minWidth: 16, fontWeight: 800 } }}>

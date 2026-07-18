@@ -65,7 +65,7 @@ tässä ei enää lyödä lukkoon numeroita, vaan listataan toiminnallisuudet.
 - **F9.1** Aikuisottelun tähtipelaaja-äänestys/-veikkaus → **bonuspisteet** kortin omistajille. *Backend: 🔗 `Votes` (PK=target, RK=userId) — sama vote/tally-kuvio kuin #10/#9.*
 
 ## 10. Palkinnot  🔗 (#12)
-- **F10.1** Jakso top-3 + kausi top-3, sponsorirahoitteinen, **QR-lunastus** kentällä. *Backend: 🔗 `Vouchers` (ETag-atominen status = 1 token 1 lunastus) + kioskiskanneri.*
+- **F10.1** (BUILT 2026-07-18) Jakso top-3 + kausi top-3, sponsorirahoitteinen, **QR-lunastus** kentällä. Toteutus: `AhmaliigaVouchers` (PK=userId, RK=`scope|round|rank` → deterministinen/idempotentti; ETag-atominen `issued→redeemed` = 1 lunastus). Managerilla pysyvä `qrCode` = **identiteetti** (QR koodaa `/ahmaliiga/kiosk?c=CODE`); lunastusvalta on **`kioski`-roolilla TAI adminilla** (`canRedeem`), ei QR:ssä → itselunastus estetty. Admin generoi top-3:t leaderboardista (`generateVouchers`, oletustekstit "Jakso N — sija R"). Sivut: `/ahmaliiga/rewards` (oma QR + lista) + `/ahmaliiga/kiosk` (skannaa → merkitse saaduksi). Notifikaatio voittajille (kind `reward`). Skannaus = natiivikamera (ei skanneri-deppiä); QR-piirto `qrcode.react`. Testi: `tools/test-vouchers.js`.
 
 ## 11. Admin (myöhemmin)
 - **F11.1** Jaksojen hallinta (luo/muokkaa, deadlinet).

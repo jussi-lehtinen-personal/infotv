@@ -15,8 +15,8 @@ import { JOPOX_TEAMS } from "../data/jopoxTeams";
 // team-scoped valmentaja, from the year-round Jopox team list). See memory:
 // project_admin_roles + reference_data_map (teams = Jopox, NOT tulospalvelu).
 
-const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Vastuuvalmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
-const ROLE_ORDER = ["pelaaja", "valmentaja", "toimihenkilo", "media", "admin"];
+const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Vastuuvalmentaja", toimihenkilo: "Toimihenkilö", media: "Media", kioski: "Kioski", admin: "Admin" };
+const ROLE_ORDER = ["pelaaja", "valmentaja", "toimihenkilo", "media", "kioski", "admin"];
 const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
 // Distinct per-role colours (role identity, not brand) so chips are scannable.
 const ROLE_CHIP = {
@@ -24,6 +24,7 @@ const ROLE_CHIP = {
   valmentaja: { bg: "rgba(var(--color-primary-rgb),0.18)", fg: "var(--color-primary)" },
   toimihenkilo: { bg: "rgba(45,212,191,0.18)", fg: "#5eead4" },
   media: { bg: "rgba(96,165,250,0.18)", fg: "#93c5fd" },
+  kioski: { bg: "rgba(251,191,36,0.18)", fg: "#fcd34d" },
   admin: { bg: "rgba(74,222,128,0.18)", fg: "var(--color-live)" },
 };
 const roleLabel = (r) => (TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role]} · ${r.team}` : ROLE_LABELS[r.role] || r.role);
