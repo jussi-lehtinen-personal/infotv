@@ -1008,8 +1008,12 @@ async function roundProgress(seasonId, round, userId) {
 
   // Box scores for the played, player-eligible games (bounded, KV-cached) — fetched
   // ONCE and reused for BOTH the roster "did this player dress" check and the points.
+  // Skip entirely if the squad holds NO player/goalie card: team-card points come
+  // from the game result (not the box score), so an all-team squad needs no reports
+  // → the slow per-game Worker fetch is avoided on the common squad-page load.
   const reports = {};
-  const eligible = playedGames.filter((g) => isPlayerEligible(teamKey(g)));
+  const squadHasPlayers = squad.cards.some((c) => { const cd = cardMap[c.id]; return cd && cd.kind !== 'team'; });
+  const eligible = squadHasPlayers ? playedGames.filter((g) => isPlayerEligible(teamKey(g))) : [];
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
 
   const ids = squad.cards.map((c) => c.id);

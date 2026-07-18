@@ -93,8 +93,11 @@ export default function LiigaEdit() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAhmaliigaCards(), getMySquad().catch(() => ({})), getAhmaliigaState().catch(() => null), getAhmaliigaRoundProgress().catch(() => null)])
-      .then(([cardsRes, squadRes, stateRes, progRes]) => {
+    // Fast path: render the formation as soon as cards + squad + state are in (all
+    // cheap). The per-card points come from roundProgress, which fetches box scores
+    // (slow) — load it SEPARATELY so the page paints immediately and points fill in.
+    Promise.all([getAhmaliigaCards(), getMySquad().catch(() => ({})), getAhmaliigaState().catch(() => null)])
+      .then(([cardsRes, squadRes, stateRes]) => {
         if (cancelled) return;
         setAll(cardsRes.cards || []);
         setSettled(!!cardsRes.settled);
@@ -109,11 +112,14 @@ export default function LiigaEdit() {
         if (stateRes && stateRes.active) {
           setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, null)));
         }
-        setPerCard(progRes && progRes.perCard ? progRes.perCard : {});
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
       })
       .catch(() => { if (!cancelled) setAll([]); });
+    // Points (secondary, slow) — never block the render; cards show "—" until here.
+    getAhmaliigaRoundProgress()
+      .then((progRes) => { if (!cancelled) setPerCard(progRes && progRes.perCard ? progRes.perCard : {}); })
+      .catch(() => { if (!cancelled) setPerCard({}); });
     return () => { cancelled = true; };
   }, []);
 

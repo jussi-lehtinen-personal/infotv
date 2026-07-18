@@ -13,19 +13,40 @@ async function asJson(r) {
   return data;
 }
 
+// Lightweight client cache for the read-heavy, session-stable endpoints. De-dupes
+// concurrent callers (same in-flight promise) and skips a refetch within a short
+// TTL, so moving between Ahmaliiga pages doesn't re-hit the backend each time — and
+// the slow roundProgress (box scores) isn't refetched on every squad-page mount.
+// Cleared after a squad save. Squad itself is NOT cached (always fresh).
+const _cache = new Map(); // key -> { ts, ttl, promise }
+function cachedGet(key, ttl, fetcher) {
+  const hit = _cache.get(key);
+  if (hit && Date.now() - hit.ts < hit.ttl) return hit.promise;
+  const promise = fetcher();
+  _cache.set(key, { ts: Date.now(), ttl, promise });
+  // drop failed entries so the next call retries instead of caching the rejection
+  promise.catch(() => { const cur = _cache.get(key); if (cur && cur.promise === promise) _cache.delete(key); });
+  return promise;
+}
+export function clearAhmaliigaCache() { _cache.clear(); }
+
 export async function getAhmaliigaState() {
   // Send the token so the server can include the manager's standing (rank/points);
   // it's optional server-side, but without it `standing` comes back null.
-  const r = await fetch("/api/ahmaliiga/state", { headers: authHeaders() });
-  if (!r.ok) throw new Error(`state ${r.status}`);
-  return r.json(); // { active, season, currentRound, roundCount, budget, standing, ... } | { active:false }
+  return cachedGet("state", 15000, async () => {
+    const r = await fetch("/api/ahmaliiga/state", { headers: authHeaders() });
+    if (!r.ok) throw new Error(`state ${r.status}`);
+    return r.json(); // { active, season, currentRound, roundCount, budget, standing, ... } | { active:false }
+  });
 }
 
 export async function getAhmaliigaCards(filter) {
   const q = filter && filter !== "all" ? `?filter=${encodeURIComponent(filter)}` : "";
-  const r = await fetch(`/api/ahmaliiga/cards${q}`);
-  if (!r.ok) throw new Error(`cards ${r.status}`);
-  return r.json(); // { season, cards: [{ id, kind, name, sub, band, price, ownerCount, lastPts }] }
+  return cachedGet(`cards:${filter || "all"}`, 60000, async () => {
+    const r = await fetch(`/api/ahmaliiga/cards${q}`);
+    if (!r.ok) throw new Error(`cards ${r.status}`);
+    return r.json(); // { season, cards: [{ id, kind, name, sub, band, price, ownerCount, lastPts }] }
+  });
 }
 
 // Kortin tiedot — a card + ownership %, per-round history and its games.
@@ -48,7 +69,9 @@ export async function saveMySquad(cardIds, captainId) {
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ cardIds, captainId }),
   });
-  return asJson(r);
+  const res = await asJson(r);
+  clearAhmaliigaCache(); // bank / standing / points may have changed → refetch fresh
+  return res;
 }
 
 export async function joinAhmaliiga() {
@@ -84,8 +107,10 @@ export async function getAhmaliigaSummary(round) {
 // `round` omitted → the active (in-progress) round.
 export async function getAhmaliigaRoundProgress(round) {
   const q = round != null ? `?round=${round}` : "";
-  const r = await fetch(`/api/ahmaliiga/roundProgress${q}`, { headers: authHeaders() });
-  return asJson(r); // { played, total, livePoints, perGame, perCard, round, status, endDate, isCurrent, simMode, simDate, daysLeft, games }
+  return cachedGet(`progress:${round ?? "cur"}`, 20000, async () => {
+    const r = await fetch(`/api/ahmaliiga/roundProgress${q}`, { headers: authHeaders() });
+    return asJson(r); // { played, total, livePoints, perGame, perCard, round, status, endDate, isCurrent, simMode, simDate, daysLeft, games }
+  });
 }
 
 // Veikkaus — current round's games + my prediction (results hidden until settled).
