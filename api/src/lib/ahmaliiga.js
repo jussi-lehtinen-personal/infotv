@@ -1407,10 +1407,22 @@ async function stepSim(seasonId, days = 1) {
   // Initialise the clock at the first NOT-YET-settled round's start if unset/invalid
   // (so it picks up correctly even if some rounds were settled manually).
   const firstUnsettled = rounds.find((j) => j.status !== 'settled') || rounds[rounds.length - 1];
-  let sim = /^\d{4}-\d{2}-\d{2}$/.test(season.simDate || '') ? season.simDate : firstUnsettled.startDate;
-  const d = new Date(sim + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + Math.max(1, Number(days) || 1));
-  sim = d.toISOString().slice(0, 10);
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(season.simDate || '');
+  let sim;
+  if (season.realClock) {
+    // REAL clock (F2.5): each tick syncs the game clock to TODAY's real date (monotonic
+    // — never rewinds), so a round settles when its 2-week window actually ends. The
+    // 30-min cron only sets how often we check; settlement granularity stays a day.
+    const today = new Date().toISOString().slice(0, 10);
+    const cur = valid ? season.simDate : firstUnsettled.startDate;
+    sim = today > cur ? today : cur;
+  } else {
+    // SIM / replay: advance the compressed clock by `days` (the running test season).
+    let s = valid ? season.simDate : firstUnsettled.startDate;
+    const d = new Date(s + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + Math.max(1, Number(days) || 1));
+    sim = d.toISOString().slice(0, 10);
+  }
 
   // Settle each not-yet-settled round whose end has passed; stop at the first that
   // hasn't ended (rounds are ordered).
@@ -1426,7 +1438,18 @@ async function stepSim(seasonId, days = 1) {
   const after = await getEntity(T.season, 'season', seasonId);
   const allSettled = (await getRounds(seasonId)).every((j) => j.status === 'settled');
   await upsertEntity(T.season, { ...after, simDate: sim, autoStep: allSettled ? false : after.autoStep });
-  return { simDate: sim, settled, done: allSettled };
+  return { simDate: sim, settled, done: allSettled, mode: season.realClock ? 'real' : 'sim' };
+}
+
+// F2.5: opt a season into the REAL clock (tick syncs to today's date instead of
+// advancing a compressed replay). DORMANT by default — the running test season has
+// no realClock flag, so it keeps its sim behaviour untouched. Flip this only for a
+// season you want to track the real calendar.
+async function setRealClock(seasonId, on) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) throw badRequest('Kausi puuttuu.');
+  await upsertEntity(T.season, { ...season, realClock: !!on });
+  return { realClock: !!on };
 }
 
 // Recompute every squad's money-in-hand bank from its holdings (budget minus the
@@ -1466,6 +1489,7 @@ async function getSimStatus(seasonId) {
     gamesLoaded,
     simDate: (season && season.simDate) || '',
     autoStep: !!(season && season.autoStep),
+    realClock: !!(season && season.realClock),
   };
 }
 
@@ -1473,7 +1497,7 @@ module.exports = {
   ECON, T, badRequest, shapeGamesForClient,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos,
+  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,

@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults, generateVouchers } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults, generateVouchers } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -63,6 +63,15 @@ app.http('manageAhmaliiga', {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
         const result = await stepSim(season.rowKey, Number(body.days) || 1);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      // F2.5: switch a season between the compressed sim clock and the REAL calendar
+      // clock. Dormant mechanism — off by default; flip deliberately for a live season.
+      if (action === 'setClock') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await setRealClock(season.rowKey, !!body.real);
         return { jsonBody: { ok: true, ...result } };
       }
 

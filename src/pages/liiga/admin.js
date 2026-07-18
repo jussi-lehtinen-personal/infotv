@@ -82,6 +82,7 @@ export default function LiigaAdmin() {
           <Row k="Kausi" v={s.season} />
           <Row k="Sim-päivä" v={s.simDate || "—"} />
           <Row k="Automaatti" v={s.autoStep ? "PÄÄLLÄ" : "pois"} />
+          <Row k="Kello" v={s.realClock ? "REAALI (oikea päivä)" : "sim (replay)"} />
           <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
           <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
@@ -99,6 +100,14 @@ export default function LiigaAdmin() {
                   label={s && s.autoStep ? "Automaatti: PÄÄLLÄ — sammuta" : "Käynnistä automaatti"}
                   busy={busy === "setAuto"} disabled={!s}
                   onClick={() => run("setAuto", s && s.autoStep ? "Automaatti sammutettu" : "Automaatti käynnistetty", null, { on: !(s && s.autoStep) }, "setAuto")} />
+        <AdminBtn icon={LuCalendarDays}
+                  label={s && s.realClock ? "Kello: REAALI — vaihda simiin" : "Vaihda reaalikelloon (F2.5)"}
+                  busy={busy === "setClock"} disabled={!s}
+                  onClick={() => run("setClock", s && s.realClock ? "Sim-kello käytössä" : "Reaalikello käytössä",
+                    s && s.realClock
+                      ? "Vaihdetaanko takaisin sim-kelloon (replay)?"
+                      : "VAIHDA REAALIKELLOON? Sim-kello synkkaa tähän päivään joka tikki ja jaksot ratkeavat oikean päivämäärän mukaan. Älä tee tätä kesken sim-testipelin.",
+                    { real: !(s && s.realClock) }, "setClock")} />
         <AdminBtn icon={LuClock} label="Steppaa 1 päivä"
                   busy={busy === "step1"} disabled={!s}
                   onClick={() => run("step", "Steppasi 1 pv", null, { days: 1 }, "step1")} />

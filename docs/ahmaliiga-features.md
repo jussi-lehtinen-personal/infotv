@@ -18,7 +18,7 @@ tässä ei enää lyödä lukkoon numeroita, vaan listataan toiminnallisuudet.
 - **F2.2** Jaksot (2 vk) — aikataulu, "nykyinen jakso", **lukitusaika** (esim. ma 18:00).
 - **F2.3** KAKSI leaderboardia: jakso (nollautuu) + kausi (kumulatiivinen).
 - **F2.4** Jakson lukitus — kokoonpano + kapteeni + veikkaus lukkiutuvat deadlineen. *Backend: `Season`/`Jaksot` config; settlement lukee tästä.*
-- **F2.5** (ROADMAP 2026-07-17) **Reaaliaikainen kausikello.** Kausi pyörii nyt sim-tilassa (`simMode:true` + `simDate`), joten "alkanut / pelattu / pisteet / timeline" seuraavat admin-sim-kelloa, ei oikeaa aikaa. **Kapteenilukko tehtiin jo reaaliaikaiseksi** (wall-clock, riippumaton sim-kellosta — commit 754dc50). TODO: siirrä koko kausi **live-tilaan** (`simMode:false`) tai pidä sim-kello aina nykyisenä, jotta myös alkanut/pelattu/pisteet/timeline kulkevat reaaliajassa ja ovat keskenään yhdenmukaiset. ⚠️ Live-tilaan vaihto aiheuttaa kertaluontoisen uudelleenlaskennan käynnissä olevan jakson pisteille (jos sim-kello oli jäljessä).
+- **F2.5** (MEKANISMI RAKENNETTU + LEPOTILASSA 2026-07-18) **Reaaliaikainen kausikello.** Sim-kello (`simDate`) on koko pelin "nyt" (alkanut/pelattu/pisteet/timeline/settlement). CF-worker-cron (`7,37 * * * *` = 30 min) bumppaa sitä +1 vrk kun `autoStep` on → **48× reaaliaika** (replay). **Rakennettu reaalikello-mekanismi:** season-lippu **`realClock`** → `stepSim` synkkaa `simDate = tänään` (monotoninen, ei kelaa taakse) +1-vrk-bumpin sijaan, jolloin jaksot ratkeavat oikean päivämäärän mukaan **30 min tarkkuudella** (sama CF-cron, ei worker-muutosta). **EI kytketty** running-testikauteen (kausella ei `realClock`-lippua → sim-käytös ennallaan, byte-for-byte). Kytkin: admin **"Vaihda reaalikelloon"** (confirm-gated) tai `manageAhmaliiga setClock {real}`; tila näkyy admin-Row "Kello". Kapteenilukko jo reaaliaikainen. Testi `tools/test-realclock.js` (sim-haara ennallaan · real synkkaa tähän päivään + ratkaisee erääntyneet · monotoninen). **Kytke vasta kun testipeli on ohi** (todennäk. tuoreelle kaudelle resetin kautta; kesken oleva kausi on ~puolivälissä). *Vaihtoehto B (sekuntitarkka `simMode:false` + tikittävä countdown) jätettiin — 2 vk jaksoille päivätarkka riittää.*
 
 ## 3. Kortit & kortisto (pool)
 - **F3.1** Joukkuekortit (kaikki ikäluokat) — lähde tulospalvelu `teamKey` (age + peliryhmä-väri).
@@ -95,6 +95,16 @@ Jaetut (rakennetaan kerran, palvelevat myös muita roadmap-featureita) 🔗:
 - **Yksi ajastettu SETTLEMENT-poller** (lukee durable-cachetun tulospalvelun) palvelee F6 + #23 pistepörssi + #28 live + #1-push.
 - Identiteetti `userId` (device-id + optio Google) — EXISTS.
 - Varmuuskopiot: `exportBackup` kattaa uudet taulut automaattisesti (0 lisätyötä).
+
+## Kehitys & laatu (roadmap)
+- **T1** (ROADMAP 2026-07-18) **Automatisoitu testausjärjestelmä KOKO Ahmaliigalle.** Nyt on vain kolme kertakäyttöistä, kapea-alaista hermeettistä testiä — `tools/test-lineups.js` (rolling-lock + kapteenilukko), `tools/test-vouchers.js` (F10), `tools/test-realclock.js` (F2.5) — ja nekin vaativat **Azuriten käsin käynnistyksen + portin 10002 vapautuksen + datan tyhjennyksen joka ajolla** (Windowsilla kipeä; bash `pkill` ei tapa Windows-nodea → PowerShell `Get-NetTCPConnection`/`Stop-Process`). Iso osa logiikasta on **kokonaan testaamatta**. TODO: kattava suite joka verifioi koko domainin:
+  - **Seedaus & hinnoittelu:** bändit/skew/quintiilit, alkuhinnat priorista, no-prior→mid.
+  - **Squad-validointi:** budjetti, slotit, `maxPlayers`, lock-in (buyPrice pysyy), ≤`transfersPerRound` + penalty, kapteeni squadissa.
+  - **Settlement & pisteytys:** joukkue (voitto/tasa/tappio/nollapeli/maaliero-cap), kenttäpelaaja (maali/syöttö), maalivahti (torjunta-% kynnykset), kapteeni ×2, veikkausbonus (voittaja/maaliero/tarkka).
+  - **Rebanding:** ±10/jakso price cap, trendit, kausipisteiden kumulatiivi + idempotentti re-settle.
+  - **Rolling lock + kapteenilukko** (on jo), **veikkauksen lukitus**, **leaderboardit** (jakso/kausi, ranktrendit).
+  - **Palkinnot** (F10, on jo) + **kellotilat** (F2.5, on jo).
+  - **Infra:** yksi `npm test` -ajuri joka bootaa Azuriten tuoreeseen temp-hakemistoon, ajaa kaikki testit eristettyinä (oma kausi/partitio per testi tai wipe välissä), sammuttaa Azuriten, raportoi yhteenvedon; **jaettu test-harness** (seed + Azurite-boot + assert-helpurit) jonka testit importtaavat; **CI-workflow** (GitHub Actions). Ilman tätä regressiot jäävät kiinni vain manuaalisella muistilla — ja domain on jo iso.
 
 ## Rakennusjärjestys (ehdotus)
 1. **Kausi/jakso + kortisto + snapshot-malli** (F2, F3, historia alusta).
