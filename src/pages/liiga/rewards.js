@@ -48,7 +48,7 @@ export default function LiigaRewards() {
           <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "primary.main", mb: 0.5 }}>
             {issued.length === 1 ? "Sinulla on 1 lunastamaton palkinto" : `Sinulla on ${issued.length} lunastamatonta palkintoa`}
           </Typography>
-          <Typography sx={{ fontSize: 13, color: "text.secondary", mb: 2 }}>Näytä tämä koodi kentällä lunastaaksesi.</Typography>
+          <Typography sx={{ fontSize: 13, color: "text.secondary", mb: 2 }}>Näytä tämä koodi Kiekko-Ahman kioskissa lunastaaksesi.</Typography>
           <Box sx={{ display: "inline-block", p: 1.5, borderRadius: "var(--radius-item)", bgcolor: "#fff", lineHeight: 0 }}>
             <QRCodeSVG value={qrUrl} size={188} level="M" bgColor="#ffffff" fgColor="#0e0e0e" />
           </Box>

@@ -1289,7 +1289,7 @@ async function generateVouchers(seasonId, { scope, round, prizes, top = 3 } = {}
     await upsertEntity(T.messages, {
       partitionKey: w.userId, rowKey: `!reward|${prizeId}`,
       kind: 'reward', title: 'Voitit palkinnon! 🏆',
-      body: `${prize}. Näytä QR-koodi kentällä lunastaaksesi.`,
+      body: `${prize}. Näytä QR-koodi Kiekko-Ahman kioskissa lunastaaksesi.`,
       points: null, round: sc === 'season' ? null : rnd, createdAt: nowIso, read: false,
     });
   }

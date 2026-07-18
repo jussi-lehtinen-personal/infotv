@@ -186,7 +186,7 @@ export default function LiigaHome() {
             <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.2 }}>
               {unclaimed === 1 ? "Voitit palkinnon! 🏆" : `Voitit ${unclaimed} palkintoa! 🏆`}
             </Typography>
-            <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Näytä QR-koodi kentällä lunastaaksesi.</Typography>
+            <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Näytä QR-koodi Kiekko-Ahman kioskissa lunastaaksesi.</Typography>
           </Box>
           <Box component={LuChevronRight} sx={{ fontSize: 20, color: "primary.main", flexShrink: 0, display: "block" }} />
         </ButtonBase>
