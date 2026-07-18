@@ -4,14 +4,25 @@
 // Storage at M0. Re-run on the real season once its games exist; here we dry-run
 // on 2026 (priced from 2025) to validate the machinery.
 //
-//   node tools/gen-cards.js [season=2026] [prevSeason=2025]
+//   node tools/gen-cards.js [season=2026] [prevSeason=2025] [--round-config[=N]]
+//
+// --round-config emits a `roundConfig {startDate, weeks, count}` (the F2.6 generated
+// schedule) instead of a fixed `rounds` list, so a live-synced season grows its
+// windows from the real fixture list. Optional =N overrides the initial round count
+// (e.g. =0 to start empty and let syncSeasonGames build every round).
 
 const fs = require("fs");
 const path = require("path");
 const { CFG, buildSeason, buildPlayerCards, buildPrevPrior, parseDate } = require("./lib/model");
 
-const season = process.argv[2] || "2026";
-const prevSeason = process.argv[3] || "2025";
+const argv = process.argv.slice(2);
+const pos = argv.filter((a) => !a.startsWith("--"));
+const flags = argv.filter((a) => a.startsWith("--"));
+const season = pos[0] || "2026";
+const prevSeason = pos[1] || "2025";
+const cfgFlag = flags.find((f) => f === "--round-config" || f.startsWith("--round-config="));
+const roundMode = cfgFlag ? "config" : "list";
+const countOverride = cfgFlag && cfgFlag.includes("=") ? Math.max(0, Number(cfgFlag.split("=")[1]) || 0) : null;
 
 const { cards: teamKeys, cj, start, nJaksot: nRounds } = buildSeason(season);
 const { players } = buildPlayerCards(season, start);
@@ -80,6 +91,10 @@ const rounds = Array.from({ length: nRounds }, (_, j) => ({
   endDate: iso(new Date(start.getTime() + (j + 1) * ROUND_MS - 86400000)),
 }));
 
+// F2.6: real/live seasons emit a roundConfig (generated + extendable) instead of a
+// fixed rounds list. count defaults to the derived length; =N can start it smaller.
+const roundConfig = { startDate: iso(start), weeks: CFG.jaksoWeeks, count: countOverride != null ? countOverride : nRounds };
+
 const seed = {
   season,
   pricedFrom: prevSeason,
@@ -88,7 +103,7 @@ const seed = {
   maxPlayers: CFG.maxPlayers,
   bands: { team: CFG.bandTiers, player: CFG.playerBandTiers },
   generatedFromLocalData: true,
-  rounds,
+  ...(roundMode === "config" ? { roundConfig } : { rounds }),
   cards,
 };
 
@@ -101,6 +116,9 @@ const dist = (list, band) => ["kallis", "keski", "halpa"]
   .map((b) => `${b} ${list.filter((c) => c.band === b).length}`).join(" · ");
 console.log(`Ahmaliiga card seed — season ${season} (priced from ${prevSeason})`);
 console.log(`  ${cards.length} cards → ${out}`);
+console.log(roundMode === "config"
+  ? `  rounds: roundConfig ${roundConfig.startDate} · ${roundConfig.weeks} wk × ${roundConfig.count} (generated, extendable via sync)`
+  : `  rounds: ${rounds.length} fixed windows (replay)`);
 console.log(`  team   ${byKind("team").length}: ${dist(byKind("team"))}`);
 console.log(`  player ${byKind("player").length}: ${dist(byKind("player"))}`);
 console.log(`  goalie ${byKind("goalie").length}: ${dist(byKind("goalie"))}`);
