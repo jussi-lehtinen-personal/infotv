@@ -40,19 +40,18 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
   await saveSquad('mgrA', squad, squad[0], 'Manageri A');
   await saveSquad('mgrB', squad, squad[0], 'Manageri B');
   await saveSquad('mgrC', squad, squad[0], 'Manageri C');
-  await settleRound('2026', R);
+  const settleRes = await settleRound('2026', R);
 
   const board = await getLeaderboard('2026', 'round', R);
   const humanRows = board.filter((r) => ['mgrA', 'mgrB', 'mgrC'].includes(r.userId));
   assert(humanRows.length === 3, `leaderboard has the 3 human managers (${humanRows.length})`);
 
-  // --- generate top-3 vouchers for round 0 ---
-  const gen = await generateVouchers('2026', { scope: 'round', round: R });
-  assert(gen.created === 3, `generateVouchers created 3 (${gen.created})`);
+  // --- settlement AUTO-awards this round's top-3 (round 0 has a game) ---
+  assert(settleRes.vouchers === 3, `settleRound auto-created 3 round vouchers (${settleRes.vouchers})`);
 
-  // --- re-generate is idempotent ---
-  const gen2 = await generateVouchers('2026', { scope: 'round', round: R });
-  assert(gen2.created === 0, `re-generate created 0 (idempotent) (${gen2.created})`);
+  // --- re-generating is idempotent (settle already created them) ---
+  const gen = await generateVouchers('2026', { scope: 'round', round: R });
+  assert(gen.created === 0, `manual re-generate is idempotent (${gen.created})`);
 
   // --- each manager has exactly one issued voucher + a reward notification ---
   const vA = await getMyVouchers('mgrA');

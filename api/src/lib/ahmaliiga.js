@@ -585,7 +585,17 @@ async function settleRound(seasonId, round) {
     pts: resJ[c.rowKey] || 0, ownerCount: ownerCount[c.rowKey] || 0,
   }));
 
-  return { round, managers: roundRows.length, nextRound };
+  // F10: auto-award this round's top-3 prize vouchers — but ONLY for rounds that
+  // actually had games (empty windows award nothing). Idempotent (generateVouchers
+  // skips a prize that already exists) and best-effort: prize generation must never
+  // break settlement, so a failure here is swallowed and retried on the next settle.
+  let vouchers = 0;
+  if (games.length > 0) {
+    try { const g = await generateVouchers(seasonId, { scope: 'round', round }); vouchers = g.created; }
+    catch (e) { /* prizes are best-effort */ }
+  }
+
+  return { round, managers: roundRows.length, nextRound, vouchers };
 }
 
 // Greedy squad pick for bots (budget + slots + max players), matching backtest.
