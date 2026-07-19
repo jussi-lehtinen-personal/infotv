@@ -141,8 +141,8 @@ function StatusBanner({ set, frozen }) {
         </Typography>
         <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.4, lineHeight: 1.35 }}>
           {set
-            ? (frozen ? "Ottelu on alkanut — veikkaus on lukittu." : "Voit muuttaa veikkausta, kunnes ottelu alkaa.")
-            : "Voit veikata yhtä ottelua tässä jaksossa. Valitse ottelu ja arvaa lopputulos."}
+            ? (frozen ? "Ottelu on alkanut — veikkaus on lukittu." : "Veikkaat vain yhtä ottelua per jakso. Voit vaihtaa peliä tai tulosta, kunnes ottelu alkaa — uusi valinta korvaa vanhan.")
+            : "Veikkaat vain yhtä ottelua per jakso. Valitse ottelu ja arvaa lopputulos."}
         </Typography>
       </Box>
     </Box>
@@ -216,6 +216,9 @@ export default function LiigaPredict() {
   const isSavedGame = savedId === game.gameId;
   const locked = frozen || (!settled && !!game.locked);
   const left = !settled && !locked && timeLeft(game.date);
+  // You veikkaat only ONE game per round → saving on a DIFFERENT game than your current
+  // pick MOVES the single prediction (the old one is replaced, not kept). Warn about it.
+  const movingFrom = !settled && !locked && predictionSet && myPredId && shownId !== myPredId ? myPredGame : null;
   const hs = splitTeam(game.home, game.level, game.ahmaHome);
   const as = splitTeam(game.away, game.level, !game.ahmaHome);
 
@@ -227,8 +230,13 @@ export default function LiigaPredict() {
 
   const save = async () => {
     setError(""); setSaving(true);
-    try { await saveAhmaliigaPrediction(game.gameId, home, away); setSavedId(game.gameId); }
-    catch (e) { setError(e.message || "Tallennus epäonnistui."); }
+    try {
+      await saveAhmaliigaPrediction(game.gameId, home, away);
+      setSavedId(game.gameId);
+      // Optimistically reflect the saved pick so the whole UI (banner, "Veikattu" tag,
+      // button label) updates immediately — no navigate-away-and-back to refresh.
+      setData((d) => ({ ...d, myPrediction: { gameId: game.gameId, homeGoals: Number(home), awayGoals: Number(away) } }));
+    } catch (e) { setError(e.message || "Tallennus epäonnistui."); }
     finally { setSaving(false); }
   };
 
@@ -322,12 +330,19 @@ export default function LiigaPredict() {
 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
+      {movingFrom && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Voit veikata vain <b>yhtä ottelua per jakso</b>. Tallennus <b>korvaa aiemman veikkauksesi</b>:{" "}
+          {gameLabel(movingFrom)} ({data.myPrediction.homeGoals}–{data.myPrediction.awayGoals}).
+        </Alert>
+      )}
+
       {!settled && !locked && (
         <Button fullWidth disabled={saving} onClick={save}
           variant={isSavedGame ? "outlined" : "contained"}
           startIcon={isSavedGame ? <LuPencil size={16} /> : undefined}
           sx={{ py: 1.3, mt: 2.5 }}>
-          {saving ? "Tallennetaan…" : isSavedGame ? "Muokkaa veikkausta" : "Tallenna veikkaus"}
+          {saving ? "Tallennetaan…" : movingFrom ? "Korvaa aiempi veikkaus" : isSavedGame ? "Muokkaa veikkausta" : "Tallenna veikkaus"}
         </Button>
       )}
 

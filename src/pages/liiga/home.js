@@ -5,7 +5,7 @@ import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair 
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers, clearAhmaliigaCache } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -150,14 +150,25 @@ export default function LiigaHome() {
 
   useEffect(() => {
     let cancelled = false;
-    getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
-    getAhmaliigaVouchers().then((d) => { if (!cancelled) setRewards(d); }).catch(() => {});
-    getAhmaliigaRanking("season").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
-    getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
-    getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
-    getAhmaliigaRoundProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
-    getAhmaliigaPrediction().then((d) => { if (!cancelled) setPred(d); }).catch(() => {});
-    return () => { cancelled = true; };
+    const load = () => {
+      getAhmaliigaState().then((s) => { if (!cancelled) setState(s); }).catch(() => { if (!cancelled) setState({ active: false }); });
+      getAhmaliigaVouchers().then((d) => { if (!cancelled) setRewards(d); }).catch(() => {});
+      getAhmaliigaRanking("season").then((d) => { if (!cancelled) setTop(d.rows || []); }).catch(() => {});
+      getAhmaliigaSummary().then((d) => { if (!cancelled) setSummary(d); }).catch(() => {});
+      getMySquad().then((d) => { if (!cancelled) setSquad(d && d.squad); }).catch(() => {});
+      getAhmaliigaRoundProgress().then((d) => { if (!cancelled) setProgress(d); }).catch(() => {});
+      getAhmaliigaPrediction().then((d) => { if (!cancelled) setPred(d); }).catch(() => {});
+    };
+    load();
+    // Returning to the app/tab (the sim clock may have advanced while it was in the
+    // background) → refetch so the countdown ("jäljellä"), live points etc. are current
+    // without navigating away and back. Clear the short cache first so it's truly fresh.
+    const onVisible = () => { if (document.visibilityState === "visible") { clearAhmaliigaCache(); load(); } };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const round = state && state.active ? state.currentRound : null;
