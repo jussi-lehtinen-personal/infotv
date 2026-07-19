@@ -1500,8 +1500,14 @@ async function resetSim(seasonId, opts = {}) {
   // clear them too (else old prizes linger + auto-regenerate on the next settle).
   const oldVouchers = await listEntities(T.vouchers);
   await inChunks(oldVouchers, 25, (r) => deleteEntity(T.vouchers, r.partitionKey, r.rowKey));
+  // Per-game frozen lineup snapshots (PK = seasonId|userId) — MUST clear on a reset,
+  // else a re-settle reads a stale snapshot (old captain/cards from a buggy period) and
+  // the recompute keeps the wrong values. Deleting them lets settlement re-freeze from
+  // the current squads + current ECON (correct captain ×2 + v2 prediction bonus).
+  const oldLineups = (await listEntities(T.lineups)).filter((r) => String(r.partitionKey).startsWith(`${seasonId}|`));
+  await inChunks(oldLineups, 25, (r) => deleteEntity(T.lineups, r.partitionKey, r.rowKey));
 
-  let wiped = { predictions, vouchers: oldVouchers.length };
+  let wiped = { predictions, vouchers: oldVouchers.length, lineups: oldLineups.length };
   if (opts.hard) {
     // Every squad (human + bot) → gone, so teams empty + budget full + transfers reset.
     const squads = await listEntities(T.squads, "RowKey eq 'current'");
