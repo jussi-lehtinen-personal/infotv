@@ -107,10 +107,13 @@ export default function LiigaEdit() {
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
         if (stateRes && stateRes.minTeams != null) setMinTeams(stateRes.minTeams);
-        // Captain is frozen for the whole round once any of its games has ACTUALLY
-        // started (real time, ignoring the sim clock) — matches the backend reject.
+        // Captain is frozen for the whole round once any of its games has started.
+        // Use the SIM clock in sim/replay (games have historical dates → wall-clock
+        // would lock the captain forever); live seasons fall back to wall-clock.
+        // Matches the backend gameStarted() check.
         if (stateRes && stateRes.active) {
-          setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, null)));
+          const clock = stateRes.simMode ? stateRes.simDate : null;
+          setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, clock)));
         }
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
