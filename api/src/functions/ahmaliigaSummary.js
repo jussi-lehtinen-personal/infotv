@@ -37,13 +37,16 @@ app.http('ahmaliigaSummary', {
           pts: score.breakdown[id] || 0, reason: r.reason || '', isCaptain: id === score.captainId,
         };
       }).sort((a, b) => b.pts - a.pts);
-      const best = resolved[0] || null;
-      // prediction bonus as its own row (if any) — reason = which tier hit
+      // prediction bonus as its own row (if any) — reason = which tier hit (v2: 3/5/8)
       if (score.breakdown._predict) {
         const pb = score.breakdown._predict;
-        const reason = pb >= 3 ? 'Tarkka tulos' : pb === 2 ? 'Oikea voittaja ja maaliero' : 'Oikea voittaja';
+        const reason = pb >= 8 ? 'Tarkka tulos' : pb >= 5 ? 'Oikea voittaja ja maaliero' : 'Oikea voittaja';
         resolved.push({ id: '_predict', name: 'Veikkausbonus', kind: 'predict', reason, pts: pb, isCaptain: false });
       }
+      // "Eniten pisteitä" = the biggest single contributor — a card OR the prediction
+      // bonus — and only when it actually scored. (Was resolved[0] BEFORE adding the
+      // bonus, so it showed a 0-point card as "best" when all points came from veikkaus.)
+      const best = [...resolved].filter((r) => r.pts > 0).sort((a, b) => b.pts - a.pts)[0] || null;
 
       const managerCount = (await listManagers()).length;
       return {
