@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuDatabase, LuRefreshCw, LuCheckCircle, LuAlertTriangle } from "react-icons/lu";
-import { Box, Typography, Card, Stack, Button, CircularProgress } from "@mui/material";
+import { LuDatabase, LuRefreshCw, LuCheckCircle, LuAlertTriangle, LuHistory } from "react-icons/lu";
+import {
+  Box, Typography, Card, Stack, Button, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Checkbox, FormControlLabel, Alert,
+} from "@mui/material";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
-import { getBackups, runBackup } from "../auth/authClient";
+import { getBackups, runBackup, restoreBackup } from "../auth/authClient";
 
 // Admin › Varmuuskopiot (/admin/backups). Shows the latest backup time + a list,
 // and a "Luo nyt" button. Backups run daily via a GitHub Actions cron hitting
@@ -48,6 +51,10 @@ const AdminBackups = () => {
   const [state, setState] = useState({ status: "loading" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [restoreTarget, setRestoreTarget] = useState(null); // backup chosen to restore
+  const [ahmaOnly, setAhmaOnly] = useState(true);           // restore only Ahmaliiga tables
+  const [restoring, setRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState(null);       // { type, text }
 
   const load = () => {
     getBackups()
@@ -72,6 +79,22 @@ const AdminBackups = () => {
       setErr(e.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const doRestore = async () => {
+    if (!restoreTarget) return;
+    setRestoring(true);
+    setRestoreMsg(null);
+    try {
+      const r = await restoreBackup(restoreTarget.name, ahmaOnly ? "Ahmaliiga" : "");
+      setRestoreMsg({ type: "success", text: `Palautettu: ${r.rows} riviä, ${r.tables} taulua${r.filter ? ` (${r.filter})` : ""}.` });
+      setRestoreTarget(null);
+      load();
+    } catch (e) {
+      setRestoreMsg({ type: "error", text: e.message });
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -119,6 +142,7 @@ const AdminBackups = () => {
             </Card>
 
             {err && <Typography sx={{ mt: 1.5, fontSize: 13, color: "var(--color-loss)" }}>{err}</Typography>}
+            {restoreMsg && <Alert severity={restoreMsg.type} sx={{ mt: 1.5 }} onClose={() => setRestoreMsg(null)}>{restoreMsg.text}</Alert>}
 
             <Button
               onClick={createNow}
@@ -134,8 +158,11 @@ const AdminBackups = () => {
               {data.backups.map((b) => (
                 <Stack key={b.name} direction="row" alignItems="center" spacing={1.25} sx={{ px: 1.75, py: 1.25, borderRadius: 2, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-divider)", fontSize: 14 }}>
                   <LuDatabase style={{ flexShrink: 0, opacity: 0.6 }} />
-                  <Box sx={{ flex: 1 }}>{fmtDateTime(b.createdAt)}</Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>{fmtDateTime(b.createdAt)}</Box>
                   <Box sx={{ fontSize: 12, color: "text.secondary" }}>{fmtSize(b.size)}</Box>
+                  <Button size="small" startIcon={<LuHistory size={15} />}
+                    onClick={() => { setRestoreMsg(null); setAhmaOnly(true); setRestoreTarget(b); }}
+                    sx={{ flexShrink: 0, textTransform: "none", color: "text.secondary", minWidth: 0 }}>Palauta</Button>
                 </Stack>
               ))}
             </Stack>
@@ -146,6 +173,33 @@ const AdminBackups = () => {
           </>
         )}
       </Box>
+
+      {/* Restore confirm — DESTRUCTIVE */}
+      <Dialog open={!!restoreTarget} onClose={() => !restoring && setRestoreTarget(null)}>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <LuAlertTriangle color="var(--color-accent-yellow)" /> Palauta varmuuskopio?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            Palautetaan tila hetkestä <b>{restoreTarget && fmtDateTime(restoreTarget.createdAt)}</b>. Tämä <b>ylikirjoittaa nykyiset tiedot</b> tämän varmuuskopion riveillä (kopion jälkeen lisätyt rivit jäävät).
+            <FormControlLabel
+              sx={{ mt: 1.5, display: "flex" }}
+              control={<Checkbox checked={ahmaOnly} onChange={(e) => setAhmaOnly(e.target.checked)} />}
+              label="Vain Ahmaliiga-taulut (suositus)"
+            />
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {ahmaOnly ? "Käyttäjät, roolit ja varaukset jäävät koskematta." : "Palauttaa KAIKKI taulut (käyttäjät, tunnistautumiset, varaukset ml.)."}
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRestoreTarget(null)} disabled={restoring} sx={{ color: "text.secondary" }}>Peruuta</Button>
+          <Button onClick={doRestore} disabled={restoring} variant="contained" color="warning"
+            startIcon={restoring ? <CircularProgress size={16} color="inherit" /> : <LuHistory size={16} />}>
+            {restoring ? "Palautetaan…" : "Palauta"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

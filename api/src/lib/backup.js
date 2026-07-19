@@ -1,7 +1,7 @@
 const zlib = require('zlib');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { TableServiceClient } = require('@azure/data-tables');
-const { TABLE_NAMES, listEntities } = require('./tables');
+const { TABLE_NAMES, listEntities, upsertEntity, createTable } = require('./tables');
 
 // Backups of the stateful Table Storage (Users/Credentials/GoogleIndex/Usernames)
 // — Table Storage has NO native point-in-time restore, so we export ourselves.
@@ -118,6 +118,42 @@ async function deleteBackup(name) {
   await c.getBlockBlobClient(name).deleteIfExists();
 }
 
+// Download + parse one backup blob → its snapshot object.
+async function readBackupSnapshot(name) {
+  const c = await container();
+  const dl = await c.getBlockBlobClient(name).download();
+  const gz = await streamToBuffer(dl.readableStreamBody);
+  return JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
+}
+
+// Restore a backup's TABLE rows into Table Storage. UPSERT (rows added since the
+// backup are NOT deleted). `filter` (substring) limits to matching tables, e.g.
+// 'Ahmaliiga' to fix just the fantasy game. DESTRUCTIVE: overwrites current rows with
+// the backup's. Table data only (avatars untouched). Returns per-table counts.
+async function restore(name, opts = {}) {
+  const filter = opts.filter || '';
+  const snap = await readBackupSnapshot(name);
+  const tables = snap.tables || {};
+  const restored = {};
+  for (const [tableName, rows] of Object.entries(tables)) {
+    if (filter && !tableName.includes(filter)) continue;
+    await createTable(tableName);
+    for (let i = 0; i < rows.length; i += 25) {
+      await Promise.all(rows.slice(i, i + 25).map((r) => {
+        const { etag, timestamp, ...clean } = r; // strip server metadata
+        return upsertEntity(tableName, clean);
+      }));
+    }
+    restored[tableName] = rows.length;
+  }
+  return {
+    name, createdAt: snap.createdAt, filter: filter || null,
+    tables: Object.keys(restored).length,
+    rows: Object.values(restored).reduce((a, b) => a + b, 0),
+    restored,
+  };
+}
+
 // GFS retention: keep every backup ≤14 days old, then 1 per week for ~8 weeks,
 // then 1 per month for ~6 months; delete the rest. `backups` is newest-first.
 function keepSet(backups, now) {
@@ -152,4 +188,4 @@ async function pruneBackups(now = Date.now()) {
   return deleted;
 }
 
-module.exports = { writeBackup, listBackups, pruneBackups, deleteBackup, snapshot, keepSet };
+module.exports = { writeBackup, listBackups, pruneBackups, deleteBackup, snapshot, keepSet, readBackupSnapshot, restore };

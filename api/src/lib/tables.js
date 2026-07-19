@@ -42,6 +42,12 @@ async function ensureTables() {
   ensured = true;
 }
 
+// Idempotently create ONE table by name (for restoring a backup that may include a
+// table not in TABLE_NAMES, e.g. a renamed/legacy one). 409 = already exists.
+async function createTable(name) {
+  try { await client(name).createTable(); } catch (e) { if (e.statusCode !== 409) throw e; }
+}
+
 async function getEntity(table, partitionKey, rowKey) {
   try {
     return await client(table).getEntity(partitionKey, rowKey);
@@ -118,4 +124,4 @@ async function updateEntityIfMatch(table, entity, etag) {
   }
 }
 
-module.exports = { TABLE_NAMES, ensureTables, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities, transact, updateEntityIfMatch };
+module.exports = { TABLE_NAMES, ensureTables, createTable, getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, listEntities, transact, updateEntityIfMatch };

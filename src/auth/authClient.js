@@ -321,6 +321,21 @@ export async function runBackup() {
   return data;
 }
 
+// DESTRUCTIVE: restore a backup's tables over the current data. `filter` (substring)
+// limits which tables, e.g. "Ahmaliiga".
+export async function restoreBackup(name, filter) {
+  const token = getToken();
+  if (!token) throw new Error("Kirjautuminen vaaditaan.");
+  const res = await fetch("/api/restoreBackup", {
+    method: "POST",
+    headers: { "X-Ahma-Auth": token, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, filter: filter || "" }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return data;
+}
+
 let configCache = null;
 export async function getAuthConfig() {
   if (configCache) return configCache;
