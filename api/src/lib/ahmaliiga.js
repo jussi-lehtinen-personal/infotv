@@ -182,6 +182,13 @@ async function seedSeason(seed) {
     // seed values so an admin "reset" can restore prices without re-uploading
     seedPrice: c.price, seedBand: c.band,
   })));
+  // Remove STALE cards — a re-seed with a trimmed pool (e.g. players excluded via
+  // gen-cards --overrides _exclude) must DROP the old cards, not just upsert the new
+  // ones (upsert alone would leave excluded players lingering in the table).
+  const newIds = new Set(cards.map((c) => c.id));
+  const existingCards = await listByPartition(T.cards, seasonId);
+  const staleCards = existingCards.filter((c) => !newIds.has(c.rowKey));
+  await inChunks(staleCards, 25, (c) => deleteEntity(T.cards, seasonId, c.rowKey));
 
   // round-0 snapshot so price/points history exists from the start.
   await inChunks(cards, 25, (c) => upsertEntity(T.cardHistory, {
