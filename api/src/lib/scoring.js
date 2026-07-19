@@ -10,7 +10,9 @@ const SCORING = {
   player: { goal: 3, assist: 2 },
   // Save-% bonus tiers (2026-07-17: lowered from 92/95 → 88/92 — the old cut was too
   // demanding, the bonus hit only ~30% of games; 88/92 makes goalies fair vs skaters).
-  goalie: { win: 3, cleanSheet: 2, svLoPct: 88, svLoBonus: 2, svHiPct: 92, svHiBonus: 3, minShots: 15 },
+  // v2 (2026-07-19): goalie SHUTOUT cleanSheet 2→4 (raises the ceiling 8→10 ≈ a hattrick,
+  // so a shutout keeper can be captain-worthy). ⚠️ team.cleanSheet stays 2 (separate).
+  goalie: { win: 3, cleanSheet: 4, svLoPct: 88, svLoBonus: 2, svHiPct: 92, svHiBonus: 3, minShots: 15 },
 };
 
 // Team-card points for ONE game from goals-for (gf) / goals-against (ga):

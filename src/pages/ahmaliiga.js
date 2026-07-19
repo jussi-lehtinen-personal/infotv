@@ -90,8 +90,9 @@ const Ahmaliiga = () => {
         <Section emoji="🃏" title="1. Kokoa kortisto">
           <Lead>
             <b>Joukkuekortit</b> = kaikki Ahma-joukkueet (U11, U12, U13, … Edustus,
-            Naiset). <b>Tähtikortit</b> = muutama aikuispelaaja — näitä "mausteita"
-            saa ottaa vain 1–2.
+            Naiset). <b>Tähtikortit</b> = muutama aikuispelaaja. Kokoat 5 kortin
+            joukkueen, jossa on <b>vähintään 2 joukkuekorttia</b> — loput 3 paikkaa
+            saavat olla joukkueita tai tähtiä.
           </Lead>
           <Lead>
             Sinulla on tietty määrä <b>Ahma-coineja</b> 🪙 (budjetti). Parhaat kortit
@@ -122,9 +123,9 @@ const Ahmaliiga = () => {
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti — maalivahti</Typography>
           <Box sx={{ mt: 0.5 }}>
             <Rule label="Voitto" value="3" />
-            <Rule label="Nollapeli (ei päästä maalia)" value="+2" />
-            <Rule label="Torjunta-% ≥ 92 %" value="+2" />
-            <Rule label="Torjunta-% ≥ 95 %" value="+3" />
+            <Rule label="Nollapeli (ei päästä maalia)" value="+4" />
+            <Rule label="Torjunta-% ≥ 88 %" value="+2" />
+            <Rule label="Torjunta-% ≥ 92 %" value="+3" />
           </Box>
         </Section>
 
@@ -142,9 +143,9 @@ const Ahmaliiga = () => {
         <Section emoji="🔮" title="4. Veikkaa peli">
           <Lead>Joka kierros saat myös arvata yhden pelin lopputuloksen ja saada bonuspisteitä:</Lead>
           <Box>
-            <Rule label="Oikea voittaja" value="+1" />
-            <Rule label="Oikea voittaja ja maaliero" value="+2" />
-            <Rule label="Ihan tarkka tulos" value="+3" />
+            <Rule label="Oikea voittaja" value="+3" />
+            <Rule label="Oikea voittaja ja maaliero" value="+5" />
+            <Rule label="Ihan tarkka tulos" value="+8" />
           </Box>
         </Section>
 
@@ -180,7 +181,7 @@ const Ahmaliiga = () => {
           <Lead>
             Sinulla on <b>budjetti</b> (esim. 10 <b>Ahma-coinia</b> 🪙) ja poimit esim.
             <b> 5 korttia</b>. Joukkueet ovat halvempia ja tasaisempia, tähtipelaajat kalliimpia ja boom/bust
-            (max 3 pelaajakorttia). Yksi kortti <b>kapteeniksi</b> (2×). Voit eri
+            (vähintään 2 joukkuekorttia). Yksi kortti <b>kapteeniksi</b> (2×). Voit eri
             jaksoissa painottaa eri tavalla:
           </Lead>
           <Stack spacing={1.25} sx={{ mt: 0.5 }}>
@@ -192,10 +193,10 @@ const Ahmaliiga = () => {
                 { label: "Naiset — voitti 3–0 (nollapeli)", pts: "5" },
                 { label: "U12 Musta — tasapeli", pts: "1" },
                 { label: "U14 — tappio", pts: "0" },
-                { label: "🥅 Veskari (Edustus) — voitto + 94 % torjunta", pts: "5" },
-                { label: "Veikkaus — oikea voittaja", pts: "+1" },
+                { label: "🥅 Veskari (Edustus) — voitto + nollapeli", pts: "7" },
+                { label: "Veikkaus — oikea voittaja", pts: "+3" },
               ]}
-              total="≈ 22"
+              total="≈ 26"
               note="Vähän riskiä, tasaista tuottoa monelta kortilta."
             />
             <Example
@@ -207,9 +208,9 @@ const Ahmaliiga = () => {
                 { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "5" },
                 { label: "U13 Valkoinen — voitti 3–2", pts: "3" },
                 { label: "Edustus — tappio", pts: "0" },
-                { label: "Veikkaus — tarkka tulos", pts: "+3" },
+                { label: "Veikkaus — tarkka tulos", pts: "+8" },
               ]}
-              total="≈ 30"
+              total="≈ 35"
               note="Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa."
             />
           </Stack>

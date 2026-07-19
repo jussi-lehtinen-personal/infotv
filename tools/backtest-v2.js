@@ -31,11 +31,11 @@ function prediction() {
   const perPred = (b) => (mix.exact * b.exact + mix.margin * b.margin + mix.winner * b.winner) / N;
 
   const schemes = [
-    { name: "1 peli · 1/2/3 (nyk)", g: 1, b: { winner: 1, margin: 2, exact: 3 } },
-    { name: "1 peli · 3/5/8 (B)", g: 1, b: { winner: 3, margin: 5, exact: 8 } },
+    { name: "1 peli · 1/2/3 (vanha)", g: 1, b: { winner: 1, margin: 2, exact: 3 } },
+    { name: "1 peli · 3/5/8 (VALITTU)", g: 1, b: { winner: 3, margin: 5, exact: 8 } },
     { name: "3 peliä · 1/2/3", g: 3, b: { winner: 1, margin: 2, exact: 3 } },
     { name: "3 peliä · 2/3/5", g: 3, b: { winner: 2, margin: 3, exact: 5 } },
-    { name: "3 peliä · 3/5/8 (VALITTU)", g: 3, b: { winner: 3, margin: 5, exact: 8 } },
+    { name: "3 peliä · 3/5/8 (hylätty: dominoi)", g: 3, b: { winner: 3, margin: 5, exact: 8 } },
   ];
   console.log(`  havaittu osumajakauma: tarkka ${mix.exact} · maaliero ${mix.margin} · voittaja ${mix.winner} · ohi ${mix.miss}  (${Math.round(100 * (N - mix.miss) / N)} % osui)`);
   console.log(`  oletus: taitava veikkaaja osuu tuolla jakaumalla JOKA peliin, ${rounds} jaksoa\n`);

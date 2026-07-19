@@ -46,11 +46,11 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
   const humanRows = board.filter((r) => ['mgrA', 'mgrB', 'mgrC'].includes(r.userId));
   assert(humanRows.length === 3, `leaderboard has the 3 human managers (${humanRows.length})`);
 
-  // --- settlement AUTO-awards this round's top-3 (round 0 has a game) ---
-  assert(settleRes.vouchers === 3, `settleRound auto-created 3 round vouchers (${settleRes.vouchers})`);
+  // --- settlement AUTO-awards this round's top-1 (v2, 2026-07-19; round 0 has a game) ---
+  assert(settleRes.vouchers === 1, `settleRound auto-created 1 round voucher (top:1) (${settleRes.vouchers})`);
 
-  // --- re-generating is idempotent (settle already created them) ---
-  const gen = await generateVouchers('2026', { scope: 'round', round: R });
+  // --- re-generating the SAME top-1 is idempotent (settle already created it) ---
+  const gen = await generateVouchers('2026', { scope: 'round', round: R, top: 1 });
   assert(gen.created === 0, `manual re-generate is idempotent (${gen.created})`);
 
   // --- each manager has exactly one issued voucher + a reward notification ---

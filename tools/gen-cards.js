@@ -24,7 +24,7 @@ const cfgFlag = flags.find((f) => f === "--round-config" || f.startsWith("--roun
 const roundMode = cfgFlag ? "config" : "list";
 const countOverride = cfgFlag && cfgFlag.includes("=") ? Math.max(0, Number(cfgFlag.split("=")[1]) || 0) : null;
 
-const { cards: teamKeys, cj, start, nJaksot: nRounds } = buildSeason(season);
+const { cards: teamKeys, cj, start, nJaksot: nRounds, games } = buildSeason(season);
 const { players } = buildPlayerCards(season, start);
 const prior = buildPrevPrior(prevSeason);
 
@@ -33,13 +33,18 @@ const prior = buildPrevPrior(prevSeason);
 // buckets: 1 = even (teams); >1 = few in the top tiers + a long cheap tail (players).
 // IDENTICAL math to the in-season reband (bandPricesFrom in ahmaliiga.js) so a card's
 // seed price sits on the same ladder it later moves along. No prior → the middle tier.
-function assignBands(entries, tiers, skew = 1) {
+// seedClamp (v2, 2026-07-19): NO card starts at the ceiling tier — the top seed is
+// clamped one tier below the max, so the ceiling price is reachable ONLY via in-season
+// appreciation (reband uses the full ladder). Keeps a draft from being decided by one
+// pre-priced star and gives the "stock-market" meta somewhere to climb.
+function assignBands(entries, tiers, skew = 1, seedClamp = false) {
   const T = tiers.length;
+  const lo = seedClamp && T > 1 ? 1 : 0;
   const withPrior = entries.filter((e) => e.prior != null).sort((a, b) => b.prior - a.prior);
   const n = withPrior.length;
   const priceOf = {};
   const tierOf = (frac) => { let t = 0; while (t < T - 1 && frac > Math.pow((t + 1) / T, skew)) t++; return t; };
-  withPrior.forEach((e, i) => { priceOf[e.id] = tiers[tierOf((i + 0.5) / (n || 1))]; });
+  withPrior.forEach((e, i) => { priceOf[e.id] = tiers[Math.max(lo, tierOf((i + 0.5) / (n || 1)))]; });
   const mid = tiers[Math.floor(T / 2)];
   for (const e of entries) if (e.prior == null) priceOf[e.id] = mid;
   return priceOf;
@@ -55,14 +60,14 @@ const teamEntries = teamKeys.map((k) => {
   const age = k.split(" ")[0];
   return { id: "T:" + k, teamKey: k, age, prior: prior.teamByAge[age] ?? null };
 });
-const teamPrice = assignBands(teamEntries, CFG.bandTiers);
+const teamPrice = assignBands(teamEntries, CFG.bandTiers, 1, true);
 
 // Player/goalie cards (U18+) — priced BY NAME from the prior.
 const playerEntries = Object.keys(players).map((name) => ({
   id: "P:" + name, name, team: players[name].team, gk: players[name].gk,
   prior: prior.playerByName[name] ?? null,
 }));
-const playerPrice = assignBands(playerEntries, CFG.playerBandTiers, CFG.playerSkew);
+const playerPrice = assignBands(playerEntries, CFG.playerBandTiers, CFG.playerSkew, true);
 
 const round1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
@@ -91,9 +96,23 @@ const rounds = Array.from({ length: nRounds }, (_, j) => ({
   endDate: iso(new Date(start.getTime() + (j + 1) * ROUND_MS - 86400000)),
 }));
 
-// F2.6: real/live seasons emit a roundConfig (generated + extendable) instead of a
-// fixed rounds list. count defaults to the derived length; =N can start it smaller.
-const roundConfig = { startDate: iso(start), weeks: CFG.jaksoWeeks, count: countOverride != null ? countOverride : nRounds };
+// F2.6 + v2 (2026-07-19): real/live seasons emit a roundConfig (generated + extendable)
+// with WEEKLY Mon–Sun rounds — startDate snapped to the Monday on/before the first game,
+// weeks=1. (The replay 'list' mode above keeps CFG.jaksoWeeks=2 windows, frozen.) Lock =
+// each game's own kickoff (rolling lock), so Mon→first-game is the natural "set your
+// lineup" window. count defaults to enough weekly windows to cover the last game; =N
+// can start it smaller and let syncSeasonGames extend it.
+const CONFIG_WEEKS = 1;
+const mondayOnOrBefore = (d) => {
+  const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); // Mon=0 … Sun=6
+  return x;
+};
+const cfgStart = mondayOnOrBefore(start);
+const lastGame = games.reduce((m, g) => (g.date > m ? g.date : m), games[0].date);
+const cfgWeekMs = CONFIG_WEEKS * 7 * 86400000;
+const cfgCount = Math.max(1, Math.ceil((parseDate(lastGame) - cfgStart.getTime() + 86400000) / cfgWeekMs));
+const roundConfig = { startDate: iso(cfgStart), weeks: CONFIG_WEEKS, count: countOverride != null ? countOverride : cfgCount };
 
 const seed = {
   season,

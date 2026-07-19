@@ -64,6 +64,7 @@ app.http('ahmaliigaState', {
           budget: season.budget,
           squadSize: season.squadSize,
           maxPlayers: ECON.maxPlayers, // ECON is authoritative → balance change applies to the running season
+          minTeams: ECON.minTeams, // v2: 2 team-only slots → client renders 2 dedicated team slots
           bands,
           roundCount: rounds.length,
           currentRound: cur

@@ -8,9 +8,9 @@ import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmal
 // dropdowns. Bonus settles from the historical result.
 
 const BONUS = [
-  { icon: LuTrophy, label: "Oikea voittaja", pts: "+1p" },
-  { icon: LuTarget, label: "Oikea voittaja ja maaliero", pts: "+2p" },
-  { icon: LuStar, label: "Tarkka tulos", pts: "+3p" },
+  { icon: LuTrophy, label: "Oikea voittaja", pts: "+3p" },
+  { icon: LuTarget, label: "Oikea voittaja ja maaliero", pts: "+5p" },
+  { icon: LuStar, label: "Tarkka tulos", pts: "+8p" },
 ];
 const GOALS = Array.from({ length: 16 }, (_, i) => i); // 0..15
 

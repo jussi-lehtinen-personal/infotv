@@ -39,22 +39,35 @@ async function rejects(fn, needle, msg) {
   const overBudget = [...teams.slice(-3).map(id), ...players.slice(0, 2).map(id)];
   await rejects(() => saveSquad(U, overBudget, overBudget[0]), 'Budjetti', 'over-budget rejected');
 
-  // too many players: 3 players + 2 teams
-  const tooMany = [...players.slice(0, 3).map(id), ...teams.slice(0, 2).map(id)];
-  await rejects(() => saveSquad(U, tooMany, tooMany[0]), 'pelaaja', 'too-many-players rejected');
+  // v2 rule (minTeams=2): a FULL squad with < 2 teams is rejected. 4 cheap players +
+  // 1 cheap team (affordable → only the team rule can trip).
+  const tooFewTeams = [...players.slice(-4).map(id), id(teams[0])];
+  await rejects(() => saveSquad(U, tooFewTeams, tooFewTeams[0]), 'joukkue', 'too-few-teams (<2) rejected');
+
+  // v2: 3 players + 2 teams is now VALID (minTeams satisfied; no separate maxPlayers).
+  const threePlusTwo = [...players.slice(-3).map(id), ...teams.slice(0, 2).map(id)];
+  const rv = await saveSquad(U, threePlusTwo, threePlusTwo[0]);
+  ok(rv && rv.cards.length === 5, '3 players + 2 teams accepted (minTeams ok)');
 
   // captain not in squad
   await rejects(() => saveSquad(U, valid, id(teams[6])), 'Kapteeni', 'captain-not-in-squad rejected');
 
-  // wrong size
-  await rejects(() => saveSquad(U, valid.slice(0, 4), valid[0]), 'tasan', 'wrong-size rejected');
+  // upper bound: more than squadSize cards rejected (partial squads ARE allowed)
+  const tooBig = teams.slice(0, 6).map(id);
+  await rejects(() => saveSquad(U, tooBig, tooBig[0]), 'Enintään', 'over-size (6 cards) rejected');
 
-  // transfers: swap 1 card (ok), then a save changing 3 (reject)
+  // transfers are a SOFT penalty (not a hard reject): a fresh user's first complete
+  // build is free; a following 1-card swap counts 1 transfer. Isolated user so prior
+  // saves above don't pollute the transfer counter.
+  const U2 = 'test-user-2';
+  const base = teams.slice(0, 5).map(id);
+  await saveSquad(U2, base, base[0]);
   const swap1 = [teams[5], ...teams.slice(1, 5)].map(id);
-  const r2 = await saveSquad(U, swap1, swap1[0]);
-  ok(r2.transfersUsedThisJakso === 1, `1-card swap → transfersUsed ${r2.transfersUsedThisJakso}`);
-  const swap3 = [teams[5], teams[6], teams[7], teams[3], teams[4]].map(id);
-  await rejects(() => saveSquad(U, swap3, swap3[0]), 'siirtoja', '3-card swap over transfer cap rejected');
+  const r2 = await saveSquad(U2, swap1, swap1[0]);
+  // NB: in a freshly-seeded season at round 0 the round-start snapshot is empty, so
+  // build-round edits are free (transfersUsed stays 0 until a round rolls). Just assert
+  // the swap applied — transfer counting is exercised in the settlement tests.
+  ok(r2.cards.some((c) => c.id === id(teams[5])), '1-card swap applied');
 
   console.log(`\nM1 e2e: ${pass} pass, ${fail} fail`);
   process.exit(fail ? 1 : 0);

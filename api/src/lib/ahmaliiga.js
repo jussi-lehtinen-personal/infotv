@@ -11,17 +11,22 @@ const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResult
 const ECON = {
   budget: 120,
   squadSize: 5,
-  maxPlayers: 3, // 2026-07-17: 2→3 (players are the diversity engine; 11 teams is the bottleneck)
+  minTeams: 2, // v2 (2026-07-19): THE squad rule — a full squad must hold ≥2 team cards (2 team slots + 3 flex). Enforced in saveSquad.
+  maxPlayers: 3, // = squadSize − minTeams (the SAME rule, expressed as a player cap). Used by the bot builder + tools/model; saveSquad enforces minTeams, not this.
   transfersPerRound: 2,
   transferPenalty: 5, // points lost per extra transfer beyond the free allowance
   // Team price tiers, highest → lowest, assigned by form quintile (even buckets).
-  band: [30, 25, 20, 15, 10],
+  // v2 (2026-07-19): raised + spread by quality [50..10] (was [30..10]). The first
+  // test showed teams were too cheap + flat → priced by real strength now. Floor 10 =
+  // the weakest team is always an affordable filler. Backtest (backtest-v2.js): floor
+  // buyable, cheapest-5=90≤120, 2 top teams + 3 cheap = 140>120 (dream deck stays hard).
+  band: [50, 40, 30, 20, 10],
   // Player/goalie tiers (2026-07-17): wide 75→10 with a long cheap tail via a steep
   // bucket skew (playerSkew) → a few elite + many cheap "finds". No-form → mid tier.
   playerBand: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail
-  priceStepCap: 10, // max price move per round (coins) → appreciation is a slow skill play, not a one-settle windfall
-  predict: { winner: 1, margin: 2, exact: 3 }, // score-prediction bonus tiers
+  priceStepCap: 15, // v2 (2026-07-19): 10→15, faster "stock-market" price moves (weekly rounds also reband 2× as often)
+  predict: { winner: 3, margin: 5, exact: 8 }, // v2 (2026-07-19): buffed 1/2/3 → 3/5/8 (1 game/round). Backtest killed 3-game×3/5/8 (=26% of points, dominated); 1-game×3/5/8 ≈ 9% + a hit feels big.
 };
 
 const T = {
@@ -290,7 +295,7 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   if (!season) throw badRequest('Kausi ei ole käynnissä.');
   // maxPlayers from ECON (single source of truth) so a balance change applies to the
   // running season immediately, without migrating the stored season row.
-  const budget = season.budget, squadSize = season.squadSize, maxPlayers = ECON.maxPlayers;
+  const budget = season.budget, squadSize = season.squadSize, minTeams = ECON.minTeams;
 
   const cards = await getCards(season.rowKey);
   const map = {};
@@ -302,8 +307,12 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   if (new Set(cardIds).size !== cardIds.length) throw badRequest('Sama kortti valittu kahdesti.');
   for (const id of cardIds) if (!map[id]) throw badRequest('Tuntematon kortti kokoonpanossa.');
   if (cardIds.length && captainId && !cardIds.includes(captainId)) throw badRequest('Kapteenin on oltava kokoonpanossa.');
-  const playerCount = cardIds.filter((id) => map[id].kind !== 'team').length;
-  if (playerCount > maxPlayers) throw badRequest(`Enintään ${maxPlayers} pelaaja-/maalivahtikorttia.`);
+  // v2 (2026-07-19): ONE squad rule — a FULL squad must hold ≥ minTeams team cards
+  // (2 team slots + 3 flex). minTeams and the old "maxPlayers" express the SAME
+  // constraint (squadSize − minTeams = 3 players max); minTeams is the one we enforce.
+  // Only checked on a complete squad so mid-build partial editing stays frictionless.
+  const teamCount = cardIds.filter((id) => map[id].kind === 'team').length;
+  if (cardIds.length === squadSize && teamCount < minTeams) throw badRequest(`Vähintään ${minTeams} joukkuekorttia.`);
 
   const rounds = await getRounds(season.rowKey);
   const curRound = activeRoundNo(season, rounds);
@@ -660,13 +669,15 @@ async function settleRound(seasonId, round) {
     pts: resJ[c.rowKey] || 0, ownerCount: ownerCount[c.rowKey] || 0,
   }));
 
-  // F10: auto-award this round's top-3 prize vouchers — but ONLY for rounds that
-  // actually had games (empty windows award nothing). Idempotent (generateVouchers
-  // skips a prize that already exists) and best-effort: prize generation must never
-  // break settlement, so a failure here is swallowed and retried on the next settle.
+  // F10: auto-award this round's top-1 prize voucher — but ONLY for rounds that
+  // actually had games (empty windows award nothing). v2 (2026-07-19): round top:1
+  // (was top:3 → ~54 prizes/season, too sponsor-heavy); season prizes stay top-3
+  // (generated manually via scope:'season'). Idempotent (generateVouchers skips a prize
+  // that already exists) and best-effort: prize generation must never break settlement,
+  // so a failure here is swallowed and retried on the next settle.
   let vouchers = 0;
   if (games.length > 0) {
-    try { const g = await generateVouchers(seasonId, { scope: 'round', round }); vouchers = g.created; }
+    try { const g = await generateVouchers(seasonId, { scope: 'round', round, top: 1 }); vouchers = g.created; }
     catch (e) { /* prizes are best-effort */ }
   }
 

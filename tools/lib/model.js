@@ -11,10 +11,11 @@ const path = require("path");
 const CFG = {
   jaksoWeeks: 2,
   team: { win: 3, tie: 1, loss: 0, cleanSheet: 2, goalDiffPer: 0.5, goalDiffCap: 2 },
-  predict: { winner: 1, margin: 2, exact: 3 },
+  predict: { winner: 3, margin: 5, exact: 8 }, // v2 (2026-07-19): buffed 1/2/3 → 3/5/8 (matches ECON.predict)
   player: { goal: 3, assist: 2 },
   // Goalie save-% bonus tiers: 88/92 (2026-07-17, matches api/src/lib/scoring.js).
-  goalie: { win: 3, cleanSheet: 2, sv92: 2, sv95: 3, minShots: 15 },
+  // v2 (2026-07-19): shutout cleanSheet 2→4 (team.cleanSheet stays 2).
+  goalie: { win: 3, cleanSheet: 4, sv92: 2, sv95: 3, minShots: 15 },
   captainX: 2,
   squadSize: 5,
   budget: 120,
@@ -25,7 +26,7 @@ const CFG = {
   // wide 75→10 with a long cheap tail, bucketed by `playerSkew` (few elite + "finds");
   // teams unchanged (even buckets). The 3-value `band`/`playerBand` above stay ONLY for
   // the frozen backtest.js (reserve math / best-deck).
-  bandTiers: [30, 25, 20, 15, 10],
+  bandTiers: [50, 40, 30, 20, 10], // v2 (2026-07-19): raised + spread by quality (matches ECON.band)
   playerBandTiers: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail (even for teams)
   maxPlayers: 3,

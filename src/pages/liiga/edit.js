@@ -6,7 +6,7 @@ import {
 } from "@mui/material";
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
-  LuWallet, LuLayers, LuTrophy,
+  LuWallet, LuLayers, LuTrophy, LuShieldCheck,
 } from "react-icons/lu";
 import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
@@ -63,7 +63,7 @@ export default function LiigaEdit() {
   const [captainId, setCaptainId] = useState(null);
   const [perCard, setPerCard] = useState(null); // this round's points per card
   const [round, setRound] = useState(null);     // current round (for the header line)
-  const [maxPlayers, setMaxPlayers] = useState(3); // player-card cap (from /state; ECON-authoritative)
+  const [minTeams, setMinTeams] = useState(2); // a full squad needs ≥ this many team cards (from /state; ECON-authoritative)
   const [captainLocked, setCaptainLocked] = useState(false); // a round game has started → captain frozen for the round
   const [error, setError] = useState("");
 
@@ -106,7 +106,7 @@ export default function LiigaEdit() {
         if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
-        if (stateRes && stateRes.maxPlayers != null) setMaxPlayers(stateRes.maxPlayers);
+        if (stateRes && stateRes.minTeams != null) setMinTeams(stateRes.minTeams);
         // Captain is frozen for the whole round once any of its games has ACTUALLY
         // started (real time, ignoring the sim clock) — matches the backend reject.
         if (stateRes && stateRes.active) {
@@ -130,7 +130,12 @@ export default function LiigaEdit() {
   }, [all]);
 
   const selected = useMemo(() => ids.map((id) => byId[id]).filter(Boolean), [ids, byId]);
-  const playerCount = selected.filter((c) => c.kind !== "team").length;
+  const teamCount = selected.filter((c) => c.kind === "team").length;
+  const emptySlots = 5 - ids.length;
+  const teamsNeeded = Math.max(0, minTeams - teamCount); // teams still required to satisfy the rule
+  // Every remaining slot must be a team → adding a player here would make ≥minTeams
+  // unreachable. This is the single squad rule (minTeams ≡ the old maxPlayers cap).
+  const mustPickTeam = emptySlots > 0 && teamsNeeded >= emptySlots;
   const transfersLeft = Math.max(0, transfers.free - transfers.used);
   const captain = byId[captainId] || selected[0] || null;
   const rest = selected.filter((c) => c.id !== (captain && captain.id));
@@ -172,15 +177,17 @@ export default function LiigaEdit() {
     persist([...ids, c.id], captainId || c.id);
   };
 
-  // selection rules for the shared list
+  // selection rules for the shared list — the ONE rule is minTeams (a full squad needs
+  // ≥ minTeams team cards). A player is pickable only while ≥minTeams stays reachable.
   const canReplaceWith = (c) => {
     if (!replaceFor) return false;
     const afford = c.price <= bank + replaceFor.price;
-    const playersAfter = playerCount - (replaceFor.kind !== "team" ? 1 : 0) + (c.kind !== "team" ? 1 : 0);
-    return afford && playersAfter <= maxPlayers;
+    const teamsAfter = teamCount - (replaceFor.kind === "team" ? 1 : 0) + (c.kind === "team" ? 1 : 0);
+    const teamOk = c.kind === "team" || ids.length < 5 || teamsAfter >= minTeams; // full squad must keep ≥ minTeams
+    return afford && teamOk;
   };
   const canAdd = (c) =>
-    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || playerCount < maxPlayers);
+    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || !mustPickTeam);
 
   // This round's points for a card (null until loaded → shown as "—").
   const cardPts = (id) => (perCard ? (perCard[id] || 0) : null);
@@ -269,20 +276,32 @@ export default function LiigaEdit() {
     );
   };
 
-  // Empty formation slot → opens the add-card list.
-  const addSlot = ({ rotate = 0, width } = {}) => (
+  // Empty formation slot → opens the add-card list. When `teamOnly` (every remaining
+  // slot must be a team to reach minTeams) it becomes a "Joukkue" slot: shield icon +
+  // orange dashed border + label, and the picker only offers team cards.
+  const addSlot = ({ rotate = 0, width, teamOnly = false } = {}) => (
     <ButtonBase key={`add-${rotate}-${width || ""}`} disableRipple onClick={() => setAddOpen(true)}
       sx={{ ...(width ? { width } : {}), aspectRatio: CARD_AR, borderRadius: "14px", transform: `rotate(${rotate}deg)`,
-            display: "grid", placeItems: "center", color: "text.disabled", WebkitTapHighlightColor: "transparent",
+            display: "grid", placeItems: "center", gap: 0.5, WebkitTapHighlightColor: "transparent",
             "&:focus, &.Mui-focusVisible": { outline: "none" },
-            border: "1.5px dashed rgba(255,255,255,0.22)", bgcolor: "rgba(255,255,255,0.02)" }}>
-      <LuPlus size={22} />
+            color: teamOnly ? "primary.main" : "text.disabled",
+            border: `1.5px dashed ${teamOnly ? "rgba(249,115,22,0.6)" : "rgba(255,255,255,0.22)"}`,
+            bgcolor: teamOnly ? "rgba(249,115,22,0.06)" : "rgba(255,255,255,0.02)" }}>
+      {teamOnly ? (
+        <Box sx={{ display: "grid", placeItems: "center", gap: 0.75, px: 1, textAlign: "center" }}>
+          <Box component={LuShieldCheck} sx={{ fontSize: 26, display: "block" }} />
+          <Typography noWrap sx={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase" }}>Joukkue</Typography>
+        </Box>
+      ) : (
+        <LuPlus size={22} />
+      )}
     </ButtonBase>
   );
 
   // Fill a formation position: the card, an add slot (if the squad isn't full), or
-  // an empty spacer (keeps the grid aligned when the squad is full).
-  const slot = (c, opts) => (c ? formationCard(c, opts) : (ids.length < 5 ? addSlot(opts) : <Box sx={{ ...(opts && opts.width ? { width: opts.width } : {}), aspectRatio: CARD_AR }} />));
+  // an empty spacer (keeps the grid aligned when the squad is full). Empty slots turn
+  // into team-only "Joukkue" slots when a team is still required (mustPickTeam).
+  const slot = (c, opts) => (c ? formationCard(c, opts) : (ids.length < 5 ? addSlot({ ...opts, teamOnly: mustPickTeam }) : <Box sx={{ ...(opts && opts.width ? { width: opts.width } : {}), aspectRatio: CARD_AR }} />));
 
   if (all === null) return <Loading screen />;
 
@@ -331,6 +350,15 @@ export default function LiigaEdit() {
         );
       })()}
 
+      {teamsNeeded > 0 && (
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center", mb: 1, py: 1, px: 1.5,
+              borderRadius: "var(--radius-item)", bgcolor: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.28)" }}>
+          <Box component={LuShieldCheck} sx={{ fontSize: 16, color: "primary.main", display: "block", flexShrink: 0 }} />
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}>
+            Joukkuekortteja {teamCount}/{minTeams} — lisää vielä {teamsNeeded}
+          </Typography>
+        </Stack>
+      )}
       {error && <Alert severity="error" sx={{ mt: 0.5, mb: 1 }}>{error}</Alert>}
 
       {/* bottom hint bar: two info texts with a divider (reference) */}
@@ -481,7 +509,12 @@ export default function LiigaEdit() {
       </Dialog>
 
       {/* 6. Add list (full screen) */}
-      <LiigaDialog open={addOpen} onClose={() => setAddOpen(false)} title="Lisää kortti" right={<CoinPill value={bank} total={budget} />}>
+      <LiigaDialog open={addOpen} onClose={() => setAddOpen(false)} title={mustPickTeam ? "Lisää joukkuekortti" : "Lisää kortti"} right={<CoinPill value={bank} total={budget} />}>
+        {mustPickTeam && (
+          <Alert severity="info" icon={<Box component={LuShieldCheck} sx={{ fontSize: 20 }} />} sx={{ mb: 2 }}>
+            Kokoonpanossa on oltava vähintään {minTeams} joukkuekorttia — valitse joukkue.
+          </Alert>
+        )}
         <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canAdd}
           onPick={addCard} emptyText="Ei lisättäviä kortteja." />
       </LiigaDialog>
