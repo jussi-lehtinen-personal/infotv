@@ -4,7 +4,7 @@
 // Storage at M0. Re-run on the real season once its games exist; here we dry-run
 // on 2026 (priced from 2025) to validate the machinery.
 //
-//   node tools/gen-cards.js [season=2026] [prevSeason=2025] [--round-config[=N]] [--u15-callups=<U18-subsiteId>]
+//   node tools/gen-cards.js [season=2026] [prevSeason=2025] [--round-config[=N]] [--start=YYYY-MM-DD] [--u15-callups=<U18-subsiteId>]
 //
 // --round-config emits a `roundConfig {startDate, weeks, count}` (the F2.6 generated
 // schedule) instead of a fixed `rounds` list, so a live-synced season grows its
@@ -67,6 +67,8 @@ const mondayOnOrBefore = (d) => {
   const cfgFlag = flags.find((f) => f === "--round-config" || f.startsWith("--round-config="));
   const roundMode = cfgFlag ? "config" : "list";
   const countOverride = cfgFlag && cfgFlag.includes("=") ? Math.max(0, Number(cfgFlag.split("=")[1]) || 0) : null;
+  const startFlag = flags.find((f) => f.startsWith("--start="));
+  const startOverride = startFlag ? startFlag.split("=")[1] : null; // YYYY-MM-DD — start the schedule here (skip a sparse early season)
   const callupFlag = flags.find((f) => f.startsWith("--u15-callups="));
   const callupSubsite = callupFlag ? callupFlag.split("=")[1] : null;
   const u15TeamFlag = flags.includes("--u15-team");
@@ -205,7 +207,11 @@ const mondayOnOrBefore = (d) => {
   // defaults to enough windows to cover the last game; =N can start it smaller and let
   // syncSeasonGames extend it.
   const CONFIG_WEEKS = 2;
-  const cfgStart = mondayOnOrBefore(start);
+  // --start=YYYY-MM-DD overrides the season start (Monday-snapped) so a replay can skip
+  // a sparse early season — e.g. the 2026 season has just 1 game/round through late
+  // August; --start=2025-09-08 begins at the dense part (jakso 1 = 15 games). Games
+  // before the start fall outside the round windows and are excluded.
+  const cfgStart = mondayOnOrBefore(startOverride ? new Date(startOverride + "T00:00:00Z") : start);
   const lastGame = games.reduce((m, g) => (g.date > m ? g.date : m), games[0].date);
   const cfgWeekMs = CONFIG_WEEKS * 7 * 86400000;
   const cfgCount = Math.max(1, Math.ceil((parseDate(lastGame) - cfgStart.getTime() + 86400000) / cfgWeekMs));
