@@ -19,7 +19,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { CFG, loadSeason, buildSeason, buildPlayerCards, buildPrevPrior, parseDate } = require("./lib/model");
+const { CFG, loadSeason, buildSeason, buildPlayerCards, buildPrevPrior, parseDate, normName } = require("./lib/model");
 const { fetchJopoxRosterNames } = require("./lib/roster");
 
 // Assign a launch price by ranking a pool on prior form and bucketing into the
@@ -68,6 +68,23 @@ const mondayOnOrBefore = (d) => {
   const countOverride = cfgFlag && cfgFlag.includes("=") ? Math.max(0, Number(cfgFlag.split("=")[1]) || 0) : null;
   const callupFlag = flags.find((f) => f.startsWith("--u15-callups="));
   const callupSubsite = callupFlag ? callupFlag.split("=")[1] : null;
+  const u15TeamFlag = flags.includes("--u15-team");
+
+  const { cards: teamKeys, cj, start, nJaksot: nRounds, games } = buildSeason(season);
+  const { players } = buildPlayerCards(season, start);
+
+  // --u15-team (2026-07-19): include THIS season's whole U15 team as individual player
+  // cards. They're scored at RUNTIME from their U15 box scores (the seed sets season
+  // playerAges:["U15"]), and PRICED from their prevSeason younger-group box scores — a
+  // player played U14/U15/U16 the year before (varies per player), so the prior is
+  // matched by NAME across all of those ages. Separate from --u15-callups (Jopox roster).
+  const PRIOR_AGES = new Set(["U13", "U14", "U15", "U16", "U17"]);
+  let u15Players = null;
+  if (u15TeamFlag) {
+    const cu = buildPlayerCards(season, start, { callupAges: new Set(["U15"]), callupNames: { has: () => true } }).players;
+    u15Players = {};
+    for (const name of Object.keys(cu)) if (String(cu[name].team).split(" ")[0] === "U15") u15Players[name] = { gk: cu[name].gk };
+  }
 
   // B10: fetch the U18 roster names and include prevSeason's aged-up younger players.
   const CALLUP_AGES = new Set(["U15", "U16", "U17"]);
@@ -76,10 +93,9 @@ const mondayOnOrBefore = (d) => {
     callupNames = await fetchJopoxRosterNames(callupSubsite);
     console.log(`U15-callups: fetched ${callupNames.size / 2 | 0} roster names from Jopox subsite ${callupSubsite}`);
   }
-  const callupOpts = callupNames ? { callupAges: CALLUP_AGES, callupNames } : {};
-
-  const { cards: teamKeys, cj, start, nJaksot: nRounds, games } = buildSeason(season);
-  const { players } = buildPlayerCards(season, start);
+  const callupOpts = u15TeamFlag
+    ? { callupAges: PRIOR_AGES, callupNames: new Set(Object.keys(u15Players).map(normName)) }
+    : callupNames ? { callupAges: CALLUP_AGES, callupNames } : {};
   const prior = buildPrevPrior(prevSeason, callupOpts);
 
   // Team cards — priced BY AGE from the prior.
@@ -94,6 +110,18 @@ const mondayOnOrBefore = (d) => {
     id: "P:" + name, name, team: players[name].team, gk: players[name].gk,
     prior: prior.playerByName[name] ?? null,
   }));
+
+  // --u15-team: add this season's U15 players as player/goalie cards (priced from their
+  // prevSeason younger-group prior; mid if none). Scored at runtime via season playerAges.
+  let u15Count = 0;
+  if (u15TeamFlag) {
+    const have = new Set(Object.keys(players));
+    for (const name of Object.keys(u15Players)) {
+      if (have.has(name)) continue;
+      playerEntries.push({ id: "P:" + name, name, team: "U15", gk: u15Players[name].gk, prior: prior.playerByName[name] ?? null, u15: true });
+      u15Count++;
+    }
+  }
 
   // B10 call-ups: prevSeason's younger (U15/U16/U17) players on the U18 roster who are
   // NOT already in this season's pool → add as U18 player cards, priced from their
@@ -125,7 +153,7 @@ const mondayOnOrBefore = (d) => {
       id: e.id, kind: e.gk ? "goalie" : "player", name: e.name, sub: e.team,
       personName: e.name, team: e.team,
       band: bandName(playerPrice[e.id], CFG.playerBandTiers), price: playerPrice[e.id],
-      priorForm: round1(e.prior), ...(e.callup ? { callup: true } : {}),
+      priorForm: round1(e.prior), ...(e.callup ? { callup: true } : {}), ...(e.u15 ? { u15: true } : {}),
     })),
   ];
 
@@ -159,6 +187,7 @@ const mondayOnOrBefore = (d) => {
     maxPlayers: CFG.maxPlayers,
     bands: { team: CFG.bandTiers, player: CFG.playerBandTiers },
     generatedFromLocalData: true,
+    ...(u15TeamFlag ? { playerAges: ["U15"] } : {}),
     ...(roundMode === "config" ? { roundConfig } : { rounds }),
     cards,
   };
@@ -172,6 +201,7 @@ const mondayOnOrBefore = (d) => {
     .map((b) => `${b} ${list.filter((c) => c.band === b).length}`).join(" · ");
   console.log(`Ahmaliiga card seed — season ${season} (priced from ${prevSeason})`);
   console.log(`  ${cards.length} cards → ${out}`);
+  if (u15TeamFlag) console.log(`  U15-team: ${u15Count} U15 player card(s) added (scored at runtime from ${season} U15; priced from ${prevSeason})`);
   if (callupNames) console.log(`  U15-callups: ${callupCount} aged-up player card(s) added from ${prevSeason} (roster-matched)`);
   console.log(roundMode === "config"
     ? `  rounds: roundConfig ${roundConfig.startDate} · ${roundConfig.weeks} wk × ${roundConfig.count} (generated, extendable via sync)`

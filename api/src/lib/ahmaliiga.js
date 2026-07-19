@@ -153,6 +153,10 @@ async function seedSeason(seed) {
     name: `Kausi ${seasonId}`, pricedFrom: String(seed.pricedFrom || ''),
     budget: seed.budget ?? ECON.budget, squadSize: seed.squadSize ?? ECON.squadSize,
     maxPlayers: seed.maxPlayers ?? ECON.maxPlayers, bands: JSON.stringify(seed.bands || {}),
+    // Season-scoped extra player-eligible age tokens (e.g. ["U15"]) — lets a specific
+    // test include a younger team as individual player cards WITHOUT changing the global
+    // U18+ line (the real product stays U18+). Default none.
+    playerAges: JSON.stringify(Array.isArray(seed.playerAges) ? seed.playerAges : []),
     // Sim/replay: an admin-advanced round pointer (settlement moves it forward) +
     // a sim clock (day-stepped by the cron; starts at the first round).
     currentRound: 0, simMode: true,
@@ -981,18 +985,28 @@ async function fetchGameReport(g) {
 
 // Compute a round's results at RUNTIME: the round's games (team cards) + box scores
 // for player-eligible games (player/goalie cards). Same shape as getResultsFull.
+// Season-scoped extra player-eligible ages (Set), e.g. {"U15"} for a test that cards a
+// younger team. Empty for a normal season → the global U18+ line applies.
+function extraAgesOf(season) {
+  try { const a = JSON.parse((season && season.playerAges) || '[]'); return new Set(Array.isArray(a) ? a : []); }
+  catch { return new Set(); }
+}
+
 async function computeRoundResults(seasonId, round) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  const extraAges = extraAgesOf(season);
   const games = await getRoundGames(seasonId, round);
-  const eligible = games.filter((g) => isPlayerEligible(teamKey(g)));
+  const isElig = (g) => isPlayerEligible(teamKey(g)) || extraAges.has(String(teamKey(g)).split(' ')[0]);
+  const eligible = games.filter(isElig);
   const reports = {};
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
-  const { results, reasons } = computeRoundPoints({ games, reports });
+  const { results, reasons } = computeRoundPoints({ games, reports, extraAges });
   // Per-game card points too, so settlement can attribute each game to the squad
   // frozen at ITS kickoff (rolling lock).
   const perGame = {};
   for (const g of games) {
     const rep = reports[g.gameId];
-    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {} }).results;
+    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges }).results;
   }
   return { results, reasons, perGame, gameList: games, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
 }
@@ -1044,8 +1058,9 @@ async function roundProgress(seasonId, round, userId) {
   // from the game result (not the box score), so an all-team squad needs no reports
   // → the slow per-game Worker fetch is avoided on the common squad-page load.
   const reports = {};
+  const extraAges = extraAgesOf(season);
   const squadHasPlayers = squad.cards.some((c) => { const cd = cardMap[c.id]; return cd && cd.kind !== 'team'; });
-  const eligible = squadHasPlayers ? playedGames.filter((g) => isPlayerEligible(teamKey(g))) : [];
+  const eligible = squadHasPlayers ? playedGames.filter((g) => isPlayerEligible(teamKey(g)) || extraAges.has(String(teamKey(g)).split(' ')[0])) : [];
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
 
   const ids = squad.cards.map((c) => c.id);
@@ -1064,7 +1079,7 @@ async function roundProgress(seasonId, round, userId) {
   let livePoints = 0;
   for (const g of playedGames) {
     const rep = reports[g.gameId];
-    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {} });
+    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges });
     const eff = effectiveSquad(g, lineups, ids, captainId);
     let gPts = 0;
     for (const id of eff.ids) {

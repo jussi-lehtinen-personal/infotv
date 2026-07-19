@@ -53,9 +53,13 @@ function playerReason(d) {
 // Compute a round's results. `games` = the round's games (runtime shape); `reports`
 // = { gameId -> box score } for player-eligible games (may be partial/empty →
 // team cards still score; players just miss the games without a report).
+// `extraAges` (optional Set of age tokens, e.g. {"U15"}) — season-scoped extension of
+// player eligibility for a specific test (e.g. the U15 team included as individual
+// cards for a replay). Default: only PLAYER_AGES (U18+). Team scoring is unaffected.
 // Returns { results: { cardId: pts }, reasons: { cardId: reasonStr } }.
-function computeRoundPoints({ games, reports }) {
+function computeRoundPoints({ games, reports, extraAges }) {
   reports = reports || {};
+  const eligible = (tk) => isPlayerEligible(tk) || !!(extraAges && extraAges.has(String(tk).split(" ")[0]));
   const results = {};
   const add = (id, p) => { results[id] = (results[id] || 0) + p; };
   const teamRes = {};   // "T:"+tk -> [{gf,ga}]
@@ -69,7 +73,7 @@ function computeRoundPoints({ games, reports }) {
     add(tid, teamGamePoints(gf, ga).pts);
     (teamRes[tid] = teamRes[tid] || []).push({ gf, ga });
 
-    if (!isPlayerEligible(tk)) continue;
+    if (!eligible(tk)) continue;
     const r = reports[g.gameId];
     if (!r) continue;
     const ahmaSide = g.ahmaHome ? "home" : "away";
