@@ -198,12 +198,13 @@ const mondayOnOrBefore = (d) => {
   }));
 
   // F2.6 + v2 (2026-07-19): real/live seasons emit a roundConfig (generated + extendable)
-  // with WEEKLY Mon–Sun rounds — startDate snapped to the Monday on/before the first game,
-  // weeks=1. (The replay 'list' mode above keeps CFG.jaksoWeeks=2 windows, frozen.) Lock =
-  // each game's own kickoff (rolling lock), so Mon→first-game is the natural "set your
-  // lineup" window. count defaults to enough weekly windows to cover the last game; =N
-  // can start it smaller and let syncSeasonGames extend it.
-  const CONFIG_WEEKS = 1;
+  // with 2-WEEK rounds aligned Mon→Sun — startDate snapped to the Monday on/before the
+  // first game, weeks=2 (a round runs Mon → the 2nd Sunday, 14 days). (The replay 'list'
+  // mode above uses the same 2-week windows, frozen.) Lock = each game's own kickoff
+  // (rolling lock), so Mon→first-game is the natural "set your lineup" window. count
+  // defaults to enough windows to cover the last game; =N can start it smaller and let
+  // syncSeasonGames extend it.
+  const CONFIG_WEEKS = 2;
   const cfgStart = mondayOnOrBefore(start);
   const lastGame = games.reduce((m, g) => (g.date > m ? g.date : m), games[0].date);
   const cfgWeekMs = CONFIG_WEEKS * 7 * 86400000;
