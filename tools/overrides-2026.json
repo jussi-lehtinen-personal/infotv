@@ -1,5 +1,8 @@
 {
   "_comment": "Ahmaliiga 2026-replay manual seed price overrides (cardId -> price). Hand-corrections for cards whose 2024-25 prior isn't comparable. Applied by gen-cards --overrides=tools/overrides-2026.json AFTER banding (does not reshuffle others).",
   "P:TIKKALA Paavo": 45,
-  "P:KARJALAINEN Eemi": 45
+  "P:KARJALAINEN Eemi": 45,
+  "T:Naiset": 50,
+  "P:OLANDER Anni": 60,
+  "P:LIPSONEN Vilja": 45
 }
