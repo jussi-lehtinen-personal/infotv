@@ -499,10 +499,29 @@ async function settleRound(seasonId, round) {
 
   const ownerCount = {};
   const roundRows = [];
+  const wasSettled = rounds.some((j) => Number(j.rowKey) === round && j.status === 'settled');
   for (const m of managers) {
     const existing = await getEntity(T.scores, `${seasonId}|${round}`, m.userId);
     const sq = await getSquad(m.userId);
+    // On a RE-SETTLE, only touch managers who already had a score this round — a late
+    // joiner must NOT be retroactively scored on rounds before they joined.
+    if (wasSettled && !(existing && existing.cards)) continue;
     if ((!sq || !sq.cards.length) && !(existing && existing.cards)) continue;
+
+    // RE-SETTLE = "refresh trends/prices/cumulative WITHOUT changing standings" (its
+    // stated purpose). PRESERVE each already-settled round's score exactly: early
+    // rounds predate the per-game lineup snapshots, so recomputing them from the
+    // (moved-on) current squad would silently rewrite history — and a late OT/shootout
+    // sync is deliberately NOT back-applied to settled rounds for the same reason.
+    if (wasSettled && existing && existing.cards) {
+      let brk = {}, ci = {};
+      try { brk = JSON.parse(existing.breakdown || '{}'); } catch { brk = {}; }
+      try { ci = JSON.parse(existing.cards || '{}'); } catch { ci = {}; }
+      for (const id of (ci.ids || [])) ownerCount[id] = (ownerCount[id] || 0) + 1;
+      roundRows.push({ userId: m.userId, total: Number(existing.total) || 0, ids: ci.ids || [], captainId: ci.captainId || null, breakdown: brk, penalty: Number(existing.penalty) || 0 });
+      continue;
+    }
+
     const curIds = sq ? sq.cards.map((c) => c.id) : [];
     const curCaptain = sq ? sq.captainId : null;
 
@@ -572,7 +591,6 @@ async function settleRound(seasonId, round) {
   // on hand. Emitted ONLY on the FIRST settlement of a round (not on re-settle),
   // so notifications a manager has read or deleted don't come back to life.
   // reverse-round prefix so the inbox lists the newest round first.
-  const wasSettled = rounds.some((j) => Number(j.rowKey) === round && j.status === 'settled');
   const humanIds = new Set(managers.filter((m) => !m.isBot).map((m) => m.userId));
   const nowIso = new Date().toISOString();
   const revRound = String(1000 - round).padStart(4, '0');
