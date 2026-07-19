@@ -449,14 +449,23 @@ async function cumForm(seasonId, round) {
 // → prices[last]. `prices` is a highest→lowest array. `skew` shapes the bucketing:
 // 1 = even buckets (teams); >1 = few cards in the top tiers + a long cheap tail
 // (players). No form (not yet played) → the middle tier.
+// VALUE-based (2026-07-19): a card's target price tracks its form's MAGNITUDE, not its
+// rank — equal form → equal price, and a much bigger form → a strictly higher price
+// (the old rank buckets collapsed very different seasons to the same tier). price =
+// form/maxForm mapped onto the ladder, snapped to the nearest step. The "few elite +
+// long tail" shape falls out of the form distribution (no skew). No form → mid. Callers
+// apply priceStepCap so a card still climbs to the ceiling only gradually. IDENTICAL
+// math to gen-cards assignBands. `skew` is accepted for compatibility but unused.
 function bandPricesFrom(pool, form, prices, skew = 1) {
-  const tiers = prices.length;
-  const withForm = pool.filter((c) => form[c.rowKey] != null).sort((a, b) => form[b.rowKey] - form[a.rowKey]);
-  const n = withForm.length, out = {};
-  const tierOf = (frac) => { let t = 0; while (t < tiers - 1 && frac > Math.pow((t + 1) / tiers, skew)) t++; return t; };
-  withForm.forEach((c, i) => { out[c.rowKey] = prices[tierOf((i + 0.5) / (n || 1))]; });
-  const mid = prices[Math.floor(tiers / 2)];
-  for (const c of pool) if (form[c.rowKey] == null) out[c.rowKey] = mid;
+  const vals = pool.map((c) => form[c.rowKey]).filter((v) => v != null);
+  const max = vals.length ? Math.max(...vals) : 0;
+  const mid = prices[Math.floor(prices.length / 2)];
+  const snap = (target) => { let best = prices[0]; for (const t of prices) if (Math.abs(t - target) < Math.abs(best - target)) best = t; return best; };
+  const out = {};
+  for (const c of pool) {
+    const v = form[c.rowKey];
+    out[c.rowKey] = v == null ? mid : (max > 0 ? snap((v / max) * prices[0]) : mid);
+  }
   return out;
 }
 // Coarse band name (still 3 labels) for the UI: top tier = kallis, bottom = halpa,

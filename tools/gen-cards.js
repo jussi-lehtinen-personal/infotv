@@ -22,25 +22,26 @@ const path = require("path");
 const { CFG, loadSeason, buildSeason, buildPlayerCards, buildPrevPrior, parseDate, normName } = require("./lib/model");
 const { fetchJopoxRosterNames } = require("./lib/roster");
 
-// Assign a launch price by ranking a pool on prior form and bucketing into the
-// ladder (best form → tiers[0] highest, worst → tiers[last]). `skew` shapes the
-// buckets: 1 = even (teams); >1 = few in the top tiers + a long cheap tail (players).
-// IDENTICAL math to the in-season reband (bandPricesFrom in ahmaliiga.js) so a card's
-// seed price sits on the same ladder it later moves along. No prior → the middle tier.
-// seedClamp (v2, 2026-07-19): NO card starts at the ceiling tier — the top seed is
-// clamped one tier below the max, so the ceiling price is reachable ONLY via in-season
-// appreciation (reband uses the full ladder). Keeps a draft from being decided by one
-// pre-priced star and gives the "stock-market" meta somewhere to climb.
+// Assign a launch price from the prior's VALUE (magnitude), not its rank (2026-07-19).
+// The old rank-buckets collapsed very different seasons to the same tier (a 160-pt and a
+// 104-pt prior both landed on 60c) and split near-equal ones (104 vs 94 → different
+// tiers). Value-based fixes both: price = prior/maxPrior mapped onto the ladder, snapped
+// to the nearest step — equal priors → equal price, a much bigger prior → a strictly
+// higher price, and the "few elite + long cheap tail" shape falls out of the prior
+// distribution itself (no skew needed). `seedClamp` caps the top at the 2nd tier so no
+// card starts at the ceiling (reached only by in-season appreciation). No prior → mid.
+// IDENTICAL math to the in-season reband (bandPricesFrom in ahmaliiga.js). `skew` is
+// accepted for signature compatibility but no longer used.
 function assignBands(entries, tiers, skew = 1, seedClamp = false) {
-  const T = tiers.length;
-  const lo = seedClamp && T > 1 ? 1 : 0;
-  const withPrior = entries.filter((e) => e.prior != null).sort((a, b) => b.prior - a.prior);
-  const n = withPrior.length;
+  const vals = entries.map((e) => e.prior).filter((v) => v != null);
+  const max = vals.length ? Math.max(...vals) : 0;
+  const cap = seedClamp && tiers.length > 1 ? tiers[1] : tiers[0];
+  const mid = tiers[Math.floor(tiers.length / 2)];
+  const snap = (target) => { let best = tiers[0]; for (const t of tiers) if (Math.abs(t - target) < Math.abs(best - target)) best = t; return best; };
   const priceOf = {};
-  const tierOf = (frac) => { let t = 0; while (t < T - 1 && frac > Math.pow((t + 1) / T, skew)) t++; return t; };
-  withPrior.forEach((e, i) => { priceOf[e.id] = tiers[Math.max(lo, tierOf((i + 0.5) / (n || 1)))]; });
-  const mid = tiers[Math.floor(T / 2)];
-  for (const e of entries) if (e.prior == null) priceOf[e.id] = mid;
+  for (const e of entries) {
+    priceOf[e.id] = e.prior == null ? mid : Math.min(snap(max > 0 ? (e.prior / max) * tiers[0] : 0), cap);
+  }
   return priceOf;
 }
 
