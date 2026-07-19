@@ -144,7 +144,7 @@ const mondayOnOrBefore = (d) => {
   }
   const playerPrice = assignBands(playerEntries, CFG.playerBandTiers, CFG.playerSkew, true);
 
-  const cards = [
+  let cards = [
     ...teamEntries.map((e) => ({
       id: e.id, kind: "team", name: e.teamKey, sub: e.age,
       teamKey: e.teamKey, age: e.age,
@@ -177,6 +177,15 @@ const mondayOnOrBefore = (d) => {
       overrideList.push(`${c.name}: ${from} → ${c.price}c`);
     }
   }
+
+  // Exclusions (overrides._exclude: [cardId, ...]) — drop specific cards from the pool
+  // (e.g. a player who shouldn't be a card this season). Warn on any id that matched no
+  // card (a misspelt name, or a player who never scored → never was in the pool).
+  const excludeIds = Array.isArray(overrides._exclude) ? overrides._exclude : [];
+  const present = new Set(cards.map((c) => c.id));
+  const removed = excludeIds.filter((id) => present.has(id));
+  const unmatchedExcl = excludeIds.filter((id) => !present.has(id));
+  if (removed.length) cards = cards.filter((c) => !removed.includes(c.id));
 
   // Round schedule: 2-week windows over the season's date range (derived from the
   // games). Rolling model → no single lockAt; each game locks at its own kickoff.
@@ -225,6 +234,8 @@ const mondayOnOrBefore = (d) => {
   if (u15TeamFlag) console.log(`  U15-team: ${u15Count} U15 player card(s) added (scored at runtime from ${season} U15; priced from ${prevSeason})`);
   if (callupNames) console.log(`  U15-callups: ${callupCount} aged-up player card(s) added from ${prevSeason} (roster-matched)`);
   if (overrideList.length) console.log(`  overrides (${overrideList.length}): ${overrideList.join(" · ")}`);
+  if (removed.length) console.log(`  excluded (${removed.length}): ${removed.join(" · ")}`);
+  if (unmatchedExcl.length) console.log(`  ⚠ exclude not found (${unmatchedExcl.length}): ${unmatchedExcl.join(" · ")} — misspelt, or never scored → not in pool`);
   console.log(roundMode === "config"
     ? `  rounds: roundConfig ${roundConfig.startDate} · ${roundConfig.weeks} wk × ${roundConfig.count} (generated, extendable via sync)`
     : `  rounds: ${rounds.length} fixed windows (replay)`);
