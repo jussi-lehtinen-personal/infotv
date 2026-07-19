@@ -158,11 +158,11 @@ const AdminBackups = () => {
               {data.backups.map((b) => (
                 <Stack key={b.name} direction="row" alignItems="center" spacing={1.25} sx={{ px: 1.75, py: 1.25, borderRadius: 2, bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-divider)", fontSize: 14 }}>
                   <LuDatabase style={{ flexShrink: 0, opacity: 0.6 }} />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>{fmtDateTime(b.createdAt)}</Box>
-                  <Box sx={{ fontSize: 12, color: "text.secondary" }}>{fmtSize(b.size)}</Box>
+                  <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>{fmtDateTime(b.createdAt)}</Box>
+                  <Box sx={{ fontSize: 12, color: "text.secondary", display: "flex", alignItems: "center" }}>{fmtSize(b.size)}</Box>
                   <Button size="small" startIcon={<LuHistory size={15} />}
                     onClick={() => { setRestoreMsg(null); setAhmaOnly(true); setRestoreTarget(b); }}
-                    sx={{ flexShrink: 0, textTransform: "none", color: "text.secondary", minWidth: 0 }}>Palauta</Button>
+                    sx={{ flexShrink: 0, textTransform: "none", color: "text.secondary", minWidth: 0, alignSelf: "center" }}>Palauta</Button>
                 </Stack>
               ))}
             </Stack>
