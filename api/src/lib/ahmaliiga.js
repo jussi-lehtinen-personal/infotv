@@ -661,7 +661,15 @@ async function settleRound(seasonId, round) {
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
   if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'settled' });
   const nextRound = Math.min(round + 1, rounds.length - 1);
-  await upsertEntity(T.season, { ...seasonRow, currentRound: nextRound });
+  // Advance the sim clock to the next round's start so a MANUAL "Ratkaise jakso" moves
+  // the game forward (pointer + clock stay in sync) — settling a round used to leave the
+  // clock stuck on the just-settled round. Replay only (not realClock), monotonic (never
+  // rewind on a re-settle). stepSim overwrites simDate with its own target afterwards, so
+  // auto-stepping is unaffected.
+  const nextRow = rounds.find((j) => Number(j.rowKey) === nextRound);
+  const simDate = (seasonRow.simMode && !seasonRow.realClock && nextRow && nextRow.startDate > (seasonRow.simDate || ''))
+    ? nextRow.startDate : seasonRow.simDate;
+  await upsertEntity(T.season, { ...seasonRow, currentRound: nextRound, simDate });
 
   // recompute the WHOLE cumulative (0..last) so re-settling an earlier round stays correct
   await recomputeSeasonScores(seasonId, rounds.length - 1);
