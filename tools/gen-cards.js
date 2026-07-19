@@ -69,6 +69,8 @@ const mondayOnOrBefore = (d) => {
   const callupFlag = flags.find((f) => f.startsWith("--u15-callups="));
   const callupSubsite = callupFlag ? callupFlag.split("=")[1] : null;
   const u15TeamFlag = flags.includes("--u15-team");
+  const overridesFlag = flags.find((f) => f.startsWith("--overrides="));
+  const overridesPath = overridesFlag ? overridesFlag.split("=")[1] : null;
 
   const { cards: teamKeys, cj, start, nJaksot: nRounds, games } = buildSeason(season);
   const { players } = buildPlayerCards(season, start);
@@ -157,6 +159,25 @@ const mondayOnOrBefore = (d) => {
     })),
   ];
 
+  // Manual price overrides (--overrides=<json>): { cardId: price }. Applied LAST so they
+  // never reshuffle the ranked bands — a targeted hand-correction for cards whose prior
+  // isn't comparable (e.g. a U15 player who played U16 UNDERAGE → too cheap; a team/
+  // player with no prev-season data stuck at mid, like Naiset/Olander in 2025).
+  let overrides = {}, overrideList = [];
+  if (overridesPath) {
+    try { overrides = JSON.parse(fs.readFileSync(overridesPath, "utf8")); }
+    catch (e) { console.error(`overrides read failed (${overridesPath}): ${e.message}`); }
+  }
+  for (const c of cards) {
+    if (overrides[c.id] != null) {
+      const from = c.price;
+      c.price = Number(overrides[c.id]);
+      c.band = bandName(c.price, c.kind === "team" ? CFG.bandTiers : CFG.playerBandTiers);
+      c.override = true;
+      overrideList.push(`${c.name}: ${from} → ${c.price}c`);
+    }
+  }
+
   // Round schedule: 2-week windows over the season's date range (derived from the
   // games). Rolling model → no single lockAt; each game locks at its own kickoff.
   const ROUND_MS = CFG.jaksoWeeks * 7 * 86400000;
@@ -203,6 +224,7 @@ const mondayOnOrBefore = (d) => {
   console.log(`  ${cards.length} cards → ${out}`);
   if (u15TeamFlag) console.log(`  U15-team: ${u15Count} U15 player card(s) added (scored at runtime from ${season} U15; priced from ${prevSeason})`);
   if (callupNames) console.log(`  U15-callups: ${callupCount} aged-up player card(s) added from ${prevSeason} (roster-matched)`);
+  if (overrideList.length) console.log(`  overrides (${overrideList.length}): ${overrideList.join(" · ")}`);
   console.log(roundMode === "config"
     ? `  rounds: roundConfig ${roundConfig.startDate} · ${roundConfig.weeks} wk × ${roundConfig.count} (generated, extendable via sync)`
     : `  rounds: ${rounds.length} fixed windows (replay)`);
