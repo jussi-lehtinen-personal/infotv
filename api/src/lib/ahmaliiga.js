@@ -674,10 +674,15 @@ async function settleRound(seasonId, round) {
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
     const old = Number(c.price);
-    // Gradual: move at most priceStepCap coins toward the form target this round, so a
-    // card can't jump min→max in one settle (appreciation is a slow skill play).
+    // A card that hasn't played yet (no form — its team had no game / the player hasn't
+    // scored) KEEPS its current price. Don't drift it toward the mid tier just because
+    // OTHER cards played this round — that dropped e.g. an overridden star (Olander 60)
+    // even though her team had no game. Only cards with real form reband.
+    // Gradual: move at most priceStepCap coins toward the form target, so a card can't
+    // jump min→max in one settle (appreciation is a slow skill play).
     const target = targetPrice[c.rowKey];
-    const price = old + Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
+    const price = form[c.rowKey] == null ? old
+      : old + Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
     return {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
