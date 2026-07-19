@@ -899,7 +899,10 @@ async function syncSeasonGames(seasonId) {
   const data = await workerGet(`/getSeasonGames?season=${encodeURIComponent(seasonId)}`);
   const all = (data && data.games) || [];
   const games = all.filter((g) =>
-    g.finished == 1 && g.home_goals != null && g.away_goals != null &&
+    // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or
+    // the U9-U10 Leijonaliiga no-score format. `== 1` was DROPPING every OT/shootout
+    // game (e.g. the Naisten Mestis shootout playoff win) → those points went uncounted.
+    Number(g.finished) > 0 && g.home_goals != null && g.away_goals != null &&
     !FRIENDLY_RE.test(g.league || '') && !FRIENDLY_RE.test(g.level || ''));
   const season = await getEntity(T.season, 'season', seasonId);
   let rounds = await getRounds(seasonId);

@@ -44,7 +44,8 @@ function loadSeason(year) {
   const o = JSON.parse(fs.readFileSync(path.join(DATA, `season-${year}.json`), "utf8"));
   const games = Array.isArray(o) ? o : Object.values(o).find(Array.isArray) || [];
   return games.filter(
-    (g) => g.finished == 1 && g.home_goals != null && g.away_goals != null &&
+    // completed = regulation/OT/shootout (finished > 0); 0 = no result / Leijonaliiga.
+    (g) => Number(g.finished) > 0 && g.home_goals != null && g.away_goals != null &&
       !FRIENDLY.test(g.league || "") && !FRIENDLY.test(g.level || "")
   );
 }
@@ -130,7 +131,7 @@ function buildPlayerCards(year, start) {
   // per-(player,jakso) breakdown for the "why these points" explanation
   const dj = (name, J) => { const d = (detail[name] = detail[name] || {}); return (d[J] = d[J] || { goals: 0, assists: 0 }); };
   for (const g of all) {
-    if (!isPlayerEligible(teamKey(g)) || g.finished != 1) continue;
+    if (!isPlayerEligible(teamKey(g)) || Number(g.finished) === 0) continue;
     const tkk = teamKey(g), J = jaksoOf(g);
     (teamJaksot[tkk] = teamJaksot[tkk] || new Set()).add(J);
     const f = path.join(DATA, "reports", `${year}__${g.id}.json`);
