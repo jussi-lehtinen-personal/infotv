@@ -329,16 +329,22 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const curRound = activeRoundNo(season, rounds);
   const prev = await getSquad(userId);
   const roundGames = await getRoundGames(season.rowKey, curRound);
-  // Uses REAL wall-clock time (NOT the sim date) so the lock is simple + reliable: the
-  // moment any round game has actually kicked off, the captain is fixed — regardless of
-  // where the admin's sim clock happens to be.
-  const now = Date.now();
-  const roundStarted = roundGames.some((g) => new Date(String(g.date || '').replace(' ', 'T')).getTime() <= now);
+  // Captain lock: frozen for the round once a game involving one of the MANAGER'S OWN
+  // cards has started. Uses the SIM clock in sim mode (a replay's games have historical
+  // dates → wall-clock would read them ALL as started → the captain would be permanently
+  // locked). And it keys off the manager's own cards — an unrelated team's kickoff tells
+  // you nothing about your cards, so it must not freeze your captain.
+  const myTeamKeys = new Set();
+  for (const c of (prev && prev.cards) || []) {
+    const cd = map[c.id];
+    if (cd) myTeamKeys.add(cd.kind === 'team' ? (cd.teamKey || String(c.id).slice(2)) : (cd.sub || cd.teamKey || ''));
+  }
+  const roundStarted = roundGames.some((g) => myTeamKeys.has(teamKey(g)) && gameStarted(g, season));
 
-  // Captain lock: the captain is frozen for the WHOLE round once any of its games has
-  // started (games aren't simultaneous → switching per-game was exploitable). REJECT
-  // an attempt to move the captaincy to a different, still-owned card. Removing the
-  // captain card (it leaves the squad) is still allowed; scoring keeps the frozen one.
+  // The captain is frozen once one of your cards' games has started (games aren't
+  // simultaneous → switching after a card played was exploitable). REJECT moving the
+  // captaincy to a different, still-owned card. Removing the captain card (it leaves the
+  // squad) is still allowed; scoring keeps the frozen one.
   if (roundStarted && prev && prev.captainId && captainId && captainId !== prev.captainId && cardIds.includes(prev.captainId)) {
     throw badRequest('Kapteenia ei voi enää vaihtaa — jakson pelit ovat alkaneet.');
   }

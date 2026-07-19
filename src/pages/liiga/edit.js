@@ -10,7 +10,7 @@ import {
 } from "react-icons/lu";
 import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
-import { isUpcoming } from "./events";
+import { playedCardCount } from "./events";
 import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaRoundProgress } from "../../lib/ahmaliigaApi";
 
 // Oma joukkue — the squad, edited in place. Captain hero + a grid of the other
@@ -107,16 +107,20 @@ export default function LiigaEdit() {
         if (stateRes && stateRes.standing) setPoints(stateRes.standing.seasonPts ?? stateRes.standing.roundPts ?? null);
         if (stateRes && stateRes.active && stateRes.currentRound) setRound(stateRes.currentRound);
         if (stateRes && stateRes.minTeams != null) setMinTeams(stateRes.minTeams);
-        // Captain is frozen for the whole round once any of its games has started.
-        // Use the SIM clock in sim/replay (games have historical dates → wall-clock
-        // would lock the captain forever); live seasons fall back to wall-clock.
-        // Matches the backend gameStarted() check.
-        if (stateRes && stateRes.active) {
-          const clock = stateRes.simMode ? stateRes.simDate : null;
-          setCaptainLocked((stateRes.games || []).some((g) => !isUpcoming(g.date, clock)));
-        }
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
+        // Captain is frozen for the round once one of MY OWN cards has a PLAYED game —
+        // not just any round game (an unrelated team's kickoff tells you nothing about
+        // your cards). Uses the SIM clock in sim/replay (else historical games all read
+        // as played → locked forever). Matches the backend check. Needs the full card
+        // objects (squad rows are lean {id}) so cardTeamKey can read kind/sub.
+        if (stateRes && stateRes.active) {
+          const clock = stateRes.simMode ? stateRes.simDate : null;
+          const cardById = {};
+          for (const c of cardsRes.cards || []) cardById[c.id] = c;
+          const myCards = ((sq && sq.cards) || []).map((c) => cardById[c.id]).filter(Boolean);
+          setCaptainLocked(playedCardCount(myCards, stateRes.games || [], clock) > 0);
+        }
       })
       .catch(() => { if (!cancelled) setAll([]); });
     // Points (secondary, slow) — never block the render; cards show "—" until here.
