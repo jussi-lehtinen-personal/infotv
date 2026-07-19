@@ -1483,8 +1483,12 @@ async function resetSim(seasonId, opts = {}) {
   for (const j of rounds) predictions += await clearPartition(T.predictions, `${seasonId}|${j.rowKey}`);
   const oldMsgs = await listEntities(T.messages);
   await inChunks(oldMsgs, 25, (r) => deleteEntity(T.messages, r.partitionKey, r.rowKey));
+  // Prize vouchers are awarded from a settled round's leaderboard → stale on a reset;
+  // clear them too (else old prizes linger + auto-regenerate on the next settle).
+  const oldVouchers = await listEntities(T.vouchers);
+  await inChunks(oldVouchers, 25, (r) => deleteEntity(T.vouchers, r.partitionKey, r.rowKey));
 
-  let wiped = { predictions };
+  let wiped = { predictions, vouchers: oldVouchers.length };
   if (opts.hard) {
     // Every squad (human + bot) → gone, so teams empty + budget full + transfers reset.
     const squads = await listEntities(T.squads, "RowKey eq 'current'");
