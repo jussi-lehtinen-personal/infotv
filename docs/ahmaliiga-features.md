@@ -67,6 +67,8 @@ tässä ei enää lyödä lukkoon numeroita, vaan listataan toiminnallisuudet.
 
 ## 10. Palkinnot  🔗 (#12)
 - **F10.1** (BUILT 2026-07-18) Jakso top-3 + kausi top-3, sponsorirahoitteinen, **QR-lunastus** kentällä. Toteutus: `AhmaliigaVouchers` (PK=userId, RK=`scope|round|rank` → deterministinen/idempotentti; ETag-atominen `issued→redeemed` = 1 lunastus). Managerilla pysyvä `qrCode` = **identiteetti** (QR koodaa `/ahmaliiga/kiosk?c=CODE`); lunastusvalta on **`kioski`-roolilla TAI adminilla** (`canRedeem`), ei QR:ssä → itselunastus estetty. Admin generoi top-3:t leaderboardista (`generateVouchers`, oletustekstit "Jakso N — sija R"). Sivut: `/ahmaliiga/rewards` (oma QR + lista) + `/ahmaliiga/kiosk` (skannaa → merkitse saaduksi). Notifikaatio voittajille (kind `reward`). Skannaus = natiivikamera (ei skanneri-deppiä); QR-piirto `qrcode.react`. Testi: `tools/test-vouchers.js`.
+  - **TODO (kioski-UX):** kioskisivulle **in-page kamera-skanneri** — ikoni/nappi joka avaa kameran ja lukee managerin QR:n suoraan sovelluksessa (nyt luottaa natiivikameraan joka avaa URL:n). Vaatii QR-skanneri-depin (esim. `@zxing/browser` tai `html5-qrcode`) + kameraluvan.
+  - **Sanamuoto (tehty 2026-07-19):** pääsivun banneri "Voitit N palkintoa" → "Sinulla on N lunastamatonta palkintoa" (laskee lunastamattomia, ei voitettuja → ei vähene oudosti lunastuksen jälkeen).
 
 ## 11. Admin (myöhemmin)
 - **F11.1** Jaksojen hallinta (luo/muokkaa, deadlinet).

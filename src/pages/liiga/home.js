@@ -184,7 +184,7 @@ export default function LiigaHome() {
           <Box component={LuTrophy} sx={{ fontSize: 24, color: "primary.main", flexShrink: 0, display: "block" }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.2 }}>
-              {unclaimed === 1 ? "Voitit palkinnon! 🏆" : `Voitit ${unclaimed} palkintoa! 🏆`}
+              {unclaimed === 1 ? "Sinulla on lunastamaton palkinto 🏆" : `Sinulla on ${unclaimed} lunastamatonta palkintoa 🏆`}
             </Typography>
             <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Näytä QR-koodi Kiekko-Ahman kioskissa lunastaaksesi.</Typography>
           </Box>
