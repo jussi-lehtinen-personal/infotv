@@ -38,6 +38,13 @@ const CFG = {
 const PLAYER_AGES = new Set(["Edustus", "Naiset", "U20", "U18"]);
 const isPlayerEligible = (teamKeyStr) => PLAYER_AGES.has(String(teamKeyStr).split(" ")[0]);
 
+// Normalise a player name for matching against a Jopox roster (mirrors normName in
+// api/src/lib/ahmaliiga.js): lowercase, ä/ö/å → a/o/a, strip punctuation, collapse
+// spaces. Used by the B10 U15 call-up match (roster names ↔ box-score scorer names).
+const normName = (s) => String(s || "").toLocaleLowerCase("fi")
+  .replace(/ä/g, "a").replace(/ö/g, "o").replace(/å/g, "a")
+  .replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+
 const DATA = path.join(__dirname, "..", "data");
 const FRIENDLY = /harjoitus/i;
 
@@ -124,7 +131,13 @@ function goaliePoints(r, g) {
 
 // Player (individual U18+) cards: per-(player,jakso) points (skater goals/assists
 // + goalie). Requires the box-score reports in tools/data/reports/<year>__<id>.json.
-function buildPlayerCards(year, start) {
+// opts.callupAges (Set of age tokens, e.g. {"U15"}) + opts.callupNames (Set of
+// normalised names) — B10: include otherwise-ineligible younger players ONLY if their
+// name is on a provided roster (the 2010-born U15s who moved up to U18). Scored from
+// their box scores in this year, exactly like an eligible player.
+function buildPlayerCards(year, start, opts = {}) {
+  const callupAges = opts.callupAges || null;
+  const callupNames = opts.callupNames || null;
   const all = loadSeason(year);
   const jaksoOf = (g) => Math.floor((parseDate(g.date) - start) / (CFG.jaksoWeeks * 7 * 86400000));
   const players = {}, teamJaksot = {}, detail = {};
@@ -132,7 +145,12 @@ function buildPlayerCards(year, start) {
   // per-(player,jakso) breakdown for the "why these points" explanation
   const dj = (name, J) => { const d = (detail[name] = detail[name] || {}); return (d[J] = d[J] || { goals: 0, assists: 0 }); };
   for (const g of all) {
-    if (!isPlayerEligible(teamKey(g)) || Number(g.finished) === 0) continue;
+    const tk = teamKey(g), age = String(tk).split(" ")[0];
+    const eligible = isPlayerEligible(tk);
+    const isCallupAge = !eligible && callupAges && callupAges.has(age);
+    if ((!eligible && !isCallupAge) || Number(g.finished) === 0) continue;
+    // A call-up-age game only contributes players whose name is on the roster.
+    const nameOk = eligible ? () => true : (nm) => !!(callupNames && callupNames.has(normName(nm)));
     const tkk = teamKey(g), J = jaksoOf(g);
     (teamJaksot[tkk] = teamJaksot[tkk] || new Set()).add(J);
     const f = path.join(DATA, "reports", `${year}__${g.id}.json`);
@@ -142,11 +160,11 @@ function buildPlayerCards(year, start) {
     for (const goal of r.goals || []) {
       if (goal.side !== ahmaSide) continue;
       const scorer = goal.scorer && goal.scorer.name;
-      add(scorer, tkk, J, CFG.player.goal, false); if (scorer) dj(scorer, J).goals += 1;
-      for (const a of goal.assists || []) { add(a, tkk, J, CFG.player.assist, false); if (a) dj(a, J).assists += 1; }
+      if (scorer && nameOk(scorer)) { add(scorer, tkk, J, CFG.player.goal, false); dj(scorer, J).goals += 1; }
+      for (const a of goal.assists || []) { if (a && nameOk(a)) { add(a, tkk, J, CFG.player.assist, false); dj(a, J).assists += 1; } }
     }
     const gp = goaliePoints(r, g);
-    if (gp) { add(gp.name, tkk, J, gp.pts, true); const d = dj(gp.name, J); d.gk = { pct: gp.pct, won: gp.won, cs: gp.cs, shots: gp.shots }; }
+    if (gp && nameOk(gp.name)) { add(gp.name, tkk, J, gp.pts, true); const d = dj(gp.name, J); d.gk = { pct: gp.pct, won: gp.won, cs: gp.cs, shots: gp.shots }; }
   }
   return { players, teamJaksot, detail };
 }
@@ -154,11 +172,14 @@ function buildPlayerCards(year, start) {
 // Pre-season prior: from the PREVIOUS season's stats. teams priced BY AGE (avg
 // pts/jakso of that age group), players BY NAME (their avg pts/jakso). Used to
 // seed initial prices; new/aged-up entrants with no prior default to Keski band.
-function buildPrevPrior(prevYear) {
+// opts (B10): callupAges/callupNames — forwarded to buildPlayerCards so that the
+// call-up younger players (e.g. 2026 U15s on the 2027 U18 roster) get a real prior
+// from their prior-season box scores instead of falling to the no-prior mid tier.
+function buildPrevPrior(prevYear, opts = {}) {
   const { cards: tk, cj } = buildSeason(prevYear);
   const comp = loadSeason(prevYear);
   const start = parseDate(comp.reduce((m, g) => (g.date < m ? g.date : m), comp[0].date));
-  const { players, teamJaksot } = buildPlayerCards(prevYear, start);
+  const { players, teamJaksot } = buildPlayerCards(prevYear, start, opts);
   const teamByAge = {}, cnt = {};
   for (const k of tk) { const age = k.split(" ")[0]; const aj = Object.keys(cj[k] || {}); let p = 0; for (const J of aj) p += cj[k][J].pts; const f = aj.length ? p / aj.length : 0; teamByAge[age] = (teamByAge[age] || 0) + f; cnt[age] = (cnt[age] || 0) + 1; }
   for (const a in teamByAge) teamByAge[a] /= cnt[a];
@@ -168,7 +189,7 @@ function buildPrevPrior(prevYear) {
 }
 
 module.exports = {
-  CFG, PLAYER_AGES, isPlayerEligible,
+  CFG, PLAYER_AGES, isPlayerEligible, normName,
   loadSeason, ahma, ahmaName, teamKey, gamePoints, parseDate,
   buildSeason, clockSec, goaliePoints, buildPlayerCards, buildPrevPrior,
 };
