@@ -89,7 +89,7 @@ export default function LiigaAdmin() {
           <Row k="Pelit synkattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
         </Box>
       ) : (
-        <Alert severity="warning" sx={{ mb: 2 }}>Kausi ei ole käynnissä. Aja ensin siemennys koneelta.</Alert>
+        <Alert severity="warning" sx={{ mb: 2 }}>Kausi ei ole käynnissä. Alusta kausi ensin koneelta.</Alert>
       )}
 
       {msg && <Alert severity={msg.type} sx={{ mb: 2 }} onClose={() => setMsg(null)}>{msg.text}</Alert>}
