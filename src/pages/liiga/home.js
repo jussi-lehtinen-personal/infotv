@@ -304,7 +304,7 @@ export default function LiigaHome() {
             <VDivider />
             <StatCol label="Ranking">
               <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 0.4 }}>
-                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "primary.main" }}>#{summary.rank}</Typography>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "primary.main" }}>{summary.rank}</Typography>
                 {summary.managerCount != null && <Typography sx={{ fontSize: 12, color: "text.disabled" }}>/ {summary.managerCount}</Typography>}
               </Box>
             </StatCol>
