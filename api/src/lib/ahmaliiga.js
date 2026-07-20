@@ -44,6 +44,7 @@ const T = {
   games: 'AhmaliigaGames',
   messages: 'AhmaliigaMessages',
   vouchers: 'AhmaliigaVouchers',
+  squadLog: 'AhmaliigaSquadLog', // append-only audit of squad edits (transfer disputes + analytics)
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -396,6 +397,26 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
     transfersUsedThisRound: transfersUsed, updatedAt: new Date().toISOString(),
   };
   await upsertEntity(T.squads, row);
+
+  // Append-only audit of this edit (best-effort — logging must never break a save). Lets
+  // us replay a manager's exact edit sequence to resolve transfer-penalty disputes + feed
+  // engagement analytics. PK = seasonId|userId, RK = timestamp (asc = chronological).
+  try {
+    const nowIso = new Date().toISOString();
+    const added = cardIds.filter((id) => !prevIds.includes(id));
+    const removed = prevIds.filter((id) => !cardIds.includes(id));
+    const penaltyNow = ECON.transferPenalty * Math.max(0, transfersUsed - ECON.transfersPerRound);
+    await insertEntity(T.squadLog, {
+      partitionKey: `${season.rowKey}|${userId}`,
+      rowKey: `${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+      round: curRound, ts: nowIso,
+      added: JSON.stringify(added), removed: JSON.stringify(removed),
+      cards: JSON.stringify(cardIds), captainId: captainId || '',
+      addsNow, transfersUsedThisRound: transfersUsed, penaltyNow, bank,
+      startComplete,
+    });
+  } catch (e) { /* audit log is best-effort */ }
+
   return { ...parseSquad(row), bank, spent: budget - bank, freeTransfers: ECON.transfersPerRound, transfersUsed };
 }
 
@@ -1530,6 +1551,17 @@ async function resetSim(seasonId, opts = {}) {
     const bots = managers.filter((m) => m.isBot);
     await inChunks(bots, 25, (r) => deleteEntity(T.managers, r.partitionKey, r.rowKey));
     wiped = { ...wiped, squads: squads.length, bots: bots.length };
+  } else {
+    // Squads are KEPT — but rewind each to round 0 as its OWN new round-start: reset
+    // roundNo + the transfer counter, and re-anchor roundStart to the current cards.
+    // Without this a stale transfersUsedThisRound (from before the reset) would charge a
+    // phantom transfer penalty on the re-settled round 0 (the bug behind Lasse's -5).
+    const squads = await listEntities(T.squads, "RowKey eq 'current'");
+    for (const s of squads) {
+      let cards = []; try { cards = JSON.parse(s.cards || '[]'); } catch { cards = []; }
+      await upsertEntity(T.squads, { ...s, roundNo: 0, transfersUsedThisRound: 0, roundStart: JSON.stringify(cards.map((c) => c.id)) });
+    }
+    wiped = { ...wiped, squadsReset: squads.length };
   }
   return { reset: true, rounds: rounds.length, wiped };
 }
@@ -1654,13 +1686,37 @@ async function getSimStatus(seasonId) {
   };
 }
 
+// Admin correction: remove a wrongly-charged transfer penalty from a manager's settled
+// round (zero the penalty, add it back to the round total, drop the _transfers row), then
+// re-rank that round + recompute the cumulative season table. Sticks across a re-settle
+// (the idempotency path reuses the frozen penalty, now 0). Used for the disputed -5 whose
+// evidence is gone (pre-audit-log); safe + reusable for future cases.
+async function refundPenalty(seasonId, userId, round) {
+  const row = await getEntity(T.scores, `${seasonId}|${round}`, userId);
+  if (!row) throw badRequest('Ei pistesriviä tälle managerille/jaksolle.');
+  const penalty = Number(row.penalty) || 0;
+  if (penalty <= 0) return { changed: false, penalty: 0, message: 'Ei sakkoa tässä jaksossa.' };
+  let breakdown = {}; try { breakdown = JSON.parse(row.breakdown || '{}'); } catch { breakdown = {}; }
+  delete breakdown._transfers;
+  const newTotal = Math.round(((Number(row.total) || 0) + penalty) * 10) / 10;
+  await upsertEntity(T.scores, { ...row, total: newTotal, penalty: 0, breakdown: JSON.stringify(breakdown) });
+  // Re-rank that round by total.
+  const roundRows = await listByPartition(T.scores, `${seasonId}|${round}`);
+  roundRows.sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+  for (let i = 0; i < roundRows.length; i++) await upsertEntity(T.scores, { ...roundRows[i], rank: i + 1 });
+  // Recompute the cumulative season table (ranks + totals) over all rounds.
+  const rounds = await getRounds(seasonId);
+  await recomputeSeasonScores(seasonId, rounds.length - 1);
+  return { changed: true, userId, round, refunded: penalty, oldTotal: Number(row.total) || 0, newTotal };
+}
+
 module.exports = {
   ECON, T, badRequest, shapeGamesForClient,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos,
-  getLeaderboard, getStanding, getRoundScore, listManagers,
+  getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
   syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
