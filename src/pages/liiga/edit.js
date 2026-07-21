@@ -137,6 +137,9 @@ export default function LiigaEdit() {
   }, [all]);
 
   const selected = useMemo(() => ids.map((id) => byId[id]).filter(Boolean), [ids, byId]);
+  // Squad value = sum of the current market prices of the cards you hold (FPL "team
+  // value"). Distinct from Budjetti (cash in hand); rises as your cards appreciate.
+  const squadValue = useMemo(() => selected.reduce((s, c) => s + (Number(c.price) || 0), 0), [selected]);
   const teamCount = selected.filter((c) => c.kind === "team").length;
   const emptySlots = 5 - ids.length;
   const teamsNeeded = Math.max(0, minTeams - teamCount); // teams still required to satisfy the rule
@@ -327,13 +330,13 @@ export default function LiigaEdit() {
         </Stack>
       )}
 
-      {/* top stats — Budjetti / Siirrot / Kortteja / Pisteet */}
+      {/* top stats — Budjetti / Siirrot / Arvo / Pisteet */}
       <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
         <StatCell icon={LuWallet} label="Budjetti"><Coins value={bank} size={15} /></StatCell>
         <StatCell icon={LuArrowLeftRight} label="Siirrot">
           <StatNum><Box component="span" sx={{ color: transfersLeft > 0 ? "text.primary" : "#f87171" }}>{transfersLeft}</Box> / {transfers.free}</StatNum>
         </StatCell>
-        <StatCell icon={LuLayers} label="Kortteja"><StatNum>{ids.length} / 5</StatNum></StatCell>
+        <StatCell icon={LuLayers} label="Arvo"><Coins value={squadValue} size={15} /></StatCell>
         <StatCell icon={LuTrophy} label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
       </Box>
 
