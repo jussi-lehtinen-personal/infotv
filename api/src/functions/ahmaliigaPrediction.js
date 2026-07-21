@@ -31,6 +31,11 @@ app.http('ahmaliigaPrediction', {
         const k = new Date(String(g && g.date || '').replace(' ', 'T')).getTime();
         return Number.isFinite(k) && k < clockMs;
       };
+      // A game is PLAYED once it has kicked off AND has a final result. Its score (which
+      // is public anyway) + the prediction bonus are then revealed immediately, without
+      // waiting for the whole 2-week round to settle.
+      const hasResult = (g) => g && g.homeGoals != null && g.awayGoals != null && g.homeGoals !== '' && g.awayGoals !== '';
+      const isPlayed = (g) => isLocked(g) && hasResult(g);
 
       const games = await getRoundGames(season.rowKey, round);
 
@@ -59,13 +64,15 @@ app.http('ahmaliigaPrediction', {
       const outGames = games.map((g) => ({
         gameId: g.gameId, home: g.home, away: g.away, ahmaHome: g.ahmaHome,
         homeLogo: g.homeLogo, awayLogo: g.awayLogo, date: g.date, level: g.level,
-        locked: isLocked(g),
-        ...(settled ? { homeGoals: g.homeGoals, awayGoals: g.awayGoals } : {}),
+        locked: isLocked(g), played: isPlayed(g),
+        // reveal the score once the game is played (public anyway) or the round settled
+        ...((settled || isPlayed(g)) ? { homeGoals: g.homeGoals, awayGoals: g.awayGoals } : {}),
       }));
       const predGame = pred ? games.find((x) => x.gameId === pred.gameId) : null;
       const predictionLocked = !!(predGame && isLocked(predGame));
+      // Bonus is revealed as soon as the predicted game is played (not only at settle).
       let bonus = null;
-      if (settled && pred) bonus = predictionBonus(pred, predGame);
+      if (pred && predGame && (settled || isPlayed(predGame))) bonus = predictionBonus(pred, predGame);
       return { jsonBody: { round, settled, games: outGames, myPrediction: pred, predictionLocked, bonus } };
     } catch (err) {
       context.log('ahmaliigaPrediction failed: ' + (err && err.stack || err));

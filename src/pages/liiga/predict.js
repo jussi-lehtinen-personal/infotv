@@ -215,6 +215,9 @@ export default function LiigaPredict() {
   const game = games.find((g) => g.gameId === shownId) || games[0];
   const isSavedGame = savedId === game.gameId;
   const locked = frozen || (!settled && !!game.locked);
+  // The shown game's result is known — the server reveals the score once the game is
+  // PLAYED (not only at settle), so a predicted game's outcome + bonus shows immediately.
+  const resultKnown = game.homeGoals != null && game.awayGoals != null;
   const left = !settled && !locked && timeLeft(game.date);
   // You veikkaat only ONE game per round → saving on a DIFFERENT game than your current
   // pick MOVES the single prediction (the old one is replaced, not kept). Warn about it.
@@ -263,14 +266,14 @@ export default function LiigaPredict() {
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 1.5, rowGap: 1 }}>
           <Box sx={{ gridColumn: 1, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.home} logo={game.homeLogo} ahma={game.ahmaHome} size={84} /></Box>
           <Box sx={{ gridColumn: 2, gridRow: "1 / 3", alignSelf: "center", fontFamily: "var(--font-family-display)",
-                fontSize: settled ? 30 : 24, letterSpacing: "var(--font-display-tracking)", color: settled ? "primary.main" : "text.disabled" }}>
-            {settled ? `${game.homeGoals}–${game.awayGoals}` : "VS"}
+                fontSize: resultKnown ? 30 : 24, letterSpacing: "var(--font-display-tracking)", color: resultKnown ? "primary.main" : "text.disabled" }}>
+            {resultKnown ? `${game.homeGoals}–${game.awayGoals}` : "VS"}
           </Box>
           <Box sx={{ gridColumn: 3, gridRow: 1, justifySelf: "center" }}><TeamLogo name={game.away} logo={game.awayLogo} ahma={!game.ahmaHome} size={84} /></Box>
           <Box sx={{ gridColumn: 1, gridRow: 2, minWidth: 0 }}><TeamName base={hs.base} sub={hs.sub} /></Box>
           <Box sx={{ gridColumn: 3, gridRow: 2, minWidth: 0 }}><TeamName base={as.base} sub={as.sub} /></Box>
         </Box>
-        {isSavedGame && !settled && (
+        {isSavedGame && !settled && !resultKnown && (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.6, mt: 1.5, color: "var(--color-live)", fontSize: 13, fontWeight: 700 }}>
             <Box component={LuCheck} sx={{ fontSize: 16, display: "block" }} /> Valittu ottelu
           </Box>
@@ -278,13 +281,20 @@ export default function LiigaPredict() {
       </Box>
 
       {/* 2. score */}
-      {!locked && <StepLabel sx={{ mb: 1.25 }}>{isSavedGame ? "2. Veikkasi" : "2. Veikkaa lopputulos"}</StepLabel>}
-      {settled ? (
+      {!locked && !resultKnown && <StepLabel sx={{ mb: 1.25 }}>{isSavedGame ? "2. Veikkasi" : "2. Veikkaa lopputulos"}</StepLabel>}
+      {resultKnown ? (
+        // Game played → reveal the outcome + your earned bonus right away (don't wait for
+        // the whole round to settle). data.bonus is set by the server once the pick is played.
         <Box sx={{ textAlign: "center", py: 1 }}>
           {isSavedGame ? (
-            <Typography sx={{ fontWeight: 700, color: data.bonus > 0 ? "var(--color-live)" : "text.disabled" }}>
-              Veikkasit {data.myPrediction.homeGoals}–{data.myPrediction.awayGoals} · {data.bonus > 0 ? `+${data.bonus} bonuspistettä` : "ei osumaa"}
-            </Typography>
+            <>
+              <Typography sx={{ fontWeight: 700, color: data.bonus > 0 ? "var(--color-live)" : "text.disabled" }}>
+                Veikkasit {data.myPrediction.homeGoals}–{data.myPrediction.awayGoals} · {data.bonus > 0 ? `+${data.bonus} bonuspistettä` : "ei osumaa"}
+              </Typography>
+              {!settled && (
+                <Typography sx={{ color: "text.disabled", mt: 0.75, fontSize: 12 }}>Jakson lopulliset pisteet ratkeavat jakson päätyttyä.</Typography>
+              )}
+            </>
           ) : (
             <Typography variant="body2" sx={{ color: "text.disabled" }}>Et veikannut tätä ottelua.</Typography>
           )}
@@ -295,7 +305,7 @@ export default function LiigaPredict() {
             <Stack spacing={1.25}>
               <Box sx={lockedBoxSx}>
                 <IconCircle icon={LuLock} size={40} />
-                <Typography sx={{ flex: 1, fontWeight: 700, color: "text.primary", lineHeight: 1.3 }}>Veikkaus lukittu tälle jaksolle</Typography>
+                <Typography sx={{ flex: 1, fontWeight: 700, color: "text.primary", lineHeight: 1.3 }}>Veikkaus lukittu — ottelu käynnissä</Typography>
               </Box>
               <Box sx={lockedBoxSx}>
                 <IconCircle icon={LuTrophy} size={40} />
@@ -306,12 +316,12 @@ export default function LiigaPredict() {
               </Box>
             </Stack>
             <Typography sx={{ textAlign: "center", color: "text.disabled", mt: 2, fontSize: 13 }}>
-              Pisteet ratkeavat jakson päätyttyä.
+              Tulos näkyy heti kun ottelu on pelattu.
             </Typography>
           </>
         ) : (
           <Box sx={{ textAlign: "center", py: 1 }}>
-            <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>Peli on päättynyt — et voi veikata tätä ottelua.</Typography>
+            <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>Peli on alkanut — et voi veikata tätä ottelua.</Typography>
           </Box>
         )
       ) : (
