@@ -193,9 +193,9 @@ export const ListRow = ({ leading, title, titleRight, subtitle, trailing, onClic
     <>
       {leading}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        {/* baseline so a small titleRight tag (e.g. "★ kapteeni ×2") sits on the
-            title's text line, not floating centred above it */}
-        <Stack direction="row" spacing={0.6} sx={{ alignItems: "baseline" }}>
+        {/* centre so a small titleRight tag (e.g. "★ kapteeni ×2") shares the title's
+            optical centre line — baseline made the taller star icon ride above the name */}
+        <Stack direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
           <Typography sx={{ minWidth: 0, fontWeight: highlight ? 800 : 700, fontSize: 15, lineHeight: 1.2,
                 color: highlight ? "primary.main" : "text.primary",
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</Typography>
