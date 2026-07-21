@@ -19,9 +19,8 @@ import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmal
 // Every change persists to the server immediately (direct edit); a partial squad
 // (fewer than 5 cards) is allowed — the server enforces the rest of the rules.
 
-// Top stat card: icon + label on top, value in the middle, an optional small sub
-// caption below (e.g. "jäljellä" / "yhteensä") to say what the number means.
-const StatCell = ({ icon: Icon, label, sub, children }) => (
+// Top stat card: icon + label on top, value below (centred). No sublabel row.
+const StatCell = ({ icon: Icon, label, children }) => (
   <Box sx={{ flex: 1, minWidth: 0, textAlign: "center", py: 1.5, px: 1, borderRadius: "var(--radius-item)",
         bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
     <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", justifyContent: "center", mb: 0.75, minWidth: 0 }}>
@@ -29,7 +28,6 @@ const StatCell = ({ icon: Icon, label, sub, children }) => (
       <Typography noWrap sx={{ fontSize: 11, fontWeight: 700, color: "text.disabled" }}>{label}</Typography>
     </Stack>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 22 }}>{children}</Box>
-    {sub && <Typography noWrap sx={{ fontSize: 9.5, fontWeight: 600, color: "text.disabled", mt: 0.4, letterSpacing: "0.02em" }}>{sub}</Typography>}
   </Box>
 );
 const StatNum = ({ children }) => (
@@ -334,12 +332,12 @@ export default function LiigaEdit() {
 
       {/* top stats — Budjetti / Siirrot / Arvo / Pisteet */}
       <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
-        <StatCell icon={LuWallet} label="Budjetti" sub="jäljellä"><Coins value={bank} size={15} /></StatCell>
-        <StatCell icon={LuArrowLeftRight} label="Siirrot" sub="jäljellä">
+        <StatCell icon={LuWallet} label="Budjetti"><Coins value={bank} size={15} /></StatCell>
+        <StatCell icon={LuArrowLeftRight} label="Siirrot">
           <StatNum><Box component="span" sx={{ color: transfersLeft > 0 ? "text.primary" : "#f87171" }}>{transfersLeft}</Box> / {transfers.free}</StatNum>
         </StatCell>
-        <StatCell icon={LuLayers} label="Arvo" sub="yhteensä"><Coins value={squadValue} size={15} /></StatCell>
-        <StatCell icon={LuTrophy} label="Pisteet" sub="yhteensä"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
+        <StatCell icon={LuLayers} label="Arvo"><Coins value={squadValue} size={15} /></StatCell>
+        <StatCell icon={LuTrophy} label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
       </Box>
 
       {/* Kokoonpano — 3-2 formation, captain lifted in the centre, side cards fanned.
