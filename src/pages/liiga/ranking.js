@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuChevronRight, LuClipboardList } from "react-icons/lu";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
@@ -43,7 +43,9 @@ const RankTrend = ({ delta }) => {
 
 export default function LiigaRanking() {
   const nav = useNavigate();
-  const [tab, setTab] = useState("round");
+  const [params] = useSearchParams();
+  // Deep-link the tab via ?tab=season (from the dashboard "Kausi päättynyt" card etc.).
+  const [tab, setTab] = useState(() => (TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "round"));
   const [data, setData] = useState({});     // leaderboard rows per scope
   const [rounds, setRounds] = useState(null); // all-rounds list
   const [loading, setLoading] = useState(true);

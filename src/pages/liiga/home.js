@@ -207,25 +207,25 @@ export default function LiigaHome() {
         </ButtonBase>
       )}
 
-      {/* Season over — all rounds settled → announce the end + final points (the full
-          final ranking is the Top-3 / Koko kausi section below). */}
+      {/* Season over — all rounds settled → final points on their own big row + a tap
+          through to the whole-season ranking (the full standings). */}
       {seasonOver && (
-        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2 }}>
+        <ButtonBase onClick={() => nav("/ahmaliiga/ranking?tab=season")}
+          sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
+              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
           <Eyebrow sx={{ mb: 1.25 }}>Kausi päättynyt</Eyebrow>
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1.25 }}>
-            <IconCircle icon={LuTrophy} size={44} />
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1, color: "text.primary" }}>Kaikki jaksot pelattu 🏁</Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.4 }}>Loppusijoitus koko kauden rankingissa alla.</Typography>
+          {seasonPts != null && (
+            <Box sx={{ mb: 1.75 }}>
+              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 46, lineHeight: 1, color: "primary.main" }}>{seasonPts}</Typography>
+              <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mt: 0.5 }}>Pistettä koko kaudelta</Typography>
             </Box>
-            {seasonPts != null && (
-              <Box sx={{ textAlign: "center", flexShrink: 0 }}>
-                <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.5 }}>Pisteet</Typography>
-                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 28, lineHeight: 1, color: "primary.main" }}>{seasonPts}</Typography>
-              </Box>
-            )}
+          )}
+          <Stack direction="row" sx={{ alignItems: "center", pt: 1.5, borderTop: "1px solid var(--color-surface-border)" }}>
+            <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 15, color: "text.primary" }}>Katso koko kauden ranking</Typography>
+            <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.secondary", display: "block", flexShrink: 0 }} />
           </Stack>
-        </Box>
+        </ButtonBase>
       )}
 
       {/* Running round — countdown + progress + your live points so far this round
