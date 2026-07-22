@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults, generateVouchers, listManagers, refundPenalty } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -126,6 +126,14 @@ app.http('manageAhmaliiga', {
         }
         if (!uid) return { status: 400, jsonBody: { error: 'userId tai nick vaaditaan.' } };
         const result = await refundPenalty(season.rowKey, uid, Number(body.round));
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      // Remove trailing empty (0-game) rounds left over from a cadence change re-seed.
+      if (action === 'pruneRounds') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await pruneRounds(season.rowKey);
         return { jsonBody: { ok: true, ...result } };
       }
 

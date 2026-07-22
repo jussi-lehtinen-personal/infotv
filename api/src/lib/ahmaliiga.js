@@ -172,6 +172,21 @@ async function seedSeason(seed) {
       predictGameId: j.predictGameId || '', status: j.status || 'open',
     });
   }
+  // Remove STALE rounds — a re-seed with FEWER rounds (e.g. weekly→2-week: 34→17) must
+  // DROP the leftover higher-numbered rounds, not just upsert 0..N (upsert alone left
+  // empty "phantom" jaksot 18–34 from the old weekly seed). ensureRoundsCover re-adds
+  // any it later needs to cover the fixture list.
+  const newRoundNos = new Set(roundRows.map((j) => String(j.no)));
+  const existingRounds = await listByPartition(T.rounds, seasonId);
+  const staleRounds = existingRounds.filter((r) => !newRoundNos.has(String(r.rowKey)));
+  for (const r of staleRounds) {
+    await deleteEntity(T.rounds, r.partitionKey, r.rowKey);
+    // also drop everything keyed to that removed round (else orphaned scores/results/games)
+    await clearPartition(T.scores, `${seasonId}|${r.rowKey}`);
+    await clearPartition(T.results, `${seasonId}|${r.rowKey}`);
+    await clearPartition(T.games, `${seasonId}|${r.rowKey}`);
+    await clearPartition(T.predictions, `${seasonId}|${r.rowKey}`);
+  }
 
   const cards = seed.cards || [];
   await upsertBatch(T.cards, cards.map((c) => ({
@@ -189,7 +204,10 @@ async function seedSeason(seed) {
   const newIds = new Set(cards.map((c) => c.id));
   const existingCards = await listByPartition(T.cards, seasonId);
   const staleCards = existingCards.filter((c) => !newIds.has(c.rowKey));
-  await inChunks(staleCards, 25, (c) => deleteEntity(T.cards, seasonId, c.rowKey));
+  for (const c of staleCards) {
+    await deleteEntity(T.cards, seasonId, c.rowKey);
+    await clearPartition(T.cardHistory, `${seasonId}|${c.rowKey}`); // drop the excluded card's history too
+  }
 
   // round-0 snapshot so price/points history exists from the start.
   await inChunks(cards, 25, (c) => upsertEntity(T.cardHistory, {
@@ -1710,13 +1728,39 @@ async function refundPenalty(seasonId, userId, round) {
   return { changed: true, userId, round, refunded: penalty, oldTotal: Number(row.total) || 0, newTotal };
 }
 
+// Remove trailing EMPTY rounds (0 games) left over from a re-seed with a different
+// cadence — e.g. a weekly seed (34 rounds) then a 2-week re-seed (17) left phantom
+// jaksot 18–34 with no games. Deletes every round numbered ABOVE the last round that
+// has games, plus its (0-point) score rows, and clamps the round pointer. Safe: the
+// removed rounds have no games → no points lost.
+async function pruneRounds(seasonId) {
+  const rounds = await getRounds(seasonId);
+  const allGames = await listEntities(T.games);
+  const gameRounds = new Set();
+  for (const g of allGames) { const p = String(g.partitionKey).split('|'); if (p[0] === seasonId) gameRounds.add(Number(p[1])); }
+  const maxGameRound = gameRounds.size ? Math.max(...gameRounds) : -1;
+  const stale = rounds.filter((r) => Number(r.rowKey) > maxGameRound);
+  for (const r of stale) {
+    await deleteEntity(T.rounds, r.partitionKey, r.rowKey);
+    await clearPartition(T.scores, `${seasonId}|${r.rowKey}`);   // 0-point score rows
+    await clearPartition(T.results, `${seasonId}|${r.rowKey}`);  // per-card results (empty)
+    await clearPartition(T.games, `${seasonId}|${r.rowKey}`);    // games (none in a pruned round)
+  }
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (season && Number(season.currentRound) > maxGameRound) {
+    await upsertEntity(T.season, { ...season, currentRound: Math.max(0, maxGameRound) });
+  }
+  if (maxGameRound >= 0) await recomputeSeasonScores(seasonId, maxGameRound);
+  return { removed: stale.length, keptThrough: maxGameRound, keptJakso: maxGameRound + 1 };
+}
+
 module.exports = {
   ECON, T, badRequest, shapeGamesForClient,
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos,
-  getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty,
+  getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
   syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
