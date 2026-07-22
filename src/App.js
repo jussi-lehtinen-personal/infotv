@@ -51,6 +51,7 @@ import LiigaAdmin from "./pages/liiga/admin";
 import LiigaRewards from "./pages/liiga/rewards";
 import LiigaKiosk from "./pages/liiga/kiosk";
 import LiigaPromo from "./pages/liiga/promo";
+import LiigaWelcome from "./pages/liiga/welcome";
 import LiigaNotifications from "./pages/liiga/notifications";
 import { LiigaStub } from "./pages/liiga/stub";
 import { LuUser, LuAward } from "react-icons/lu";
@@ -119,6 +120,7 @@ function App() {
                 the ADMIN_USER_IDS env allowlist only (RequireEnvAdmin/Gate). */}
             <Route path="/ahmaliiga" element={<AhmaliigaLayout />}>
                 <Route index element={<LiigaHome />} />
+                <Route path="tervetuloa" element={<LiigaWelcome />} />
                 <Route path="squad" element={<LiigaEdit />} />
                 <Route path="market" element={<LiigaMarket />} />
                 <Route path="card/:id" element={<LiigaCard />} />

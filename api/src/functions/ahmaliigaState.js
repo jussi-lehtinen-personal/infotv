@@ -61,6 +61,10 @@ app.http('ahmaliigaState', {
           // fall back to the current round's start so the countdown works even
           // before the clock has been stepped for the first time
           simDate: season.simDate || (season.simMode && cur ? cur.startDate : null),
+          // Public launch time — before it the dashboard shows a "alkaa pian" pre-start
+          // card (squad-building is open, but nothing locks until autoStep is flipped on).
+          startAt: season.startAt || null,
+          notStarted: !!(season.startAt && Date.now() < new Date(season.startAt).getTime()),
           budget: season.budget,
           squadSize: season.squadSize,
           maxPlayers: ECON.maxPlayers, // ECON is authoritative → balance change applies to the running season

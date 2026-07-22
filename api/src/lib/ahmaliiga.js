@@ -1606,6 +1606,18 @@ async function setAutoStep(seasonId, on) {
   return { autoStep: !!on, simDate: patch.simDate || season.simDate || '' };
 }
 
+// Set (or clear, pass null) the season's public START time — a real ISO timestamp shown
+// to players before the game opens. While now < startAt the dashboard shows a "not
+// started yet" info card (squad-building is open, but keep autoStep OFF so nothing locks
+// until you flip it at launch). Clearing startAt (null) removes the pre-start state.
+async function setStart(seasonId, startAt) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) throw badRequest('Kausi puuttuu.');
+  const val = startAt == null || startAt === '' ? '' : new Date(startAt).toISOString();
+  await upsertEntity(T.season, { ...season, startAt: val });
+  return { startAt: val || null };
+}
+
 // Advance the sim clock by `days` and settle any round whose window has now fully
 // passed (ascending). Idempotent-friendly: settlement itself is idempotent and the
 // clock only moves forward. Auto-stepping switches off once the last round settles.
@@ -1759,7 +1771,7 @@ module.exports = {
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos,
+  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,

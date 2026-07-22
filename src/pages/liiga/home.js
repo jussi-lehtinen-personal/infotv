@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair } from "react-icons/lu";
+import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair, LuRocket } from "react-icons/lu";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
@@ -15,6 +15,23 @@ import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad
 const dm = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.` : ""; };
 const dmy = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.${p[0]}` : ""; };
 const dateRange = (a, b) => (a && b ? `${dm(a)} – ${dmy(b)}` : "");
+
+// Real-clock countdown to the public start (a full ISO timestamp, not a sim date).
+const untilStart = (startAt) => {
+  const t = new Date(startAt).getTime() - Date.now();
+  if (!(t > 0)) return "alkaa kohta";
+  const d = Math.floor(t / 86400000), h = Math.floor((t % 86400000) / 3600000), m = Math.floor((t % 3600000) / 60000);
+  if (d > 0) return `${d} pv ${h} h`;
+  if (h > 0) return `${h} h ${m} min`;
+  return `${m} min`;
+};
+// "2026-08-01T17:00:00Z" → "1.8. klo 17.00"
+const startWhen = (startAt) => {
+  const dt = new Date(startAt);
+  if (isNaN(dt)) return "";
+  const hh = String(dt.getHours()).padStart(2, "0"), mm = String(dt.getMinutes()).padStart(2, "0");
+  return `${dt.getDate()}.${dt.getMonth() + 1}. klo ${hh}.${mm}`;
+};
 
 // Progress through the round window (0..100). Uses the sim clock in a replay.
 const progressPct = (startDate, endDate, simDate) => {
@@ -172,11 +189,12 @@ export default function LiigaHome() {
   }, []);
 
   const seasonOver = !!(state && state.active && state.seasonOver);
+  const notStarted = !!(state && state.active && state.notStarted); // before the public startAt → pre-start card
   const seasonPts = state && state.standing ? (state.standing.seasonPts ?? state.standing.roundPts ?? null) : null;
   const myTop = top ? top.find((r) => r.me) : null; // my season row (rank + total) for the season-over card
-  // Once the season is over, show a "kausi päättynyt" card instead of a running-round
-  // countdown (the last round is settled → no live jakso to count down / predict).
-  const round = state && state.active && !seasonOver ? state.currentRound : null;
+  // Before the game opens (notStarted) or once it's over (seasonOver), hide the running-
+  // round countdown / prediction / events — there's no live jakso to count down or predict.
+  const round = state && state.active && !seasonOver && !notStarted ? state.currentRound : null;
   const prev = state && state.active ? state.prevRound : null;
   const unclaimed = rewards ? (rewards.vouchers || []).filter((v) => v.status === "issued").length : 0;
   const simDate = state && state.simMode ? state.simDate : null;
@@ -205,6 +223,39 @@ export default function LiigaHome() {
             <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Näytä QR-koodi Kiekko-Ahman kioskissa lunastaaksesi.</Typography>
           </Box>
           <Box component={LuChevronRight} sx={{ fontSize: 20, color: "primary.main", flexShrink: 0, display: "block" }} />
+        </ButtonBase>
+      )}
+
+      {/* Pre-start — the game hasn't opened yet (now < startAt). Info card with a
+          countdown to the start + a tap-through to the welcome / how-to-play page. */}
+      {notStarted && (
+        <ButtonBase onClick={() => nav("/ahmaliiga/tervetuloa")}
+          sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
+              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
+          <Eyebrow sx={{ mb: 1.25 }}>Tulossa</Eyebrow>
+          <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
+              <IconCircle icon={LuRocket} size={44} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1, color: "text.primary" }}>Ahmaliiga alkaa pian</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.4 }}>{state.startAt ? startWhen(state.startAt) : "Kokoa jo kortistosi valmiiksi"}</Typography>
+              </Box>
+            </Box>
+            <VDivider />
+            <StatCol label="Alkuun">
+              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1, color: "primary.main", whiteSpace: "nowrap" }}>{state.startAt ? untilStart(state.startAt) : "—"}</Typography>
+            </StatCol>
+          </Box>
+          <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", my: 1.75 }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%" }}>
+            <IconCircle icon={LuClipboardList} size={38} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: "text.primary", lineHeight: 1.25 }}>Näin peli toimii</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>Lue pelin tiedot ja pääse alkuun</Typography>
+            </Box>
+            <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
+          </Box>
         </ButtonBase>
       )}
 

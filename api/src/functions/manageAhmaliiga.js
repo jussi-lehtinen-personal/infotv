@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -79,6 +79,15 @@ app.http('manageAhmaliiga', {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
         const result = await setAutoStep(season.rowKey, !!body.on);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      // Set/clear the public start time (ISO). Before it, the dashboard shows the
+      // "alkaa pian" pre-start card. { startAt: "2026-08-01T17:00:00Z" } or { startAt: null }.
+      if (action === 'setStart') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await setStart(season.rowKey, body.startAt);
         return { jsonBody: { ok: true, ...result } };
       }
 
