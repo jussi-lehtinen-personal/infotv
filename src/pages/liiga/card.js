@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Box, Typography, Stack } from "@mui/material";
-import { LuChevronRight } from "react-icons/lu";
+import { Box, Typography, Stack, Button, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from "@mui/material";
+import { LuChevronRight, LuCheck, LuShoppingCart, LuBadgeCheck } from "react-icons/lu";
 import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, TYPE_LABEL, TrendTag } from "./_shared";
 import { getAhmaliigaCard } from "../../lib/ahmaliigaApi";
+import { useSquad } from "./useSquad";
 
 // Kortin tiedot — card hero (avatar + Hinta / Omistus / Tyyppi / trend) + tabs:
 // Pelit (game results, no per-game points), Pisteet and Hintakehitys (per-round
@@ -180,6 +181,8 @@ export default function LiigaCard() {
   const { id } = useParams();
   const [data, setData] = useState(undefined);
   const [tab, setTab] = useState("pelit");
+  const [confirm, setConfirm] = useState(null); // {type:'buyPenalty'|'sell'} → confirm dialog
+  const squad = useSquad(); // shared squad + trading rules (bank, transfers, minTeams…)
 
   useEffect(() => {
     let cancelled = false;
@@ -201,6 +204,22 @@ export default function LiigaCard() {
   const history = data.history || [];
   const games = data.games || [];
   const maxPts = Math.max(1, ...history.map((h) => h.pts));
+
+  // Buy/sell context (via useSquad). `c` is a lean card for the rule checks.
+  const c = { id, price: card.price, kind: card.kind };
+  const ready = squad.all != null;          // squad loaded → the trade bar can render
+  const owned = squad.ids.includes(id);
+  const full = squad.ids.length >= 5;
+  const buyable = squad.canAdd(c);
+  // Why a buy is blocked (in priority order) → a short reason under a disabled button.
+  const buyReason = owned || buyable ? null
+    : full ? "Pakka on täynnä (5/5) — myy ensin kortti tai vaihda Oma joukkue -sivulla"
+    : card.price > squad.bank ? "Budjetti ei riitä tähän korttiin"
+    : (squad.mustPickTeam && card.kind !== "team") ? "Vapaat paikat vaativat joukkuekortin (vähintään 2 joukkuetta)"
+    : "Ei ostettavissa juuri nyt";
+  const buyNow = () => squad.persist([...squad.ids, id], squad.captainId || id);
+  const doBuy = () => { if (squad.transfersLeft === 0) { setConfirm({ type: "buyPenalty" }); return; } buyNow(); };
+  const sellNow = () => { const n = squad.ids.filter((x) => x !== id); squad.persist(n, squad.captainId === id ? (n[0] || null) : squad.captainId); };
 
   return (
     <Screen>
@@ -237,6 +256,38 @@ export default function LiigaCard() {
         </Box>
       </Box>
 
+      {/* Buy / sell — owned → Myy (credit the price back), else Osta (if affordable +
+          room + team rule). Blocked buys dim with a reason. Rules come from useSquad. */}
+      {ready && (
+        <Box sx={{ mb: 3 }}>
+          {squad.error && <Alert severity="error" sx={{ mb: 1.25, borderRadius: "var(--radius-item)" }}>{squad.error}</Alert>}
+          {owned ? (
+            <>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+                <Box component={LuBadgeCheck} sx={{ fontSize: 18, color: "primary.main", display: "block", flexShrink: 0 }} />
+                <Typography sx={{ fontWeight: 800, fontSize: 14, color: "primary.main" }}>Tämä kortti on kortistossasi</Typography>
+              </Stack>
+              <Button fullWidth variant="outlined" onClick={() => setConfirm({ type: "sell" })}
+                sx={{ py: 1.15, borderRadius: "var(--radius-item)", fontWeight: 800, textTransform: "none",
+                      color: "#f87171", borderColor: "rgba(248,113,113,0.5)", "&:hover": { borderColor: "#f87171", bgcolor: "rgba(248,113,113,0.08)" } }}>
+                Myy kortti — saat {card.price} c takaisin
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button fullWidth variant="contained" disabled={!buyable} onClick={doBuy}
+                startIcon={<LuShoppingCart size={18} />}
+                sx={{ py: 1.15, borderRadius: "var(--radius-item)", fontWeight: 800, textTransform: "none" }}>
+                Osta kortti — {card.price} c
+              </Button>
+              <Typography variant="caption" sx={{ display: "block", textAlign: "center", mt: 0.85, color: buyReason ? "#f87171" : "text.disabled" }}>
+                {buyReason || <>Budjettia jäljellä {squad.bank} c · siirtoja {squad.transfersLeft} / {squad.transfers.free}</>}
+              </Typography>
+            </>
+          )}
+        </Box>
+      )}
+
       {/* tabs */}
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         {TABS.map((t) => <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1 }}>{t.label}</PillButton>)}
@@ -261,6 +312,32 @@ export default function LiigaCard() {
       {tab === "hinta" && (
         history.length === 0 ? <Empty text="Ei hintahistoriaa." /> : <PriceHistory history={history} current={card.price} />
       )}
+
+      {/* Confirm — an extra transfer costs points; selling is a deliberate step. */}
+      <Dialog open={!!confirm} onClose={() => setConfirm(null)}
+        slotProps={{ paper: { elevation: 0, sx: { backgroundColor: "var(--color-bg)", backgroundImage: "none", borderRadius: "var(--radius-card)", border: "1px solid var(--color-surface-border)" } },
+              backdrop: { sx: { backgroundColor: "rgba(0,0,0,0.7)" } } }}>
+        <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>
+          {confirm && confirm.type === "sell" ? "Myydäänkö kortti?" : "Ylimääräinen siirto?"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: "text.secondary" }}>
+            {confirm && confirm.type === "sell"
+              ? <><b>{card.name}</b> poistuu kortistostasi ja saat <b>{card.price} c</b> takaisin. Voit ostaa sen myöhemmin uudelleen (uusi osto voi kuluttaa siirron).</>
+              : <>Ilmaiset siirrot on käytetty tällä jaksolla. <b>{card.name}</b> ostaminen maksaa <b style={{ color: "#f87171" }}>−5 pistettä</b>.</>}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirm(null)} sx={{ textTransform: "none", color: "text.secondary" }}>Peruuta</Button>
+          {confirm && confirm.type === "sell" ? (
+            <Button variant="contained" onClick={() => { setConfirm(null); sellNow(); }}
+              startIcon={<LuCheck size={16} />} sx={{ textTransform: "none", fontWeight: 800 }}>Myy ({card.price} c)</Button>
+          ) : (
+            <Button variant="contained" onClick={() => { setConfirm(null); buyNow(); }}
+              sx={{ textTransform: "none", fontWeight: 800 }}>Osta (−5 p)</Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Screen>
   );
 }
