@@ -15,7 +15,7 @@ const CFG = {
   player: { goal: 3, assist: 2 },
   // Goalie save-% bonus tiers: 88/92 (2026-07-17, matches api/src/lib/scoring.js).
   // v2 (2026-07-19): shutout cleanSheet 2→4 (team.cleanSheet stays 2).
-  goalie: { win: 3, cleanSheet: 4, sv92: 2, sv95: 3, minShots: 15, savePer: 0.5, savesFloor: 40 }, // v2.1 (2026-07-22): +0.5/save above 40 (heroic workload) — matches scoring.js
+  goalie: { win: 3, cleanSheet: 4, sv92: 2, sv95: 3, minShots: 15, savePer: 0.5, savesFloor: 45 }, // v2.1 (2026-07-22): +0.5/save above 45 (heroic workload) — matches scoring.js
   captainX: 2,
   squadSize: 5,
   budget: 120,

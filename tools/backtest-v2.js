@@ -83,7 +83,7 @@ function goalie() {
   const savedSP = CFG.goalie.savePer;
   CFG.goalie.cleanSheet = 2; CFG.goalie.savePer = 0; summarize("v1  (nollapeli +2)");
   CFG.goalie.cleanSheet = 4; CFG.goalie.savePer = 0; summarize("v2  (nollapeli +4)");
-  CFG.goalie.cleanSheet = savedCS; CFG.goalie.savePer = savedSP; const nu = summarize("v2.1(+0.5/torj yli 40)");
+  CFG.goalie.cleanSheet = savedCS; CFG.goalie.savePer = savedSP; const nu = summarize("v2.1(+0.5/torj yli 45)");
 
   // context: team pts/game and a rough skater "appearance" scale
   let tp = 0, tn = 0;
