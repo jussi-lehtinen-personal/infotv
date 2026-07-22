@@ -173,6 +173,7 @@ export default function LiigaHome() {
 
   const seasonOver = !!(state && state.active && state.seasonOver);
   const seasonPts = state && state.standing ? (state.standing.seasonPts ?? state.standing.roundPts ?? null) : null;
+  const myTop = top ? top.find((r) => r.me) : null; // my season row (rank + total) for the season-over card
   // Once the season is over, show a "kausi päättynyt" card instead of a running-round
   // countdown (the last round is settled → no live jakso to count down / predict).
   const round = state && state.active && !seasonOver ? state.currentRound : null;
@@ -207,24 +208,43 @@ export default function LiigaHome() {
         </ButtonBase>
       )}
 
-      {/* Season over — all rounds settled → final points on their own big row + a tap
-          through to the whole-season ranking (the full standings). */}
+      {/* Season over — same layout as the "Edellinen jakso" card: icon + label, then
+          Pisteet + Ranking (whole season), then a tap-through row to the season ranking. */}
       {seasonOver && (
         <ButtonBase onClick={() => nav("/ahmaliiga/ranking?tab=season")}
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
               borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
               border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
           <Eyebrow sx={{ mb: 1.25 }}>Kausi päättynyt</Eyebrow>
-          {seasonPts != null && (
-            <Box sx={{ mb: 1.75 }}>
-              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 46, lineHeight: 1, color: "primary.main" }}>{seasonPts}</Typography>
-              <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mt: 0.5 }}>Pistettä koko kaudelta</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
+              <IconCircle icon={LuTrophy} size={44} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1, color: "text.primary" }}>Koko kausi</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.4 }}>Kaikki jaksot pelattu</Typography>
+              </Box>
             </Box>
-          )}
-          <Stack direction="row" sx={{ alignItems: "center", pt: 1.5, borderTop: "1px solid var(--color-surface-border)" }}>
-            <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 15, color: "text.primary" }}>Katso koko kauden ranking</Typography>
-            <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.secondary", display: "block", flexShrink: 0 }} />
-          </Stack>
+            <VDivider />
+            <StatCol label="Pisteet">
+              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "text.primary" }}>{seasonPts != null ? seasonPts : "—"}</Typography>
+            </StatCol>
+            <VDivider />
+            <StatCol label="Ranking">
+              <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 0.4 }}>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 26, lineHeight: 1, color: "primary.main" }}>{myTop ? myTop.rank : "—"}</Typography>
+                {myTop && top && <Typography sx={{ fontSize: 12, color: "text.disabled" }}>/ {top.length}</Typography>}
+              </Box>
+            </StatCol>
+          </Box>
+          <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", my: 1.75 }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%" }}>
+            <IconCircle icon={LuClipboardList} size={38} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: "text.primary", lineHeight: 1.25 }}>Katso koko kauden ranking</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>Kaikkien managerien loppusijoitukset</Typography>
+            </Box>
+            <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block" }} />
+          </Box>
         </ButtonBase>
       )}
 
