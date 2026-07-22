@@ -1564,11 +1564,15 @@ async function resetSim(seasonId, opts = {}) {
     // Every squad (human + bot) → gone, so teams empty + budget full + transfers reset.
     const squads = await listEntities(T.squads, "RowKey eq 'current'");
     await inChunks(squads, 25, (r) => deleteEntity(T.squads, r.partitionKey, r.rowKey));
-    // Bot managers (human registrations kept — humans just lose their squad).
+    // ALL managers (bots + humans) → gone. A hard reset = a fully fresh season: nobody is
+    // "joined" until they build a squad again (saveSquad re-registers them via
+    // ensureManager). This keeps the participant count truly at 0 at season start rather
+    // than carrying over stale registrations from the previous test. (Users/accounts are
+    // untouched — only the Ahmaliiga manager rows go.)
     const managers = await listEntities(T.managers, "RowKey eq 'profile'");
-    const bots = managers.filter((m) => m.isBot);
-    await inChunks(bots, 25, (r) => deleteEntity(T.managers, r.partitionKey, r.rowKey));
-    wiped = { ...wiped, squads: squads.length, bots: bots.length };
+    const bots = managers.filter((m) => m.isBot).length;
+    await inChunks(managers, 25, (r) => deleteEntity(T.managers, r.partitionKey, r.rowKey));
+    wiped = { ...wiped, squads: squads.length, managers: managers.length, bots };
   } else {
     // Squads are KEPT — but rewind each to round 0 as its OWN new round-start: reset
     // roundNo + the transfer counter, and re-anchor roundStart to the current cards.
