@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, Stack, ButtonBase } from "@mui/material";
+import { Box, Typography, Stack, ButtonBase, Button } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair, LuRocket } from "react-icons/lu";
+import { SiWhatsapp } from "react-icons/si";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
@@ -10,6 +11,9 @@ import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
 // Top 3. Real backend data.
+
+// Ahmaliiga WhatsApp channel — same as the promo page (/ahmaliiga/info).
+const WHATSAPP_CHANNEL = "https://whatsapp.com/channel/0029Vb8gvvUCBtx98k00LE0r";
 
 // "2025-09-27" → "27.9." ; with year → "27.9.2025".
 const dm = (iso) => { const p = String(iso || "").split("-"); return p.length === 3 ? `${+p[2]}.${+p[1]}.` : ""; };
@@ -447,6 +451,15 @@ export default function LiigaHome() {
           </>
         );
       })()}
+
+      {/* Ahmaliiga WhatsApp channel — announcements + beta chatter (same as promo). */}
+      <Box sx={{ height: "1px", bgcolor: "var(--color-surface-border)", mb: 2.5 }} />
+      <Button variant="outlined" fullWidth onClick={() => window.open(WHATSAPP_CHANNEL, "_blank", "noopener")}
+        startIcon={<SiWhatsapp size={18} />}
+        sx={{ py: 1.15, textTransform: "none", fontWeight: 800, fontSize: 14.5,
+              color: "#25D366", borderColor: "rgba(37,211,102,0.5)", "&:hover": { borderColor: "#25D366", bgcolor: "rgba(37,211,102,0.08)" } }}>
+        Liity Ahmaliiga-kanavalle WhatsAppissa
+      </Button>
     </Screen>
   );
 }
