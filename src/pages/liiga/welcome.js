@@ -20,18 +20,18 @@ const startWhen = (iso) => {
 
 const STEPS = [
   { icon: LuUsers, title: "Kokoa 5 kortin kortisto", desc: "Vähintään 2 joukkuekorttia + 3 vapaata (joukkue tai tähtipelaaja). Sinulla on 120 coinia — parhaat kortit maksavat enemmän." },
-  { icon: LuStar, title: "Valitse kapteeni", desc: "Yksi korteistasi saa tuplapisteet. Valitse se, jonka uskot loistavan tällä jaksolla." },
+  { icon: LuStar, title: "Valitse kapteeni", desc: "Yksi korteistasi saa kaksinkertaiset pisteet (2×). Valitse se, jonka uskot loistavan tällä jaksolla." },
   { icon: LuCrosshair, title: "Veikkaa yksi peli", desc: "Arvaa yhden ottelun lopputulos ja saat bonuspisteitä. Tarkka tulos on iso potti." },
   { icon: LuCalendarDays, title: "Jaksot ovat 2 viikkoa", desc: "Kokoonpanosi lukittuu, kun ensimmäinen korttisi peli alkaa. Sitä ennen voit vaihdella vapaasti." },
   { icon: LuTrendingUp, title: "Kortit ovat kuin pörssiosakkeet", desc: "Hyvin pelaavan kortin hinta nousee. Osta halvalla, myy kalliilla — ostohintasi lukittuu." },
 ];
 
 const InfoRow = ({ icon: Icon, label, value }) => (
-  <Stack direction="row" alignItems="center" spacing={1.5} sx={{ py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
-    <IconCircle icon={Icon} size={34} />
-    <Typography sx={{ flex: 1, minWidth: 0, color: "text.secondary", fontSize: 14 }}>{label}</Typography>
-    <Typography sx={{ flexShrink: 0, fontWeight: 700, fontSize: 14.5, color: "text.primary", textAlign: "right" }}>{value}</Typography>
-  </Stack>
+  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+    <IconCircle icon={Icon} size={32} />
+    <Typography sx={{ flex: 1, minWidth: 0, color: "text.secondary", fontSize: 14, lineHeight: 1.2 }}>{label}</Typography>
+    <Typography sx={{ flexShrink: 0, fontWeight: 700, fontSize: 14, color: "text.primary", textAlign: "right", lineHeight: 1.2, whiteSpace: "nowrap" }}>{value}</Typography>
+  </Box>
 );
 
 export default function LiigaWelcome() {
@@ -64,7 +64,10 @@ export default function LiigaWelcome() {
         <InfoRow icon={LuClock} label="Peli alkaa" value={startAt ? startWhen(startAt) : "Pian"} />
         <InfoRow icon={LuCalendarDays} label="Jaksot vaihtuvat" value="~14 h välein" />
         <InfoRow icon={LuCalendarDays} label="Kausi kestää" value="~10 päivää" />
-        <InfoRow icon={LuTrophy} label="Palkinnot" value="Jakson voittaja + kauden top 3" />
+        <InfoRow icon={LuTrophy} label="Palkinnot" value="Ei jaeta betassa" />
+        <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mt: 1, lineHeight: 1.45 }}>
+          🧪 Beta-testipeli — palkintoja ei tällä kaudella jaeta oikeasti. Pelataan hauskuuden ja testaamisen vuoksi!
+        </Typography>
       </Box>
 
       {/* How to get started — 5 steps. */}
@@ -73,15 +76,16 @@ export default function LiigaWelcome() {
       </Typography>
       <Stack spacing={1.25} sx={{ mb: 2 }}>
         {STEPS.map((s, i) => (
-          <Box key={i} sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", p: 1.5 }}>
-            <Box sx={{ position: "relative", flexShrink: 0 }}>
-              <IconCircle icon={s.icon} size={40} />
-              <Box sx={{ position: "absolute", top: -4, left: -4, width: 18, height: 18, borderRadius: "50%", bgcolor: "primary.main", color: "#fff", fontSize: 11, fontWeight: 800, display: "grid", placeItems: "center", border: "2px solid var(--color-bg)" }}>{i + 1}</Box>
+          <Box key={i} sx={{ borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", p: 1.5 }}>
+            {/* icon + title on one centred row → they always share a centre line */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box sx={{ position: "relative", flexShrink: 0, display: "flex" }}>
+                <IconCircle icon={s.icon} size={40} />
+                <Box sx={{ position: "absolute", top: -4, left: -4, width: 18, height: 18, borderRadius: "50%", bgcolor: "primary.main", color: "#fff", fontSize: 11, fontWeight: 800, display: "grid", placeItems: "center", border: "2px solid var(--color-bg)" }}>{i + 1}</Box>
+              </Box>
+              <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.25 }}>{s.title}</Typography>
             </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.3 }}>{s.title}</Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.3, lineHeight: 1.45 }}>{s.desc}</Typography>
-            </Box>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.85, lineHeight: 1.45, pl: "52px" }}>{s.desc}</Typography>
           </Box>
         ))}
       </Stack>

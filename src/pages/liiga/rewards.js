@@ -41,6 +41,18 @@ export default function LiigaRewards() {
           </ButtonBase>
         ) : null} />
 
+      {/* Beta notice — prizes are NOT actually handed out during the test season. */}
+      <Box sx={{ mb: 2.5, p: 1.75, borderRadius: "var(--radius-item)", display: "flex", alignItems: "flex-start", gap: 1.25,
+            bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.35)" }}>
+        <Box component="span" sx={{ fontSize: 20, lineHeight: 1.2, flexShrink: 0 }}>🧪</Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.3 }}>Beta-testipeli</Typography>
+          <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.45, mt: 0.3 }}>
+            Tämä on testivaihe — palkintoja <b>ei tällä kaudella jaeta oikeasti</b>. Kisataan silti sijoituksista ja kunniasta! 🧡
+          </Typography>
+        </Box>
+      </Box>
+
       {/* Identity QR — shown when there's something to claim. */}
       {issued.length > 0 && qrUrl && (
         <Box sx={{ mb: 3, p: 2.5, borderRadius: "var(--radius-card)", textAlign: "center",

@@ -113,7 +113,7 @@ const Ahmaliiga = () => {
             <Rule label="Tasapeli" value="1" />
             <Rule label="Tappio" value="0" dim />
             <Rule label="Nollapeli (ette päästä maalia)" value="+2" />
-            <Rule label="Iso voitto (monta maalia enemmän)" value="+1–2" />
+            <Rule label="Iso voitto (2+ maalin ero)" value="+1" />
           </Box>
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti — kenttäpelaaja</Typography>
           <Box sx={{ mb: 1.5, mt: 0.5 }}>
@@ -126,7 +126,7 @@ const Ahmaliiga = () => {
             <Rule label="Nollapeli (ei päästä maalia)" value="+4" />
             <Rule label="Torjunta-% ≥ 88 %" value="+2" />
             <Rule label="Torjunta-% ≥ 92 %" value="+3" />
-            <Rule label="Torjuntabonus (torjunnat yli 45)" value="+½ / torjunta" />
+            <Rule label="Torjuntabonus (torjunnat yli 45)" value="0,5 / torjunta" />
           </Box>
         </Section>
 
@@ -190,14 +190,14 @@ const Ahmaliiga = () => {
               badge="🅰️"
               title="Enemmän joukkueita (turvallinen)"
               rows={[
-                { label: "⭐ U13 Valkoinen — voitti 5–1 (kapteeni)", pts: "10" },
-                { label: "Naiset — voitti 3–0 (nollapeli)", pts: "5" },
+                { label: "⭐ U13 Valkoinen — voitti 5–1 (kapteeni)", pts: "8" },
+                { label: "Naiset — voitti 3–0 (nollapeli)", pts: "6" },
                 { label: "U12 Musta — tasapeli", pts: "1" },
                 { label: "U14 — tappio", pts: "0" },
                 { label: "🥅 Veskari (Edustus) — voitto + nollapeli", pts: "7" },
                 { label: "Veikkaus — oikea voittaja", pts: "+3" },
               ]}
-              total="≈ 26"
+              total="≈ 25"
               note="Vähän riskiä, tasaista tuottoa monelta kortilta."
             />
             <Example
@@ -206,12 +206,12 @@ const Ahmaliiga = () => {
               rows={[
                 { label: "⭐ Olander (Naiset) — 2 maalia + syöttö (kapteeni)", pts: "16" },
                 { label: "Mäkinen (U20) — 1 maali", pts: "3" },
-                { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "5" },
-                { label: "U13 Valkoinen — voitti 3–2", pts: "3" },
+                { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "6" },
+                { label: "U13 Valkoinen — voitti 3–1", pts: "4" },
                 { label: "Edustus — tappio", pts: "0" },
                 { label: "Veikkaus — tarkka tulos", pts: "+20" },
               ]}
-              total="≈ 47"
+              total="≈ 49"
               note="Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa. Tarkka veikkaus on harvinainen mutta iso potti."
             />
           </Stack>
