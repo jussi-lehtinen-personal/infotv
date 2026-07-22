@@ -11,7 +11,7 @@ const path = require("path");
 const CFG = {
   jaksoWeeks: 2,
   team: { win: 3, tie: 1, loss: 0, cleanSheet: 2, goalDiffPer: 0.5, goalDiffCap: 2 },
-  predict: { winner: 3, margin: 5, exact: 8 }, // v2 (2026-07-19): buffed 1/2/3 → 3/5/8 (matches ECON.predict)
+  predict: { winner: 3, margin: 7, exact: 20 }, // v2.1 (2026-07-22): 3/5/8 → 3/7/20 (matches ECON.predict)
   player: { goal: 3, assist: 2 },
   // Goalie save-% bonus tiers: 88/92 (2026-07-17, matches api/src/lib/scoring.js).
   // v2 (2026-07-19): shutout cleanSheet 2→4 (team.cleanSheet stays 2).

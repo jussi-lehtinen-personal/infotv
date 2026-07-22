@@ -162,6 +162,24 @@ const mondayOnOrBefore = (d) => {
     })),
   ];
 
+  // U15 seed cap (2026-07-22, from first-test data): a U15 player's prior comes from a
+  // YOUNGER-competition box score (U13/U14), an unreliable predictor of how they translate
+  // up — first test showed auto-priced U15s were noisy (SAARINEN 60c→51pts, HAHL 45c→36pts
+  // flopped; HEINONEN 25c→73pts popped). So auto-priced U15s seed CHEAP (penny-stock): a
+  // genuinely good one becomes a bargain the market discovers + reband climbs; a dud costs
+  // little. Known-good U15s are pinned to their real price via --overrides (applied below,
+  // so they beat this cap). Cap only touches auto (non-override) u15:true cards.
+  const U15_SEED_CAP = 25;
+  const preOverride = new Set(Object.keys((() => { try { return JSON.parse(fs.readFileSync(overridesPath || "", "utf8")); } catch { return {}; } })()));
+  let u15Capped = 0;
+  for (const c of cards) {
+    if (c.u15 && !preOverride.has(c.id) && c.price > U15_SEED_CAP) {
+      c.price = U15_SEED_CAP;
+      c.band = bandName(c.price, CFG.playerBandTiers);
+      u15Capped++;
+    }
+  }
+
   // Manual price overrides (--overrides=<json>): { cardId: price }. Applied LAST so they
   // never reshuffle the ranked bands — a targeted hand-correction for cards whose prior
   // isn't comparable (e.g. a U15 player who played U16 UNDERAGE → too cheap; a team/
@@ -240,6 +258,7 @@ const mondayOnOrBefore = (d) => {
   console.log(`Ahmaliiga card seed — season ${season} (priced from ${prevSeason})`);
   console.log(`  ${cards.length} cards → ${out}`);
   if (u15TeamFlag) console.log(`  U15-team: ${u15Count} U15 player card(s) added (scored at runtime from ${season} U15; priced from ${prevSeason})`);
+  if (u15Capped) console.log(`  U15 seed cap: ${u15Capped} auto-priced U15 card(s) capped to ${U15_SEED_CAP}c (unreliable younger-group prior → penny-stock; known stars pinned via overrides)`);
   if (callupNames) console.log(`  U15-callups: ${callupCount} aged-up player card(s) added from ${prevSeason} (roster-matched)`);
   if (overrideList.length) console.log(`  overrides (${overrideList.length}): ${overrideList.join(" · ")}`);
   if (removed.length) console.log(`  excluded (${removed.length}): ${removed.join(" · ")}`);

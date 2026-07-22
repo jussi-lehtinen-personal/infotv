@@ -9,8 +9,8 @@ import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmal
 
 const BONUS = [
   { icon: LuTrophy, label: "Oikea voittaja", pts: "+3p" },
-  { icon: LuTarget, label: "Oikea voittaja ja maaliero", pts: "+5p" },
-  { icon: LuStar, label: "Tarkka tulos", pts: "+8p" },
+  { icon: LuTarget, label: "Oikea voittaja ja maaliero", pts: "+7p" },
+  { icon: LuStar, label: "Tarkka tulos", pts: "+20p" },
 ];
 const GOALS = Array.from({ length: 16 }, (_, i) => i); // 0..15
 

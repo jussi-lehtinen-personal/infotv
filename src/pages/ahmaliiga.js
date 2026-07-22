@@ -144,8 +144,8 @@ const Ahmaliiga = () => {
           <Lead>Joka kierros saat myös arvata yhden pelin lopputuloksen ja saada bonuspisteitä:</Lead>
           <Box>
             <Rule label="Oikea voittaja" value="+3" />
-            <Rule label="Oikea voittaja ja maaliero" value="+5" />
-            <Rule label="Ihan tarkka tulos" value="+8" />
+            <Rule label="Oikea voittaja ja maaliero" value="+7" />
+            <Rule label="Ihan tarkka tulos" value="+20" />
           </Box>
         </Section>
 
@@ -208,10 +208,10 @@ const Ahmaliiga = () => {
                 { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "5" },
                 { label: "U13 Valkoinen — voitti 3–2", pts: "3" },
                 { label: "Edustus — tappio", pts: "0" },
-                { label: "Veikkaus — tarkka tulos", pts: "+8" },
+                { label: "Veikkaus — tarkka tulos", pts: "+20" },
               ]}
-              total="≈ 35"
-              note="Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa."
+              total="≈ 47"
+              note="Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa. Tarkka veikkaus on harvinainen mutta iso potti."
             />
           </Stack>
           <Box sx={{ mt: 1.25, p: 1.25, borderRadius: "var(--radius-item)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.25)" }}>

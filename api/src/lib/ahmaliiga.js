@@ -26,7 +26,7 @@ const ECON = {
   playerBand: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail
   priceStepCap: 15, // v2 (2026-07-19): 10→15, faster "stock-market" price moves (weekly rounds also reband 2× as often)
-  predict: { winner: 3, margin: 5, exact: 8 }, // v2 (2026-07-19): buffed 1/2/3 → 3/5/8 (1 game/round). Backtest killed 3-game×3/5/8 (=26% of points, dominated); 1-game×3/5/8 ≈ 9% + a hit feels big.
+  predict: { winner: 3, margin: 7, exact: 20 }, // v2.1 (2026-07-22): 3/5/8 → 3/7/20 from first-test data. Exact was rare (~12%) but underpaid; steeper gradient makes margin/exact the skill payoff (read the table) while a correct winner still rewards. ~13% of points for a perfect predictor, far under the 26% "dominates" case.
 };
 
 const T = {

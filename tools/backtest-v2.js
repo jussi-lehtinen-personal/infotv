@@ -32,9 +32,9 @@ function prediction() {
 
   const schemes = [
     { name: "1 peli · 1/2/3 (vanha)", g: 1, b: { winner: 1, margin: 2, exact: 3 } },
-    { name: "1 peli · 3/5/8 (VALITTU)", g: 1, b: { winner: 3, margin: 5, exact: 8 } },
+    { name: "1 peli · 3/5/8 (v2)", g: 1, b: { winner: 3, margin: 5, exact: 8 } },
+    { name: "1 peli · 3/7/20 (VALITTU v2.1)", g: 1, b: { winner: 3, margin: 7, exact: 20 } },
     { name: "3 peliä · 1/2/3", g: 3, b: { winner: 1, margin: 2, exact: 3 } },
-    { name: "3 peliä · 2/3/5", g: 3, b: { winner: 2, margin: 3, exact: 5 } },
     { name: "3 peliä · 3/5/8 (hylätty: dominoi)", g: 3, b: { winner: 3, margin: 5, exact: 8 } },
   ];
   console.log(`  havaittu osumajakauma: tarkka ${mix.exact} · maaliero ${mix.margin} · voittaja ${mix.winner} · ohi ${mix.miss}  (${Math.round(100 * (N - mix.miss) / N)} % osui)`);
