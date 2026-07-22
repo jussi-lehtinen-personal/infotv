@@ -67,6 +67,9 @@ app.http('ahmaliigaState', {
           minTeams: ECON.minTeams, // v2: 2 team-only slots → client renders 2 dedicated team slots
           bands,
           roundCount: rounds.length,
+          // Season is over once every round is settled — the dashboard shows a "kausi
+          // päättynyt" state instead of a running-round countdown on the last round.
+          seasonOver: rounds.length > 0 && rounds.every((j) => j.status === 'settled'),
           currentRound: cur
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,

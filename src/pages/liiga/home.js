@@ -171,7 +171,11 @@ export default function LiigaHome() {
     };
   }, []);
 
-  const round = state && state.active ? state.currentRound : null;
+  const seasonOver = !!(state && state.active && state.seasonOver);
+  const seasonPts = state && state.standing ? (state.standing.seasonPts ?? state.standing.roundPts ?? null) : null;
+  // Once the season is over, show a "kausi päättynyt" card instead of a running-round
+  // countdown (the last round is settled → no live jakso to count down / predict).
+  const round = state && state.active && !seasonOver ? state.currentRound : null;
   const prev = state && state.active ? state.prevRound : null;
   const unclaimed = rewards ? (rewards.vouchers || []).filter((v) => v.status === "issued").length : 0;
   const simDate = state && state.simMode ? state.simDate : null;
@@ -201,6 +205,27 @@ export default function LiigaHome() {
           </Box>
           <Box component={LuChevronRight} sx={{ fontSize: 20, color: "primary.main", flexShrink: 0, display: "block" }} />
         </ButtonBase>
+      )}
+
+      {/* Season over — all rounds settled → announce the end + final points (the full
+          final ranking is the Top-3 / Koko kausi section below). */}
+      {seasonOver && (
+        <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2 }}>
+          <Eyebrow sx={{ mb: 1.25 }}>Kausi päättynyt</Eyebrow>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1.25 }}>
+            <IconCircle icon={LuTrophy} size={44} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1, color: "text.primary" }}>Kaikki jaksot pelattu 🏁</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.4 }}>Loppusijoitus koko kauden rankingissa alla.</Typography>
+            </Box>
+            {seasonPts != null && (
+              <Box sx={{ textAlign: "center", flexShrink: 0 }}>
+                <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.5 }}>Pisteet</Typography>
+                <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 28, lineHeight: 1, color: "primary.main" }}>{seasonPts}</Typography>
+              </Box>
+            )}
+          </Stack>
+        </Box>
       )}
 
       {/* Running round — countdown + progress + your live points so far this round
