@@ -41,7 +41,7 @@ const StatVal = ({ children }) => (
   <Box sx={{ textAlign: "center", fontSize: 13, fontWeight: 800, color: "text.secondary" }}>{children}</Box>
 );
 
-export default function CardList({ cards, settled, onPick, canPick, hideIds, emptyText }) {
+export default function CardList({ cards, settled, onPick, canPick, hideIds, ownedIds, emptyText }) {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState({ key: "price", dir: "desc" }); // matches the server default
@@ -161,9 +161,14 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
           {list.map((c, i) => {
             const ok = !canPick || canPick(c);
             const divider = i < list.length - 1;
+            const owned = ownedIds && ownedIds.has(c.id); // in your squad → orange tint + left bar
             // Non-selectable rows just dim (no lock icon drawn over the avatar).
             const rowSx = { ...GRID, py: 1.25, textAlign: "left", width: "100%",
               opacity: ok ? 1 : 0.38,
+              // Owned cards: faint orange fill + a 3px inset left accent bar (no layout
+              // shift). Same orange as the ranking's "your row" highlight.
+              bgcolor: owned ? "rgba(249,115,22,0.08)" : "transparent",
+              boxShadow: owned ? "inset 3px 0 0 0 var(--color-primary)" : "none",
               borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0 };
             const body = (
               <>
@@ -198,7 +203,7 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, emp
             );
             return ok ? (
               <ButtonBase key={c.id} onClick={() => onPick && onPick(c)}
-                sx={{ ...rowSx, "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } }}>{body}</ButtonBase>
+                sx={{ ...rowSx, "&:hover": { bgcolor: owned ? "rgba(249,115,22,0.13)" : "rgba(255,255,255,0.03)" } }}>{body}</ButtonBase>
             ) : (
               <Box key={c.id} sx={rowSx}>{body}</Box>
             );
