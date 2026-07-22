@@ -126,6 +126,7 @@ const Ahmaliiga = () => {
             <Rule label="Nollapeli (ei päästä maalia)" value="+4" />
             <Rule label="Torjunta-% ≥ 88 %" value="+2" />
             <Rule label="Torjunta-% ≥ 92 %" value="+3" />
+            <Rule label="Työteliäs peli (torjunnat yli 40)" value="+½ / torjunta" />
           </Box>
         </Section>
 

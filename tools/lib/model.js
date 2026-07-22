@@ -15,7 +15,7 @@ const CFG = {
   player: { goal: 3, assist: 2 },
   // Goalie save-% bonus tiers: 88/92 (2026-07-17, matches api/src/lib/scoring.js).
   // v2 (2026-07-19): shutout cleanSheet 2→4 (team.cleanSheet stays 2).
-  goalie: { win: 3, cleanSheet: 4, sv92: 2, sv95: 3, minShots: 15 },
+  goalie: { win: 3, cleanSheet: 4, sv92: 2, sv95: 3, minShots: 15, savePer: 0.5, savesFloor: 40 }, // v2.1 (2026-07-22): +0.5/save above 40 (heroic workload) — matches scoring.js
   captainX: 2,
   squadSize: 5,
   budget: 120,
@@ -125,8 +125,10 @@ function goaliePoints(r, g) {
   const primary = names.slice().sort((a, b) => sv[b] - sv[a])[0];
   const G = ga[primary], S = sv[primary], shots = S + G, pct = shots > 0 ? (S / shots) * 100 : 0;
   const cs = G === 0 && shots > 0, p95 = shots >= CFG.goalie.minShots && pct >= 92, p92 = shots >= CFG.goalie.minShots && pct >= 88 && !p95;
-  const gp = CFG.goalie; const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (p95 ? gp.sv95 : p92 ? gp.sv92 : 0);
-  return { name: primary, pts, pct, won, cs, shots };
+  const gp = CFG.goalie;
+  const savePts = (gp.savePer || 0) * Math.max(0, S - (gp.savesFloor || 0)); // v2.1: heroic-workload reward (matches scoring.js)
+  const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (p95 ? gp.sv95 : p92 ? gp.sv92 : 0) + savePts;
+  return { name: primary, pts, pct, won, cs, shots, saves: S };
 }
 
 // Player (individual U18+) cards: per-(player,jakso) points (skater goals/assists

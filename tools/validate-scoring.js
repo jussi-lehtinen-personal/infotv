@@ -40,9 +40,16 @@ for (const year of [2026, 2025]) {
   }
 }
 
+// Goalie configs use different KEY NAMES by design (scoring.js: svLoBonus/svHiBonus at
+// 88/92 thresholds; model.js: sv92/sv95 with the 88/92 thresholds hardcoded in its
+// goaliePoints) — so compare the numerically-meaningful values, not the raw objects.
+const sg = scoring.SCORING.goalie, mg = model.CFG.goalie;
+const goalieEq = sg.win === mg.win && sg.cleanSheet === mg.cleanSheet && sg.minShots === mg.minShots &&
+                 sg.svLoBonus === mg.sv92 && sg.svHiBonus === mg.sv95 &&
+                 (sg.savePer || 0) === (mg.savePer || 0) && (sg.savesFloor || 0) === (mg.savesFloor || 0);
 const constOk = jsonEq(scoring.SCORING.team, model.CFG.team) &&
                 jsonEq(scoring.SCORING.player, model.CFG.player) &&
-                jsonEq(scoring.SCORING.goalie, model.CFG.goalie);
+                goalieEq;
 
 console.log(`\nGames checked:        ${games}   | team-point mismatches:   ${teamMiss}`);
 console.log(`Goalie games checked: ${gkChecked}   | goalie-point mismatches: ${gkMiss}`);

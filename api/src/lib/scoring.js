@@ -12,7 +12,13 @@ const SCORING = {
   // demanding, the bonus hit only ~30% of games; 88/92 makes goalies fair vs skaters).
   // v2 (2026-07-19): goalie SHUTOUT cleanSheet 2→4 (raises the ceiling 8→10 ≈ a hattrick,
   // so a shutout keeper can be captain-worthy). ⚠️ team.cleanSheet stays 2 (separate).
-  goalie: { win: 3, cleanSheet: 4, svLoPct: 88, svLoBonus: 2, svHiPct: 92, svHiBonus: 3, minShots: 15 },
+  // v2.1 (2026-07-22): per-save reward for HEROIC workload — 0.5 pt per save ABOVE 40
+  // (savesFloor). From calibrate-goalie-saves.js over 154 goalie games (kids' games get
+  // bombarded: median 32 saves, max 77): raises the ceiling 10→~22 (a hot goalie is now
+  // captain-worthy), rewards a busy goalie on a weak team even in a loss (decouples from
+  // the win), but routine games (≤40 saves) are untouched so the mean barely moves
+  // (3.45→4.30 p/game → goalies stay comparable to skaters, not auto-include).
+  goalie: { win: 3, cleanSheet: 4, svLoPct: 88, svLoBonus: 2, svHiPct: 92, svHiBonus: 3, minShots: 15, savePer: 0.5, savesFloor: 40 },
 };
 
 // Team-card points for ONE game from goals-for (gf) / goals-against (ga):
@@ -55,8 +61,9 @@ function goaliePoints(report, ctx) {
   const G = ga[primary], S = sv[primary], shots = S + G, pct = shots > 0 ? (S / shots) * 100 : 0;
   const gp = SCORING.goalie;
   const cs = G === 0 && shots > 0, hi = shots >= gp.minShots && pct >= gp.svHiPct, lo = shots >= gp.minShots && pct >= gp.svLoPct && !hi;
-  const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (hi ? gp.svHiBonus : lo ? gp.svLoBonus : 0);
-  return { name: primary, pts, pct, won, cs, shots };
+  const savePts = (gp.savePer || 0) * Math.max(0, S - (gp.savesFloor || 0)); // v2.1: reward saves ABOVE savesFloor only (heroic games) — raises the ceiling without inflating routine games. 0 unless gp.savePer set.
+  const pts = (won ? gp.win : 0) + (cs ? gp.cleanSheet : 0) + (hi ? gp.svHiBonus : lo ? gp.svLoBonus : 0) + savePts;
+  return { name: primary, pts, pct, won, cs, shots, saves: S };
 }
 
 module.exports = { SCORING, teamGamePoints, goaliePoints, clockSec };

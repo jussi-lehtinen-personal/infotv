@@ -80,14 +80,15 @@ function goalie() {
     console.log(`  ${label.padEnd(22)} pelejä ${pad(gs.length, 3)}  ka/peli ${pad(r1(mean), 4)}  katto ${pad(max, 2)}  pisteytti ${pad(Math.round(100 * scoring / gs.length), 3)} %  nollapelejä ${pad(cs, 3)} (${Math.round(100 * cs / gs.length)} %)`);
     return { mean, max };
   };
-  CFG.goalie.cleanSheet = 2; summarize("vanha (nollapeli +2)");
-  CFG.goalie.cleanSheet = 4; const nu = summarize("v2   (nollapeli +4)");
-  CFG.goalie.cleanSheet = savedCS;
+  const savedSP = CFG.goalie.savePer;
+  CFG.goalie.cleanSheet = 2; CFG.goalie.savePer = 0; summarize("v1  (nollapeli +2)");
+  CFG.goalie.cleanSheet = 4; CFG.goalie.savePer = 0; summarize("v2  (nollapeli +4)");
+  CFG.goalie.cleanSheet = savedCS; CFG.goalie.savePer = savedSP; const nu = summarize("v2.1(+0.5/torj yli 40)");
 
   // context: team pts/game and a rough skater "appearance" scale
   let tp = 0, tn = 0;
   for (const g of loadSeason("2026")) { tp += gamePoints(g).pts; tn++; }
-  console.log(`  vertailu: joukkuekortti ka ${r1(tp / tn)} p/peli · huippukenttäpelaaja (hattutemppu) ~9–11 p → mv-katto ${nu.max} on nyt samaa luokkaa`);
+  console.log(`  vertailu: joukkuekortti ka ${r1(tp / tn)} p/peli · pelaaja hattutemppu ~9–11, huippupeli 36 → mv ka ${r1(nu.mean)} (≈ pelaaja, ei auto-include) mutta katto ${nu.max} = sankaripeli kapteenikelpoinen`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
