@@ -16,9 +16,10 @@ compatibility_date = "2024-11-01"
 binding = "GAME_IDS"
 id = "1ed1f45544974010976093924eae98e0"
 
-# Cron trigger: steps the Ahmaliiga sim clock (1 sim-day / 15 min → 96× real time).
+# Cron trigger: steps the Ahmaliiga sim clock. 2026-07-22 (open beta): 1 sim-day / 1 hour
+# (was 15 min = 96×) → a 2-week round ≈ 14 real hours, a ~15-round season ≈ ~9-10 days.
 # CF cron fires reliably, unlike GitHub Actions' best-effort schedule. The `scheduled`
 # handler POSTs /api/runAhmaliigaTick with AHMALIIGA_CRON_KEY (a Worker secret — set
 # with `wrangler secret put AHMALIIGA_CRON_KEY`, same value as the SWA app-setting).
 [triggers]
-crons = ["7,22,37,52 * * * *"]
+crons = ["7 * * * *"]

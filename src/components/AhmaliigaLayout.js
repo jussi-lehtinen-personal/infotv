@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles, Badge } from "@mui/material";
 import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuBell, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal, LuTrophy } from "react-icons/lu";
-import { useEnvAdmin, useAdminAccess } from "../hooks/useEnvAdmin";
+import { useEnvAdmin, useHasAccount } from "../hooks/useEnvAdmin";
 import { getAhmaliigaNotifications } from "../lib/ahmaliigaApi";
 
 // Ahmaliiga runs as its own "mode" inside Gamezone: own bottom bar, and a top bar
@@ -40,14 +40,13 @@ const FullScreenSpinner = () => (
   </Box>
 );
 
-// Gate: render children for ANY admin (env allowlist OR data-admin role); everyone
-// else is bounced to the public promo/beta page (the game itself is still admin-only
-// preview). null (still loading) shows a spinner so a legit admin isn't redirected
-// early. (The sim admin panel gear is separately env-admin only.)
-// TODO (beta launch): open the game to any registered user — change useAdminAccess()
-// here to "admin || has an account", and the promo's beta invite becomes the entry.
+// Gate: OPEN BETA (2026-07-22) — render children for anyone who has created a user
+// (passkey or Google), plus admins. Users with no account are bounced to the public
+// promo/beta page, whose "Luo käyttäjä" CTA is the entry. null (still loading) shows a
+// spinner so a legit user isn't redirected early. (The sim admin panel gear is
+// separately env-admin only.)
 const Gate = ({ children }) => {
-  const allowed = useAdminAccess();
+  const allowed = useHasAccount();
   if (allowed === false) return <Navigate to="/ahmaliiga/info" replace />;
   if (allowed === null) return <FullScreenSpinner />;
   return children;

@@ -25,7 +25,13 @@ export function useEnvAdmin() {
 }
 
 // True for ANY admin — the env allowlist OR a data-admin role. Use to gate
-// not-yet-public previews (e.g. viewing Ahmaliiga) to the club's admins.
+// not-yet-public previews to the club's admins.
 export function useAdminAccess() {
   return useMeFlag((u) => u.isEnvAdmin || u.isAdmin);
+}
+
+// True for any signed-in user with an account (passkey or Google), plus admins.
+// The Ahmaliiga beta is open to everyone who has created a user → this is the gate.
+export function useHasAccount() {
+  return useMeFlag((u) => u.hasPasskey || u.googleLinked || u.isEnvAdmin || u.isAdmin);
 }
