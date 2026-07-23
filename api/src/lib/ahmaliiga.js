@@ -1404,7 +1404,10 @@ const ROSTER_BASE = 'https://www.kiekko-ahma.fi';
 const IMAGEBANK = 'https://static.jopox.fi/kiekko-ahma/imagebank';
 const ROSTER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 // Player-eligible teamKey age → Jopox subsiteId (see src/data/jopoxTeams.js).
-const AGE_SUBSITE = { Edustus: 9947, Naiset: 9974, U20: 9948, U18: 9949 };
+// Kiekko-Ahma Jopox subsites per age group (kiekko-ahma.fi/joukkueet/<id>) — mirror of
+// src/data/jopoxTeams.js. Used for player photos; older + younger teams so a card whose
+// player has moved up an age group still resolves (photos are matched across ALL of these).
+const AGE_SUBSITE = { Edustus: 9947, Naiset: 9974, U20: 9948, U18: 9949, U15: 9951, U14: 9952, U13: 9953, U11: 9955 };
 
 const normName = (s) => String(s || '').toLocaleLowerCase('fi')
   .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/å/g, 'a')
@@ -1432,32 +1435,38 @@ async function fetchRosterPhotos(subsiteId) {
   return map;
 }
 
-// Enrich player/goalie cards with a photo from their team's Jopox roster.
+// Enrich player/goalie cards with a photo from the Jopox rosters. Matches each player
+// against a COMBINED name→photo map built from ALL Ahma age-group pages (preferring the
+// card's own declared age), so a player who moved up an age group — e.g. a carded "U15"
+// who now plays U18 — still resolves (their photo lives on their CURRENT team's page).
 async function enrichPhotos(seasonId) {
   const cards = await getCards(seasonId);
   const players = cards.filter((c) => c.kind !== 'team' && c.personName);
-  const subsiteOf = (teamKey) => AGE_SUBSITE[String(teamKey || '').split(' ')[0]] || null;
-  const bySub = {};
-  for (const c of players) { const s = subsiteOf(c.sub || c.teamKey); if (s) (bySub[s] = bySub[s] || []).push(c); }
+  // Fetch every subsite once; keep per-subsite maps (for the declared-age preference) and
+  // a combined union (fallback for moved-up players).
+  const subs = [...new Set(Object.values(AGE_SUBSITE))];
+  const maps = {};
+  await inChunks(subs, 4, async (s) => { try { maps[s] = await fetchRosterPhotos(s); } catch { maps[s] = {}; } });
+  const combined = {};
+  for (const s of subs) Object.assign(combined, maps[s]);
 
   let matched = 0;
   const updates = [];
-  for (const [sub, list] of Object.entries(bySub)) {
-    const roster = await fetchRosterPhotos(sub);
-    for (const c of list) {
-      const photo = roster[normName(c.personName)] || '';
-      if (photo) matched++;
-      updates.push({
-        partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
-        teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
-        band: c.band, price: c.price, ownerCount: c.ownerCount || 0, lastPts: c.lastPts || 0,
-        seasonPts: c.seasonPts || 0, trend: c.trend || '', priorForm: c.priorForm ?? null,
-        seedPrice: c.seedPrice ?? c.price, seedBand: c.seedBand || c.band, photo,
-      });
-    }
+  for (const c of players) {
+    const norm = normName(c.personName);
+    const declared = AGE_SUBSITE[String(c.sub || c.teamKey || '').split(' ')[0]];
+    const photo = (declared && maps[declared] && maps[declared][norm]) || combined[norm] || '';
+    if (photo) matched++;
+    updates.push({
+      partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
+      teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
+      band: c.band, price: c.price, ownerCount: c.ownerCount || 0, lastPts: c.lastPts || 0,
+      seasonPts: c.seasonPts || 0, trend: c.trend || '', priorForm: c.priorForm ?? null,
+      seedPrice: c.seedPrice ?? c.price, seedBand: c.seedBand || c.band, photo,
+    });
   }
   await upsertBatch(T.cards, updates);
-  return { players: players.length, matched, subsites: Object.keys(bySub).length };
+  return { players: players.length, matched, subsites: subs.length };
 }
 
 // A manager's per-round score row (total, rank, per-card breakdown, lineup).
