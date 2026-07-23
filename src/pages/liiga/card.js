@@ -278,7 +278,9 @@ export default function LiigaCard() {
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Box sx={{ flex: 1, minWidth: 0, textAlign: "center" }}>
           <Box sx={{ position: "relative", display: "inline-flex" }}>
-            <Box sx={{ borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={140} /></Box>
+            {/* Team cards show just the Ahma logo — no orange ring (that's for round
+                photo/initials avatars). Players/goalies keep the ring. */}
+            <Box sx={card.kind === "team" ? {} : { borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={140} /></Box>
             {card.photo && (
               <Box sx={{ position: "absolute", bottom: 2, right: 2, width: 46, height: 46, borderRadius: "50%",
                     bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>
