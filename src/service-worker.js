@@ -151,3 +151,32 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// --- Web push (Ahmaliiga B8 notifications) ---
+// The server sends { title, body, url, tag }. Show a notification; a click focuses an
+// existing tab (navigating it to url) or opens a new one.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; }
+  catch (e) { data = { title: 'Ahmaliiga', body: event.data ? event.data.text() : '' }; }
+  const title = data.title || 'Ahmaliiga';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || '',
+    icon: '/ahmaliiga_logo.png',
+    tag: data.tag || undefined,
+    renotify: !!data.tag,
+    data: { url: data.url || '/ahmaliiga' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/ahmaliiga';
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of wins) {
+      if ('focus' in c) { try { await c.navigate(url); } catch (e) { /* cross-origin/edge */ } return c.focus(); }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(url);
+  })());
+});

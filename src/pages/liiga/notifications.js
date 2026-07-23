@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, ButtonBase } from "@mui/material";
-import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell, LuChevronRight, LuTrash2 } from "react-icons/lu";
-import { Screen, PageHead, Loading, EmptyState, ListCard, IconCircle, shortDate, PillButton } from "./_shared";
+import { Box, Typography, ButtonBase, Switch, Alert } from "@mui/material";
+import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell, LuBellRing, LuChevronRight, LuTrash2 } from "react-icons/lu";
+import { Screen, PageHead, Loading, ListCard, IconCircle, shortDate, PillButton } from "./_shared";
 import { getAhmaliigaNotifications, deleteAhmaliigaNotification, clearAhmaliigaNotifications } from "../../lib/ahmaliigaApi";
+import { pushSupported, isIosNotInstalled, getPushState, enablePush, disablePush } from "../../lib/ahmaliigaPush";
 
 // Ilmoitukset — the manager's inbox, filled by settlement (one round-summary batch
 // per settled round). Each notification is clickable: it opens the round's
@@ -36,6 +37,48 @@ const PointsBadge = ({ points }) => {
   );
 };
 
+// Push opt-in — a master toggle over the browser permission + push subscription. Shown at
+// the top of the inbox. iOS needs the PWA installed to the home screen.
+function PushToggle() {
+  const [state, setState] = useState(null); // {supported, permission, subscribed}
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { getPushState().then(setState).catch(() => setState({ supported: false })); }, []);
+  if (!state) return null;
+
+  const on = state.subscribed && state.permission === "granted";
+  const toggle = async () => {
+    setBusy(true); setErr("");
+    try { on ? await disablePush() : await enablePush(); setState(await getPushState()); }
+    catch (e) { setErr(e.message || "Ilmoitusten kytkentä epäonnistui."); }
+    setBusy(false);
+  };
+
+  return (
+    <Box sx={{ mb: 2, p: 1.75, borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+        <IconCircle icon={on ? LuBellRing : LuBell} size={38} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 14.5, color: "text.primary" }}>Push-ilmoitukset</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>Muistutukset, tulokset ja palkinnot puhelimeesi.</Typography>
+        </Box>
+        {pushSupported() && <Switch checked={on} onChange={toggle} disabled={busy} />}
+      </Box>
+      {!pushSupported() && (
+        <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mt: 1 }}>
+          {isIosNotInstalled() ? "iOS: lisää sovellus kotivalikkoon (Jaa → Lisää Koti-valikkoon) saadaksesi ilmoitukset." : "Selaimesi ei tue push-ilmoituksia."}
+        </Typography>
+      )}
+      {state.permission === "denied" && (
+        <Typography variant="caption" sx={{ display: "block", color: "#f87171", mt: 1 }}>
+          Ilmoitukset on estetty — salli ne selaimen sivuston asetuksista.
+        </Typography>
+      )}
+      {err && <Alert severity="error" sx={{ mt: 1, borderRadius: "var(--radius-item)" }}>{err}</Alert>}
+    </Box>
+  );
+}
+
 export default function LiigaNotifications() {
   const nav = useNavigate();
   const [items, setItems] = useState(undefined);
@@ -61,28 +104,34 @@ export default function LiigaNotifications() {
   };
 
   if (items === undefined) return <Loading screen />;
-  if (!items || !items.length) {
-    return <EmptyState icon={LuBell} title="Ei ilmoituksia"
-      text="Kun jakso ratkaistaan, näet täällä miten joukkueesi, kapteenisi ja veikkauksesi pärjäsivät. Klikkaa ilmoitusta nähdäksesi jakson yhteenvedon." />;
-  }
+  const list = items || [];
 
   return (
     <Screen>
-      <PageHead title="Ilmoitukset" right={
+      <PageHead title="Ilmoitukset" right={list.length ? (
         <PillButton onClick={clearAll}>
           <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.6 }}>
             <Box component={LuTrash2} sx={{ fontSize: 14, display: "block" }} />
             Tyhjennä kaikki
           </Box>
         </PillButton>
-      } />
+      ) : null} />
+
+      <PushToggle />
+
+      {!list.length ? (
+        <Box sx={{ textAlign: "center", py: 5, color: "text.secondary" }}>
+          <Box component={LuBell} sx={{ fontSize: 30, color: "text.disabled", display: "block", mx: "auto", mb: 1 }} />
+          <Typography variant="body2">Ei ilmoituksia vielä. Kun jakso ratkaistaan, näet täällä miten pärjäsit.</Typography>
+        </Box>
+      ) : (
       <ListCard>
-        {items.map((n, i) => {
+        {list.map((n, i) => {
           const k = KIND[n.kind] || KIND.round;
           return (
             <ButtonBase key={n.id} onClick={() => open(n)}
               sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1.75, py: 1.5, width: "100%", textAlign: "left",
-                    borderBottom: i < items.length - 1 ? "1px solid var(--color-surface-divider)" : 0,
+                    borderBottom: i < list.length - 1 ? "1px solid var(--color-surface-divider)" : 0,
                     "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } }}>
               <IconCircle icon={k.icon} tint={k.tint} color={k.color} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -97,6 +146,7 @@ export default function LiigaNotifications() {
           );
         })}
       </ListCard>
+      )}
     </Screen>
   );
 }
