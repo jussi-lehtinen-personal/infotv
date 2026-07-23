@@ -270,7 +270,7 @@ export default function LiigaCard() {
           {(squad.error || localError) && <Alert severity="error" sx={{ mb: 1.25, borderRadius: "var(--radius-item)" }}>{localError || squad.error}</Alert>}
           {owned ? (
             <>
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center", mb: 1 }}>
                 <Box component={LuBadgeCheck} sx={{ fontSize: 18, color: "primary.main", display: "block", flexShrink: 0 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: 14, color: "primary.main" }}>Tämä kortti on kortistossasi{squad.captainId === id ? " · kapteeni ×2" : ""}</Typography>
               </Stack>
