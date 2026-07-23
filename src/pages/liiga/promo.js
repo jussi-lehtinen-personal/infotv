@@ -43,7 +43,8 @@ export default function LiigaPromo() {
 
   return (
     <Box sx={{ minHeight: "100dvh", background: "var(--bg-gradient)", color: "text.primary",
-          display: "flex", flexDirection: "column", alignItems: "center", px: 2.5, py: 3 }}>
+          display: "flex", flexDirection: "column", alignItems: "center", px: 2.5,
+          pt: "calc(env(safe-area-inset-top) + 24px)", pb: 3 }}>
       <Box sx={{ width: "100%", maxWidth: 560 }}>
         <Button onClick={() => nav("/")} startIcon={<LuArrowLeft size={18} />}
           sx={{ color: "text.secondary", textTransform: "none", fontWeight: 700 }}>Etusivu</Button>
