@@ -56,8 +56,9 @@ export default function PushPrompt() {
           Ei nyt
         </Button>
       </Stack>
-      <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mt: 1, textAlign: "center" }}>
-        Voit sallia tai perua ilmoitukset milloin tahansa Ilmoitukset-sivulla (kello 🔔).
+      <Typography variant="caption" component="div" sx={{ color: "text.disabled", mt: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 0.4, flexWrap: "wrap" }}>
+        Voit sallia tai perua ilmoitukset milloin tahansa Ilmoitukset-sivulla
+        <Box component={LuBell} sx={{ fontSize: 13, display: "block", flexShrink: 0 }} />
       </Typography>
     </Box>
   );

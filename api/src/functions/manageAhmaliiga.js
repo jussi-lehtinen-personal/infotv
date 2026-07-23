@@ -82,6 +82,22 @@ app.http('manageAhmaliiga', {
         return { jsonBody: { ok: true, ...result } };
       }
 
+      // Send a test push. Default target = the calling admin's own userId (subscribe on
+      // your device first); or { nick } / { userId } to target a manager. { sent:0 } = no
+      // subscription (push not enabled on that user's device).
+      if (action === 'testPush') {
+        const { sendPush } = require('../lib/push');
+        let uid = body.userId || userId;
+        if (body.nick) {
+          const needle = String(body.nick).toLowerCase();
+          const hit = (await listManagers()).filter((m) => (m.nickname || '').toLowerCase().includes(needle));
+          if (hit.length !== 1) return { status: 400, jsonBody: { error: `nick "${body.nick}" → ${hit.length} osumaa.` } };
+          uid = hit[0].userId;
+        }
+        const result = await sendPush(uid, { title: 'Testi-ilmoitus 🔔', body: 'Ahmaliiga-push toimii! Klikkaa avataksesi sovelluksen.', url: '/ahmaliiga', tag: 'ahmaliiga-test' });
+        return { jsonBody: { ok: true, targetUserId: uid, ...result } };
+      }
+
       // Set/clear the public start time (ISO). Before it, the dashboard shows the
       // "alkaa pian" pre-start card. { startAt: "2026-08-01T17:00:00Z" } or { startAt: null }.
       if (action === 'setStart') {
