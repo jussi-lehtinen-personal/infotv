@@ -45,6 +45,7 @@ const T = {
   messages: 'AhmaliigaMessages',
   vouchers: 'AhmaliigaVouchers',
   squadLog: 'AhmaliigaSquadLog', // append-only audit of squad edits (transfer disputes + analytics)
+  rosters: 'AhmaliigaRosters', // team kokoonpano accumulated from game-report rosters (getrosters) at settlement
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -557,6 +558,9 @@ async function settleRound(seasonId, round) {
       perGame = live.perGame; liveGames = live.gameList;
     }
   } catch (e) { /* keep existing AhmaliigaResults */ }
+  // Capture team rosters (kokoonpano) from this round's game reports — best-effort, never
+  // blocks settlement. Accumulates per team across the season for the team-card view.
+  try { await captureRosters(seasonId, round); } catch (e) { /* best-effort */ }
   const resJ = await getResults(seasonId, round);
   const cards = await getCards(seasonId);
   const cardMap = {};
@@ -1085,6 +1089,67 @@ async function computeRoundResults(seasonId, round) {
   return { results, reasons, perGame, gameList: games, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
 }
 
+// Capture each Ahma team's kokoonpano from the round's game-report rosters (getrosters) —
+// a byproduct of settlement. The roster comes per team-id, so peliryhmät (Oranssi/Musta)
+// separate correctly (Jopox can't do that). Union-accumulated per team across the season
+// (PK=season|teamKey, RK=normName), storing the SET of games each player dressed →
+// idempotent on re-settle → gamesDressed + lastGame. Fetches a report per Ahma game; the
+// player-eligible ones are already worker-cached from scoring, the younger teams' are
+// cheap extra worker calls (bounded ~1/game/round). Best-effort — never blocks settlement.
+async function captureRosters(seasonId, round) {
+  const games = await getRoundGames(seasonId, round);
+  const perTeam = {}; // teamKey -> [{ gameId, date, players:[{number,last,first,role}] }]
+  await inChunks(games, 6, async (g) => {
+    const rep = await fetchGameReport(g);
+    const side = rep && rep.rosters ? (g.ahmaHome ? rep.rosters.home : rep.rosters.away) : null;
+    const players = (side && side.players) || [];
+    if (!players.length) return;
+    const tk = teamKey(g);
+    (perTeam[tk] = perTeam[tk] || []).push({ gameId: String(g.gameId), date: String(g.date || '').slice(0, 10), players });
+  });
+  for (const [tk, sightings] of Object.entries(perTeam)) {
+    const pk = `${seasonId}|${tk}`;
+    const existing = {};
+    for (const r of await listByPartition(T.rosters, pk)) existing[r.rowKey] = r;
+    const touched = {};
+    for (const s of sightings) {
+      for (const p of s.players) {
+        const full = `${p.last || ''} ${p.first || ''}`.trim();
+        const rk = normName(full);
+        if (!rk) continue;
+        const cur = touched[rk] || existing[rk] || { partitionKey: pk, rowKey: rk, name: full, number: '', role: '', games: '[]', lastGame: '' };
+        let gset = []; try { gset = JSON.parse(cur.games || '[]'); } catch { gset = []; }
+        if (!gset.includes(s.gameId)) gset.push(s.gameId);
+        touched[rk] = {
+          ...cur, name: full, number: p.number || cur.number || '', role: p.role || cur.role || '',
+          games: JSON.stringify(gset), lastGame: s.date > (cur.lastGame || '') ? s.date : (cur.lastGame || ''),
+        };
+      }
+    }
+    for (const row of Object.values(touched)) await upsertEntity(T.rosters, row);
+  }
+  return { teams: Object.keys(perTeam).length };
+}
+
+// The accumulated kokoonpano for a team card → sorted list for the card details page.
+async function getTeamRoster(seasonId, teamKey) {
+  const rows = await listByPartition(T.rosters, `${seasonId}|${teamKey}`);
+  const players = rows.map((r) => {
+    let games = []; try { games = JSON.parse(r.games || '[]'); } catch { games = []; }
+    return { name: r.name, number: r.number || '', role: r.role || '', gamesDressed: games.length, lastGame: r.lastGame || '' };
+  });
+  // goalies (MV) last; then most games; then jersey number; then name
+  players.sort((a, b) => {
+    const ga = a.role === 'MV' ? 1 : 0, gb = b.role === 'MV' ? 1 : 0;
+    if (ga !== gb) return ga - gb;
+    if (b.gamesDressed !== a.gamesDressed) return b.gamesDressed - a.gamesDressed;
+    const na = Number(a.number) || 999, nb = Number(b.number) || 999;
+    if (na !== nb) return na - nb;
+    return a.name.localeCompare(b.name, 'fi');
+  });
+  return players;
+}
+
 // Safety gate before switching settlement over: compare the runtime engine to the
 // precomputed AhmaliigaResults for a round. Returns the mismatches (should be none).
 async function validateRoundResults(seasonId, round) {
@@ -1288,6 +1353,8 @@ async function getCardDetail(seasonId, cardId) {
     managerCount, ownerCount,
     ownerPct: managerCount ? Math.round((ownerCount / managerCount) * 100) : 0,
     history, games,
+    // Team cards: the accumulated kokoonpano from game rosters (null until a game is played).
+    roster: card.kind === 'team' ? await getTeamRoster(seasonId, card.teamKey || card.name) : undefined,
   };
 }
 
@@ -1778,6 +1845,7 @@ module.exports = {
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
+  captureRosters, getTeamRoster,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
   syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
   ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,

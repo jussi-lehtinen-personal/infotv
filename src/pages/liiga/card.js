@@ -72,6 +72,31 @@ const BarRow = ({ label, value, bar, max, coin }) => (
   </Box>
 );
 
+// Roster name is stored "Lastname Firstname" (last capitalised by tulospalvelu) → title-
+// case each token, keep the surname-first order (common in FI sports listings).
+const prettyName = (n) => String(n || "").split(/\s+/)
+  .map((w) => (w ? w[0].toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w)).join(" ");
+
+// One roster (kokoonpano) row: jersey number + name + games dressed. Goalies (role MV)
+// get an orange number chip + a "Maalivahti" note.
+const RosterRow = ({ p }) => {
+  const gk = p.role === "MV";
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 1.5, py: 1.05,
+          borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+      <Box sx={{ width: 34, height: 34, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
+            bgcolor: gk ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.06)", border: "1px solid var(--color-surface-border)",
+            fontWeight: 800, fontSize: 13, color: gk ? "primary.main" : "text.secondary" }}>{p.number || "–"}</Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography noWrap sx={{ fontWeight: 700, fontSize: 14, color: "text.primary", lineHeight: 1.25 }}>{prettyName(p.name)}</Typography>
+        <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>
+          {gk ? "Maalivahti · " : ""}{p.gamesDressed} {p.gamesDressed === 1 ? "peli" : "peliä"}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
 // Small SVG line chart. points = [{ v, label }] oldest → newest.
 const LineChart = ({ points, coin }) => {
   if (points.length < 2) return null;
@@ -187,7 +212,12 @@ export default function LiigaCard() {
 
   useEffect(() => {
     let cancelled = false;
-    getAhmaliigaCard(id).then((d) => { if (!cancelled) setData(d); }).catch(() => { if (!cancelled) setData(null); });
+    getAhmaliigaCard(id).then((d) => {
+      if (cancelled) return;
+      setData(d);
+      // Team cards open on their roster (the headline info for a team).
+      if (d && d.card && d.card.kind === "team") setTab("kokoonpano");
+    }).catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -205,6 +235,8 @@ export default function LiigaCard() {
   const history = data.history || [];
   const games = data.games || [];
   const maxPts = Math.max(1, ...history.map((h) => h.pts));
+  const roster = data.roster || null; // team kokoonpano (null for players / before first game)
+  const tabs = card.kind === "team" ? [{ key: "kokoonpano", label: "Kokoonpano" }, ...TABS] : TABS;
 
   // Buy/sell context (via useSquad). `c` is a lean card for the rule checks.
   const c = { id, price: card.price, kind: card.kind };
@@ -302,8 +334,18 @@ export default function LiigaCard() {
 
       {/* tabs */}
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-        {TABS.map((t) => <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1 }}>{t.label}</PillButton>)}
+        {tabs.map((t) => <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1 }}>{t.label}</PillButton>)}
       </Stack>
+
+      {tab === "kokoonpano" && (
+        !roster || roster.length === 0
+          ? <Empty text="Kokoonpano päivittyy ensimmäisen pelin jälkeen." />
+          : (
+            <Section title={`Kokoonpano · ${roster.length} pelaajaa`}>
+              {roster.map((p, i) => <RosterRow key={i} p={p} />)}
+            </Section>
+          )
+      )}
 
       {tab === "pelit" && (
         games.length === 0 ? <Empty text="Ei pelejä vielä." /> : (

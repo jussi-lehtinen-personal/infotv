@@ -13,7 +13,7 @@ const TABLE_NAMES = [
   'AhmaliigaManagers', 'AhmaliigaSquads', 'AhmaliigaLineups',
   'AhmaliigaPredictions', 'AhmaliigaScores', 'AhmaliigaSeasonScores',
   'AhmaliigaResults', 'AhmaliigaGames', 'AhmaliigaMessages', 'AhmaliigaVouchers',
-  'AhmaliigaSquadLog',
+  'AhmaliigaSquadLog', 'AhmaliigaRosters',
 ];
 const clients = {};
 let ensured = false;
