@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase, Button } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair, LuRocket } from "react-icons/lu";
 import { SiWhatsapp } from "react-icons/si";
+import PushPrompt from "./PushPrompt";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
@@ -213,6 +214,9 @@ export default function LiigaHome() {
           Kokoa kortisto ja nouse mestariksi.
         </Typography>
       </Box>
+
+      {/* Soft push opt-in — only shows if supported, not yet asked, not dismissed. */}
+      <PushPrompt />
 
       {/* Prize banner — you have unredeemed rewards → open Palkinnot (shows the QR). */}
       {unclaimed > 0 && (
