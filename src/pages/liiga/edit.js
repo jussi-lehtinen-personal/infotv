@@ -13,8 +13,8 @@ import CardList from "./CardList";
 import { useSquad } from "./useSquad";
 
 // Oma joukkue — the squad, edited in place. Captain hero + a grid of the other
-// cards. Tapping a card opens an action sheet (Korvaa / Kapteeni / Näytä tiedot /
-// Poista); a long press sets the captain. Korvaa/Lisää open the shared <CardList>.
+// cards. Tapping a card opens an action sheet (Vaihda / Kapteeni / Näytä tiedot /
+// Myy); a long press sets the captain. Vaihda/Lisää open the shared <CardList>.
 // Every change persists to the server immediately (direct edit); a partial squad
 // (fewer than 5 cards) is allowed — the server enforces the rest of the rules.
 
@@ -311,7 +311,7 @@ export default function LiigaEdit() {
               <Box sx={{ flexShrink: 0 }}><Coins value={menuCard.price} size={15} /></Box>
             </Stack>
             <Stack spacing={0.25}>
-              <SheetAction icon={LuArrowLeftRight} label="Korvaa kortti" sub="Vaihda tämä kortti toiseen" chevron
+              <SheetAction icon={LuArrowLeftRight} label="Vaihda kortti" sub="Vaihda tämä kortti toiseen" chevron
                 onClick={() => { const c = menuCard; setMenuCard(null); setReplaceFor(c); }} />
               {menuCard.id !== captainId && !captainLocked && (
                 <SheetAction icon={LuCrown} label="Tee kapteeniksi" sub="Kapteenin pisteet ×2"
@@ -322,7 +322,7 @@ export default function LiigaEdit() {
               )}
               <SheetAction icon={LuInfo} label="Näytä tiedot" sub="Avaa kortin tiedot"
                 onClick={() => nav(`/ahmaliiga/card/${encodeURIComponent(menuCard.id)}`)} />
-              <SheetAction icon={LuTrash2} label="Poista kortti" sub="Poista kortti joukkueesta" danger
+              <SheetAction icon={LuTrash2} label="Myy kortti" sub="Saat kortin hinnan takaisin" danger
                 onClick={() => { const c = menuCard; setMenuCard(null); setRemoveConfirm(c); }} />
             </Stack>
             <Button fullWidth variant="outlined" onClick={() => setMenuCard(null)}
@@ -347,24 +347,24 @@ export default function LiigaEdit() {
 
       {/* Remove confirm */}
       <Dialog open={!!removeConfirm} onClose={() => setRemoveConfirm(null)} slotProps={{ paper: { elevation: 0, sx: dialogPaper }, backdrop: { sx: { backgroundColor: "rgba(0,0,0,0.7)" } } }}>
-        <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>Poista kortti?</DialogTitle>
+        <DialogTitle sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)" }}>Myy kortti?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: "text.secondary" }}>
-            {removeConfirm && <>Poistetaanko <b>{removeConfirm.name}</b> joukkueesta? Voit lisätä uuden kortin tilalle.</>}
+            {removeConfirm && <>Myydäänkö <b>{removeConfirm.name}</b>? Saat kortin hinnan takaisin ja voit ostaa toisen tilalle.</>}
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setRemoveConfirm(null)} sx={{ color: "text.secondary" }}>Peruuta</Button>
-          <Button variant="contained" color="error" onClick={() => removeCard(removeConfirm.id)}>Poista</Button>
+          <Button variant="contained" color="error" onClick={() => removeCard(removeConfirm.id)}>Myy</Button>
         </DialogActions>
       </Dialog>
 
       {/* 3. Replace list (full screen) */}
-      <LiigaDialog open={!!replaceFor} onClose={() => setReplaceFor(null)} title="Korvaa kortti">
+      <LiigaDialog open={!!replaceFor} onClose={() => setReplaceFor(null)} title="Vaihda kortti">
         {replaceFor && (
           <>
             <Box sx={{ mb: 2, p: 1.5, borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-              <Box component="span" sx={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>Korvattava kortti</Box>
+              <Box component="span" sx={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" }}>Vaihdettava kortti</Box>
               <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mt: 0.75 }}>
                 <CardAvatar card={replaceFor} size={40} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -375,7 +375,7 @@ export default function LiigaEdit() {
               </Stack>
             </Box>
             <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={(c) => canReplaceWith(c, replaceFor)}
-              onPick={(c) => setSwapIn(c)} emptyText="Ei korvaavia kortteja." />
+              onPick={(c) => setSwapIn(c)} emptyText="Ei vaihdettavia kortteja." />
           </>
         )}
       </LiigaDialog>
