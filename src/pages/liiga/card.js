@@ -77,20 +77,29 @@ const BarRow = ({ label, value, bar, max, coin }) => (
 const prettyName = (n) => String(n || "").split(/\s+/)
   .map((w) => (w ? w[0].toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w)).join(" ");
 
-// One roster (kokoonpano) row: jersey number + name + games dressed. Goalies (role MV)
-// get an orange number chip + a "Maalivahti" note.
+// One roster (kokoonpano) row: photo (else numbered circle) + name + games dressed.
+// Goalies (role MV) get an orange chip + a "Maalivahti" note; number moves to the caption
+// when a photo is shown so it stays visible.
 const RosterRow = ({ p }) => {
+  const [err, setErr] = useState(false);
   const gk = p.role === "MV";
+  const showPhoto = p.photo && !err;
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 1.5, py: 1.05,
           borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
-      <Box sx={{ width: 34, height: 34, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
-            bgcolor: gk ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.06)", border: "1px solid var(--color-surface-border)",
-            fontWeight: 800, fontSize: 13, color: gk ? "primary.main" : "text.secondary" }}>{p.number || "–"}</Box>
+      {showPhoto ? (
+        <Box component="img" src={p.photo} alt="" onError={() => setErr(true)}
+          sx={{ width: 34, height: 34, flexShrink: 0, borderRadius: "50%", objectFit: "cover", objectPosition: "center top",
+                border: "1px solid var(--color-surface-border)", bgcolor: "#222" }} />
+      ) : (
+        <Box sx={{ width: 34, height: 34, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
+              bgcolor: gk ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.06)", border: "1px solid var(--color-surface-border)",
+              fontWeight: 800, fontSize: 13, color: gk ? "primary.main" : "text.secondary" }}>{p.number || "–"}</Box>
+      )}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 700, fontSize: 14, color: "text.primary", lineHeight: 1.25 }}>{prettyName(p.name)}</Typography>
         <Typography noWrap variant="caption" sx={{ color: "text.disabled" }}>
-          {gk ? "Maalivahti · " : ""}{p.gamesDressed} {p.gamesDressed === 1 ? "peli" : "peliä"}
+          {gk ? "Maalivahti · " : ""}{showPhoto && p.number ? `#${p.number} · ` : ""}{p.gamesDressed} {p.gamesDressed === 1 ? "peli" : "peliä"}
         </Typography>
       </Box>
     </Box>

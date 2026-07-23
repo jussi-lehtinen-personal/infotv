@@ -1107,6 +1107,7 @@ async function captureRosters(seasonId, round) {
     const tk = teamKey(g);
     (perTeam[tk] = perTeam[tk] || []).push({ gameId: String(g.gameId), date: String(g.date || '').slice(0, 10), players });
   });
+  const photoCache = {}; // subsiteId -> {normName: photoUrl} (Jopox age-group rosters; older teams only)
   for (const [tk, sightings] of Object.entries(perTeam)) {
     const pk = `${seasonId}|${tk}`;
     const existing = {};
@@ -1117,7 +1118,7 @@ async function captureRosters(seasonId, round) {
         const full = `${p.last || ''} ${p.first || ''}`.trim();
         const rk = normName(full);
         if (!rk) continue;
-        const cur = touched[rk] || existing[rk] || { partitionKey: pk, rowKey: rk, name: full, number: '', role: '', games: '[]', lastGame: '' };
+        const cur = touched[rk] || existing[rk] || { partitionKey: pk, rowKey: rk, name: full, number: '', role: '', games: '[]', lastGame: '', photo: '' };
         let gset = []; try { gset = JSON.parse(cur.games || '[]'); } catch { gset = []; }
         if (!gset.includes(s.gameId)) gset.push(s.gameId);
         touched[rk] = {
@@ -1125,6 +1126,14 @@ async function captureRosters(seasonId, round) {
           games: JSON.stringify(gset), lastGame: s.date > (cur.lastGame || '') ? s.date : (cur.lastGame || ''),
         };
       }
+    }
+    // Best-effort photos from the age group's Jopox roster (matched by name). Only the
+    // older teams (Edustus/Naiset/U20/U18) have a Jopox subsite → younger teams stay
+    // photoless (the UI falls back to a numbered circle).
+    const sub = AGE_SUBSITE[String(tk).split(' ')[0]];
+    if (sub) {
+      if (!photoCache[sub]) { try { photoCache[sub] = await fetchRosterPhotos(sub); } catch { photoCache[sub] = {}; } }
+      for (const row of Object.values(touched)) { const ph = photoCache[sub][row.rowKey]; if (ph) row.photo = ph; }
     }
     for (const row of Object.values(touched)) await upsertEntity(T.rosters, row);
   }
@@ -1136,7 +1145,7 @@ async function getTeamRoster(seasonId, teamKey) {
   const rows = await listByPartition(T.rosters, `${seasonId}|${teamKey}`);
   const players = rows.map((r) => {
     let games = []; try { games = JSON.parse(r.games || '[]'); } catch { games = []; }
-    return { name: r.name, number: r.number || '', role: r.role || '', gamesDressed: games.length, lastGame: r.lastGame || '' };
+    return { name: r.name, number: r.number || '', role: r.role || '', gamesDressed: games.length, lastGame: r.lastGame || '', photo: r.photo || '' };
   });
   // goalies (MV) last; then most games; then jersey number; then name
   players.sort((a, b) => {
