@@ -1760,6 +1760,10 @@ async function emitRoundReminders(seasonId) {
   const gameDays = games.map((g) => String(g.date || '').slice(0, 10)).filter(Boolean).sort();
   const firstGame = gameDays[0] || null;
   const addDays = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  // Fire 1–2 sim-days before the first game (date-granular; the sim visits every date so
+  // no window is ever skipped). If the round's first game is on its opening Monday (0-day
+  // buffer) this is skipped — that's fine: the turnover push ("Jakso N+1 alkoi") already
+  // notified, and the rolling lock means the carried-over squad plays that game anyway.
   const lockSoon = firstGame && firstGame > clock && firstGame <= addDays(clock, REMIND_DAYS);
 
   for (const m of managers) {
