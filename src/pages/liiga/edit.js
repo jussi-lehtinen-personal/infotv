@@ -144,12 +144,10 @@ export default function LiigaEdit() {
               )}
             </Box>
           )}
-          {/* jersey wordmark — over a photo, or over a team crest; NOT over player initials */}
-          {(c.photo || c.kind === "team") && (
-            <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
-                  transform: "translate(-50%, -50%)", width: "90%", height: "auto", objectFit: "contain",
-                  pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
-          )}
+          {/* jersey wordmark — shown on every captain card (over photo / crest / initials) */}
+          <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
+                transform: "translate(-50%, -50%)", width: "90%", height: "auto", objectFit: "contain",
+                pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
           <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 3, pb: 1, px: 1, textAlign: "center",
                 background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 50%, #0e0e0e 100%)" }}>
             {nameLines.map((ln, i) => (
