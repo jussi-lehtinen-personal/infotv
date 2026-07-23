@@ -26,8 +26,8 @@ app.http('ahmaliigaVouchers', {
         return { jsonBody: { kiosk: true, ...res } };
       }
 
-      // Own view: my QR code + my prizes.
-      const qrCode = await ensureQrCode(userId, (user && user.nickname) || '');
+      // Own view: my QR code + my prizes. (Does NOT create a manager — only real actions do.)
+      const qrCode = await ensureQrCode(userId);
       const vouchers = await getMyVouchers(userId);
       return { jsonBody: { qrCode, vouchers, canRedeem: await canRedeem(userId, user) } };
     } catch (err) {

@@ -277,10 +277,15 @@ async function ensureManager(userId, nickname) {
 }
 
 // The manager's QR code, creating the manager row + code if needed.
-async function ensureQrCode(userId, nickname) {
-  await ensureManager(userId, nickname);
+// Return the manager's kiosk QR — but do NOT create a manager just for this. Merely
+// opening the app loads vouchers → this; creating a manager here inflated the count with
+// people who never played. A user becomes a manager only via a real action (saveSquad /
+// savePrediction). Non-managers have no vouchers anyway → null QR is fine.
+async function ensureQrCode(userId) {
   const m = await getManager(userId);
-  return (m && m.qrCode) || null;
+  if (!m) return null;
+  if (!m.qrCode) { const qr = genQrCode(); await upsertEntity(T.managers, { ...m, qrCode: qr }); return qr; }
+  return m.qrCode;
 }
 
 // Resolve a scanned QR code back to its manager row. Small scale → a filtered
@@ -1390,6 +1395,10 @@ async function savePrediction(seasonId, round, userId, gameId, homeGoals, awayGo
   if (!games.find((g) => g.gameId === String(gameId))) throw badRequest('Ottelu ei kuulu tähän jaksoon.');
   const h = Number(homeGoals), a = Number(awayGoals);
   if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0 || h > 30 || a > 30) throw badRequest('Virheellinen tulos.');
+  // Predicting is a real action → join as a manager (like saveSquad). Nickname from profile.
+  let nickname = '';
+  try { const u = await getEntity('Users', userId, 'profile'); nickname = (u && u.nickname) || ''; } catch { /* optional */ }
+  await ensureManager(userId, nickname);
   await upsertEntity(T.predictions, {
     partitionKey: `${seasonId}|${round}`, rowKey: userId,
     gameId: String(gameId), homeGoals: h, awayGoals: a, updatedAt: new Date().toISOString(),
