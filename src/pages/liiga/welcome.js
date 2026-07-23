@@ -90,6 +90,21 @@ export default function LiigaWelcome() {
         ))}
       </Stack>
 
+      {/* First-round-free note — building/editing is free until you carry a full squad
+          into the next round (server: transfers only count once startComplete). */}
+      <Box sx={{ mb: 2.5, p: 1.75, borderRadius: "var(--radius-item)", display: "flex", alignItems: "flex-start", gap: 1.25,
+            bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.35)" }}>
+        <Box component="span" sx={{ fontSize: 18, lineHeight: 1.2, flexShrink: 0 }}>💡</Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.3 }}>Ensimmäinen jakso on vapaa</Typography>
+          <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.45, mt: 0.3 }}>
+            Kokoa ja muokkaa pakkaasi rajattomasti — ostot ja vaihdot ovat ilmaisia. Siirtorajat
+            (2 ilmaista vaihtoa / jakso, sen jälkeen −5 p) alkavat vasta seuraavasta jaksosta.
+            Muista saada pakka valmiiksi ennen kuin korttiesi pelit alkavat — peli lukitsee kortin sen alkaessa.
+          </Typography>
+        </Box>
+      </Box>
+
       {/* CTAs */}
       <Stack spacing={1.25}>
         <Button variant="contained" size="large" onClick={() => nav("/ahmaliiga/squad")}
