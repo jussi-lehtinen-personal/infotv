@@ -22,7 +22,7 @@ const STEPS = [
   { icon: LuUsers, title: "Kokoa 5 kortin kortisto", desc: "Vähintään 2 joukkuekorttia + 3 vapaata (joukkue tai tähtipelaaja). Sinulla on 120 coinia — parhaat kortit maksavat enemmän." },
   { icon: LuStar, title: "Valitse kapteeni", desc: "Yksi korteistasi saa kaksinkertaiset pisteet (2×). Valitse se, jonka uskot loistavan tällä jaksolla." },
   { icon: LuCrosshair, title: "Veikkaa yksi peli", desc: "Arvaa yhden ottelun lopputulos ja saat bonuspisteitä. Tarkka tulos on iso potti." },
-  { icon: LuCalendarDays, title: "Jaksot ovat 2 viikkoa", desc: "Kokoonpanosi lukittuu, kun ensimmäinen korttisi peli alkaa. Sitä ennen voit vaihdella vapaasti." },
+  { icon: LuCalendarDays, title: "Jaksot ovat 2 viikkoa", desc: "Valitse kapteeni ja pakka ennen jakson ensimmäistä peliä — kapteeni lukittuu silloin koko jaksoksi. Kortit pisteytetään sen mukaan, mitä sinulla oli kunkin pelin alkaessa." },
   { icon: LuTrendingUp, title: "Kortit ovat kuin pörssiosakkeet", desc: "Hyvin pelaavan kortin hinta nousee. Osta halvalla, myy kalliilla — ostohintasi lukittuu." },
 ];
 

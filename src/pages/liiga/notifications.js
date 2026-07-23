@@ -23,7 +23,7 @@ const KIND = {
 // Where a notification takes you when clicked — every kind belongs to a settled
 // round, so they all open that round's summary (shows rank, per-card points,
 // captain ×2, best card and the prediction bonus).
-const targetOf = (n) => (n.round != null ? `/ahmaliiga/round?round=${n.round}` : "/ahmaliiga");
+const targetOf = (n) => (n.url ? n.url : n.round != null ? `/ahmaliiga/round?round=${n.round}` : "/ahmaliiga");
 
 const PointsBadge = ({ points }) => {
   if (points == null || points === 0) return null;

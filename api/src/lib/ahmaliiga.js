@@ -1507,6 +1507,7 @@ async function getNotifications(userId) {
       id: r.rowKey, kind: r.kind, title: r.title, body: r.body,
       points: r.points != null ? Number(r.points) : null,
       round: r.round != null ? Number(r.round) : null,
+      url: r.url || '',
       createdAt: r.createdAt || '', read: !!r.read,
     }))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -1578,7 +1579,7 @@ async function generateVouchers(seasonId, { scope, round, prizes, top = 3 } = {}
       partitionKey: w.userId, rowKey: `!reward|${prizeId}`,
       kind: 'reward', title: 'Voitit palkinnon! 🏆',
       body: `${prize}. Näytä QR-koodi Kiekko-Ahman kioskissa lunastaaksesi.`,
-      points: null, round: sc === 'season' ? null : rnd, createdAt: nowIso, read: false,
+      points: null, round: sc === 'season' ? null : rnd, url: '/ahmaliiga/rewards', createdAt: nowIso, read: false,
     });
     try { await sendPush(w.userId, { title: 'Voitit palkinnon! 🏆', body: `${prize}. Lunasta kioskissa.`, url: '/ahmaliiga/rewards', tag: `ahmaliiga-prize-${prizeId}` }); } catch (e) { /* best-effort */ }
   }
@@ -1746,7 +1747,7 @@ async function emitRoundReminders(seasonId) {
 
   if (rounds.every((j) => j.status === 'settled')) {
     for (const m of managers) await emitOnce(m.userId, '!season|end',
-      { title: 'Kausi päättyi', body: 'Katso lopullinen sijoituksesi koko kaudelta.' },
+      { title: 'Kausi päättyi', body: 'Katso lopullinen sijoituksesi koko kaudelta.', url: '/ahmaliiga/ranking?tab=season' },
       { title: 'Kausi päättyi', body: 'Katso lopullinen sijoituksesi koko kaudelta.', url: '/ahmaliiga/ranking?tab=season', tag: 'ahmaliiga-season-end' });
     return { emitted };
   }
@@ -1767,17 +1768,18 @@ async function emitRoundReminders(seasonId) {
     // settlement turnover push already notified, so a 2nd push would be spam (in-app only).
     await emitOnce(uid, `!remind|${curNo}|open`,
       curNo === 0
-        ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.' }
-        : { title: `Jakso ${curNo + 1} alkoi`, body: 'Päivitä pakkasi ja veikkaa ennen jakson ensimmäistä peliä.' },
-      curNo === 0 ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.', url: '/ahmaliiga', tag: 'ahmaliiga-start' } : null);
+        ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.', url: '/ahmaliiga/squad' }
+        : { title: `Jakso ${curNo + 1} alkoi`, body: 'Päivitä pakkasi ja veikkaa ennen jakson ensimmäistä peliä.', url: '/ahmaliiga/squad' },
+      curNo === 0 ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.', url: '/ahmaliiga/squad', tag: 'ahmaliiga-start' } : null);
     if (lockSoon && !(await getEntity(T.messages, uid, `!remind|${curNo}|lock`))) {
       const squad = await getSquad(uid);
       const incomplete = !squad || !squad.cards || squad.cards.length < 5;
       const pred = await getPrediction(seasonId, curNo, uid);
       if (incomplete || !pred) {
+        // NOT "pakka lukittuu" — only the captain hard-locks; cards score per game (rolling).
         await emitOnce(uid, `!remind|${curNo}|lock`,
-          { title: 'Pakkasi lukittuu pian', body: 'Viimeistele pakka ja veikkaus ennen jakson ensimmäistä peliä.' },
-          { title: 'Pakkasi lukittuu pian', body: 'Viimeistele pakka ja veikkaus ennen jakson ensimmäistä peliä.', url: '/ahmaliiga', tag: `ahmaliiga-lock-${curNo}` });
+          { title: 'Jakson pelit alkavat pian', body: 'Valitse kapteeni ja viimeistele pakka + veikkaus ennen ensimmäistä peliä.', url: '/ahmaliiga/squad' },
+          { title: 'Jakson pelit alkavat pian', body: 'Valitse kapteeni ja viimeistele pakka + veikkaus ennen ensimmäistä peliä.', url: '/ahmaliiga/squad', tag: `ahmaliiga-lock-${curNo}` });
       }
     }
   }
