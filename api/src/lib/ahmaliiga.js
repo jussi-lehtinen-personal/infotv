@@ -1707,6 +1707,59 @@ async function setStart(seasonId, startAt) {
   return { startAt: val || null };
 }
 
+// B8 reminders (in-app; push added in P2 at the SAME emit points). Runs every tick from
+// stepSim. Idempotent: each message has a fixed rowKey + an existence check → emitted once,
+// never re-marked unread. `!`-prefixed rowKeys sort to the top of the inbox (actionable).
+//   • roundOpen  — a new jakso is current → "päivitä pakka + veikkaa" (round 0 = kausi alkoi)
+//   • lockSoon   — first game within REMIND_DAYS AND (squad<5 OR no prediction)
+//   • seasonEnd  — all rounds settled → "kausi päättyi"
+const REMIND_DAYS = 2; // sim-days before the first game to warn about the lock
+async function emitRoundReminders(seasonId) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) return { emitted: 0 };
+  const rounds = await getRounds(seasonId);
+  if (!rounds.length) return { emitted: 0 };
+  const managers = (await listManagers()).filter((m) => !m.isBot);
+  const nowIso = new Date().toISOString();
+  let emitted = 0;
+  const emitOnce = async (uid, rowKey, msg) => {
+    if (await getEntity(T.messages, uid, rowKey)) return;
+    await upsertEntity(T.messages, { partitionKey: uid, rowKey, kind: 'remind', points: null, round: null, createdAt: nowIso, read: false, ...msg });
+    emitted++;
+  };
+
+  if (rounds.every((j) => j.status === 'settled')) {
+    for (const m of managers) await emitOnce(m.userId, '!season|end', { title: 'Kausi päättyi', body: 'Katso lopullinen sijoituksesi koko kaudelta.' });
+    return { emitted };
+  }
+
+  const curNo = activeRoundNo(season, rounds);
+  const cur = rounds.find((j) => Number(j.rowKey) === curNo);
+  if (!cur || cur.status === 'settled') return { emitted };
+  const clock = (season.simMode && season.simDate) ? season.simDate : new Date().toISOString().slice(0, 10);
+  const games = await getRoundGames(seasonId, curNo);
+  const gameDays = games.map((g) => String(g.date || '').slice(0, 10)).filter(Boolean).sort();
+  const firstGame = gameDays[0] || null;
+  const addDays = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const lockSoon = firstGame && firstGame > clock && firstGame <= addDays(clock, REMIND_DAYS);
+
+  for (const m of managers) {
+    const uid = m.userId;
+    await emitOnce(uid, `!remind|${curNo}|open`, curNo === 0
+      ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.' }
+      : { title: `Jakso ${curNo + 1} alkoi`, body: 'Päivitä pakkasi ja veikkaa ennen jakson ensimmäistä peliä.' });
+    if (lockSoon && !(await getEntity(T.messages, uid, `!remind|${curNo}|lock`))) {
+      const squad = await getSquad(uid);
+      const incomplete = !squad || !squad.cards || squad.cards.length < 5;
+      const pred = await getPrediction(seasonId, curNo, uid);
+      if (incomplete || !pred) {
+        await emitOnce(uid, `!remind|${curNo}|lock`, { title: 'Pakkasi lukittuu pian', body: 'Viimeistele pakka ja veikkaus ennen jakson ensimmäistä peliä.' });
+      }
+    }
+  }
+  return { emitted, curNo, lockSoon };
+}
+
 // Advance the sim clock by `days` and settle any round whose window has now fully
 // passed (ascending). Idempotent-friendly: settlement itself is idempotent and the
 // clock only moves forward. Auto-stepping switches off once the last round settles.
@@ -1750,6 +1803,8 @@ async function stepSim(seasonId, days = 1) {
   const after = await getEntity(T.season, 'season', seasonId);
   const allSettled = (await getRounds(seasonId)).every((j) => j.status === 'settled');
   await upsertEntity(T.season, { ...after, simDate: sim, autoStep: allSettled ? false : after.autoStep });
+  // B8: emit round/lock/season reminders (best-effort — never breaks the tick).
+  try { await emitRoundReminders(seasonId); } catch (e) { /* best-effort */ }
   return { simDate: sim, settled, done: allSettled, mode: season.realClock ? 'real' : 'sim' };
 }
 
@@ -1868,7 +1923,7 @@ module.exports = {
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
   getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
-  captureRosters, getTeamRoster,
+  captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
   syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
   ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,

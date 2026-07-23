@@ -16,6 +16,7 @@ const KIND = {
   best:    { icon: LuTrendingUp,     tint: "rgba(34,197,94,0.15)",  color: "var(--color-live)" },
   predict: { icon: LuGoal,           tint: "rgba(249,115,22,0.15)", color: "primary.main" },
   penalty: { icon: LuArrowLeftRight, tint: "rgba(239,68,68,0.15)",  color: "#ef4444" },
+  remind:  { icon: LuBell,           tint: "rgba(249,115,22,0.15)", color: "primary.main" },
 };
 
 // Where a notification takes you when clicked — every kind belongs to a settled
