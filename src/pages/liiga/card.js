@@ -182,6 +182,7 @@ export default function LiigaCard() {
   const [data, setData] = useState(undefined);
   const [tab, setTab] = useState("pelit");
   const [confirm, setConfirm] = useState(null); // {type:'buyPenalty'|'sell'} → confirm dialog
+  const [localError, setLocalError] = useState(""); // client-side block message (e.g. locked captain)
   const squad = useSquad(); // shared squad + trading rules (bank, transfers, minTeams…)
 
   useEffect(() => {
@@ -220,6 +221,12 @@ export default function LiigaCard() {
   const buyNow = () => squad.persist([...squad.ids, id], squad.captainId || id);
   const doBuy = () => { if (squad.transfersLeft === 0) { setConfirm({ type: "buyPenalty" }); return; } buyNow(); };
   const sellNow = () => { const n = squad.ids.filter((x) => x !== id); squad.persist(n, squad.captainId === id ? (n[0] || null) : squad.captainId); };
+  // Selling the captain would move the captaincy — not allowed once the round's games have
+  // started (the captain is frozen for the whole round). Block it with a clear message
+  // rather than letting the server reject it.
+  const captainLocked = owned && squad.captainId === id && squad.captainLocked;
+  const CAPTAIN_LOCK_MSG = "Et voi myydä kapteenia jakson pelien alettua — voit vaihtaa kapteenin vain ennen jakson ensimmäistä peliä.";
+  const onSellClick = () => { setLocalError(""); if (captainLocked) { setLocalError(CAPTAIN_LOCK_MSG); return; } setConfirm({ type: "sell" }); };
 
   return (
     <Screen>
@@ -260,18 +267,23 @@ export default function LiigaCard() {
           room + team rule). Blocked buys dim with a reason. Rules come from useSquad. */}
       {ready && (
         <Box sx={{ mb: 3 }}>
-          {squad.error && <Alert severity="error" sx={{ mb: 1.25, borderRadius: "var(--radius-item)" }}>{squad.error}</Alert>}
+          {(squad.error || localError) && <Alert severity="error" sx={{ mb: 1.25, borderRadius: "var(--radius-item)" }}>{localError || squad.error}</Alert>}
           {owned ? (
             <>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
                 <Box component={LuBadgeCheck} sx={{ fontSize: 18, color: "primary.main", display: "block", flexShrink: 0 }} />
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: "primary.main" }}>Tämä kortti on kortistossasi</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: 14, color: "primary.main" }}>Tämä kortti on kortistossasi{squad.captainId === id ? " · kapteeni ×2" : ""}</Typography>
               </Stack>
-              <Button fullWidth variant="outlined" onClick={() => setConfirm({ type: "sell" })}
+              <Button fullWidth variant="outlined" onClick={onSellClick}
                 sx={{ py: 1.15, borderRadius: "var(--radius-item)", fontWeight: 800, textTransform: "none",
                       color: "#f87171", borderColor: "rgba(248,113,113,0.5)", "&:hover": { borderColor: "#f87171", bgcolor: "rgba(248,113,113,0.08)" } }}>
                 Myy kortti — saat {card.price} c takaisin
               </Button>
+              {captainLocked && (
+                <Typography variant="caption" sx={{ display: "block", textAlign: "center", mt: 0.85, color: "text.disabled" }}>
+                  🔒 Kapteeni on lukittu tälle jaksolle
+                </Typography>
+              )}
             </>
           ) : (
             <>

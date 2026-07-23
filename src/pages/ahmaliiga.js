@@ -139,6 +139,11 @@ const Ahmaliiga = () => {
             Valitse se joukkue tai pelaaja, jonka uskot pärjäävän parhaiten. Tämä on
             yksi pelin tärkeimmistä valinnoista.
           </Lead>
+          <Lead>
+            🔒 <b>Kapteeni lukittuu koko jaksolle heti kun jakson pelit alkavat.</b> Voit
+            vaihtaa kapteenin vain ennen jakson ensimmäistä peliä — etkä voi myydä
+            kapteeniasi pelien alettua (se vaihtaisi kapteenin).
+          </Lead>
         </Section>
 
         <Section emoji="🔮" title="4. Veikkaa peli">
