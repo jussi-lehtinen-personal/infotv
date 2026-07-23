@@ -136,12 +136,20 @@ export default function LiigaEdit() {
             <Box component="img" src={c.photo} alt="" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
           ) : (
             <Box sx={{ position: "absolute", top: "0%", left: 0, right: 0, bottom: "42%", display: "grid", placeItems: "center", px: 0.5 }}>
-              <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "96%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+              {c.kind === "team" ? (
+                <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "96%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+              ) : (
+                // Player without a photo → big initials (e.g. "NB"), not the Ahma crest.
+                <Box component="span" sx={{ fontWeight: 900, fontSize: 64, lineHeight: 1, letterSpacing: ".02em", color: "rgba(255,255,255,0.85)" }}>{initialsOf(c.name)}</Box>
+              )}
             </Box>
           )}
-          <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
-                transform: "translate(-50%, -50%)", width: "90%", height: "auto", objectFit: "contain",
-                pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
+          {/* jersey wordmark — over a photo, or over a team crest; NOT over player initials */}
+          {(c.photo || c.kind === "team") && (
+            <Box component="img" src="/ahmaliiga_plain.png" alt="" sx={{ position: "absolute", left: "50%", top: "50%",
+                  transform: "translate(-50%, -50%)", width: "90%", height: "auto", objectFit: "contain",
+                  pointerEvents: "none", filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" }} />
+          )}
           <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 3, pb: 1, px: 1, textAlign: "center",
                 background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 50%, #0e0e0e 100%)" }}>
             {nameLines.map((ln, i) => (
@@ -166,7 +174,7 @@ export default function LiigaEdit() {
       <ButtonBase key={c.id} disableRipple {...press}
         sx={{ ...baseSx, display: "flex", flexDirection: "column", alignItems: "center", pt: 1.25, px: 1, pb: 1.25 }}>
         {c.kind === "team" ? (
-          <Box component="img" src={AHMA_LOGO} alt="" sx={{ flexShrink: 0, maxWidth: "88%", maxHeight: "42%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+          <Box component="img" src={AHMA_LOGO} alt="" sx={{ flexShrink: 0, maxWidth: "92%", maxHeight: "52%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
         ) : (
           <Box component="span" sx={{ flexShrink: 0, mt: 0.5, fontWeight: 900, fontSize: 46, lineHeight: 1, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
         )}

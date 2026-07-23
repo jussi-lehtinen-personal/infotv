@@ -140,9 +140,9 @@ const Ahmaliiga = () => {
             yksi pelin tärkeimmistä valinnoista.
           </Lead>
           <Lead>
-            🔒 <b>Kapteeni lukittuu koko jaksolle heti kun jakson pelit alkavat.</b> Voit
-            vaihtaa kapteenin vain ennen jakson ensimmäistä peliä — etkä voi myydä
-            kapteeniasi pelien alettua (se vaihtaisi kapteenin).
+            🔒 <b>Kapteeni lukittuu koko jaksolle heti kun jakson pelit alkavat.</b> Vaihto
+            vain ennen jakson ensimmäistä peliä, eikä kapteenia voi myydä jakson pelien
+            alettua.
           </Lead>
         </Section>
 
