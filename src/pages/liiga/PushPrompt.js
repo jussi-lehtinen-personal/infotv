@@ -56,6 +56,9 @@ export default function PushPrompt() {
           Ei nyt
         </Button>
       </Stack>
+      <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mt: 1, textAlign: "center" }}>
+        Voit sallia tai perua ilmoitukset milloin tahansa Ilmoitukset-sivulla (kello 🔔).
+      </Typography>
     </Box>
   );
 }
