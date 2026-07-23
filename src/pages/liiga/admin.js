@@ -85,7 +85,7 @@ export default function LiigaAdmin() {
           <Row k="Kello" v={s.realClock ? "REAALI (oikea päivä)" : "sim (replay)"} />
           <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
-          <Row k="Managerit" v={`${s.humans} pelaajaa · ${s.bots} bottia`} />
+          <Row k="Pelaajia" v={`${s.humans} rekisteröitynyt · ${s.squadsBuilt ?? 0} pakkaa rakennettu${s.bots ? ` · ${s.bots} bottia` : ""}`} />
           <Row k="Pelit synkattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
         </Box>
       ) : (

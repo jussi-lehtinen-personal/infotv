@@ -1790,6 +1790,10 @@ async function getSimStatus(seasonId) {
   const settled = rounds.filter((j) => j.status === 'settled').length;
   const resultsLoaded = (await listByPartition(T.results, `${seasonId}|0`)).length > 0;
   const gamesLoaded = (await listByPartition(T.games, `${seasonId}|0`)).length > 0;
+  // Managers who have actually built a squad (≥1 card) — the real participant count vs.
+  // bare registrations (join / stale test managers with no cards).
+  const squads = await listEntities(T.squads, "RowKey eq 'current'");
+  const squadsBuilt = squads.filter((q) => { try { return JSON.parse(q.cards || '[]').length > 0; } catch { return false; } }).length;
   return {
     season: seasonId,
     currentRound: season ? Number(season.currentRound != null ? season.currentRound : 0) : 0,
@@ -1797,6 +1801,7 @@ async function getSimStatus(seasonId) {
     settled,
     humans: managers.filter((m) => !m.isBot).length,
     bots: managers.filter((m) => m.isBot).length,
+    squadsBuilt,
     resultsLoaded,
     gamesLoaded,
     simDate: (season && season.simDate) || '',
