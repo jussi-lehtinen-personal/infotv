@@ -132,7 +132,8 @@ export const LiigaDialog = ({ open, onClose, title, right, children }) => (
                  backdrop: { sx: { backgroundColor: "var(--color-bg)" } } }}>
     {/* dark scroll container fills the whole paper → no grey can ever show through */}
     <Box sx={{ flex: 1, minHeight: 0, width: "100%", overflowY: "auto", bgcolor: "var(--color-bg)" }}>
-      <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", p: 2, pb: 6 }}>
+      {/* pt clears the iOS status bar / notch (fullScreen dialog is edge-to-edge). */}
+      <Box sx={{ maxWidth: 640, mx: "auto", width: "100%", px: 2, pt: "calc(env(safe-area-inset-top) + 16px)", pb: 6 }}>
         <DialogHeader onBack={onClose} title={title} right={right} />
         {children}
       </Box>
