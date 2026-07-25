@@ -12,6 +12,7 @@ import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi"
 // "Viime jakso" label — see ahmaliigaRanking.js (settledNo = curNo - 1).
 
 const TABS = [
+  { key: "live", label: "Nyt" },
   { key: "round", label: "Viime jakso" },
   { key: "season", label: "Koko kausi" },
   { key: "rounds", label: "Kaikki jaksot" },
@@ -45,7 +46,7 @@ export default function LiigaRanking() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   // Deep-link the tab via ?tab=season (from the dashboard "Kausi päättynyt" card etc.).
-  const [tab, setTab] = useState(() => (TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "round"));
+  const [tab, setTab] = useState(() => (TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "live"));
   const [data, setData] = useState({});     // leaderboard rows per scope
   const [rounds, setRounds] = useState(null); // all-rounds list
   const [loading, setLoading] = useState(true);
@@ -64,13 +65,16 @@ export default function LiigaRanking() {
     if (data[tab]) { setLoading(false); return; }
     setLoading(true);
     getAhmaliigaRanking(tab)
-      .then((d) => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: d.rows || [] })); })
-      .catch(() => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: [] })); })
+      .then((d) => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: d || { rows: [] } })); })
+      .catch(() => { if (!cancelled) setData((prev) => ({ ...prev, [tab]: { rows: [] } })); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [tab, data, rounds]);
 
-  const rows = data[tab];
+  const resp = data[tab];
+  const rows = resp && resp.rows;
+  const isLive = tab === "live" && !!(resp && resp.live);
+  const liveEmpty = isLive && resp.playedGames === 0;
 
   return (
     <Screen>
@@ -110,14 +114,21 @@ export default function LiigaRanking() {
             ))}
           </Stack>
         )
-      ) : rows == null || loading ? (
+      ) : !rows || loading ? (
         <Loading />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 || liveEmpty ? (
         <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
-          <Typography variant="body2">Ei vielä tuloksia — jaksoa ei ole ratkaistu.</Typography>
+          <Typography variant="body2">
+            {tab === "live" ? "Järjestys päivittyy kun jakson otteluita on pelattu." : "Ei vielä tuloksia — jaksoa ei ole ratkaistu."}
+          </Typography>
         </Box>
       ) : (
         <Box>
+          {isLive && (
+            <Typography sx={{ mb: 1.5, fontSize: 12.5, fontWeight: 700, color: "primary.main", textAlign: "center" }}>
+              Alustava järjestys — päivittyy otteluiden myötä
+            </Typography>
+          )}
           {rows.map((r) => (
             <Box key={r.userId} sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5, py: 1, px: 1.25,
                   borderRadius: "var(--radius-item)",

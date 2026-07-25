@@ -902,6 +902,62 @@ async function getLeaderboard(seasonId, scope, round) {
     .sort((a, b) => a.rank - b.rank);
 }
 
+// LIVE provisional standings for an IN-PROGRESS round — "what the round leaderboard
+// would be if it ended now". Uses the SAME rolling-lock + captain + prediction +
+// penalty scoring as settleRound (shared primitives computeRoundResults/effectiveSquad/
+// roundCaptainOf/predictionBonus), but computed on the fly from the games PLAYED so far
+// (date ≤ sim day) and NOTHING persisted → live == final once the round settles (proven
+// by test-live-ranking.js). The heavy part (box-score fetch in computeRoundResults) is
+// memoised per sim day (30 s) since all managers share it. Row shape mirrors getLeaderboard.
+const _liveCache = { key: null, at: 0, data: null };
+async function getLiveLeaderboard(seasonId, round) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  const simDate = season && season.simMode ? season.simDate : null;
+  const key = `${seasonId}|${round}|${simDate || 'live'}`;
+  if (_liveCache.key === key && Date.now() - _liveCache.at < 30000) return _liveCache.data;
+
+  const { perGame, gameList } = await computeRoundResults(seasonId, round);
+  const isPlayed = (g) => {
+    const day = String(g.date || '').slice(0, 10);
+    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
+  };
+  const playedGames = gameList.filter(isPlayed);
+  const gameMap = {};
+  for (const g of gameList) gameMap[g.gameId] = g;
+
+  const managers = await listManagers();
+  const scored = [];
+  for (const m of managers) {
+    const sq = await getSquad(m.userId);
+    if (!sq || !sq.cards || !sq.cards.length) continue; // no squad → unranked (as in settlement)
+    const ids = sq.cards.map((c) => c.id);
+    const captainId = sq.captainId;
+    const lineups = await getLineupsMap(seasonId, m.userId);
+    const roundCaptain = roundCaptainOf(lineups, round, captainId);
+    let total = 0;
+    for (const g of playedGames) {
+      const pg = perGame[g.gameId]; if (!pg) continue;
+      const { ids: effIds } = effectiveSquad(g, lineups, ids, captainId);
+      for (const id of effIds) { const pts = pg[id]; if (!pts) continue; total += id === roundCaptain ? pts * 2 : pts; }
+    }
+    const pred = await getEntity(T.predictions, `${seasonId}|${round}`, m.userId);
+    if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {
+      total += predictionBonus({ gameId: pred.gameId, homeGoals: pred.homeGoals, awayGoals: pred.awayGoals }, gameMap[pred.gameId]);
+    }
+    const penalty = (sq && Number(sq.roundNo) === round) ? ECON.transferPenalty * Math.max(0, (sq.transfersUsedThisRound || 0) - ECON.transfersPerRound) : 0;
+    scored.push({ userId: m.userId, nickname: m.nickname, total: Math.round((total - penalty) * 10) / 10 });
+  }
+  // Same rank rule as settleRound: sort desc, rank = index + 1.
+  scored.sort((a, b) => b.total - a.total);
+  scored.forEach((r, i) => { r.rank = i + 1; });
+  const profiles = await Promise.all(scored.map((r) => getEntity('Users', r.userId, 'profile').catch(() => null)));
+  const rows = scored.map((r, i) => ({ userId: r.userId, nickname: r.nickname || 'Pelaaja', avatar: avatarUrl(r.userId, profiles[i]) || null, total: r.total, rank: r.rank, delta: null }));
+
+  const out = { rows, playedGames: playedGames.length };
+  _liveCache.key = key; _liveCache.at = Date.now(); _liveCache.data = out;
+  return out;
+}
+
 // A manager's standing: current-round points+rank + season total+rank.
 async function getStanding(seasonId, round, userId) {
   const [jRow, sRow] = await Promise.all([
@@ -1976,7 +2032,7 @@ module.exports = {
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
-  getLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
+  getLeaderboard, getLiveLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
