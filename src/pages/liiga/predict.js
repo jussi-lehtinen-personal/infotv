@@ -21,21 +21,28 @@ const timeLeft = (d) => {
   return `${dd} pv ${hh} h ${mm} min`;
 };
 
-// Split a team name into base + peliryhmä colour; the Ahma side (no colour in
-// the name) falls back to the age from the level. e.g. "Pelicans Musta" →
-// {base:"Pelicans", sub:"Musta"}; "Kiekko-Ahma" + level "U14 Valkoinen" → sub "U14".
+// Split a team name into base + peliryhmä colour; the Ahma side (no colour in the
+// name) falls back to age + peliryhmä from the level. e.g. "Pelicans Musta" →
+// {base:"Pelicans", sub:"Musta"}; "Kiekko-Ahma" + level "U14 Valkoinen" → sub "U14 Valkoinen".
 const COLOURS = "Musta|Valkoinen|Oranssi|Keltainen|Sininen|Punainen|Vihreä|Harmaa";
 const ageOf = (level) => { const m = String(level || "").match(/U\s*\d+/i); return m ? m[0].replace(/\s+/g, "") : ""; };
+// Ahma group label = age + peliryhmä colour, both read from the level
+// ("U14 Valkoinen" → "U14 Valkoinen"; "U15" → "U15"). Colour shown only when present.
+const ahmaGroup = (level) => {
+  const cm = String(level || "").match(new RegExp(`(${COLOURS})`, "i"));
+  return [ageOf(level), cm ? cm[1] : ""].filter(Boolean).join(" ");
+};
 const splitTeam = (name, level, isAhma) => {
   const m = String(name || "").match(new RegExp(`^(.*?)\\s+(${COLOURS})$`, "i"));
   if (m) return { base: m[1], sub: m[2] };
-  return { base: name, sub: isAhma ? ageOf(level) : "" };
+  return { base: name, sub: isAhma ? ahmaGroup(level) : "" };
 };
-// Dropdown label: append the age to the Ahma side, e.g. "Kiekko-Ahma U14 – Pelicans Musta".
+// Dropdown label: append age + peliryhmä to the Ahma side, e.g.
+// "Kiekko-Ahma U14 Valkoinen – Pelicans Musta".
 const gameLabel = (g) => {
-  const age = ageOf(g.level);
-  const h = g.home + (g.ahmaHome && age ? ` ${age}` : "");
-  const a = g.away + (!g.ahmaHome && age ? ` ${age}` : "");
+  const grp = ahmaGroup(g.level);
+  const h = g.home + (g.ahmaHome && grp ? ` ${grp}` : "");
+  const a = g.away + (!g.ahmaHome && grp ? ` ${grp}` : "");
   return `${h} – ${a}`;
 };
 

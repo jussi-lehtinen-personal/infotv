@@ -11,15 +11,11 @@ import { IconCircle, shortDate } from "./_shared";
 const parseDT = (s) => new Date(String(s || "").replace(" ", "T"));
 const dayOf = (s) => String(s || "").slice(0, 10);
 
-// The Ahma age (U15 / Naiset / Edustus) + the opponent, for "U15 vs Pelicans".
-const AHMA_AGE = (level) => {
-  const m = String(level || "").match(/U\s*\d+/i);
-  if (m) return m[0].replace(/\s+/g, "").toUpperCase();
-  if (/nais/i.test(level || "")) return "Naiset";
-  if (/edustus/i.test(level || "")) return "Edustus";
-  return "Ahma";
-};
-export const gameTitle = (g) => `${AHMA_AGE(g.level)} vs ${g.ahmaHome ? g.away : g.home}`;
+// The Ahma team (age + peliryhmä, e.g. "U15 Musta") + the opponent, for the event
+// title "U15 Musta vs Pelicans". Reuses gameTeamKey (defined below) so the title
+// matches the squad card label exactly — the colour shows only when the age group
+// has sub-teams (single-team ages like "U15"/"Edustus" stay plain).
+export const gameTitle = (g) => `${gameTeamKey(g)} vs ${g.ahmaHome ? g.away : g.home}`;
 
 // A game's team-card key (age + peliryhmä colour) — mirrors the backend teamKey so
 // squad cards can be matched to the round's games ("montako korttia on pelannut").
