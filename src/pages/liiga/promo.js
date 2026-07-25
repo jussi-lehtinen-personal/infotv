@@ -5,8 +5,8 @@ import { LuArrowLeft, LuUserPlus, LuUsers, LuTrophy, LuStar, LuCheck } from "rea
 import { SiWhatsapp } from "react-icons/si";
 import { getMe, getCachedUser } from "../../auth/authClient";
 
-// Ahmaliiga WhatsApp channel — announcements + beta chatter.
-const WHATSAPP_CHANNEL = "https://whatsapp.com/channel/0029Vb8gvvUCBtx98k00LE0r";
+// Ahmaliiga WhatsApp group — announcements + beta chatter.
+const WHATSAPP_GROUP = "https://chat.whatsapp.com/GCpW875ZBBD4LSG6S02omW";
 
 // Public Ahmaliiga promo / beta teaser. Admins open the game straight from the home
 // banner; everyone else lands here (via the Gate). Explains what Ahmaliiga is and
@@ -85,15 +85,15 @@ export default function LiigaPromo() {
         )}
       </Box>
 
-      {/* WhatsApp channel */}
-      <Button variant="outlined" onClick={() => window.open(WHATSAPP_CHANNEL, "_blank", "noopener")}
+      {/* WhatsApp group */}
+      <Button variant="outlined" onClick={() => window.open(WHATSAPP_GROUP, "_blank", "noopener")}
         startIcon={<SiWhatsapp size={18} />}
         sx={{ width: "100%", maxWidth: 440, mt: 2.5, py: 1.15, textTransform: "none", fontWeight: 800, fontSize: 14.5,
               color: "#25D366", borderColor: "rgba(37,211,102,0.5)", "&:hover": { borderColor: "#25D366", bgcolor: "rgba(37,211,102,0.08)" } }}>
-        Liity Ahmaliiga-kanavalle WhatsAppissa
+        Liity Ahmaliiga-ryhmään WhatsAppissa
       </Button>
       <Typography sx={{ mt: 1.25, fontSize: 12.5, color: "text.disabled", textAlign: "center", maxWidth: 440 }}>
-        Seuraa WhatsApp-kanavaa niin pysyt kärryillä betasta. Tunnuksen luot hetkessä laitteesi passkeyllä — ei salasanoja.
+        Liity WhatsApp-ryhmään niin pysyt kärryillä betasta. Tunnuksen luot hetkessä laitteesi passkeyllä — ei salasanoja.
       </Typography>
     </Box>
   );
