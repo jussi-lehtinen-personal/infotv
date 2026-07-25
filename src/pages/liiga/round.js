@@ -148,14 +148,17 @@ function TimelineTab({ progress, summary, myKeys, isCurrent }) {
         const isLast = i === events.length - 1;
         const isNext = i === firstUpcoming;
         const filled = ev.played || isNext;
-        const DOT = "22px";
+        // Centre the dot (and the segment junction) on the EventRow's optical centre —
+        // its IconCircle (40px) + py (~11px) → ~31px from the row top. The dot and the
+        // connecting line must share that line, not sit above it (icon/text centre rule).
+        const DOT = 13, CENTER = 31;
         const seg = (done) => ({ position: "absolute", left: "50%", ml: "-1px", width: 2, bgcolor: done ? "var(--color-primary)" : "var(--color-surface-border)" });
         return (
           <Box key={ev.type + ev.date} sx={{ display: "flex", gap: 1.25, alignItems: "stretch" }}>
             <Box sx={{ width: 20, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" }}>
-              {i > 0 && <Box sx={{ ...seg(events[i - 1].played), top: 0, height: DOT }} />}
-              {!isLast && <Box sx={{ ...seg(ev.played), top: DOT, bottom: 0 }} />}
-              <Box sx={{ position: "relative", mt: "16px", width: 13, height: 13, borderRadius: "50%", flexShrink: 0,
+              {i > 0 && <Box sx={{ ...seg(events[i - 1].played), top: 0, height: `${CENTER}px` }} />}
+              {!isLast && <Box sx={{ ...seg(ev.played), top: `${CENTER}px`, bottom: 0 }} />}
+              <Box sx={{ position: "relative", mt: `${CENTER - DOT / 2}px`, width: DOT, height: DOT, borderRadius: "50%", flexShrink: 0,
                     border: `2px solid ${filled ? "var(--color-primary)" : "var(--color-surface-border)"}`,
                     bgcolor: filled ? "var(--color-primary)" : "var(--color-bg)" }} />
             </Box>
