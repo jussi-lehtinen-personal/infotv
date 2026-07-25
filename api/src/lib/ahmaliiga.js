@@ -47,6 +47,7 @@ const T = {
   vouchers: 'AhmaliigaVouchers',
   squadLog: 'AhmaliigaSquadLog', // append-only audit of squad edits (transfer disputes + analytics)
   rosters: 'AhmaliigaRosters', // team kokoonpano accumulated from game-report rosters (getrosters) at settlement
+  notifyLog: 'AhmaliigaNotifyLog', // durable "already notified" markers (survive in-app clear) → reminders never re-emit/re-push
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -706,17 +707,21 @@ async function settleRound(seasonId, round) {
       });
     }
     // B8 push — ONE per manager for the result/turnover (not per breakdown line).
-    const isLast = round >= rounds.length - 1;
-    try {
-      await sendPush(r.userId, {
-        title: `Jakso ${round + 1} ratkaistu`,
-        body: isLast
-          ? `Sait ${r.total} p — kausi päättyi. Katso lopullinen sijoituksesi.`
-          : `Sait ${r.total} p (sija ${r.rank}). Jakso ${round + 2} alkoi — päivitä pakkasi.`,
-        url: isLast ? '/ahmaliiga/ranking?tab=season' : '/ahmaliiga',
-        tag: `ahmaliiga-settle-${round}`,
-      });
-    } catch (e) { /* best-effort */ }
+    // Only on the FIRST settlement: a re-settle (manual re-run / late live-sync) refreshes
+    // scores/trends silently and must NOT re-push "Jakso N ratkaistu" to everyone.
+    if (!wasSettled) {
+      const isLast = round >= rounds.length - 1;
+      try {
+        await sendPush(r.userId, {
+          title: `Jakso ${round + 1} ratkaistu`,
+          body: isLast
+            ? `Sait ${r.total} p — kausi päättyi. Katso lopullinen sijoituksesi.`
+            : `Sait ${r.total} p (sija ${r.rank}). Jakso ${round + 2} alkoi — päivitä pakkasi.`,
+          url: isLast ? '/ahmaliiga/ranking?tab=season' : '/ahmaliiga',
+          tag: `ahmaliiga-settle-${round}`,
+        });
+      } catch (e) { /* best-effort */ }
+    }
   }
 
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
@@ -1746,9 +1751,20 @@ async function emitRoundReminders(seasonId) {
   const managers = (await listManagers()).filter((m) => !m.isBot);
   const nowIso = new Date().toISOString();
   let emitted = 0;
-  // emitOnce: in-app upsert once (existence-checked) + optional push on FIRST emit.
+  // emitOnce: emit the in-app message + optional push AT MOST ONCE per reminder, keyed
+  // to a DURABLE marker (notifyLog) — NOT the in-app message. The user can clear/delete
+  // in-app notifications; keying idempotency off the message meant clearing it caused a
+  // re-emit + RE-PUSH on the next tick (a push every hour). The marker lives in a table
+  // the notification UI never touches, so a cleared reminder never comes back.
   const emitOnce = async (uid, rowKey, msg, pushPayload) => {
-    if (await getEntity(T.messages, uid, rowKey)) return;
+    if (await getEntity(T.notifyLog, uid, rowKey)) return; // already handled — never re-emit/re-push
+    // Backfill on deploy: if the in-app message still exists (pre-marker era, user hasn't
+    // cleared it), treat as already-notified — set the marker and skip (NO re-push).
+    if (await getEntity(T.messages, uid, rowKey)) {
+      await upsertEntity(T.notifyLog, { partitionKey: uid, rowKey, createdAt: nowIso });
+      return;
+    }
+    await upsertEntity(T.notifyLog, { partitionKey: uid, rowKey, createdAt: nowIso }); // mark first → never re-attempt even if the push below throws
     await upsertEntity(T.messages, { partitionKey: uid, rowKey, kind: 'remind', points: null, round: null, createdAt: nowIso, read: false, ...msg });
     emitted++;
     if (pushPayload) { try { await sendPush(uid, pushPayload); } catch (e) { /* best-effort */ } }
@@ -1784,7 +1800,7 @@ async function emitRoundReminders(seasonId) {
         ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.', url: '/ahmaliiga/squad' }
         : { title: `Jakso ${curNo + 1} alkoi`, body: 'Päivitä pakkasi ja veikkaa ennen jakson ensimmäistä peliä.', url: '/ahmaliiga/squad' },
       curNo === 0 ? { title: 'Ahmaliiga alkoi! 🏒', body: 'Pelit ovat käynnissä — kokoa pakkasi ja veikkaa.', url: '/ahmaliiga/squad', tag: 'ahmaliiga-start' } : null);
-    if (lockSoon && !(await getEntity(T.messages, uid, `!remind|${curNo}|lock`))) {
+    if (lockSoon && !(await getEntity(T.notifyLog, uid, `!remind|${curNo}|lock`))) {
       const squad = await getSquad(uid);
       const incomplete = !squad || !squad.cards || squad.cards.length < 5;
       const pred = await getPrediction(seasonId, curNo, uid);
