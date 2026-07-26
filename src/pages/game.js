@@ -44,12 +44,15 @@ const BoxScore = () => {
   const { id } = useParams();
   const { state } = useLocation();
   const goBack = useGoBack("/gamezone");
+  // Spoiler-free view (Ahmaliiga opens a not-yet-played game in the sim replay): show
+  // ONLY the rosters — hide result, stats, events — so the beta reads like real live.
+  const spoilerFree = !!(state && state.spoilerFree);
 
   const [game, setGame] = useState(
     () => (state && state.game) || peekSeasonGames().find((g) => String(g.id) === String(id)) || null
   );
   const [report, setReport] = useState(undefined); // undefined=loading, null=none, obj
-  const [tab, setTab] = useState("events");
+  const [tab, setTab] = useState(spoilerFree ? "rosters" : "events");
 
   useEffect(() => {
     if (game) return;
@@ -134,38 +137,41 @@ const BoxScore = () => {
         <Center text="Ladataan…" />
       ) : (
         <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, pt: 1.5 }}>
-          <GameHeader game={game} report={report} />
+          <GameHeader game={game} report={report} spoilerFree={spoilerFree} />
           {report === undefined && <Center text="Ladataan pöytäkirjaa…" />}
           {report === null && <Note>Ottelupöytäkirjaa ei ole saatavilla tälle ottelulle.</Note>}
-          {report && (
+          {report && (spoilerFree ? (
             <>
-              <SwipeableTabs
-                tabs={[{ value: "events", label: "Tapahtumat" }, { value: "stats", label: "Tilastot" }, { value: "points", label: "Pisteet" }, { value: "rosters", label: "Kokoonpanot" }]}
-                value={tab}
-                onChange={setTab}
-                tabsSx={{ mt: 0.25, mb: 1.75, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, px: 0.5, fontSize: 12, fontWeight: 800, letterSpacing: ".01em", textTransform: "uppercase", whiteSpace: "nowrap", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}
-              >
-                <Box>
-                  <Timeline report={report} />
-                  <WinningShots shots={report.winningShots} game={game} />
-                  <Goalies report={report} game={game} />
-                  <Footer report={report} game={game} />
-                </Box>
-                <Stats report={report} game={game} />
-                <Scorers report={report} game={game} />
-                <Rosters rosters={report.rosters} game={game} />
-              </SwipeableTabs>
+              <Note>Tulos, tilastot ja tapahtumat näkyvät kun ottelu on pelattu. Tässä ottelun kokoonpanot.</Note>
+              <Rosters rosters={report.rosters} game={game} />
             </>
-          )}
+          ) : (
+            <SwipeableTabs
+              tabs={[{ value: "events", label: "Tapahtumat" }, { value: "stats", label: "Tilastot" }, { value: "points", label: "Pisteet" }, { value: "rosters", label: "Kokoonpanot" }]}
+              value={tab}
+              onChange={setTab}
+              tabsSx={{ mt: 0.25, mb: 1.75, borderBottom: "1px solid rgba(255,255,255,0.10)", "& .MuiTab-root": { minHeight: 0, py: 1.25, px: 0.5, fontSize: 12, fontWeight: 800, letterSpacing: ".01em", textTransform: "uppercase", whiteSpace: "nowrap", color: "var(--gz-text-tertiary)" }, "& .Mui-selected": { color: "var(--color-primary)" } }}
+            >
+              <Box>
+                <Timeline report={report} />
+                <WinningShots shots={report.winningShots} game={game} />
+                <Goalies report={report} game={game} />
+                <Footer report={report} game={game} />
+              </Box>
+              <Stats report={report} game={game} />
+              <Scorers report={report} game={game} />
+              <Rosters rosters={report.rosters} game={game} />
+            </SwipeableTabs>
+          ))}
         </Box>
       )}
     </Box>
   );
 };
 
-const GameHeader = ({ game, report }) => {
-  const started = report ? report.started : Number(game.finished) > 0;
-  const finished = report ? report.finished : Number(game.finished) > 0;
+const GameHeader = ({ game, report, spoilerFree }) => {
+  const started = spoilerFree ? false : (report ? report.started : Number(game.finished) > 0);
+  const finished = spoilerFree ? false : (report ? report.finished : Number(game.finished) > 0);
   const score = report && report.score ? report.score : { home: game.home_goals, away: game.away_goals };
   const d = mdate(game.date);
   const finType = report ? report.finishedType : Number(game.finished) || 0;

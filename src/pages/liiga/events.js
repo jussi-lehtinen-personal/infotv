@@ -67,6 +67,7 @@ export function relTime(dateStr, simDate) {
 // tagged `played`) so the timeline can show progress; otherwise only upcoming.
 export function buildEvents(state, myKeys, opts) {
   const includePast = !!(opts && opts.includePast);
+  const ownKeys = opts && opts.ownKeys; // when showing ALL games (myKeys=null), tag which are yours
   const simDate = state && state.simMode ? state.simDate : null;
   const round = state && state.currentRound;
   const endDay = round && round.endDate;
@@ -76,6 +77,7 @@ export function buildEvents(state, myKeys, opts) {
     .filter((g) => !endDay || String(g.date).slice(0, 10) <= endDay)
     .map((g) => ({
       type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate),
+      own: ownKeys ? ownKeys.has(gameTeamKey(g)) : true,
       // shape the box score page (/gamezone/game/:id) expects via router state
       game: { id: g.gameId, date: g.date, level: g.level, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId,
         home: g.home, away: g.away, home_logo: g.homeLogo, away_logo: g.awayLogo, home_goals: g.homeGoals, away_goals: g.awayGoals },
@@ -96,7 +98,7 @@ export function buildEvents(state, myKeys, opts) {
 // One event row — icon + title + (relTime · date klo time) + optional points pill +
 // chevron. `highlight` tints it like the next-up event; `onClick` makes it a button.
 // `points` (a number) shows the squad's points from that played game as a "+X p" pill.
-export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
+export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
   const Icon = ev.type === "end" ? LuTrophy : LuCalendarDays;
   const played = !!ev.played;
   const endDone = ev.type === "end" && played; // a past round's end (dimmed, not active)
@@ -107,7 +109,10 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx }) {
         tint={highlight ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.06)"}
         color={highlight ? "primary.main" : "text.secondary"} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{endDone ? "Jakso päättyi" : ev.title}</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, minWidth: 0 }}>
+          <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{endDone ? "Jakso päättyi" : ev.title}</Typography>
+          {own && <Box component="span" sx={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase", color: "primary.main", bgcolor: "rgba(249,115,22,0.14)", border: "1px solid rgba(249,115,22,0.35)", borderRadius: 999, px: 0.6, py: "1px", lineHeight: 1.4 }}>Omasi</Box>}
+        </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.25, minWidth: 0 }}>
           <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0,
                 color: played ? "text.disabled" : highlight ? "primary.main" : "text.secondary" }}>

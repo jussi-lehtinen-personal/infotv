@@ -1349,7 +1349,15 @@ async function roundProgress(seasonId, round, userId) {
     }
     if (didPlay) played++;
   }
-  return { played, total: squad.cards.length, livePoints, perGame, perCard };
+  // Per-card breakdown (name + avatar + live points + captain) so the round page can
+  // show a LIVE "pisteet korteittain" list mid-round, mirroring the settled summary.
+  const cardBreakdown = squad.cards
+    .map((sc) => {
+      const cd = cardMap[sc.id] || {};
+      return { id: sc.id, name: cd.name || String(sc.id).replace(/^[TP]:/, ''), kind: cd.kind || 'team', photo: cd.photo || '', pts: Math.round((perCard[sc.id] || 0) * 10) / 10, isCaptain: sc.id === roundCaptain };
+    })
+    .sort((a, b) => b.pts - a.pts);
+  return { played, total: squad.cards.length, livePoints, perGame, perCard, cards: cardBreakdown };
 }
 
 // Shape a round's stored games into the client form used by the dashboard event

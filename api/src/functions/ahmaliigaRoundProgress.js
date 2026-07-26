@@ -19,7 +19,7 @@ app.http('ahmaliigaRoundProgress', {
       if (!userId) return { status: 401, jsonBody: { error: 'Kirjautuminen vaaditaan.' } };
       await ensureTables();
       const season = await getActiveSeason();
-      const empty = { played: 0, total: 0, livePoints: 0, perGame: {}, perCard: {}, games: [], round: null };
+      const empty = { played: 0, total: 0, livePoints: 0, perGame: {}, perCard: {}, cards: [], games: [], round: null };
       if (!season) return { jsonBody: empty };
 
       const rounds = await getRounds(season.rowKey);

@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { Box, Typography, Stack } from "@mui/material";
+import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuClock, LuStar, LuGoal, LuTrophy } from "react-icons/lu";
 import {
-  Screen, PageHead, Loading, PillButton, AccentPanel, CardAvatar,
+  Screen, PageHead, Loading, AccentPanel, CardAvatar,
   StatCard, ListCard, ListRow, RowValue, signed,
 } from "./_shared";
+import { SwipeableTabs } from "../../components/ui/SwipeableTabs";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { getAhmaliigaState, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaSummary } from "../../lib/ahmaliigaApi";
 
-// One round, two views. Round-parameterised (?round=N) so it works for the current
-// (live) round AND any settled past one — merging the old results-summary and
-// timeline pages. Both routes (/round + /timeline) render this; the default tab is
-// the timeline for the live round, results for a settled one.
-
-const TABS = [
-  { key: "results", label: "Tulokset" },
-  { key: "timeline", label: "Aikajana" },
-];
+// One round, two views (Aikajana | Tulokset) via SwipeableTabs. Round-parameterised
+// (?round=N) → the current (live) round AND any settled past one. Both routes
+// (/round + /timeline) render this; the default tab is Aikajana for the live round,
+// Tulokset for a settled one. Aikajana has an Omat/Kaikki toggle (whole fixture list);
+// Tulokset shows per-card points LIVE mid-round (progress.cards) or final once settled.
 
 // ---- Tulokset (per-card breakdown + rank + best card) ----
 const RowIcon = ({ card }) =>
@@ -36,41 +33,56 @@ const CaptainTag = () => (
   </Box>
 );
 
-function ResultsTab({ summary }) {
-  if (!summary || !summary.settled) {
+function ResultsTab({ summary, progress, isCurrent }) {
+  const nav = useNavigate();
+  const settled = !!(summary && summary.settled);
+  // Live (in-progress) round → per-card points from progress.cards; final once settled.
+  const liveCards = !settled && isCurrent && progress && progress.cards ? progress.cards : null;
+  if (!settled && !(liveCards && liveCards.length)) {
     return (
       <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
         <Typography variant="body2" sx={{ maxWidth: 320, mx: "auto" }}>
-          Jaksoa ei ole vielä ratkaistu — lopulliset pisteet ja sijoitus ilmestyvät kun jakso päättyy. Katso elävä eteneminen Aikajana-välilehdeltä.
+          {isCurrent
+            ? "Pisteet korteittain ilmestyvät kun jakson otteluita on pelattu. Katso otteluohjelma Aikajanalta."
+            : "Jaksoa ei ole vielä ratkaistu."}
         </Typography>
       </Box>
     );
   }
-  const best = summary.best;
+  const cards = settled ? summary.cards : liveCards;
+  const total = settled ? summary.total : progress.livePoints;
+  const best = settled ? summary.best : (cards[0] && cards[0].pts > 0 ? cards[0] : null);
+  const clickable = (c) => c.kind !== "predict" && !String(c.id || "").startsWith("_");
   return (
     <>
+      {!settled && (
+        <Typography sx={{ mb: 1.75, fontSize: 12.5, fontWeight: 700, color: "primary.main", textAlign: "center" }}>
+          Alustava — päivittyy otteluiden myötä
+        </Typography>
+      )}
       <Stack direction="row" spacing={1.25} sx={{ mb: 2.5 }}>
-        <StatCard label="Jakson pisteet" value={summary.total} accent />
-        <StatCard label="Sijoitus" value={summary.rank != null ? `${summary.rank}` : "—"}
-                  sub={summary.managerCount ? `/ ${summary.managerCount}` : null} />
+        <StatCard label={settled ? "Jakson pisteet" : "Alustavat pisteet"} value={total != null ? total : "—"} accent />
+        {settled && <StatCard label="Sijoitus" value={summary.rank != null ? `${summary.rank}` : "—"}
+                  sub={summary.managerCount ? `/ ${summary.managerCount}` : null} />}
       </Stack>
 
       <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>
         Pisteet korteittain
       </Typography>
       <ListCard>
-        {summary.cards.map((c) => (
+        {cards.map((c) => (
           <ListRow key={c.id} divider
+            onClick={clickable(c) ? () => nav(`/ahmaliiga/card/${encodeURIComponent(c.id)}`) : undefined}
             leading={<RowIcon card={c} />}
             title={c.name}
             titleRight={c.isCaptain ? <CaptainTag /> : null}
-            subtitle={c.reason || "Ei pisteitä"}
+            subtitle={settled ? (c.reason || "Ei pisteitä") : (c.pts > 0 ? "Pelatuista otteluista" : "Ei vielä pisteitä")}
             trailing={<RowValue size={22} color={c.pts > 0 ? "primary.main" : "text.disabled"}>{signed(c.pts)}</RowValue>} />
         ))}
         <Box sx={{ display: "flex", alignItems: "center", px: 1.75, py: 1.25, borderTop: "2px solid rgba(249,115,22,0.4)" }}>
           <Box sx={{ flex: 1, fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1,
                 letterSpacing: "var(--font-display-tracking)", color: "primary.main" }}>Yhteensä</Box>
-          <RowValue size={22}>{summary.total}</RowValue>
+          <RowValue size={22}>{total}</RowValue>
         </Box>
       </ListCard>
 
@@ -102,19 +114,21 @@ const YCell = ({ value, unit, accent }) => (
   </Box>
 );
 
-function TimelineTab({ progress, summary, myKeys, isCurrent }) {
+function TimelineTab({ progress, summary, myKeys, isCurrent, initialMode }) {
   const nav = useNavigate();
+  const [mode, setMode] = useState(initialMode === "kaikki" ? "kaikki" : "omat"); // omat | kaikki (whole round fixture list)
   if (!progress || !progress.games) {
     return <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">Ei tapahtumia.</Typography></Box>;
   }
   const simDate = progress.simMode ? progress.simDate : null;
-  const events = buildEvents(
-    { games: progress.games, currentRound: { endDate: progress.endDate }, simMode: progress.simMode, simDate: progress.simDate },
-    myKeys, { includePast: true });
+  const stateForEvents = { games: progress.games, currentRound: { endDate: progress.endDate }, simMode: progress.simMode, simDate: progress.simDate };
+  // Your games drive the progress summary; the list toggles yours ↔ the whole round.
+  const myEvents = buildEvents(stateForEvents, myKeys, { includePast: true });
+  const events = mode === "kaikki" ? buildEvents(stateForEvents, null, { includePast: true, ownKeys: myKeys }) : myEvents;
   const firstUpcoming = events.findIndex((e) => !e.played);
-  const gameEvents = events.filter((e) => e.type === "game");
-  const playedGames = gameEvents.filter((e) => e.played).length;
-  const upcomingGames = gameEvents.length - playedGames;
+  const myGames = myEvents.filter((e) => e.type === "game");
+  const playedGames = myGames.filter((e) => e.played).length;
+  const upcomingGames = myGames.length - playedGames;
   // Live round → running points ("if it ended now"); settled → the final total.
   const headPts = isCurrent ? progress.livePoints : (summary && summary.settled ? summary.total : progress.livePoints);
 
@@ -141,7 +155,18 @@ function TimelineTab({ progress, summary, myKeys, isCurrent }) {
         <YCell value={upcomingGames} unit="ottelua tulossa" />
       </Stack>
 
-      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1.5 }}>Tapahtumat</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+        <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled" }}>Ottelut</Typography>
+        <Box sx={{ display: "flex", gap: 0.75 }}>
+          {[["omat", "Omat"], ["kaikki", "Kaikki"]].map(([k, label]) => (
+            <ButtonBase key={k} onClick={() => setMode(k)}
+              sx={{ px: 1.35, py: 0.4, borderRadius: 999, fontSize: 12, fontWeight: 800, lineHeight: 1,
+                    color: mode === k ? "primary.main" : "text.disabled",
+                    bgcolor: mode === k ? "rgba(249,115,22,0.16)" : "transparent",
+                    border: `1px solid ${mode === k ? "rgba(249,115,22,0.45)" : "var(--color-surface-border)"}` }}>{label}</ButtonBase>
+          ))}
+        </Box>
+      </Box>
       {events.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 4, color: "text.secondary" }}><Typography variant="body2">Ei omien korttiesi otteluita tässä jaksossa.</Typography></Box>
       ) : events.map((ev, i) => {
@@ -164,9 +189,11 @@ function TimelineTab({ progress, summary, myKeys, isCurrent }) {
             </Box>
             <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
               <EventRow ev={ev} simDate={simDate} highlight={isNext}
+                own={mode === "kaikki" ? ev.own : undefined}
                 points={ev.type === "game" && ev.played && progress.perGame ? (progress.perGame[ev.game.id] || 0) : undefined}
                 onClick={ev.type !== "game" ? undefined
                   : ev.played ? () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game } })
+                  : mode === "kaikki" ? () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game, spoilerFree: true } })
                   : isCurrent ? () => nav("/ahmaliiga/predict") : undefined} />
             </Box>
           </Box>
@@ -232,15 +259,15 @@ export default function LiigaRound() {
           </Box>
         )} />
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2.5 }}>
-        {TABS.map((t) => (
-          <PillButton key={t.key} active={activeTab === t.key} onClick={() => setTab(t.key)} sx={{ flex: 1, py: 0.9 }}>{t.label}</PillButton>
-        ))}
-      </Stack>
-
-      {activeTab === "results"
-        ? <ResultsTab summary={summary} />
-        : <TimelineTab progress={progress} summary={summary} myKeys={myKeys} isCurrent={isCurrent} />}
+      <SwipeableTabs
+        tabs={[{ value: "timeline", label: "Aikajana" }, { value: "results", label: "Tulokset" }]}
+        value={activeTab}
+        onChange={setTab}
+        tabsSx={{ mb: 2.5 }}>
+        <TimelineTab progress={progress} summary={summary} myKeys={myKeys} isCurrent={isCurrent}
+          initialMode={params.get("ottelut") === "kaikki" ? "kaikki" : "omat"} />
+        <ResultsTab summary={summary} progress={progress} isCurrent={isCurrent} />
+      </SwipeableTabs>
     </Screen>
   );
 }

@@ -237,6 +237,15 @@ export default function LiigaEdit() {
         </Stack>
       )}
 
+      {round && (
+        <ButtonBase onClick={() => nav("/ahmaliiga/timeline?ottelut=kaikki")}
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 2.5, color: "primary.main", fontWeight: 700, fontSize: 13.5 }}>
+          <Box component={LuLayers} sx={{ fontSize: 15, display: "block" }} />
+          Katso jakson otteluohjelma
+          <Box component={LuChevronRight} sx={{ fontSize: 16, display: "block" }} />
+        </ButtonBase>
+      )}
+
       {/* top stats — Budjetti / Siirrot / Arvo / Pisteet */}
       <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
         <StatCell icon={LuWallet} label="Budjetti"><Coins value={bank} size={15} /></StatCell>
