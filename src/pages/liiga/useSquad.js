@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaRoundProgress } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaCards, getMySquad, saveMySquad, getAhmaliigaState, getAhmaliigaRoundProgress, peekCached } from "../../lib/ahmaliigaApi";
 import { playedCardCount } from "./events";
 
 // useSquad — the ONE source of truth for the manager's squad + trading rules, extracted
@@ -11,17 +11,24 @@ import { playedCardCount } from "./events";
 // the same names (drop-in). `canReplaceWith(c, replaceFor)` takes the outgoing card as an
 // arg (it's the caller's UI-flow state, not squad state).
 export function useSquad() {
-  const [all, setAll] = useState(null);
-  const [settled, setSettled] = useState(false);
-  const [budget, setBudget] = useState(120);
-  const [points, setPoints] = useState(null); // manager's season points (top stat)
-  const [bank, setBank] = useState(120);      // money in hand (server-authoritative)
+  // Instant paint from the sessionStorage mirror (ahmaliigaApi.peekCached) — the effect
+  // below still refetches everything fresh right after, so this only removes the blank
+  // full-screen spinner on a revisit/reload.
+  const _c0 = peekCached("cards:all");
+  const _s0 = peekCached("squad");
+  const _st0 = peekCached("state");
+  const _sq0 = _s0 && _s0.squad ? _s0.squad : null;
+  const [all, setAll] = useState(_c0 ? (_c0.cards || []) : null);
+  const [settled, setSettled] = useState(_c0 ? !!_c0.settled : false);
+  const [budget, setBudget] = useState(_s0 && _s0.budget ? _s0.budget : 120);
+  const [points, setPoints] = useState(_st0 && _st0.standing ? (_st0.standing.seasonPts ?? _st0.standing.roundPts ?? null) : null); // manager's season points (top stat)
+  const [bank, setBank] = useState(_s0 && _s0.bank != null ? _s0.bank : 120); // money in hand (server-authoritative)
   const [transfers, setTransfers] = useState({ used: 0, free: 2 });
-  const [ids, setIds] = useState([]);
-  const [captainId, setCaptainId] = useState(null);
+  const [ids, setIds] = useState(_sq0 ? (_sq0.cards || []).map((c) => c.id) : []);
+  const [captainId, setCaptainId] = useState(_sq0 ? _sq0.captainId : null);
   const [perCard, setPerCard] = useState(null); // this round's points per card
-  const [round, setRound] = useState(null);     // current round (for the header line)
-  const [minTeams, setMinTeams] = useState(2); // a full squad needs ≥ this many team cards (from /state; ECON-authoritative)
+  const [round, setRound] = useState(_st0 && _st0.active && _st0.currentRound ? _st0.currentRound : null); // current round (for the header line)
+  const [minTeams, setMinTeams] = useState(_st0 && _st0.minTeams != null ? _st0.minTeams : 2); // a full squad needs ≥ this many team cards (from /state; ECON-authoritative)
   const [captainLocked, setCaptainLocked] = useState(false); // a round game has started → captain frozen for the round
   const [error, setError] = useState("");
 

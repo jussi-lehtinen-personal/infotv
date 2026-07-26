@@ -1,14 +1,14 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Box, Typography, Stack, Button, ButtonBase, Alert,
+  Box, Typography, Stack, Button, ButtonBase, Alert, Skeleton,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Drawer,
 } from "@mui/material";
 import {
   LuPlus, LuCrown, LuArrowLeftRight, LuInfo, LuTrash2, LuChevronRight, LuArrowRight,
   LuWallet, LuLayers, LuTrophy, LuShieldCheck,
 } from "react-icons/lu";
-import { Screen, PageHead, Loading, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
+import { Screen, PageHead, CoinPill, Coins, CardAvatar, LiigaDialog, TrendTag, playerNameLines, AHMA_LOGO } from "./_shared";
 import CardList from "./CardList";
 import { useSquad } from "./useSquad";
 
@@ -49,6 +49,35 @@ const initialsOf = (name) => {
   if (p.length >= 2) return (p[p.length - 1][0] + p[0][0]).toLocaleUpperCase("fi");
   return String(name || "").slice(0, 2).toLocaleUpperCase("fi");
 };
+
+// Card-shaped placeholders shown on a FIRST load with no cached squad (revisits paint
+// instantly from the sessionStorage mirror) — page structure + pulse, not a blank spinner.
+const skBg = { bgcolor: "rgba(255,255,255,0.06)" };
+const SquadSkeleton = () => (
+  <Screen sx={{ overflowX: "hidden" }}>
+    <PageHead title="Oma joukkue" sx={{ mb: 2 }} />
+    <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
+      {[0, 1, 2, 3].map((i) => (
+        <Box key={i} sx={{ flex: 1, p: 1.25, borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+          <Skeleton variant="text" width="65%" height={11} sx={skBg} />
+          <Skeleton variant="text" width="85%" height={20} sx={{ ...skBg, mt: 0.5 }} />
+        </Box>
+      ))}
+    </Box>
+    <Stack spacing={1}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.5, borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+          <Skeleton variant="circular" width={44} height={44} sx={skBg} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width="55%" height={18} sx={skBg} />
+            <Skeleton variant="text" width="30%" height={13} sx={skBg} />
+          </Box>
+          <Skeleton variant="rounded" width={42} height={26} sx={skBg} />
+        </Box>
+      ))}
+    </Stack>
+  </Screen>
+);
 
 export default function LiigaEdit() {
   const nav = useNavigate();
@@ -220,7 +249,7 @@ export default function LiigaEdit() {
   // into team-only "Joukkue" slots when a team is still required (mustPickTeam).
   const slot = (c, opts) => (c ? formationCard(c, opts) : (ids.length < 5 ? addSlot({ ...opts, teamOnly: mustPickTeam }) : <Box sx={{ ...(opts && opts.width ? { width: opts.width } : {}), aspectRatio: CARD_AR }} />));
 
-  if (all === null) return <Loading screen />;
+  if (all === null) return <SquadSkeleton />;
 
   return (
     <Screen sx={{ overflowX: "hidden" }}>

@@ -54,7 +54,7 @@ export async function getAhmaliigaCards(filter) {
     const r = await fetch(`/api/ahmaliiga/cards${q}`);
     if (!r.ok) throw new Error(`cards ${r.status}`);
     return r.json(); // { season, cards: [{ id, kind, name, sub, band, price, ownerCount, lastPts }] }
-  });
+  }, !filter || filter === "all"); // persist the default pool (the squad page's instant-paint source)
 }
 
 // Kortin tiedot — a card + ownership %, per-round history and its games.
@@ -64,10 +64,14 @@ export async function getAhmaliigaCard(id) {
   return r.json(); // { card, managerCount, ownerCount, ownerPct, history, games }
 }
 
-// The signed-in manager's squad (resolved cards + bank), or { squad: null }.
+// The signed-in manager's squad (resolved cards + bank), or { squad: null }. Not TTL-
+// cached (always refetched fresh), but mirrored to sessionStorage for instant paint on
+// the squad page — cleared on save via clearAhmaliigaCache so it's never stale.
 export async function getMySquad() {
   const r = await fetch("/api/ahmaliiga/squad", { headers: authHeaders() });
-  return asJson(r); // { squad, budget, bank, spent } | { squad: null, budget }
+  const data = await asJson(r); // { squad, budget, bank, spent } | { squad: null, budget }
+  if (r.ok) ssWrite("squad", data);
+  return data;
 }
 
 // Save the squad. Throws with the server's Finnish validation message on 400.
