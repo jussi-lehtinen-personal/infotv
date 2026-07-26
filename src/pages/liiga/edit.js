@@ -202,6 +202,8 @@ export default function LiigaEdit() {
         sx={{ ...baseSx, display: "flex", flexDirection: "column", alignItems: "center", pt: 1.25, px: 1, pb: 1.25 }}>
         {c.kind === "team" ? (
           <Box component="img" src={AHMA_LOGO} alt="" sx={{ flexShrink: 0, maxWidth: "92%", maxHeight: "52%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+        ) : c.photo ? (
+          <Box component="img" src={c.photo} alt="" sx={{ flexShrink: 0, mt: 0.5, width: "60%", aspectRatio: "1", borderRadius: "12px", objectFit: "cover", objectPosition: "top", boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }} />
         ) : (
           <Box component="span" sx={{ flexShrink: 0, mt: 0.5, fontWeight: 900, fontSize: 46, lineHeight: 1, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
         )}
