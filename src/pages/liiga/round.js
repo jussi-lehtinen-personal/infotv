@@ -114,9 +114,8 @@ const YCell = ({ value, unit, accent }) => (
   </Box>
 );
 
-function TimelineTab({ progress, summary, myKeys, isCurrent, initialMode }) {
+function TimelineTab({ progress, summary, myKeys, isCurrent, mode, onMode }) {
   const nav = useNavigate();
-  const [mode, setMode] = useState(initialMode === "kaikki" ? "kaikki" : "omat"); // omat | kaikki (whole round fixture list)
   if (!progress || !progress.games) {
     return <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">Ei tapahtumia.</Typography></Box>;
   }
@@ -155,17 +154,14 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, initialMode }) {
         <YCell value={upcomingGames} unit="ottelua tulossa" />
       </Stack>
 
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
-        <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled" }}>Ottelut</Typography>
-        <Box sx={{ display: "flex", gap: 0.75 }}>
-          {[["omat", "Omat"], ["kaikki", "Kaikki"]].map(([k, label]) => (
-            <ButtonBase key={k} onClick={() => setMode(k)}
-              sx={{ px: 1.35, py: 0.4, borderRadius: 999, fontSize: 12, fontWeight: 800, lineHeight: 1,
-                    color: mode === k ? "primary.main" : "text.disabled",
-                    bgcolor: mode === k ? "rgba(249,115,22,0.16)" : "transparent",
-                    border: `1px solid ${mode === k ? "rgba(249,115,22,0.45)" : "var(--color-surface-border)"}` }}>{label}</ButtonBase>
-          ))}
-        </Box>
+      <Box sx={{ display: "flex", gap: 0.75, mb: 1.75 }}>
+        {[["omat", "Omat ottelut"], ["kaikki", "Kaikki ottelut"]].map(([k, label]) => (
+          <ButtonBase key={k} onClick={() => onMode(k)}
+            sx={{ px: 1.5, py: 0.55, borderRadius: 999, fontSize: 12.5, fontWeight: 800, lineHeight: 1,
+                  color: mode === k ? "primary.main" : "text.disabled",
+                  bgcolor: mode === k ? "rgba(249,115,22,0.16)" : "transparent",
+                  border: `1px solid ${mode === k ? "rgba(249,115,22,0.45)" : "var(--color-surface-border)"}` }}>{label}</ButtonBase>
+        ))}
       </Box>
       {events.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 4, color: "text.secondary" }}><Typography variant="body2">Ei omien korttiesi otteluita tässä jaksossa.</Typography></Box>
@@ -179,7 +175,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, initialMode }) {
         const DOT = 13, CENTER = 31;
         const seg = (done) => ({ position: "absolute", left: "50%", ml: "-1px", width: 2, bgcolor: done ? "var(--color-primary)" : "var(--color-surface-border)" });
         return (
-          <Box key={ev.type + ev.date} sx={{ display: "flex", gap: 1.25, alignItems: "stretch" }}>
+          <Box key={ev.gameId || ev.type + ev.date} sx={{ display: "flex", gap: 1.25, alignItems: "stretch" }}>
             <Box sx={{ width: 20, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" }}>
               {i > 0 && <Box sx={{ ...seg(events[i - 1].played), top: 0, height: `${CENTER}px` }} />}
               {!isLast && <Box sx={{ ...seg(ev.played), top: `${CENTER}px`, bottom: 0 }} />}
@@ -205,7 +201,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, initialMode }) {
 
 export default function LiigaRound() {
   const { pathname } = useLocation();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const roundParam = params.get("round");
   const isTimelineRoute = /timeline$/.test(pathname);
 
@@ -265,7 +261,8 @@ export default function LiigaRound() {
         onChange={setTab}
         tabsSx={{ mb: 2.5 }}>
         <TimelineTab progress={progress} summary={summary} myKeys={myKeys} isCurrent={isCurrent}
-          initialMode={params.get("ottelut") === "kaikki" ? "kaikki" : "omat"} />
+          mode={params.get("ottelut") === "kaikki" ? "kaikki" : "omat"}
+          onMode={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set("ottelut", k); return n; }, { replace: true })} />
         <ResultsTab summary={summary} progress={progress} isCurrent={isCurrent} />
       </SwipeableTabs>
     </Screen>

@@ -79,7 +79,7 @@ export function buildEvents(state, myKeys, opts) {
       type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate),
       own: ownKeys ? ownKeys.has(gameTeamKey(g)) : true,
       // shape the box score page (/gamezone/game/:id) expects via router state
-      game: { id: g.gameId, date: g.date, level: g.level, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId,
+      game: { id: g.gameId, date: g.date, level: g.level, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId, ahmaHome: g.ahmaHome,
         home: g.home, away: g.away, home_logo: g.homeLogo, away_logo: g.awayLogo, home_goals: g.homeGoals, away_goals: g.awayGoals },
     }))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -109,10 +109,7 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
         tint={highlight ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.06)"}
         color={highlight ? "primary.main" : "text.secondary"} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, minWidth: 0 }}>
-          <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{endDone ? "Jakso päättyi" : ev.title}</Typography>
-          {own && <Box component="span" sx={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase", color: "primary.main", bgcolor: "rgba(249,115,22,0.14)", border: "1px solid rgba(249,115,22,0.35)", borderRadius: 999, px: 0.6, py: "1px", lineHeight: 1.4 }}>Omasi</Box>}
-        </Box>
+        <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{endDone ? "Jakso päättyi" : ev.title}</Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.25, minWidth: 0 }}>
           <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0,
                 color: played ? "text.disabled" : highlight ? "primary.main" : "text.secondary" }}>
@@ -120,6 +117,11 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
           </Box>
           <Box component="span" sx={{ fontSize: 12, color: "text.disabled", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {shortDate(ev.date)}</Box>
         </Box>
+        {ev.type === "game" && played && ev.game && ev.game.home_goals != null && ev.game.away_goals != null && (
+          <Typography sx={{ fontSize: 13, fontWeight: 800, color: "text.primary", mt: 0.4, fontVariantNumeric: "tabular-nums" }}>
+            {ev.game.ahmaHome ? ev.game.home_goals : ev.game.away_goals} – {ev.game.ahmaHome ? ev.game.away_goals : ev.game.home_goals}
+          </Typography>
+        )}
       </Box>
       {hasPts && (
         <Box component="span" sx={{ flexShrink: 0, fontSize: 14, fontWeight: 800, whiteSpace: "nowrap",
@@ -134,7 +136,11 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
     display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", px: 1.75, py: 1.4,
     borderRadius: "var(--radius-item)", opacity: played ? 0.6 : 1,
     border: `1px solid ${highlight ? "rgba(249,115,22,0.5)" : "var(--color-surface-border)"}`,
-    bgcolor: highlight ? "rgba(249,115,22,0.08)" : "var(--color-surface)", ...sx,
+    bgcolor: highlight ? "rgba(249,115,22,0.08)" : "var(--color-surface)",
+    // Own games (not the highlighted next-up) → orange LEFT-EDGE accent instead of a
+    // chip → every row stays the same height so the timeline dots line up.
+    ...(own && !highlight && { borderLeftColor: "var(--color-primary)", borderLeftWidth: "3px", pl: "12px" }),
+    ...sx,
   };
   return onClick
     ? <ButtonBase onClick={onClick} sx={{ ...base, "&:hover": { borderColor: "primary.main" } }}>{inner}</ButtonBase>
