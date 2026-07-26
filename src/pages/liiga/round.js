@@ -172,19 +172,24 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, mode, onMode }) {
         // Centre the dot (and the segment junction) on the EventRow's optical centre —
         // its IconCircle (40px) + py (~11px) → ~31px from the row top. The dot and the
         // connecting line must share that line, not sit above it (icon/text centre rule).
-        const DOT = 13, CENTER = 31;
+        // Centre the dot on the EventRow (its IconCircle line) for ANY card height —
+        // played cards carry a 3rd line (Lopputulos). `mid` = the row's vertical centre
+        // EXCLUDING the bottom gap (pb 12px) that the connecting line must still span.
+        const DOT = 13, GAP = 12;
+        const mid = `calc((100% - ${GAP}px) / 2)`;
         const seg = (done) => ({ position: "absolute", left: "50%", ml: "-1px", width: 2, bgcolor: done ? "var(--color-primary)" : "var(--color-surface-border)" });
         return (
           <Box key={ev.gameId || ev.type + ev.date} sx={{ display: "flex", gap: 1.25, alignItems: "stretch" }}>
             <Box sx={{ width: 20, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" }}>
-              {i > 0 && <Box sx={{ ...seg(events[i - 1].played), top: 0, height: `${CENTER}px` }} />}
-              {!isLast && <Box sx={{ ...seg(ev.played), top: `${CENTER}px`, bottom: 0 }} />}
-              <Box sx={{ position: "relative", mt: `${CENTER - DOT / 2}px`, width: DOT, height: DOT, borderRadius: "50%", flexShrink: 0,
+              {i > 0 && <Box sx={{ ...seg(events[i - 1].played), top: 0, height: mid }} />}
+              {!isLast && <Box sx={{ ...seg(ev.played), top: mid, bottom: 0 }} />}
+              <Box sx={{ position: "absolute", top: `calc(${mid} - ${DOT / 2}px)`, width: DOT, height: DOT, borderRadius: "50%",
                     border: `2px solid ${filled ? "var(--color-primary)" : "var(--color-surface-border)"}`,
                     bgcolor: filled ? "var(--color-primary)" : "var(--color-bg)" }} />
             </Box>
             <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
-              <EventRow ev={ev} simDate={simDate} highlight={isNext}
+              <EventRow ev={ev} simDate={simDate}
+                highlight={mode === "omat" ? isNext : (ev.own && !ev.played)}
                 own={mode === "kaikki" ? ev.own : undefined}
                 points={ev.type === "game" && ev.played && progress.perGame ? (progress.perGame[ev.game.id] || 0) : undefined}
                 onClick={ev.type !== "game" ? undefined

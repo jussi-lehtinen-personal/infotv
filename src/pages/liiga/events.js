@@ -119,8 +119,8 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
         </Box>
         {ev.type === "game" && played && ev.game && ev.game.home_goals != null && ev.game.away_goals != null && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.65, mt: 0.4 }}>
-            <Box component="span" sx={{ fontSize: 11.5, fontWeight: 700, color: "text.disabled", textTransform: "uppercase", letterSpacing: ".04em" }}>Lopputulos</Box>
-            <Box component="span" sx={{ fontSize: 13.5, fontWeight: 800, color: "primary.main", fontVariantNumeric: "tabular-nums" }}>
+            <Box component="span" sx={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1, color: "text.disabled", textTransform: "uppercase", letterSpacing: ".04em" }}>Lopputulos</Box>
+            <Box component="span" sx={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1, color: "primary.main", fontVariantNumeric: "tabular-nums" }}>
               {ev.game.ahmaHome ? ev.game.home_goals : ev.game.away_goals} – {ev.game.ahmaHome ? ev.game.away_goals : ev.game.home_goals}
             </Box>
           </Box>
@@ -138,11 +138,10 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
   const base = {
     display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", px: 1.75, py: 1.4,
     borderRadius: "var(--radius-item)", opacity: played ? 0.6 : 1,
-    border: `1px solid ${highlight ? "rgba(249,115,22,0.5)" : "var(--color-surface-border)"}`,
+    // `own` (your game) OR `highlight` (next-up / your upcoming) → full orange border.
+    // `highlight` also tints the background; played rows dim via opacity.
+    border: `1px solid ${highlight || own ? "rgba(249,115,22,0.5)" : "var(--color-surface-border)"}`,
     bgcolor: highlight ? "rgba(249,115,22,0.08)" : "var(--color-surface)",
-    // Own games (not the highlighted next-up) → orange LEFT-EDGE accent instead of a
-    // chip → every row stays the same height so the timeline dots line up.
-    ...(own && !highlight && { borderLeftColor: "var(--color-primary)", borderLeftWidth: "3px", pl: "12px" }),
     ...sx,
   };
   return onClick
