@@ -50,7 +50,7 @@ export default function LiigaPromo() {
           sx={{ color: "text.secondary", textTransform: "none", fontWeight: 700 }}>Etusivu</Button>
       </Box>
 
-      <Box component="img" src="/ahmaliiga_logo.png" alt="Ahmaliiga"
+      <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
         sx={{ width: "min(66vw, 240px)", height: "auto", mt: 2, filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
 
       <Typography sx={{ mt: 1.5, textAlign: "center", fontSize: 15.5, fontWeight: 600, color: "text.secondary", maxWidth: 440, lineHeight: 1.5 }}>

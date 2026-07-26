@@ -19,16 +19,24 @@ async function asJson(r) {
 // the slow roundProgress (box scores) isn't refetched on every squad-page mount.
 // Cleared after a squad save. Squad itself is NOT cached (always fresh).
 const _cache = new Map(); // key -> { ts, ttl, promise }
-function cachedGet(key, ttl, fetcher) {
+// sessionStorage mirror for a few keys (persist=true) → instant first paint on reload /
+// revisit; the async getters still refetch in the background to refresh.
+const SS = "ahma.cache.";
+function ssWrite(key, v) { try { sessionStorage.setItem(SS + key, JSON.stringify(v)); } catch { /* quota/private mode */ } }
+export function peekCached(key) { try { const r = sessionStorage.getItem(SS + key); return r ? JSON.parse(r) : null; } catch { return null; } }
+function cachedGet(key, ttl, fetcher, persist) {
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < hit.ttl) return hit.promise;
-  const promise = fetcher();
+  const promise = persist ? fetcher().then((v) => { ssWrite(key, v); return v; }) : fetcher();
   _cache.set(key, { ts: Date.now(), ttl, promise });
   // drop failed entries so the next call retries instead of caching the rejection
   promise.catch(() => { const cur = _cache.get(key); if (cur && cur.promise === promise) _cache.delete(key); });
   return promise;
 }
-export function clearAhmaliigaCache() { _cache.clear(); }
+export function clearAhmaliigaCache() {
+  _cache.clear();
+  try { Object.keys(sessionStorage).filter((k) => k.startsWith(SS)).forEach((k) => sessionStorage.removeItem(k)); } catch { /* ignore */ }
+}
 
 export async function getAhmaliigaState() {
   // Send the token so the server can include the manager's standing (rank/points);
@@ -37,7 +45,7 @@ export async function getAhmaliigaState() {
     const r = await fetch("/api/ahmaliiga/state", { headers: authHeaders() });
     if (!r.ok) throw new Error(`state ${r.status}`);
     return r.json(); // { active, season, currentRound, roundCount, budget, standing, ... } | { active:false }
-  });
+  }, true);
 }
 
 export async function getAhmaliigaCards(filter) {
@@ -110,7 +118,7 @@ export async function getAhmaliigaRoundProgress(round) {
   return cachedGet(`progress:${round ?? "cur"}`, 20000, async () => {
     const r = await fetch(`/api/ahmaliiga/roundProgress${q}`, { headers: authHeaders() });
     return asJson(r); // { played, total, livePoints, perGame, perCard, round, status, endDate, isCurrent, simMode, simDate, daysLeft, games }
-  });
+  }, round == null); // persist only the active round (the dashboard's instant-paint source)
 }
 
 // Veikkaus — current round's games + my prediction (results hidden until settled).

@@ -76,7 +76,7 @@ const Ahmaliiga = () => {
       <Box sx={{ maxWidth: 560, mx: "auto", px: 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
         <Box
           component="img"
-          src="/ahmaliiga_logo.png"
+          src="/ahmaliiga_logo.webp"
           alt="Ahmaliiga"
           sx={{ width: "min(82vw, 320px)", height: "auto", aspectRatio: "1 / 1", objectFit: "contain", alignSelf: "center", mt: 1, mb: 0.5, filter: "drop-shadow(0 10px 26px rgba(0,0,0,.5))" }}
         />

@@ -50,7 +50,7 @@ export default function LiigaWelcome() {
       <PageHead title="Tervetuloa" />
 
       <Box sx={{ textAlign: "center", pt: 0.5, pb: 1.5 }}>
-        <Box component="img" src="/ahmaliiga_logo.png" alt="Ahmaliiga"
+        <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
              sx={{ width: "min(52vw, 190px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
         <Typography sx={{ color: "text.secondary", mt: 1, fontSize: 14.5, lineHeight: 1.5 }}>
           Kokoa oma unelmajoukkue Kiekko-Ahman korteista. Kun oikeat joukkueet ja pelaajat

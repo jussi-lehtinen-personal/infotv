@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, Stack, ButtonBase, Button } from "@mui/material";
+import { Box, Typography, Stack, ButtonBase, Button, Skeleton } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair, LuRocket } from "react-icons/lu";
 import { SiWhatsapp } from "react-icons/si";
 import PushPrompt from "./PushPrompt";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName } from "../../Util";
-import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers, clearAhmaliigaCache } from "../../lib/ahmaliigaApi";
+import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers, clearAhmaliigaCache, peekCached } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
 // the previous round: points + ranking + a link to its summary) and the season
@@ -160,13 +160,35 @@ const StatCol = ({ label, children }) => (
   </Box>
 );
 
+// Shown while the dashboard data is still loading AND we have no cached state to paint
+// from (first-ever visit) — card-shaped placeholders so the page has structure + a
+// loading pulse instead of a bare hero + WhatsApp button.
+const sk = { bgcolor: "rgba(255,255,255,0.06)" };
+const DashboardSkeleton = () => (
+  <>
+    {[0, 1].map((i) => (
+      <Box key={i} sx={{ mb: 2, p: 2, borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+        <Skeleton variant="rounded" width="42%" height={12} sx={sk} />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.75 }}>
+          <Skeleton variant="circular" width={44} height={44} sx={sk} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width="58%" height={22} sx={sk} />
+            <Skeleton variant="text" width="34%" height={15} sx={sk} />
+          </Box>
+          <Skeleton variant="rounded" width={44} height={30} sx={sk} />
+        </Box>
+      </Box>
+    ))}
+  </>
+);
+
 export default function LiigaHome() {
   const nav = useNavigate();
-  const [state, setState] = useState(null);
+  const [state, setState] = useState(() => peekCached("state")); // instant paint from the sessionStorage mirror; refetched below
   const [top, setTop] = useState(null);
   const [summary, setSummary] = useState(null);
   const [squad, setSquad] = useState(null);
-  const [progress, setProgress] = useState(null); // live points this (running) round
+  const [progress, setProgress] = useState(() => peekCached("progress:cur")); // live points this (running) round
   const [pred, setPred] = useState(null); // prediction status this round
   const [rewards, setRewards] = useState(null); // my prize vouchers (F10)
 
@@ -208,7 +230,7 @@ export default function LiigaHome() {
   return (
     <Screen>
       <Box sx={{ textAlign: "center", pt: 1, pb: 2 }}>
-        <Box component="img" src="/ahmaliiga_logo.png" alt="Ahmaliiga"
+        <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
              sx={{ width: "min(60vw, 220px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
         <Typography sx={{ color: "text.secondary", mt: 1, fontSize: 14.5, fontWeight: 600, letterSpacing: ".01em", whiteSpace: "nowrap" }}>
           Kokoa kortisto ja nouse mestariksi.
@@ -217,6 +239,9 @@ export default function LiigaHome() {
 
       {/* Soft push opt-in — only shows if supported, not yet asked, not dismissed. */}
       <PushPrompt />
+
+      {/* First load with no cached state → card-shaped skeletons (not a blank page). */}
+      {state === null && <DashboardSkeleton />}
 
       {/* Prize banner — you have unredeemed rewards → open Palkinnot (shows the QR). */}
       {unclaimed > 0 && (
