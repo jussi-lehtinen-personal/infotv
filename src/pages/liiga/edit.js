@@ -216,29 +216,30 @@ export default function LiigaEdit() {
       );
     }
 
-    // Others (team card, or player with no photo): a flex column so the orange divider
-    // auto-centres in the gap between the art (Ahma logo / initials) and the name — a
-    // small crest fills a photo-style card poorly (too much dead space before the name).
+    // Others (team card / no-photo player): crest or big initials fill the top like the
+    // photo cards, an orange divider fills the gap, and a bottom gradient overlay carries
+    // the name/points/price — one look across all formation cards.
     return (
-      <ButtonBase key={c.id} disableRipple {...press}
-        sx={{ ...baseSx, display: "flex", flexDirection: "column", alignItems: "center", pt: 1.25, px: 1, pb: 1.25 }}>
-        {c.kind === "team" ? (
-          <Box component="img" src={AHMA_LOGO} alt="" sx={{ flexShrink: 0, maxWidth: "92%", maxHeight: "52%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
-        ) : (
-          <Box component="span" sx={{ flexShrink: 0, mt: 0.5, fontWeight: 900, fontSize: 46, lineHeight: 1, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
-        )}
-        {/* gap: the orange divider is centred here between the art and the name */}
-        <Box sx={{ flex: 1, minHeight: 0, width: "100%", display: "grid", placeItems: "center" }}>
-          <Box sx={{ height: "2px", width: "56%", borderRadius: 2, bgcolor: "var(--color-primary)" }} />
+      <ButtonBase key={c.id} disableRipple {...press} sx={{ ...baseSx, display: "block" }}>
+        <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "40%", display: "grid", placeItems: "center", px: 0.75 }}>
+          {c.kind === "team" ? (
+            <Box component="img" src={AHMA_LOGO} alt="" sx={{ maxWidth: "90%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }} />
+          ) : (
+            <Box component="span" sx={{ fontWeight: 900, fontSize: 54, lineHeight: 1, letterSpacing: ".02em", color: "rgba(255,255,255,0.82)" }}>{initialsOf(c.name)}</Box>
+          )}
         </Box>
-        {/* info: name → points → divider → price */}
-        <Box sx={{ flexShrink: 0, width: "100%", textAlign: "center" }}>
+        {/* orange divider centred in the gap between the crest and the name overlay */}
+        <Box sx={{ position: "absolute", left: "50%", top: "62%", transform: "translate(-50%, -50%)", height: "2px", width: "56%", borderRadius: 2, bgcolor: "var(--color-primary)" }} />
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, pt: 2, pb: 1, px: 1, textAlign: "center",
+              background: "linear-gradient(180deg, rgba(15,15,15,0) 0%, rgba(14,14,14,0.9) 45%, #0e0e0e 100%)" }}>
           {nameLines.map((ln, i) => (
             <Typography key={i} noWrap sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1.1, color: "#fff", textTransform: "uppercase", letterSpacing: ".02em" }}>{ln}</Typography>
           ))}
-          <Box sx={{ mt: 1 }}>{ptsEl(pts, 18)}</Box>
-          <Box sx={{ height: "1px", width: "58%", mx: "auto", my: 0.6, bgcolor: "rgba(255,255,255,0.14)" }} />
-          <Box sx={{ display: "flex", justifyContent: "center" }}><Coins value={c.price} size={11} /></Box>
+          <Box sx={{ display: "flex", alignItems: "center", mt: 0.9 }}>
+            <Box sx={{ flex: 1 }}>{ptsEl(pts, 18)}</Box>
+            <Box sx={{ width: "1px", height: 18, bgcolor: "rgba(255,255,255,0.2)", mx: 0.5 }} />
+            <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}><Coins value={c.price} size={11} /></Box>
+          </Box>
         </Box>
       </ButtonBase>
     );
