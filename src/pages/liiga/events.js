@@ -118,9 +118,12 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
           <Box component="span" sx={{ fontSize: 12, color: "text.disabled", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {shortDate(ev.date)}</Box>
         </Box>
         {ev.type === "game" && played && ev.game && ev.game.home_goals != null && ev.game.away_goals != null && (
-          <Typography sx={{ fontSize: 13, fontWeight: 800, color: "text.primary", mt: 0.4, fontVariantNumeric: "tabular-nums" }}>
-            {ev.game.ahmaHome ? ev.game.home_goals : ev.game.away_goals} – {ev.game.ahmaHome ? ev.game.away_goals : ev.game.home_goals}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.65, mt: 0.4 }}>
+            <Box component="span" sx={{ fontSize: 11.5, fontWeight: 700, color: "text.disabled", textTransform: "uppercase", letterSpacing: ".04em" }}>Lopputulos</Box>
+            <Box component="span" sx={{ fontSize: 13.5, fontWeight: 800, color: "primary.main", fontVariantNumeric: "tabular-nums" }}>
+              {ev.game.ahmaHome ? ev.game.home_goals : ev.game.away_goals} – {ev.game.ahmaHome ? ev.game.away_goals : ev.game.home_goals}
+            </Box>
+          </Box>
         )}
       </Box>
       {hasPts && (
