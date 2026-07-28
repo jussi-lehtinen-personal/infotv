@@ -1319,6 +1319,12 @@ async function roundProgress(seasonId, round, userId) {
     if (gPts) { perGame[g.gameId] = gPts; livePoints += gPts; }
   }
   for (const id of Object.keys(perCard)) perCard[id] = Math.round(perCard[id] * 10) / 10;
+  // Per-card "why these points" strings for the games PLAYED so far — same format as
+  // the settled summary (roundResults teamReason/playerReason). One extra PURE call over
+  // the already-fetched reports (no new box-score fetches). Combined per card across the
+  // played games ("Voitto 3–1 · Tappio 0–2"), so the live Tulokset list can mirror the
+  // settled breakdown mid-round.
+  const { reasons: liveReasons } = computeRoundPoints({ games: playedGames, reports, extraAges });
   // Prediction bonus counts once its predicted game has been played.
   const pred = await getEntity(T.predictions, `${seasonId}|${round}`, userId);
   if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {
@@ -1354,7 +1360,7 @@ async function roundProgress(seasonId, round, userId) {
   const cardBreakdown = squad.cards
     .map((sc) => {
       const cd = cardMap[sc.id] || {};
-      return { id: sc.id, name: cd.name || String(sc.id).replace(/^[TP]:/, ''), kind: cd.kind || 'team', photo: cd.photo || '', pts: Math.round((perCard[sc.id] || 0) * 10) / 10, isCaptain: sc.id === roundCaptain };
+      return { id: sc.id, name: cd.name || String(sc.id).replace(/^[TP]:/, ''), kind: cd.kind || 'team', photo: cd.photo || '', pts: Math.round((perCard[sc.id] || 0) * 10) / 10, reason: liveReasons[sc.id] || '', isCaptain: sc.id === roundCaptain };
     })
     .sort((a, b) => b.pts - a.pts);
   return { played, total: squad.cards.length, livePoints, perGame, perCard, cards: cardBreakdown };

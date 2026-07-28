@@ -76,7 +76,7 @@ function ResultsTab({ summary, progress, isCurrent }) {
             leading={<RowIcon card={c} />}
             title={c.name}
             titleRight={c.isCaptain ? <CaptainTag /> : null}
-            subtitle={settled ? (c.reason || "Ei pisteitä") : (c.pts > 0 ? "Pelatuista otteluista" : "Ei vielä pisteitä")}
+            subtitle={c.reason || (settled ? "Ei pisteitä" : (c.pts > 0 ? "Pelatuista otteluista" : "Ei vielä pisteitä"))}
             trailing={<RowValue size={22} color={c.pts > 0 ? "primary.main" : "text.disabled"}>{signed(c.pts)}</RowValue>} />
         ))}
         <Box sx={{ display: "flex", alignItems: "center", px: 1.75, py: 1.25, borderTop: "2px solid rgba(249,115,22,0.4)" }}>

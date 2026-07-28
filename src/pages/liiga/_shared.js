@@ -110,7 +110,7 @@ export const shortDate = (d) => {
 
 // Hockey result from our goals vs opponent goals → { label, color }.
 export const gameResult = (a, o) => {
-  if (a > o) return { label: o === 0 ? "Voitto (nolapeli)" : (a - o >= 3 ? "Voitto (iso)" : "Voitto"), color: "var(--color-live)" };
+  if (a > o) return { label: o === 0 ? "Voitto (nollapeli)" : (a - o >= 3 ? "Voitto (iso)" : "Voitto"), color: "var(--color-live)" };
   if (a < o) return { label: "Tappio", color: "#ef4444" };
   return { label: "Tasapeli", color: "text.disabled" };
 };
