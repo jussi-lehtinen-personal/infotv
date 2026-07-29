@@ -1496,16 +1496,14 @@ async function getCardDetail(seasonId, cardId) {
   // Only PLAYED rounds — cardHistory can hold stale rows from an earlier full
   // replay; without this filter the card shows points for not-yet-played rounds.
   const settledRounds = new Set(rounds.filter((j) => j.status === 'settled').map((j) => Number(j.rowKey)));
-  // The IN-PROGRESS round (started, not settled) → append its live points as a
-  // current-round bar on the card's per-round points, alongside the settled history.
-  const season = await getEntity(T.season, 'season', seasonId);
-  const simDate = season && season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
+  // The CURRENT round = first non-settled round (the "current jakso" the app shows,
+  // even before its first game) → append its live points as a current-round bar on the
+  // card's per-round points, alongside the settled history. 0 until games are played.
   const curRound = rounds.find((j) => j.status !== 'settled');
-  const roundLive = !!(curRound && (!curRound.startDate || curRound.startDate <= simDate));
   // Live points ON DEMAND (fresh, tick-independent); fall back to the tick-persisted
   // value if the box-score compute fails.
   let liveRound = null;
-  if (roundLive) {
+  if (curRound) {
     let pts = Math.round((Number(card.liveRoundPts) || 0) * 10) / 10;
     try { const lp = await liveRoundCardPoints(seasonId, Number(curRound.rowKey)); pts = Math.round((lp.pts[cardId] || 0) * 10) / 10; } catch { /* keep persisted */ }
     liveRound = { round: Number(curRound.rowKey), pts };

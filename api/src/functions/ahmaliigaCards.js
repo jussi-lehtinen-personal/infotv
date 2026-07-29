@@ -16,12 +16,13 @@ app.http('ahmaliigaCards', {
       const filter = request.query?.get('filter');
       const [allCards, rounds] = await Promise.all([getCards(season.rowKey), getRounds(season.rowKey)]);
       const settled = rounds.some((j) => j.status === 'settled');
-      // A round is LIVE when it isn't settled yet and has started (sim clock in
-      // replay, else wall clock). While live, the "Jakso" column shows the CURRENT
-      // round's live points (liveRoundPts) instead of the last settled round's.
-      const simDate = season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
+      // The CURRENT round = the first non-settled round — the SAME "current jakso" the
+      // rest of the app shows (squad building / veikkaus target), even before its first
+      // game is played. While it's the current round, the "Jakso" column shows its LIVE
+      // points (0 until games are played, then accumulating) instead of the last settled
+      // round's. Only falls back to the last settled round once the season is over.
       const cur = rounds.find((j) => j.status !== 'settled');
-      const roundLive = !!(cur && (!cur.startDate || cur.startDate <= simDate));
+      const roundLive = !!cur;
       // Current round's live points per card, computed ON DEMAND (tick-independent,
       // memoised 30 s). Fall back to the tick-persisted liveRoundPts if it fails.
       let livePts = null;
