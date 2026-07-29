@@ -14,7 +14,7 @@ const ECON = {
   squadSize: 5,
   minTeams: 2, // v2 (2026-07-19): THE squad rule — a full squad must hold ≥2 team cards (2 team slots + 3 flex). Enforced in saveSquad.
   maxPlayers: 3, // = squadSize − minTeams (the SAME rule, expressed as a player cap). Used by the bot builder + tools/model; saveSquad enforces minTeams, not this.
-  transfersPerRound: 2,
+  transfersPerRound: 5, // 2026-07-29: 2→5, reward the more active manager (more free swaps/round)
   transferPenalty: 5, // points lost per extra transfer beyond the free allowance
   // Team price tiers, highest → lowest, assigned by form quintile (even buckets).
   // v2 (2026-07-19): raised + spread by quality [50..10] (was [30..10]). The first

@@ -23,7 +23,7 @@ export function useSquad() {
   const [budget, setBudget] = useState(_s0 && _s0.budget ? _s0.budget : 120);
   const [points, setPoints] = useState(_st0 && _st0.standing ? (_st0.standing.seasonPts ?? _st0.standing.roundPts ?? null) : null); // manager's season points (top stat)
   const [bank, setBank] = useState(_s0 && _s0.bank != null ? _s0.bank : 120); // money in hand (server-authoritative)
-  const [transfers, setTransfers] = useState({ used: 0, free: 2 });
+  const [transfers, setTransfers] = useState({ used: 0, free: 5 }); // server-authoritative (ECON.transfersPerRound); this is just the pre-fetch default
   const [ids, setIds] = useState(_sq0 ? (_sq0.cards || []).map((c) => c.id) : []);
   const [captainId, setCaptainId] = useState(_sq0 ? _sq0.captainId : null);
   const [perCard, setPerCard] = useState(null); // this round's points per card

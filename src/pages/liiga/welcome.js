@@ -99,7 +99,7 @@ export default function LiigaWelcome() {
           <Typography sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.3 }}>Ensimmäinen jakso on vapaa</Typography>
           <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.45, mt: 0.3 }}>
             Kokoa ja muokkaa pakkaasi rajattomasti — ostot ja vaihdot ovat ilmaisia. Siirtorajat
-            (2 ilmaista vaihtoa / jakso, sen jälkeen −5 p) alkavat vasta seuraavasta jaksosta.
+            (5 ilmaista vaihtoa / jakso, sen jälkeen −5 p) alkavat vasta seuraavasta jaksosta.
             Muista saada pakka valmiiksi ennen kuin korttiesi pelit alkavat — peli lukitsee kortin sen alkaessa.
           </Typography>
         </Box>

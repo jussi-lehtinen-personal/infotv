@@ -35,7 +35,7 @@ tässä ei enää lyödä lukkoon numeroita, vaan listataan toiminnallisuudet.
 - **F4.2** 5 korttia, max 2 pelaajakorttia, ei positioita.
 - **F4.3** Kapteeni = 2× pisteet, vaihdettavissa viikoittain.
 - **F4.4** Osto **lukitsee hinnan** (FPL lock-in) — pidetyn kortin arvonnousu ei riko kokoonpanoa.
-- **F4.5** Siirrot ≤2/jakso, myynti nykyhintaan (arvonnousu realisoituu myydessä).
+- **F4.5** Siirrot ≤5/jakso (2026-07-29: 2→5, palkitsee aktiivisemman managerin), ylimenevät −5 p/siirto; myynti nykyhintaan (arvonnousu realisoituu myydessä).
 - **F4.6** Kokoonpanon validointi palvelimella (budjetti, slotit, lukitusaika). *Backend: `Squads` (PK=userId, RK=jakso: 5 korttia + kapteeni + ostohinnat). Historia per jakso = luonnostaan snapshot.*
 
 ## 5. Veikkaus (prediction)

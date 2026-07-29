@@ -163,6 +163,27 @@ const Ahmaliiga = () => {
           </Lead>
         </Section>
 
+        <Section emoji="🔄" title="6. Vaihda kortteja">
+          <Lead>
+            Voit muokata kortistoasi milloin vain — osta ja myy kortteja. Jokaisella
+            jaksolla on <b>5 ilmaista vaihtoa</b>; sen jälkeen jokainen ylimääräinen
+            vaihto maksaa <b>−5 pistettä</b>. Aktiivinen manageri, joka seuraa vireitä,
+            saa siis etua.
+          </Lead>
+          <Lead>
+            🔒 <b>Ostohintasi lukittuu:</b> kun ostat kortin, maksat sen sen hetkisen
+            hinnan — vaikka kortti myöhemmin kallistuu, se ei riko budjettiasi. Kortin
+            hinnat <b>elävät pelien mukaan</b> (nousevat hyvistä peleistä), joten kun
+            myyt kortin, saat sen <b>nykyhinnan</b> — nappaa nousevat halvalla! 📈
+          </Lead>
+          <Box sx={{ mt: 1, p: 1.25, borderRadius: "var(--radius-item)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.25)" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>
+              💡 <b>Huom:</b> kortti lukittuu kokoonpanoosi heti kun sen peli alkaa — tee
+              vaihdot ennen jakson pelien alkua.
+            </Typography>
+          </Box>
+        </Section>
+
         <Section emoji="🥇" title="Miten voitan?">
           <Lead>Joka kierros teet kolme tärkeää valintaa:</Lead>
           <Stack spacing={1.25} sx={{ mt: 0.5, mb: 1.25 }}>
