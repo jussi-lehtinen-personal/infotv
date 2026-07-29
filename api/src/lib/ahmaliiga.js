@@ -390,13 +390,18 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   // budget − what they paid. The bank never goes negative.
   const prevBuy = {};
   if (prev) for (const c of prev.cards || []) prevBuy[c.id] = c.buyPrice;
+  // U5: trade at the LIVE price (livePrice ?? price) — buying/selling mid-round uses
+  // the current market price, not the last settled one. buyPrice lock-in is unchanged
+  // (the price you pay is locked into your squad). livePrice == price when the feature
+  // hasn't moved it (off-season / no game played) → identical to before.
+  const curPrice = (id) => { const c = map[id] || {}; return Number(c.livePrice != null ? c.livePrice : c.price) || 0; };
   let bank = prev && prev.bank != null ? prev.bank
     : prev ? budget - (prev.cards || []).reduce((s, c) => s + (Number(c.buyPrice) || 0), 0)
     : budget;
-  for (const c of (prev && prev.cards) || []) if (!cardIds.includes(c.id)) bank += Number((map[c.id] || {}).price) || 0; // sold
-  for (const id of cardIds) if (prevBuy[id] == null) bank -= Number(map[id].price) || 0; // bought
+  for (const c of (prev && prev.cards) || []) if (!cardIds.includes(c.id)) bank += curPrice(c.id); // sold
+  for (const id of cardIds) if (prevBuy[id] == null) bank -= curPrice(id); // bought
   if (bank < 0) throw badRequest('Budjetti ei riitä.');
-  const squadCards = cardIds.map((id) => ({ id, buyPrice: prevBuy[id] != null ? prevBuy[id] : map[id].price }));
+  const squadCards = cardIds.map((id) => ({ id, buyPrice: prevBuy[id] != null ? prevBuy[id] : curPrice(id) }));
 
   // Transfers: every card ADDED costs a transfer; removals are free. Counted
   // CUMULATIVELY across the round (each add vs the previous save), so re-picking the
@@ -763,6 +768,9 @@ async function settleRound(seasonId, round) {
       band: bandNameOf(price, bands), price, ownerCount: ownerCount[c.rowKey] || 0,
       lastPts: resJ[c.rowKey] || 0, seasonPts: Math.round((sums[c.rowKey] || 0) * 10) / 10,
       trend: price > old ? 'up' : price < old ? 'down' : '',
+      // U5: settled price is the new anchor → reset the live price/trend to it (the
+      // next in-progress round's liveReband moves livePrice away from here again).
+      livePrice: price, liveTrend: '',
       priorForm: c.priorForm ?? null,
       seedPrice: c.seedPrice != null ? c.seedPrice : c.price, seedBand: c.seedBand || c.band,
       photo: c.photo || '',
@@ -900,6 +908,68 @@ async function getLeaderboard(seasonId, scope, round) {
       return { userId: r.rowKey, nickname: nick[r.rowKey] || 'Pelaaja', avatar: avatarById[r.rowKey] || null, total: Number(r.total) || 0, rank, delta: pr != null ? pr - rank : null };
     })
     .sort((a, b) => a.rank - b.rank);
+}
+
+// LIVE reband (U5): move each card's DISPLAY/trade price toward its form target
+// mid-round, so the market feels alive between settlements. ANCHORED + IDEMPOTENT:
+//   livePrice = settledPrice + clamp(target − settledPrice, ±priceStepCap)
+// where `target` uses the SAME bandPricesFrom math as settlement but on a form that
+// INCLUDES the current round's PLAYED games (per-game points, played = date ≤ sim).
+// Because the settled `price` is frozen for the whole round it IS the anchor — no
+// extra field needed — and when the round's last game is played liveForm == cumForm
+// so livePrice == the eventual settled price (proven by test-live-reprice). Writes
+// ONLY livePrice/liveTrend (settled `price` and the whole settlement path untouched
+// → the running economy can't break). No-op until a game has actually been played.
+async function liveReband(seasonId, round) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) return { moved: 0 };
+  const simDate = season.simMode ? season.simDate : null;
+  const { perGame, gameList } = await computeRoundResults(seasonId, round);
+  const isPlayed = (g) => {
+    const day = String(g.date || '').slice(0, 10);
+    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
+  };
+  const playedGames = gameList.filter(isPlayed);
+  if (!playedGames.length) return { moved: 0 }; // round not started scoring yet → leave livePrice = price (settlement reset)
+
+  // this round's per-card points from the games played so far (a played team that
+  // lost is present with 0 → it still counts toward the denominator, like settlement)
+  const liveRes = {};
+  for (const g of playedGames) { const pg = perGame[g.gameId] || {}; for (const [id, p] of Object.entries(pg)) liveRes[id] = (liveRes[id] || 0) + p; }
+
+  // settled sums/counts for rounds 0..round-1 (cumulative avg base, same as cumForm)
+  const sums0 = {}, counts0 = {};
+  for (let j = 0; j < round; j++) {
+    const r = await getResults(seasonId, j);
+    for (const [id, pts] of Object.entries(r)) { sums0[id] = (sums0[id] || 0) + pts; counts0[id] = (counts0[id] || 0) + 1; }
+  }
+  // liveForm = cumulative avg/round INCLUDING this round for cards that have played it
+  const form = {};
+  const ids = new Set([...Object.keys(sums0), ...Object.keys(liveRes)]);
+  for (const id of ids) {
+    const played = Object.prototype.hasOwnProperty.call(liveRes, id);
+    const s = (sums0[id] || 0) + (played ? liveRes[id] : 0);
+    const c = (counts0[id] || 0) + (played ? 1 : 0);
+    form[id] = c ? s / c : null;
+  }
+
+  const cards = await getCards(seasonId);
+  const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
+  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
+  const targetPrice = { ...priceT, ...priceP };
+  const cap = ECON.priceStepCap;
+  let moved = 0;
+  const batch = cards.map((c) => {
+    const anchor = Number(c.price); // settled price = round-start anchor (frozen this round)
+    const target = targetPrice[c.rowKey];
+    // only cards with real form this round move; others sit at the settled price
+    const livePrice = form[c.rowKey] == null ? anchor : anchor + Math.max(-cap, Math.min(cap, target - anchor));
+    const liveTrend = livePrice > anchor ? 'up' : livePrice < anchor ? 'down' : '';
+    if (livePrice !== anchor) moved++;
+    return { ...c, livePrice, liveTrend };
+  });
+  await upsertBatch(T.cards, batch);
+  return { moved, played: playedGames.length };
 }
 
 // LIVE provisional standings for an IN-PROGRESS round — "what the round leaderboard
@@ -1448,8 +1518,13 @@ async function getCardDetail(seasonId, cardId) {
 
   return {
     card: {
+      // U5: `price` = LIVE price (drives the hero price + the "Nyt" history point +
+      // buy/sell amount, which the client reads from card.price); `trend` = live trend.
+      // The history rows stay SETTLED, so the chart's last real point vs "Nyt" shows
+      // the in-round move.
       id: card.rowKey, kind: card.kind, name: card.name, sub: card.sub || '', band: card.band,
-      price: card.price, trend: card.trend || '', photo: card.photo || '',
+      price: card.livePrice != null ? card.livePrice : card.price,
+      trend: card.liveTrend || card.trend || '', photo: card.photo || '',
       lastPts: card.lastPts || 0, seasonPts: card.seasonPts || 0,
     },
     managerCount, ownerCount,
@@ -1926,8 +2001,15 @@ async function stepSim(seasonId, days = 1) {
   // settleRound rewrote currentRound; re-read, store the new date, and stop auto
   // once everything is settled.
   const after = await getEntity(T.season, 'season', seasonId);
-  const allSettled = (await getRounds(seasonId)).every((j) => j.status === 'settled');
+  const roundsAfter = await getRounds(seasonId);
+  const allSettled = roundsAfter.every((j) => j.status === 'settled');
   await upsertEntity(T.season, { ...after, simDate: sim, autoStep: allSettled ? false : after.autoStep });
+  // U5: live reband the IN-PROGRESS round (started, not settled) so card prices move
+  // mid-round with the games played so far. Best-effort — never breaks the tick.
+  try {
+    const cur = roundsAfter.find((j) => j.status !== 'settled');
+    if (cur && (!cur.startDate || cur.startDate <= sim)) await liveReband(seasonId, Number(cur.rowKey));
+  } catch (e) { /* best-effort */ }
   // B8: emit round/lock/season reminders (best-effort — never breaks the tick).
   try { await emitRoundReminders(seasonId); } catch (e) { /* best-effort */ }
   return { simDate: sim, settled, done: allSettled, mode: season.realClock ? 'real' : 'sim' };
@@ -2046,7 +2128,7 @@ module.exports = {
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
-  getLeaderboard, getLiveLeaderboard, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
+  getLeaderboard, getLiveLeaderboard, liveReband, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
