@@ -84,7 +84,7 @@ export default function LiigaEdit() {
   // Squad data + trading rules (bank, transfers, minTeams, captain lock, persist) live in
   // the shared useSquad hook so the editor and the market/card-details buy-sell agree.
   const {
-    all, settled, budget, points, bank, transfers, transfersLeft,
+    all, settled, roundLive, budget, points, bank, transfers, transfersLeft,
     ids, captainId, round, minTeams, captainLocked, error,
     squadValue, teamCount, teamsNeeded, mustPickTeam, captain, rest,
     persist, canAdd, canReplaceWith, cardPts,
@@ -435,7 +435,7 @@ export default function LiigaEdit() {
                 <Coins value={replaceFor.price} size={14} />
               </Stack>
             </Box>
-            <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={(c) => canReplaceWith(c, replaceFor)}
+            <CardList cards={all} settled={settled} roundLive={roundLive} hideIds={new Set(ids)} canPick={(c) => canReplaceWith(c, replaceFor)}
               onPick={(c) => setSwapIn(c)} emptyText="Ei vaihdettavia kortteja." />
           </>
         )}
@@ -493,7 +493,7 @@ export default function LiigaEdit() {
             Kokoonpanossa on oltava vähintään {minTeams} joukkuekorttia — valitse joukkue.
           </Alert>
         )}
-        <CardList cards={all} settled={settled} hideIds={new Set(ids)} canPick={canAdd}
+        <CardList cards={all} settled={settled} roundLive={roundLive} hideIds={new Set(ids)} canPick={canAdd}
           onPick={addCard} emptyText="Ei lisättäviä kortteja." />
       </LiigaDialog>
     </Screen>

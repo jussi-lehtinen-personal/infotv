@@ -16,6 +16,12 @@ app.http('ahmaliigaCards', {
       const filter = request.query?.get('filter');
       const [allCards, rounds] = await Promise.all([getCards(season.rowKey), getRounds(season.rowKey)]);
       const settled = rounds.some((j) => j.status === 'settled');
+      // A round is LIVE when it isn't settled yet and has started (sim clock in
+      // replay, else wall clock). While live, the "Jakso" column shows the CURRENT
+      // round's live points (liveRoundPts) instead of the last settled round's.
+      const simDate = season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
+      const cur = rounds.find((j) => j.status !== 'settled');
+      const roundLive = !!(cur && (!cur.startDate || cur.startDate <= simDate));
       let cards = allCards;
       if (filter && filter !== 'all') cards = cards.filter((c) => c.kind === filter);
       const out = cards
@@ -24,11 +30,14 @@ app.http('ahmaliigaCards', {
           // U5: `price` on the wire = the LIVE price (moves mid-round); falls back to
           // the settled price when live hasn't moved it. `trend` = live trend.
           band: c.band, price: c.livePrice != null ? c.livePrice : c.price, ownerCount: c.ownerCount || 0,
-          lastPts: c.lastPts || 0, seasonPts: c.seasonPts || 0, photo: c.photo || '',
+          // `lastPts` = the "Jakso" column value: current round's LIVE points while a
+          // round is live, else the last settled round's points.
+          lastPts: roundLive ? Number(c.liveRoundPts) || 0 : (c.lastPts || 0),
+          seasonPts: c.seasonPts || 0, photo: c.photo || '',
           trend: c.liveTrend || c.trend || '',
         }))
         .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, 'fi'));
-      return { jsonBody: { season: season.rowKey, settled, cards: out } };
+      return { jsonBody: { season: season.rowKey, settled, roundLive, cards: out } };
     } catch (err) {
       context.log('ahmaliigaCards failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };

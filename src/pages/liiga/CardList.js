@@ -37,11 +37,11 @@ const GRID = {
 // Stat columns (round/season/price) centre both the header and the value in the
 // same grid cell → their optical centres line up regardless of text width. The
 // first column (player) stays left-aligned.
-const StatVal = ({ children }) => (
-  <Box sx={{ textAlign: "center", fontSize: 13, fontWeight: 800, color: "text.secondary" }}>{children}</Box>
+const StatVal = ({ children, live }) => (
+  <Box sx={{ textAlign: "center", fontSize: 13, fontWeight: 800, color: live ? "primary.main" : "text.secondary" }}>{children}</Box>
 );
 
-export default function CardList({ cards, settled, onPick, canPick, hideIds, ownedIds, emptyText }) {
+export default function CardList({ cards, settled, roundLive, onPick, canPick, hideIds, ownedIds, emptyText }) {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState({ key: "price", dir: "desc" }); // matches the server default
@@ -154,7 +154,7 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, own
               values; each cell is clickable and drives `sort` (active = orange) */}
           <Box sx={{ ...GRID, py: 1, borderBottom: "1px solid var(--color-surface-divider)" }}>
             <SortHead colKey="name" left>Pelaaja</SortHead>
-            <SortHead colKey="lastPts">Jakso</SortHead>
+            <SortHead colKey="lastPts">{roundLive ? "Jakso ·nyt" : "Jakso"}</SortHead>
             <SortHead colKey="seasonPts">Kausi</SortHead>
             <SortHead colKey="price">Hinta</SortHead>
           </Box>
@@ -196,7 +196,7 @@ export default function CardList({ cards, settled, onPick, canPick, hideIds, own
                     )}
                   </Box>
                 </Box>
-                <StatVal>{settled ? `${signed(c.lastPts)}p` : "—"}</StatVal>
+                <StatVal live={roundLive}>{(settled || roundLive) ? `${signed(c.lastPts)}p` : "—"}</StatVal>
                 <StatVal>{settled ? `${c.seasonPts}p` : "—"}</StatVal>
                 <Box sx={{ display: "flex", justifyContent: "center" }}><PricePill value={c.price} /></Box>
               </>

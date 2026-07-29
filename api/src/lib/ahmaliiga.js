@@ -770,7 +770,8 @@ async function settleRound(seasonId, round) {
       trend: price > old ? 'up' : price < old ? 'down' : '',
       // U5: settled price is the new anchor → reset the live price/trend to it (the
       // next in-progress round's liveReband moves livePrice away from here again).
-      livePrice: price, liveTrend: '',
+      // liveRoundPts resets to 0 → the just-settled round's points live in lastPts.
+      livePrice: price, liveTrend: '', liveRoundPts: 0,
       priorForm: c.priorForm ?? null,
       seedPrice: c.seedPrice != null ? c.seedPrice : c.price, seedBand: c.seedBand || c.band,
       photo: c.photo || '',
@@ -966,7 +967,9 @@ async function liveReband(seasonId, round) {
     const livePrice = form[c.rowKey] == null ? anchor : anchor + Math.max(-cap, Math.min(cap, target - anchor));
     const liveTrend = livePrice > anchor ? 'up' : livePrice < anchor ? 'down' : '';
     if (livePrice !== anchor) moved++;
-    return { ...c, livePrice, liveTrend };
+    // this round's live points for the card (intrinsic, no captain 2×) → the market
+    // list + card page can show the CURRENT round instead of only the last settled one.
+    return { ...c, livePrice, liveTrend, liveRoundPts: Math.round((liveRes[c.rowKey] || 0) * 10) / 10 };
   });
   await upsertBatch(T.cards, batch);
   return { moved, played: playedGames.length };
@@ -1479,6 +1482,13 @@ async function getCardDetail(seasonId, cardId) {
   // Only PLAYED rounds — cardHistory can hold stale rows from an earlier full
   // replay; without this filter the card shows points for not-yet-played rounds.
   const settledRounds = new Set(rounds.filter((j) => j.status === 'settled').map((j) => Number(j.rowKey)));
+  // The IN-PROGRESS round (started, not settled) → append its live points as a
+  // current-round bar on the card's per-round points, alongside the settled history.
+  const season = await getEntity(T.season, 'season', seasonId);
+  const simDate = season && season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
+  const curRound = rounds.find((j) => j.status !== 'settled');
+  const roundLive = !!(curRound && (!curRound.startDate || curRound.startDate <= simDate));
+  const liveRound = roundLive ? { round: Number(curRound.rowKey), pts: Math.round((Number(card.liveRoundPts) || 0) * 10) / 10 } : null;
   const histRows = await listByPartition(T.cardHistory, `${seasonId}|${cardId}`);
   const history = histRows
     .map((r) => ({ round: Number(r.rowKey), date: roundDate[Number(r.rowKey)] || '', price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
@@ -1529,7 +1539,7 @@ async function getCardDetail(seasonId, cardId) {
     },
     managerCount, ownerCount,
     ownerPct: managerCount ? Math.round((ownerCount / managerCount) * 100) : 0,
-    history, games,
+    history, liveRound, games,
     // Team cards: the accumulated kokoonpano from game rosters (null until a game is played).
     roster: card.kind === 'team' ? await getTeamRoster(seasonId, card.teamKey || card.name) : undefined,
   };

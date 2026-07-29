@@ -20,6 +20,7 @@ export function useSquad() {
   const _sq0 = _s0 && _s0.squad ? _s0.squad : null;
   const [all, setAll] = useState(_c0 ? (_c0.cards || []) : null);
   const [settled, setSettled] = useState(_c0 ? !!_c0.settled : false);
+  const [roundLive, setRoundLive] = useState(_c0 ? !!_c0.roundLive : false); // round in progress → CardList "Jakso" shows live points
   const [budget, setBudget] = useState(_s0 && _s0.budget ? _s0.budget : 120);
   const [points, setPoints] = useState(_st0 && _st0.standing ? (_st0.standing.seasonPts ?? _st0.standing.roundPts ?? null) : null); // manager's season points (top stat)
   const [bank, setBank] = useState(_s0 && _s0.bank != null ? _s0.bank : 120); // money in hand (server-authoritative)
@@ -42,6 +43,7 @@ export function useSquad() {
         if (cancelled) return;
         setAll(cardsRes.cards || []);
         setSettled(!!cardsRes.settled);
+        setRoundLive(!!cardsRes.roundLive);
         if (squadRes && squadRes.budget) setBudget(squadRes.budget);
         setBank(squadRes && squadRes.bank != null ? squadRes.bank : (squadRes && squadRes.budget) || 120);
         if (squadRes && squadRes.freeTransfers != null) setTransfers({ used: squadRes.transfersUsed || 0, free: squadRes.freeTransfers });
@@ -124,7 +126,7 @@ export function useSquad() {
   const cardPts = (id) => (perCard ? (perCard[id] || 0) : null);
 
   return {
-    all, settled, byId, budget, points, bank, transfers, transfersLeft,
+    all, settled, roundLive, byId, budget, points, bank, transfers, transfersLeft,
     ids, captainId, perCard, round, minTeams, captainLocked, error, setError,
     selected, squadValue, teamCount, emptySlots, teamsNeeded, mustPickTeam, captain, rest,
     persist, canAdd, canReplaceWith, cardPts,

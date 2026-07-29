@@ -59,15 +59,15 @@ const GameRow = ({ g }) => {
 };
 
 // Points-per-round bar row.
-const BarRow = ({ label, value, bar, max, coin }) => (
+const BarRow = ({ label, value, bar, max, coin, live }) => (
   <Box sx={{ px: 1.5, py: 1, borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
-      <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{label}</Typography>
-      <Box sx={{ fontSize: 13, fontWeight: 800, color: "text.primary" }}>{value}</Box>
+      <Typography sx={{ fontSize: 12, color: live ? "primary.main" : "text.secondary" }}>{label}</Typography>
+      <Box sx={{ fontSize: 13, fontWeight: 800, color: live ? "primary.main" : "text.primary" }}>{value}</Box>
     </Box>
     <Box sx={{ height: 6, borderRadius: 3, bgcolor: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
       <Box sx={{ height: "100%", width: `${Math.max(3, (bar / max) * 100)}%`, borderRadius: 3,
-            background: coin ? "linear-gradient(90deg, #f97316, #e4610f)" : "var(--color-live)" }} />
+            background: coin ? "linear-gradient(90deg, #f97316, #e4610f)" : live ? "var(--color-primary)" : "var(--color-live)" }} />
     </Box>
   </Box>
 );
@@ -242,8 +242,9 @@ export default function LiigaCard() {
   }
 
   const history = data.history || [];
+  const liveRound = data.liveRound || null; // in-progress round (live points) — shown as an extra "nyt" bar
   const games = data.games || [];
-  const maxPts = Math.max(1, ...history.map((h) => h.pts));
+  const maxPts = Math.max(1, ...history.map((h) => h.pts), liveRound ? liveRound.pts : 0);
   const roster = data.roster || null; // team kokoonpano (null for players / before first game)
   const tabs = card.kind === "team" ? [{ key: "kokoonpano", label: "Kokoonpano" }, ...TABS] : TABS;
 
@@ -367,9 +368,10 @@ export default function LiigaCard() {
       )}
 
       {tab === "pisteet" && (
-        history.length === 0 ? <Empty text="Ei pistehistoriaa — jaksoa ei ole ratkaistu." /> : (
+        history.length === 0 && !liveRound ? <Empty text="Ei pistehistoriaa — jaksoa ei ole ratkaistu." /> : (
           <Section title="Pisteet jaksoittain">
             {history.map((h) => <BarRow key={h.round} label={`Jakso ${h.round + 1}`} value={`${h.pts} p`} bar={h.pts} max={maxPts} />)}
+            {liveRound && <BarRow key="live" live label={`Jakso ${liveRound.round + 1} · nyt`} value={`${liveRound.pts} p`} bar={liveRound.pts} max={maxPts} />}
           </Section>
         )
       )}

@@ -67,6 +67,7 @@ const liveMap = (cards) => Object.fromEntries(cards.map((c) => [c.rowKey, c.live
   assert(withinCap, `mid-round: every move is within ±priceStepCap (${ECON.priceStepCap})`);
   assert(liveMid[g0Card] > seedPrice[g0Card], `mid-round: winning team card ${g0Card} moved UP (${seedPrice[g0Card]} → ${liveMid[g0Card]})`);
   assert(cardsMid.find((c) => c.rowKey === g0Card).liveTrend === 'up', 'mid-round: winning card liveTrend = up');
+  assert(Number(cardsMid.find((c) => c.rowKey === g0Card).liveRoundPts) > 0, `mid-round: winning card has live round points (liveRoundPts=${cardsMid.find((c) => c.rowKey === g0Card).liveRoundPts})`);
   assert(near(priceMap(cardsMid)[g0Card], seedPrice[g0Card]), 'mid-round: settled `price` is UNCHANGED (only livePrice moved)');
 
   // ---- 2) IDEMPOTENT: same sim day → same livePrice ----
