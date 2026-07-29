@@ -911,6 +911,31 @@ async function getLeaderboard(seasonId, scope, round) {
     .sort((a, b) => a.rank - b.rank);
 }
 
+// Per-card LIVE points for a round from the games PLAYED so far (date ≤ sim), intrinsic
+// (no captain 2×). The heavy part is computeRoundResults (box scores) → memoised 30 s
+// per (season|round|sim day), shared by liveReband + the read endpoints so the market
+// list / card page compute live points ON DEMAND (fresh on every view) rather than
+// waiting for the tick to persist them. A played team that lost is present with 0.
+const _liveCardPts = { key: null, at: 0, data: null };
+async function liveRoundCardPoints(seasonId, round) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  const simDate = season && season.simMode ? season.simDate : null;
+  const key = `${seasonId}|${round}|${simDate || 'wall'}`;
+  if (_liveCardPts.key === key && Date.now() - _liveCardPts.at < 30000) return _liveCardPts.data;
+  const { perGame, gameList } = await computeRoundResults(seasonId, round);
+  const isPlayed = (g) => {
+    const day = String(g.date || '').slice(0, 10);
+    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
+  };
+  const played = gameList.filter(isPlayed);
+  const pts = {};
+  for (const g of played) { const pg = perGame[g.gameId] || {}; for (const [id, p] of Object.entries(pg)) pts[id] = (pts[id] || 0) + p; }
+  for (const id of Object.keys(pts)) pts[id] = Math.round(pts[id] * 10) / 10;
+  const out = { pts, played: played.length };
+  _liveCardPts.key = key; _liveCardPts.at = Date.now(); _liveCardPts.data = out;
+  return out;
+}
+
 // LIVE reband (U5): move each card's DISPLAY/trade price toward its form target
 // mid-round, so the market feels alive between settlements. ANCHORED + IDEMPOTENT:
 //   livePrice = settledPrice + clamp(target − settledPrice, ±priceStepCap)
@@ -924,19 +949,8 @@ async function getLeaderboard(seasonId, scope, round) {
 async function liveReband(seasonId, round) {
   const season = await getEntity(T.season, 'season', seasonId);
   if (!season) return { moved: 0 };
-  const simDate = season.simMode ? season.simDate : null;
-  const { perGame, gameList } = await computeRoundResults(seasonId, round);
-  const isPlayed = (g) => {
-    const day = String(g.date || '').slice(0, 10);
-    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
-  };
-  const playedGames = gameList.filter(isPlayed);
-  if (!playedGames.length) return { moved: 0 }; // round not started scoring yet → leave livePrice = price (settlement reset)
-
-  // this round's per-card points from the games played so far (a played team that
-  // lost is present with 0 → it still counts toward the denominator, like settlement)
-  const liveRes = {};
-  for (const g of playedGames) { const pg = perGame[g.gameId] || {}; for (const [id, p] of Object.entries(pg)) liveRes[id] = (liveRes[id] || 0) + p; }
+  const { pts: liveRes, played } = await liveRoundCardPoints(seasonId, round);
+  if (!played) return { moved: 0 }; // round not started scoring yet → leave livePrice = price (settlement reset)
 
   // settled sums/counts for rounds 0..round-1 (cumulative avg base, same as cumForm)
   const sums0 = {}, counts0 = {};
@@ -972,7 +986,7 @@ async function liveReband(seasonId, round) {
     return { ...c, livePrice, liveTrend, liveRoundPts: Math.round((liveRes[c.rowKey] || 0) * 10) / 10 };
   });
   await upsertBatch(T.cards, batch);
-  return { moved, played: playedGames.length };
+  return { moved, played };
 }
 
 // LIVE provisional standings for an IN-PROGRESS round — "what the round leaderboard
@@ -1488,7 +1502,14 @@ async function getCardDetail(seasonId, cardId) {
   const simDate = season && season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
   const curRound = rounds.find((j) => j.status !== 'settled');
   const roundLive = !!(curRound && (!curRound.startDate || curRound.startDate <= simDate));
-  const liveRound = roundLive ? { round: Number(curRound.rowKey), pts: Math.round((Number(card.liveRoundPts) || 0) * 10) / 10 } : null;
+  // Live points ON DEMAND (fresh, tick-independent); fall back to the tick-persisted
+  // value if the box-score compute fails.
+  let liveRound = null;
+  if (roundLive) {
+    let pts = Math.round((Number(card.liveRoundPts) || 0) * 10) / 10;
+    try { const lp = await liveRoundCardPoints(seasonId, Number(curRound.rowKey)); pts = Math.round((lp.pts[cardId] || 0) * 10) / 10; } catch { /* keep persisted */ }
+    liveRound = { round: Number(curRound.rowKey), pts };
+  }
   const histRows = await listByPartition(T.cardHistory, `${seasonId}|${cardId}`);
   const history = histRows
     .map((r) => ({ round: Number(r.rowKey), date: roundDate[Number(r.rowKey)] || '', price: Number(r.price) || 0, pts: Number(r.pts) || 0, ownerCount: Number(r.ownerCount) || 0 }))
@@ -2138,7 +2159,7 @@ module.exports = {
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
-  getLeaderboard, getLiveLeaderboard, liveReband, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
+  getLeaderboard, getLiveLeaderboard, liveReband, liveRoundCardPoints, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,

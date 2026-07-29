@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getCards, getRounds } = require('../lib/ahmaliiga');
+const { getActiveSeason, getCards, getRounds, liveRoundCardPoints } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/cards?filter=team|player|goalie — the active season's card
 // pool (Korttimarkkina). Public. filter omitted/all = every card.
@@ -22,6 +22,10 @@ app.http('ahmaliigaCards', {
       const simDate = season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
       const cur = rounds.find((j) => j.status !== 'settled');
       const roundLive = !!(cur && (!cur.startDate || cur.startDate <= simDate));
+      // Current round's live points per card, computed ON DEMAND (tick-independent,
+      // memoised 30 s). Fall back to the tick-persisted liveRoundPts if it fails.
+      let livePts = null;
+      if (roundLive) { try { livePts = (await liveRoundCardPoints(season.rowKey, Number(cur.rowKey))).pts; } catch { livePts = null; } }
       let cards = allCards;
       if (filter && filter !== 'all') cards = cards.filter((c) => c.kind === filter);
       const out = cards
@@ -32,7 +36,7 @@ app.http('ahmaliigaCards', {
           band: c.band, price: c.livePrice != null ? c.livePrice : c.price, ownerCount: c.ownerCount || 0,
           // `lastPts` = the "Jakso" column value: current round's LIVE points while a
           // round is live, else the last settled round's points.
-          lastPts: roundLive ? Number(c.liveRoundPts) || 0 : (c.lastPts || 0),
+          lastPts: roundLive ? (livePts ? Math.round((livePts[c.rowKey] || 0) * 10) / 10 : (Number(c.liveRoundPts) || 0)) : (c.lastPts || 0),
           seasonPts: c.seasonPts || 0, photo: c.photo || '',
           trend: c.liveTrend || c.trend || '',
         }))
