@@ -405,7 +405,7 @@ export default function LiigaHome() {
                   here and the round end. Dots align with the event icon column. */}
               {hidden > 0 && (
                 <ButtonBase onClick={() => nav("/ahmaliiga/timeline")}
-                  sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", px: 1.75, py: 0.25, color: "text.disabled", WebkitTapHighlightColor: "transparent" }}>
+                  sx={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 1.5, width: "100%", px: 1.75, py: 0.25, color: "text.disabled", WebkitTapHighlightColor: "transparent" }}>
                   <Box sx={{ width: 40, flexShrink: 0, display: "flex", justifyContent: "center" }}>
                     <Stack spacing="3px" sx={{ alignItems: "center" }}>
                       {[0, 1, 2].map((k) => <Box key={k} sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "currentColor" }} />)}
