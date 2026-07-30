@@ -1500,6 +1500,11 @@ async function getCardDetail(seasonId, cardId) {
   // even before its first game) → append its live points as a current-round bar on the
   // card's per-round points, alongside the settled history. 0 until games are played.
   const curRound = rounds.find((j) => j.status !== 'settled');
+  // Sim clock — a game counts as PLAYED once its day has passed (matches the timeline /
+  // live points). Real seasons fall back to wall-clock.
+  const season = await getEntity(T.season, 'season', seasonId);
+  const simDate = season && season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
+  const isPlayed = (g) => { const day = String(g.date || '').slice(0, 10); return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now()); };
   // Live points ON DEMAND (fresh, tick-independent); fall back to the tick-persisted
   // value if the box-score compute fails.
   let liveRound = null;
@@ -1532,15 +1537,17 @@ async function getCardDetail(seasonId, cardId) {
   };
   let games = [];
   if (cardGroup) {
+    // PLAYED games only — settled rounds AND the CURRENT round's already-played games
+    // (date ≤ sim), so a game the card just played this jakso shows up right away, in
+    // sync with the live points. Not-yet-played games are omitted.
     for (const j of rounds) {
-      if (j.status !== 'settled') continue; // only played rounds (no future results)
       const gs = await getRoundGames(seasonId, Number(j.rowKey));
       for (const g of gs) {
-        if (!matchGame(g)) continue;
+        if (!matchGame(g) || !isPlayed(g)) continue;
         const ahmaGoals = Number(g.ahmaHome ? g.homeGoals : g.awayGoals);
         const oppGoals = Number(g.ahmaHome ? g.awayGoals : g.homeGoals);
         games.push({
-          round: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals,
+          round: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, played: true, ahmaGoals, oppGoals,
           // box-score identity — SAME shape as the timeline's ev.game (events.js): team
           // ids (camelCase) resolve the report; logos/goals use tulospalvelu UNDERSCORE
           // names (home_logo/home_goals) which GameHeader reads → logos + score render.
