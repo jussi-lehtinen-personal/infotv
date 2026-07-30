@@ -388,8 +388,9 @@ export default function LiigaHome() {
         const events = buildEvents(state, squadTeamKeys(squad && squad.cards));
         const gameEvents = events.filter((e) => e.type === "game");
         const endEv = events.find((e) => e.type === "end");
-        const shown = [...gameEvents.slice(0, 2), ...(endEv ? [endEv] : [])];
-        if (!shown.length) return null;
+        const gamesShown = gameEvents.slice(0, 2);
+        const hidden = gameEvents.length - gamesShown.length; // own games that didn't fit
+        if (!gamesShown.length && !endEv) return null;
         return (
           <Box sx={{ mb: 2 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1, px: 0.5 }}>
@@ -399,7 +400,21 @@ export default function LiigaHome() {
               </ButtonBase>
             </Stack>
             <Stack spacing={1}>
-              {shown.map((ev, i) => <EventRow key={ev.type + ev.date} ev={ev} simDate={simDate} highlight={i === 0} onClick={() => nav("/ahmaliiga/timeline")} />)}
+              {gamesShown.map((ev, i) => <EventRow key={ev.type + ev.date} ev={ev} simDate={simDate} highlight={i === 0} onClick={() => nav("/ahmaliiga/timeline")} />)}
+              {/* ⋮ — some of YOUR events were hidden by the 2-game cap; they sit between
+                  here and the round end. Dots align with the event icon column. */}
+              {hidden > 0 && (
+                <ButtonBase onClick={() => nav("/ahmaliiga/timeline")}
+                  sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", px: 1.75, py: 0.25, color: "text.disabled", WebkitTapHighlightColor: "transparent" }}>
+                  <Box sx={{ width: 40, flexShrink: 0, display: "flex", justifyContent: "center" }}>
+                    <Stack spacing="3px" sx={{ alignItems: "center" }}>
+                      {[0, 1, 2].map((k) => <Box key={k} sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "currentColor" }} />)}
+                    </Stack>
+                  </Box>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>+{hidden} muuta omaa tapahtumaa</Typography>
+                </ButtonBase>
+              )}
+              {endEv && <EventRow key={endEv.type + endEv.date} ev={endEv} simDate={simDate} highlight={gamesShown.length === 0} onClick={() => nav("/ahmaliiga/timeline")} />}
             </Stack>
           </Box>
         );
