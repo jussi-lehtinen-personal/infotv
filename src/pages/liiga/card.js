@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, Button, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from "@mui/material";
 import { LuChevronRight, LuCheck, LuShoppingCart, LuBadgeCheck } from "react-icons/lu";
 import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, TYPE_LABEL, TrendTag } from "./_shared";
@@ -44,16 +44,20 @@ const Section = ({ title, children }) => (
 );
 
 // One game row: date · opponent · score · result · chevron.
-const GameRow = ({ g }) => {
+const GameRow = ({ g, onOpen }) => {
   const r = gameResult(g.ahmaGoals, g.oppGoals);
+  const clickable = !!(onOpen && g.id);
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
-          borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
+    <Box onClick={clickable ? onOpen : undefined} role={clickable ? "button" : undefined}
+      sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15, width: "100%", textAlign: "left",
+          cursor: clickable ? "pointer" : "default",
+          borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 },
+          ...(clickable ? { "@media (hover: hover)": { "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } } } : {}) }}>
       <Box sx={{ width: 40, flexShrink: 0, color: "text.disabled", fontSize: 12 }}>{shortDate(g.date)}</Box>
       <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, color: "text.primary" }}>{g.opponent}</Typography>
       <Box sx={{ flexShrink: 0, width: 42, textAlign: "right", fontWeight: 800, fontSize: 14, color: "text.primary" }}>{g.ahmaGoals}–{g.oppGoals}</Box>
       <Box sx={{ flexShrink: 0, width: 108, textAlign: "left", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: r.color }}>{r.label}</Box>
-      <Box component={LuChevronRight} sx={{ fontSize: 16, color: "text.disabled", flexShrink: 0, display: "block" }} />
+      <Box component={LuChevronRight} sx={{ fontSize: 16, color: clickable ? "text.secondary" : "text.disabled", flexShrink: 0, display: "block" }} />
     </Box>
   );
 };
@@ -213,6 +217,7 @@ const PriceHistory = ({ history, current }) => {
 
 export default function LiigaCard() {
   const { id } = useParams();
+  const nav = useNavigate();
   const [data, setData] = useState(undefined);
   const [tab, setTab] = useState("pelit");
   const [confirm, setConfirm] = useState(null); // {type:'buyPenalty'|'sell'} → confirm dialog
@@ -362,7 +367,7 @@ export default function LiigaCard() {
       {tab === "pelit" && (
         games.length === 0 ? <Empty text="Ei pelejä vielä." /> : (
           <Section title="Ottelut">
-            {games.map((g, i) => <GameRow key={i} g={g} />)}
+            {games.map((g, i) => <GameRow key={i} g={g} onOpen={() => nav(`/gamezone/game/${g.id}`, { state: { game: g } })} />)}
           </Section>
         )
       )}

@@ -1539,7 +1539,15 @@ async function getCardDetail(seasonId, cardId) {
         if (!matchGame(g)) continue;
         const ahmaGoals = Number(g.ahmaHome ? g.homeGoals : g.awayGoals);
         const oppGoals = Number(g.ahmaHome ? g.awayGoals : g.homeGoals);
-        games.push({ round: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals });
+        games.push({
+          round: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals,
+          // identity so the game row can open the box score (/gamezone/game/:id) —
+          // same fields game.js needs (date + team ids + extId), plus header data.
+          id: g.gameId, homeTeamId: g.homeTeamId || '', awayTeamId: g.awayTeamId || '',
+          home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
+          homeGoals: g.homeGoals, awayGoals: g.awayGoals,
+          homeLogo: g.homeLogo || '', awayLogo: g.awayLogo || '', level: g.level || '', finished: g.finished != null ? g.finished : 1,
+        });
       }
     }
     games.sort((a, b) => String(b.date).localeCompare(String(a.date)));
