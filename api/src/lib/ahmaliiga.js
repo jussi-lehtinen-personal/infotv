@@ -1541,12 +1541,11 @@ async function getCardDetail(seasonId, cardId) {
         const oppGoals = Number(g.ahmaHome ? g.awayGoals : g.homeGoals);
         games.push({
           round: Number(j.rowKey), date: g.date || '', opponent: g.ahmaHome ? g.away : g.home, ahmaGoals, oppGoals,
-          // identity so the game row can open the box score (/gamezone/game/:id) —
-          // same fields game.js needs (date + team ids + extId), plus header data.
-          id: g.gameId, homeTeamId: g.homeTeamId || '', awayTeamId: g.awayTeamId || '',
-          home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
-          homeGoals: g.homeGoals, awayGoals: g.awayGoals,
-          homeLogo: g.homeLogo || '', awayLogo: g.awayLogo || '', level: g.level || '', finished: g.finished != null ? g.finished : 1,
+          // box-score identity — SAME shape as the timeline's ev.game (events.js): team
+          // ids (camelCase) resolve the report; logos/goals use tulospalvelu UNDERSCORE
+          // names (home_logo/home_goals) which GameHeader reads → logos + score render.
+          id: g.gameId, level: g.level || '', homeTeamId: g.homeTeamId || '', awayTeamId: g.awayTeamId || '', ahmaHome: !!g.ahmaHome,
+          home: g.home, away: g.away, home_logo: g.homeLogo, away_logo: g.awayLogo, home_goals: g.homeGoals, away_goals: g.awayGoals,
         });
       }
     }
