@@ -5,6 +5,7 @@ const { issueChallenge } = require('../lib/challenge');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition } = require('../lib/tables');
 const { isUsernameFree } = require('../lib/usernames');
+const { checkRateLimit, clientIp, tooManyResponse } = require('../lib/rateLimit');
 
 // POST /api/auth/passkey/register/options
 // Anonymous → mints a new account (nickname required) and returns creation
@@ -43,7 +44,12 @@ app.http('authPasskeyRegisterOptions', {
           transports: JSON.parse(c.transports || '[]'),
         }));
       } else {
-        // New account.
+        // New account — the mass-creation vector. Cap new accounts per IP (fixed
+        // window, fails open). 20/h is generous for a shared-wifi onboarding burst but
+        // kills a script. Only the NEW-account path is limited (device-adds / logins
+        // are unaffected).
+        const rl = await checkRateLimit(clientIp(request), { prefix: 'reg', limit: 20, windowSec: 3600 });
+        if (!rl.ok) return tooManyResponse(rl);
         nickname = String(body.nickname || '').trim();
         if (nickname.length < 1 || nickname.length > 40) {
           return { status: 400, jsonBody: { error: 'Anna nimimerkki (1–40 merkkiä).' } };

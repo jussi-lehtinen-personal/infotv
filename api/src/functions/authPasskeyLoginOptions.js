@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { generateAuthenticationOptions, rpFromRequest } = require('../lib/webauthn');
 const { issueChallenge } = require('../lib/challenge');
+const { checkRateLimit, clientIp, tooManyResponse } = require('../lib/rateLimit');
 
 // POST /api/auth/passkey/login/options
 // No allowCredentials → discoverable (usernameless) login: the authenticator
@@ -11,6 +12,9 @@ app.http('authPasskeyLoginOptions', {
   route: 'auth/passkey/login/options',
   handler: async (request, context) => {
     try {
+      // Light per-IP cap on challenge minting (DoS guard; passkeys aren't brute-forceable).
+      const rl = await checkRateLimit(clientIp(request), { prefix: 'login', limit: 30, windowSec: 600 });
+      if (!rl.ok) return tooManyResponse(rl);
       const { origin, rpID: rId } = rpFromRequest(request);
       const options = await generateAuthenticationOptions({
         rpID: rId,
