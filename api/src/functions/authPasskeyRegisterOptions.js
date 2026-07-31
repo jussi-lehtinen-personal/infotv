@@ -45,10 +45,9 @@ app.http('authPasskeyRegisterOptions', {
         }));
       } else {
         // New account — the mass-creation vector. Cap new accounts per IP (fixed
-        // window, fails open). 20/h is generous for a shared-wifi onboarding burst but
-        // kills a script. Only the NEW-account path is limited (device-adds / logins
-        // are unaffected).
-        const rl = await checkRateLimit(clientIp(request), { prefix: 'reg', limit: 20, windowSec: 3600 });
+        // window, fails open): 5/h = 120/day/IP. Only the NEW-account path is limited
+        // (device-adds / logins are unaffected).
+        const rl = await checkRateLimit(clientIp(request), { prefix: 'reg', limit: 5, windowSec: 3600 });
         if (!rl.ok) return tooManyResponse(rl);
         nickname = String(body.nickname || '').trim();
         if (nickname.length < 1 || nickname.length > 40) {
