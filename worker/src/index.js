@@ -553,7 +553,7 @@ async function writeBackSeasonResult(url, extId, box) {
 // re-fetching (edge-limited) so late score corrections are still picked up.
 const SETTLE_DAYS = 7;
 
-async function handleGetGameReport(url, env, ctx) {
+async function handleGetGameReport(url, env, ctx, ip) {
   const date = url.searchParams.get("date");
   const homeTeamId = url.searchParams.get("home");
   const awayTeamId = url.searchParams.get("away");
@@ -574,6 +574,9 @@ async function handleGetGameReport(url, env, ctx) {
     const hit = await cache.match(key);
     if (hit) return hit;
   }
+  // Cache miss → this is the expensive, tulospalvelu-facing path (district scan +
+  // report fetch). Rate-limit it (cost 5) so a flood of new/fake ids can't ban us.
+  if (!(await rateLimitOK(env, ip, 5))) return tooMany();
 
   const realId = await resolveRealId(env, extId, date, homeTeamId, awayTeamId);
   if (realId == null) {
@@ -909,13 +912,39 @@ function weekTtlSeconds(url) {
 // entries survive worker deploys, so a code change alone won't refresh them).
 const CACHE_VERSION = "16";
 
-async function cachedJson(ctx, url, ttlSeconds, compute) {
+/* ------------------------------ rate limiting ----------------------------- */
+// Coarse per-IP cap on ORIGIN-facing (uncached) work, so a flood of cache-MISSES
+// can't hammer tulospalvelu into an IP ban (which would break the whole app). Called
+// ONLY on a cache miss, so real users reading cached data never count against it.
+// KV-backed fixed window — approximate (KV isn't atomic → races undercount) but a
+// ceiling is all we need. `cost` weights the expensive endpoints (a getGameReport
+// district scan / includeAway getGames cost more than a single search). Fails OPEN
+// (no KV / no IP → allow) so it can only bound abuse, never break normal use.
+const RL_LIMIT = 120;    // cost units per IP per window
+const RL_WINDOW_S = 60;
+async function rateLimitOK(env, ip, cost = 1) {
+  if (!env || !env.GAME_IDS || !ip) return true;
+  const key = `rl:${ip}:${Math.floor(Date.now() / 1000 / RL_WINDOW_S)}`;
+  const used = Number(await env.GAME_IDS.get(key)) || 0;
+  if (used >= RL_LIMIT) return false;
+  await env.GAME_IDS.put(key, String(used + cost), { expirationTtl: RL_WINDOW_S * 2 });
+  return true;
+}
+function tooMany() {
+  return new Response(JSON.stringify({ error: "rate_limited" }), {
+    status: 429,
+    headers: { "content-type": "application/json; charset=utf-8", "retry-after": String(RL_WINDOW_S), "access-control-allow-origin": "*" },
+  });
+}
+
+async function cachedJson(ctx, url, ttlSeconds, compute, env, ip, cost) {
   const cache = caches.default;
   const keyUrl = new URL(url.toString());
   keyUrl.searchParams.set("__cv", CACHE_VERSION); // cache-key only, not sent upstream
   const key = new Request(keyUrl.toString(), { method: "GET" });
   const hit = await cache.match(key);
   if (hit) return hit;
+  if (!(await rateLimitOK(env, ip, cost))) return tooMany(); // only on a MISS → cache hits are free
 
   const data = await compute();
   const resp = json(data);
@@ -949,12 +978,14 @@ export default {
     }
 
     const url = new URL(request.url);
+    const ip = request.headers.get("CF-Connecting-IP"); // per-IP rate-limit key
 
     // Image proxy: fetch a tulospalvelu logo (static file, no CSRF needed) and
     // return it with CORS so the Azure proxy / canvas pages can use it.
     if (url.pathname === "/getImage") {
       const target = url.searchParams.get("uri");
       if (!target || !target.startsWith(ORIGIN + "/")) return json({ error: "bad uri" }, 400);
+      if (!(await rateLimitOK(env, ip))) return tooMany();
       try {
         const img = await fetch(target, { headers: { "User-Agent": UA, Accept: "image/avif,image/webp,image/png,*/*;q=0.8" } });
         if (!img.ok) return json({ error: `image HTTP ${img.status}` }, 502);
@@ -972,18 +1003,20 @@ export default {
     }
 
     try {
+      // cost weights the origin work on a miss (getGames includeAway = up to 56
+      // subrequests; a report district scan ~8; a search = 1).
       if (url.pathname === "/getTeams")
-        return await cachedJson(ctx, url, TTL_TEAMS_S, () => handleGetTeams(url));
+        return await cachedJson(ctx, url, TTL_TEAMS_S, () => handleGetTeams(url), env, ip, 1);
       if (url.pathname === "/getGames")
-        return await cachedJson(ctx, url, weekTtlSeconds(url), () => handleGetGames(url));
+        return await cachedJson(ctx, url, weekTtlSeconds(url), () => handleGetGames(url), env, ip, 5);
       if (url.pathname === "/getSeasonGames")
-        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url));
+        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url), env, ip, 2);
       if (url.pathname === "/getGameReport")
-        return await handleGetGameReport(url, env, ctx);
+        return await handleGetGameReport(url, env, ctx, ip);
       if (url.pathname === "/getTeamSeries")
-        return await cachedJson(ctx, url, TTL_STATS_S, () => handleGetTeamSeries(url, env));
+        return await cachedJson(ctx, url, TTL_STATS_S, () => handleGetTeamSeries(url, env), env, ip, 3);
       if (url.pathname === "/getSeriesTable")
-        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeriesTable(url, env));
+        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeriesTable(url, env), env, ip, 2);
       return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getTeamSeries", "/getSeriesTable", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
