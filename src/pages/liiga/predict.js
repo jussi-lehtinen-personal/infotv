@@ -12,7 +12,7 @@ const BONUS = [
   { icon: LuTarget, label: "Oikea voittaja ja maaliero", pts: "+7p" },
   { icon: LuStar, label: "Tarkka tulos", pts: "+20p" },
 ];
-const GOALS = Array.from({ length: 16 }, (_, i) => i); // 0..15
+const GOALS = Array.from({ length: 26 }, (_, i) => i); // 0..25
 
 const timeLeft = (d) => {
   const t = new Date(String(d || "").replace(" ", "T")) - new Date();
