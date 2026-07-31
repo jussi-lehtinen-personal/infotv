@@ -68,9 +68,9 @@ export default function LiigaPromo() {
             bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.4)" }}>
         <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "primary.main" }}>Beta</Typography>
         <Typography sx={{ mt: 0.5, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-              fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>Beta alkaa ensi viikonloppuna</Typography>
+              fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>Beta on käynnissä</Typography>
         <Typography sx={{ mt: 1, fontSize: 14, color: "text.secondary", lineHeight: 1.5 }}>
-          Tee käyttäjä nyt, niin pääset mukaan — peli avautuu kaikille jotka ovat luoneet tunnuksen.
+          Tee käyttäjä ja pääset heti mukaan pelaamaan.
         </Typography>
 
         {registered ? (
