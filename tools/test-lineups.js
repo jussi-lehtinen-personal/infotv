@@ -107,6 +107,11 @@ const assert = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`)
     let capRejected = false;
     try { await saveSquad('mgrD', [X, Z, ...fillers3], Z, 'D'); } catch { capRejected = true; } // switch to Z → REJECTED
     assert(capRejected, 'captain switch after a round game started is REJECTED by saveSquad');
+    // …and you can't sneak a new captain by REMOVING the captain card (X) either — the
+    // client would auto-pick a new captain, which used to slip past the guard.
+    let capRemoveRejected = false;
+    try { await saveSquad('mgrD', [Z, ...fillers3], Z, 'D'); } catch { capRemoveRejected = true; } // drop X, captain→Z → REJECTED
+    assert(capRemoveRejected, 'removing the captain card to reassign after kickoff is REJECTED');
   } else {
     console.log(`SKIP captain-freeze sub-test — D not affordable (${costD}/${budget})`);
   }

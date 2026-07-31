@@ -369,10 +369,13 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const roundStarted = roundGames.some((g) => myTeamKeys.has(teamKey(g)) && gameStarted(g, season));
 
   // The captain is frozen once one of your cards' games has started (games aren't
-  // simultaneous → switching after a card played was exploitable). REJECT moving the
-  // captaincy to a different, still-owned card. Removing the captain card (it leaves the
-  // squad) is still allowed; scoring keeps the frozen one.
-  if (roundStarted && prev && prev.captainId && captainId && captainId !== prev.captainId && cardIds.includes(prev.captainId)) {
+  // simultaneous → switching after a card played was exploitable). The ONLY allowed
+  // captain is the frozen one: you can't reassign it, AND you can't remove the captain
+  // card so the client picks a new one. (Removal used to slip through — cardIds no
+  // longer contained the old captain, so the guard didn't fire — which surfaced a
+  // misleading "new captain" that would never actually score 2×.) The captain card
+  // therefore stays locked in the squad until the round settles.
+  if (roundStarted && ((captainId || '') !== ((prev && prev.captainId) || ''))) {
     throw badRequest('Kapteenia ei voi enää vaihtaa — jakson pelit ovat alkaneet.');
   }
 

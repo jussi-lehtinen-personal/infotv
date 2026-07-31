@@ -372,19 +372,29 @@ export default function LiigaEdit() {
               <Box sx={{ flexShrink: 0 }}><Coins value={menuCard.price} size={15} /></Box>
             </Stack>
             <Stack spacing={0.25}>
-              <SheetAction icon={LuArrowLeftRight} label="Vaihda kortti" sub="Vaihda tämä kortti toiseen" chevron
-                onClick={() => { const c = menuCard; setMenuCard(null); setReplaceFor(c); }} />
-              {menuCard.id !== captainId && !captainLocked && (
-                <SheetAction icon={LuCrown} label="Tee kapteeniksi" sub="Kapteenin pisteet ×2"
-                  onClick={() => { const c = menuCard; setMenuCard(null); setCapConfirm(c); }} />
-              )}
-              {menuCard.id !== captainId && captainLocked && (
-                <SheetAction icon={LuCrown} label="Kapteeni lukittu" sub="Jakson pelit ovat alkaneet" disabled />
+              {/* The LOCKED captain card can't be swapped or sold — both would move the
+                  captaincy to another card, which the round lock forbids. */}
+              {captainLocked && menuCard.id === captainId ? (
+                <SheetAction icon={LuCrown} label="Kapteeni lukittu" sub="Kapteenia ei voi vaihtaa tai myydä — jakson pelit ovat alkaneet" disabled />
+              ) : (
+                <>
+                  <SheetAction icon={LuArrowLeftRight} label="Vaihda kortti" sub="Vaihda tämä kortti toiseen" chevron
+                    onClick={() => { const c = menuCard; setMenuCard(null); setReplaceFor(c); }} />
+                  {menuCard.id !== captainId && !captainLocked && (
+                    <SheetAction icon={LuCrown} label="Tee kapteeniksi" sub="Kapteenin pisteet ×2"
+                      onClick={() => { const c = menuCard; setMenuCard(null); setCapConfirm(c); }} />
+                  )}
+                  {menuCard.id !== captainId && captainLocked && (
+                    <SheetAction icon={LuCrown} label="Kapteeni lukittu" sub="Jakson pelit ovat alkaneet" disabled />
+                  )}
+                </>
               )}
               <SheetAction icon={LuInfo} label="Näytä tiedot" sub="Avaa kortin tiedot"
                 onClick={() => nav(`/ahmaliiga/card/${encodeURIComponent(menuCard.id)}`)} />
-              <SheetAction icon={LuTrash2} label="Myy kortti" sub="Saat kortin hinnan takaisin" danger
-                onClick={() => { const c = menuCard; setMenuCard(null); setRemoveConfirm(c); }} />
+              {!(captainLocked && menuCard.id === captainId) && (
+                <SheetAction icon={LuTrash2} label="Myy kortti" sub="Saat kortin hinnan takaisin" danger
+                  onClick={() => { const c = menuCard; setMenuCard(null); setRemoveConfirm(c); }} />
+              )}
             </Stack>
             <Button fullWidth variant="outlined" onClick={() => setMenuCard(null)}
               sx={{ mt: 2, py: 1.1, color: "text.secondary", borderColor: "var(--color-surface-border)" }}>Peruuta</Button>
