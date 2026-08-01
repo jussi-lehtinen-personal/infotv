@@ -60,20 +60,27 @@ export default function InfoTvOttelut() {
     return moment(mon).format("D.M.") + " – " + moment(sun).format("D.M.");
   }, [baseDate]);
 
-  // Two balanced columns (landscape); a day that straddles the split repeats its
-  // header in the second column.
+  // Column count: ?cols=1|2 forces it; otherwise adaptive (few games → one wide
+  // column, more → two). A day that straddles the split repeats its header.
+  const numCols = useMemo(() => {
+    const p = params.get("cols");
+    if (p === "1") return 1;
+    if (p === "2") return 2;
+    return games.length <= 5 ? 1 : 2;
+  }, [params, games.length]);
+
   const columns = useMemo(() => {
-    const target = Math.ceil(games.length / 2);
-    const cols = [[], []];
-    const prevDay = [null, null];
+    const cols = Array.from({ length: numCols }, () => []);
+    const prevDay = Array(numCols).fill(null);
+    const target = Math.ceil(games.length / numCols);
     games.forEach((g, i) => {
-      const c = i < target ? 0 : 1;
+      const c = numCols === 1 ? 0 : i < target ? 0 : 1;
       const day = moment(g.date).format("YYYY-MM-DD");
       if (day !== prevDay[c]) { cols[c].push({ type: "day", key: `h${c}-${day}`, day }); prevDay[c] = day; }
       cols[c].push({ type: "row", key: g.id ?? `c${c}-${i}`, m: g });
     });
     return cols;
-  }, [games]);
+  }, [games, numCols]);
 
   return (
     <InfoTvStage>
@@ -84,9 +91,8 @@ export default function InfoTvOttelut() {
         {loading && games.length === 0 && <div className="ot-empty">Ladataan otteluita…</div>}
         {!loading && games.length === 0 && <div className="ot-empty">Ei kotiotteluita tällä viikolla</div>}
         {games.length > 0 && (
-          <div className="ot-cols">
-            <Column items={columns[0]} />
-            <Column items={columns[1]} />
+          <div className="ot-cols" style={numCols === 1 ? { gridTemplateColumns: "minmax(0, 1180px)", justifyContent: "center" } : undefined}>
+            {columns.map((c, i) => <Column key={i} items={c} />)}
           </div>
         )}
       </div>

@@ -16,6 +16,16 @@ const PAGES = [
   { to: "/infotv/kumppanit", Icon: LuHeartHandshake, title: "Kumppanit", desc: "Yhteistyökumppanit" },
 ];
 
+// Preview links to eyeball the data pages in different scenarios (?date= pins the
+// week; ?cols= forces ottelut's column count). Testing aid, not signage.
+const TESTS = [
+  { to: "/infotv/ottelut?cols=1&date=2026-08-11", label: "Ottelut · 1 palsta" },
+  { to: "/infotv/ottelut?cols=2&date=2026-01-19", label: "Ottelut · 2 palstaa" },
+  { to: "/infotv/ottelut?date=2026-01-19", label: "Ottelut · aamu + ilta" },
+  { to: "/infotv/jaavuorot?date=2026-08-11", label: "Jäävuorot · vilkas viikko" },
+  { to: "/infotv/jaavuorot", label: "Jäävuorot · tämä viikko" },
+];
+
 export default function InfoTvHub() {
   return (
     <InfoTvStage>
@@ -32,14 +42,23 @@ export default function InfoTvHub() {
             </Link>
           ))}
         </div>
+        <div className="hub-tests">
+          <span className="hub-tests-label">Esikatselu</span>
+          {TESTS.map((t) => (
+            <Link key={t.to} to={t.to} className="hub-test">{t.label}</Link>
+          ))}
+        </div>
       </div>
     </InfoTvStage>
   );
 }
 
 const css = `
-.hub-content { position:absolute; top:120px; bottom:40px; left:44px; right:44px; display:flex; }
-.hub-grid { flex:1; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:30px; }
+.hub-content { position:absolute; top:120px; bottom:40px; left:44px; right:44px; display:flex; flex-direction:column; gap:26px; }
+.hub-grid { flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:30px; }
+.hub-tests { flex:0 0 auto; display:flex; flex-wrap:wrap; align-items:center; gap:16px; }
+.hub-tests-label { font-family:${FONT_BODY}; font-weight:800; font-size:22px; letter-spacing:0.14em; text-transform:uppercase; color:${STEEL}; margin-right:6px; }
+.hub-test { font-family:${FONT_BODY}; font-weight:700; font-size:24px; letter-spacing:0.02em; color:#fff; text-decoration:none; padding:10px 22px; border-radius:999px; background:var(--color-surface, rgba(255,255,255,0.05)); border:1px solid var(--color-surface-border, rgba(255,255,255,0.16)); }
 .hub-card {
   position:relative; display:flex; flex-direction:column; justify-content:center; gap:16px;
   padding:44px 52px; border-radius:18px; text-decoration:none; overflow:hidden;
