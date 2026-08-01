@@ -406,7 +406,7 @@ export default function LiigaCard() {
               startIcon={<LuCheck size={16} />} sx={{ textTransform: "none", fontWeight: 800 }}>Myy ({card.price} c)</Button>
           ) : (
             <Button variant="contained" onClick={() => { setConfirm(null); buyNow(); }}
-              sx={{ textTransform: "none", fontWeight: 800 }}>Osta (−5 p)</Button>
+              sx={{ textTransform: "none", fontWeight: 800, bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}>Osta (−5 p)</Button>
           )}
         </DialogActions>
       </Dialog>

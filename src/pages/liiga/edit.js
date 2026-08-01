@@ -132,6 +132,19 @@ export default function LiigaEdit() {
     persist([...ids, c.id], captainId || c.id);
   };
 
+  // Level 1 (ambient info): free transfers used up → every further change costs points.
+  // Shown on the page AND at the top of the add/swap pickers, so it's seen BEFORE acting.
+  const noFree = transfersLeft === 0;
+  const penaltyBanner = (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1, mb: 1.5, borderRadius: "var(--radius-item)",
+          bgcolor: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.5)" }}>
+      <Box component="span" sx={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>⚠️</Box>
+      <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#f87171", lineHeight: 1.3 }}>
+        Ilmaiset siirrot käytetty (0/{transfers.free}) — jokainen vaihto maksaa −5 pistettä.
+      </Typography>
+    </Box>
+  );
+
   // One formation card (portrait "playing card"): photo (player) / crest (team) +
   // name + this round's points (big, orange) + price (small). Captain gets a "C" +
   // glow and is lifted. Tap = action sheet; long-press = set captain.
@@ -308,6 +321,8 @@ export default function LiigaEdit() {
         <StatCell icon={LuTrophy} label="Pisteet"><StatNum>{points != null ? points : "—"}</StatNum></StatCell>
       </Box>
 
+      {noFree && penaltyBanner}
+
       {/* Kokoonpano — 3-2 formation, captain lifted in the centre, side cards fanned.
           Tap a card = actions; long-press = captain. Empty spots = add slots. */}
       {(() => {
@@ -446,7 +461,7 @@ export default function LiigaEdit() {
               </Stack>
             </Box>
             <CardList cards={all} settled={settled} roundLive={roundLive} hideIds={new Set(ids)} canPick={(c) => canReplaceWith(c, replaceFor)}
-              onPick={(c) => setSwapIn(c)} emptyText="Ei vaihdettavia kortteja." />
+              onPick={(c) => setSwapIn(c)} emptyText="Ei vaihdettavia kortteja." banner={noFree ? penaltyBanner : null} />
           </>
         )}
       </LiigaDialog>
@@ -471,12 +486,21 @@ export default function LiigaEdit() {
               <Box component={LuArrowRight} sx={{ fontSize: 17, color: "text.disabled", display: "block" }} />
               <Coins value={bank + replaceFor.price - swapIn.price} size={16} />
             </Box>
+            {/* Penalised swap → unmissable red warning box (not a small line) so an
+                extra transfer isn't confirmed by accident. */}
             {transfersLeft === 0 && (
-              <Typography sx={{ mt: 2, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#f87171" }}>
-                Siirrot käytetty — tämä vaihto maksaa −5 pistettä.
-              </Typography>
+              <Box sx={{ mt: 2, display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15, borderRadius: "var(--radius-item)",
+                    bgcolor: "rgba(248,113,113,0.14)", border: "1px solid rgba(248,113,113,0.55)" }}>
+                <Box component="span" sx={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>⚠️</Box>
+                <Typography sx={{ fontSize: 13, fontWeight: 800, color: "#f87171", lineHeight: 1.3 }}>
+                  Ilmaiset siirrot on käytetty — tämä vaihto vähentää <b>−5 pistettä</b> jakson tuloksestasi.
+                </Typography>
+              </Box>
             )}
-            <Button fullWidth variant="contained" onClick={() => applySwap(replaceFor.id, swapIn)} sx={{ mt: 2.5, py: 1.25 }}>Vahvista vaihto</Button>
+            <Button fullWidth variant="contained" onClick={() => applySwap(replaceFor.id, swapIn)}
+              sx={{ mt: 2.5, py: 1.25, ...(transfersLeft === 0 ? { bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } } : {}) }}>
+              {transfersLeft === 0 ? "Vahvista vaihto (−5 p)" : "Vahvista vaihto"}
+            </Button>
             <Button fullWidth variant="outlined" onClick={() => setSwapIn(null)} sx={{ mt: 1, py: 1, color: "text.secondary", borderColor: "var(--color-surface-border)" }}>Peruuta</Button>
           </Box>
         )}
@@ -492,7 +516,8 @@ export default function LiigaEdit() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setPaidAdd(null)} sx={{ color: "text.secondary" }}>Peruuta</Button>
-          <Button variant="contained" onClick={() => { const c = paidAdd; setPaidAdd(null); persist([...ids, c.id], captainId || c.id); }}>Lisää (−5 p)</Button>
+          <Button variant="contained" onClick={() => { const c = paidAdd; setPaidAdd(null); persist([...ids, c.id], captainId || c.id); }}
+            sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}>Lisää (−5 p)</Button>
         </DialogActions>
       </Dialog>
 
@@ -504,7 +529,7 @@ export default function LiigaEdit() {
           </Alert>
         )}
         <CardList cards={all} settled={settled} roundLive={roundLive} hideIds={new Set(ids)} canPick={canAdd}
-          onPick={addCard} emptyText="Ei lisättäviä kortteja." />
+          onPick={addCard} emptyText="Ei lisättäviä kortteja." banner={noFree ? penaltyBanner : null} />
       </LiigaDialog>
     </Screen>
   );

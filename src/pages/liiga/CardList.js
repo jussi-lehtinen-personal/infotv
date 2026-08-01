@@ -41,7 +41,7 @@ const StatVal = ({ children, live }) => (
   <Box sx={{ textAlign: "center", fontSize: 13, fontWeight: 800, color: live ? "primary.main" : "text.secondary" }}>{children}</Box>
 );
 
-export default function CardList({ cards, settled, roundLive, onPick, canPick, hideIds, ownedIds, emptyText }) {
+export default function CardList({ cards, settled, roundLive, onPick, canPick, hideIds, ownedIds, emptyText, banner }) {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState({ key: "price", dir: "desc" }); // matches the server default
@@ -91,6 +91,8 @@ export default function CardList({ cards, settled, roundLive, onPick, canPick, h
 
   return (
     <>
+      {/* optional warning banner (e.g. "free transfers used → every swap costs points") */}
+      {banner}
       {/* search + sort */}
       <Stack direction="row" spacing={1} sx={{ alignItems: "stretch", mb: 1.5 }}>
         <Stack direction="row" spacing={1} sx={{ flex: 1, minWidth: 0, alignItems: "center", px: 1.5, py: 0.75,
