@@ -496,8 +496,8 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
       : "Ottelut"
     : isEvent
     ? /harj|treeni|jää/i.test(match.title || "")
-      ? "SEURAAVA HARJOITUS"
-      : "SEURAAVA TAPAHTUMA"
+      ? (live ? "HARJOITUS NYT" : "SEURAAVA HARJOITUS")
+      : (live ? "TAPAHTUMA NYT" : "SEURAAVA TAPAHTUMA")
     : live
     ? "LIVE"
     : "SEURAAVA OTTELU";

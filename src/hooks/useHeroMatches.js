@@ -14,11 +14,16 @@ const EV_TTL = 15 * 60_000;
 // API dates are "YYYY-MM-DD HH:mm" (space, not T) — ISO-ify so Safari parses.
 export const parseMatchDate = (s) => new Date(String(s).replace(" ", "T"));
 
-const LIVE_WINDOW_MS = 6 * 60 * 60_000;
+const LIVE_WINDOW_MS = 6 * 60 * 60_000;   // a game stays "live" ~6 h after puck drop
+const EVENT_WINDOW_MS = 2 * 60 * 60_000;  // a practice has NO end time in the data → treat
+                                          // it as "on now" for ~2 h after its start so it
+                                          // doesn't vanish the moment it BEGINS; it should
+                                          // drop when it ENDS (2 h covers a normal practice).
 export const isLiveMatch = (m) => {
-  if (!m || m.type === "event") return false;
-  if (Number(m.finished) !== 0) return false;
+  if (!m) return false;
   const elapsed = Date.now() - parseMatchDate(m.date).getTime();
+  if (m.type === "event") return elapsed >= 0 && elapsed < EVENT_WINDOW_MS;
+  if (Number(m.finished) !== 0) return false;
   return elapsed >= 0 && elapsed < LIVE_WINDOW_MS;
 };
 
