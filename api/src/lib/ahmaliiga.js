@@ -313,6 +313,7 @@ function parseSquad(row) {
     bank: row.bank != null ? Number(row.bank) : null,
     roundStart: (() => { try { return JSON.parse(row.roundStart || 'null'); } catch { return null; } })(),
     transfersUsedThisRound: row.transfersUsedThisRound || 0,
+    everComplete: !!row.everComplete, // sticky: has this squad ever been complete → transfers count
     updatedAt: row.updatedAt,
   };
 }
@@ -420,7 +421,14 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   const prevIds = prev && prev.roundNo === curRound ? (prev.cards || []).map((c) => c.id) : roundStart;
   const prevUsed = prev && prev.roundNo === curRound ? (Number(prev.transfersUsedThisRound) || 0) : 0;
   const addsNow = cardIds.filter((id) => !prevIds.includes(id)).length; // cards brought in since the last save
-  const transfersUsed = startComplete ? prevUsed + addsNow : 0;
+  // Assembling your FIRST complete squad is free (adds while incomplete don't count).
+  // Once the squad has EVER been complete, every card brought in is a transfer — 5 free
+  // per round, then a penalty — even later the SAME round. (Was gated on the round START
+  // being complete, so a manager who (re)built a complete squad mid-round got the WHOLE
+  // round free → read as "the limit doesn't work" after a couple of swaps.) `everComplete`
+  // is sticky so you can't dodge a transfer by removing-then-re-adding across two saves.
+  const everComplete = !!(prev && prev.everComplete) || startComplete;
+  const transfersUsed = everComplete ? prevUsed + addsNow : prevUsed;
 
   await ensureManager(userId, nickname);
   const row = {
@@ -428,6 +436,7 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
     seasonId: season.rowKey, roundNo: curRound,
     cards: JSON.stringify(squadCards), captainId, bank,
     roundStart: JSON.stringify(roundStart),
+    everComplete: everComplete || cardIds.length === squadSize,
     transfersUsedThisRound: transfersUsed, updatedAt: new Date().toISOString(),
   };
   await upsertEntity(T.squads, row);
@@ -1422,6 +1431,12 @@ async function roundProgress(seasonId, round, userId) {
     const pb = predictionBonus({ gameId: pred.gameId, homeGoals: pred.homeGoals, awayGoals: pred.awayGoals }, pg);
     if (pb) livePoints += pb;
   }
+  // Pending transfer penalty for THIS round (extra transfers beyond the free
+  // allowance) — subtract it live too, so the dashboard's running points match what
+  // settlement + the ranking already apply. Only for the current round's own squad.
+  const transferPenalty = (Number(squad.roundNo) === round)
+    ? ECON.transferPenalty * Math.max(0, (squad.transfersUsedThisRound || 0) - ECON.transfersPerRound) : 0;
+  if (transferPenalty) livePoints -= transferPenalty;
   livePoints = Math.round(livePoints * 10) / 10;
 
   // order-independent name match (roster is Last/First; the card name may be either)
