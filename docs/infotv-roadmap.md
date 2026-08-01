@@ -55,3 +55,42 @@ The screens are **inside the arena** → the weekly view shows **HOME games only
   Decision leaning: instead of a hard 1-vs-2-column switch, use a layout that **scales by
   density** (e.g. 2 columns + auto font/row-height shrink as the count grows) so 16 fits
   and light weeks just read bigger/airier. This is the single number to size against.
+
+### Current-behaviour requirements (from `src/pages/this_week.js`, read 2026-08-01)
+What the redesign must preserve (the arena screen is the `onlyHome` weekly view).
+
+**Data & scope**
+- Source: `useWeekData(timestamp)` → `seasonGamesCache` (precomputed week index). Live
+  results update via background fetch (`bgFetching` indicator, ~30 s live overlay).
+- Week = Mon–Sun of the selected `timestamp`. **Home filter** = `isHomeGame === true`
+  (Wareena) — effectively always-on for the arena.
+- Grouped into **day blocks** (per date), games sorted by time, days ascending.
+
+**Layout & density (the redesign core)**
+- Today: **2 columns** when `isLandscape && width ≥ 1000 && games > 7`, else 1 column.
+  Columns balance day-blocks to ~half each (`ceil(total/2)`), **day blocks never split**
+  across columns.
+- Landscape invariant: fills the screen (`.tw-container flex:1 1 auto; min-height:0`), no
+  horizontal scroll. Fonts/logos are `clamp()`-scaled, but there is **no explicit "fit N
+  games without vertical scroll" logic** → the thing to solve for ~16 games.
+
+**Per-game row (`MatchRow`)**
+- Time (HH:mm) · home logo+name · away logo+name (Ahma side highlighted orange) ·
+  goals for BOTH (only when live or finished; blank for upcoming) · simplified
+  level/series ("U15", "II-divisioona"). Finished games get a left border: green win /
+  red loss / grey tie (Ahma perspective). Live goals in red; loser's goals dimmed.
+  Row click opens the external game page (not needed on a display-only screen).
+
+**States**: loading spinner · empty ("Ei pelejä tällä viikolla") · live / finished /
+upcoming (three renderings).
+
+**Navigation** (mobile, not the arena screen): prev/next week arrows + swipe (slide
+anim), URL `/week/:date`; title "Tällä viikolla / Ensi viikolla / <date>", subtitle =
+week range; filter row (Kotipelit / Suosikit) shown only when `showOptions`.
+
+**Visual**: `themeCSS` (empty shell) + CSS vars + `COLOR_PRIMARY`, `Surface`
+glassmorphism, `--bg-gradient`, `--font-family-base`. **Not yet Brand Core** → I1a.
+
+**Arena-screen simplifications available**: home games forced on; no filter row / row
+click / swipe needed → the display variant can drop interactivity and focus purely on
+fitting the week's home games at 1920×1080.
