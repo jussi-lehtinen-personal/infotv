@@ -14,10 +14,12 @@ landscape), distinct from the mobile **Gamezone** (`/gamezone/*`) and **Ahmaliig
 Three parts:
 
 ### I1a — Brand alignment
-Rebuild the current InfoTV pages to the **Kiekko-Ahma Brand Core** (same target as
-`project_brand_alignment`: Ahma Orange, Ink bg, Bebas Neue display + Barlow body,
-Steel/Eye-Yellow accents). The InfoTV pages (`this_week.js` + the canvas pages) still
-use `themeCSS` / `COLOR_PRIMARY` and aren't fully on-brand.
+Rebuild the current InfoTV pages to the **Kiekko-Ahma Brand Core**. Authoritative guide:
+`D:/work/ahma-brand/Kiekko-Ahma brand-paketti/BrandBook-KiekkoAhma.pdf` (see memory
+`project_brand_alignment`): **Ahma Orange #F06E1E, Ink #15171B, Steel #C3C3C3, Eye Yellow
+#FFC21A**; Bebas Neue headings (UPPERCASE, +0.04em) / Barlow body; **black text on
+orange**; ◆ bullets. The InfoTV pages (`this_week.js` + the canvas pages) still use
+`themeCSS` / `COLOR_PRIMARY` (off-brand orange #f97316) and aren't yet on-brand.
 - ⚠️ **HARD constraint — landscape invariant** (`feedback_landscape_layout_invariant`):
   the fullscreen landscape view must keep its game count and stay scroll-bar-free.
   `this_week.js` is deliberately NOT MUI and prepends `themeCSS` for this reason — don't
