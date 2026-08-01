@@ -42,3 +42,16 @@ the mobile card grid. New route under the `/infotv/*` namespace.
 **Notes / order:** I1b (namespace + redirects) is the structural prerequisite; I1a
 (brand) and I1c (partners page) can follow. Local-test the landscape screens before
 pushing (the invariant + the real 1920×1080 render matter more than pixel-perfect).
+
+### Design data — weekly home-game count (measured 2026-08-01, season 2026)
+The screens are **inside the arena** → the weekly view shows **HOME games only**
+(Wareena). Measured from `getSeasonGames?season=2026` (229 home games over the season):
+- **Peak: 16 home games in one week** (2.–8.3.2026), **15** the next-busiest (early Nov)
+  — both **junior tournament weekends** (U9/U10 Leijonaliiga mini-games), i.e. recurring,
+  not one-offs. Busiest single DAY ≈ 11.
+- Distribution (home games/week → weeks): 1→3 · 2→2 · 3→2 · 4→2 · 5→4 · 6→3 · 8→4 ·
+  9→4 · 10→6 · 11→1 · 15→1 · 16→1. Most weeks 1–10, a real tail at 15–16.
+- **⇒ Design the weekly layout for ~16 games without scrolling** (landscape invariant).
+  Decision leaning: instead of a hard 1-vs-2-column switch, use a layout that **scales by
+  density** (e.g. 2 columns + auto font/row-height shrink as the count grows) so 16 fits
+  and light weeks just read bigger/airier. This is the single number to size against.
