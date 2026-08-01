@@ -1,0 +1,146 @@
+import React, { useEffect, useState } from "react";
+
+/**
+ * InfoTV signage design kit (lobby TV, 1920x1080).
+ *
+ * Pages are authored in a fixed 1920x1080 coordinate system (plain px) and the
+ * stage scales that to any viewport with letterboxing — pixel-consistent, never
+ * scrolls. Everything else here is a *composable* piece of the visual language
+ * lifted from the approved Ahmaliiga ad (ember backdrop, orange glow, claw
+ * watermark, brand lockup, eyebrow rule, bottom bar). There is deliberately NO
+ * generic chrome frame — each page paints full-bleed, edge to edge.
+ *
+ * BrandBook tokens: Ahma Orange #F06E1E, Ink #0B0B0C, Eye Yellow #FFC21A,
+ * Steel #C3C3C3, Bebas Neue (display) / Barlow (body). See project_brand_alignment.
+ */
+
+export const STAGE_W = 1920;
+export const STAGE_H = 1080;
+
+export const INK = "#0B0B0C";
+export const ORANGE = "#F06E1E";
+export const YELLOW = "#FFC21A";
+export const STEEL = "#C3C3C3";
+export const FONT_DISPLAY = "var(--font-family-display)"; // Bebas Neue
+export const FONT_BODY = "var(--font-family-base)"; // Barlow
+
+function useStageScale() {
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const update = () =>
+      setScale(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H));
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+  return scale;
+}
+
+/**
+ * Full-bleed 1920x1080 scaled stage. Renders the ember Backdrop by default;
+ * pass backdrop={false} for a page that paints its own (e.g. the ad).
+ */
+export default function InfoTvStage({ children, backdrop = true }) {
+  const scale = useStageScale();
+  return (
+    <>
+      <style>{stageCss}</style>
+      <div className="itv-viewport">
+        <div className="itv-stage" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
+          {backdrop && <Backdrop />}
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Normal GameZone dark background — the same `--bg-gradient` / Ink tokens the
+ * rest of the app uses (index.css :root, globally loaded). NOT the Ahmaliiga
+ * ad's ember/claw look: that is reserved for the ad alone.
+ */
+export function Backdrop() {
+  return <div style={{ position: "absolute", inset: 0, background: "var(--bg-gradient, #15171B)" }} />;
+}
+
+/** Top-left club lockup: wolverine mark + dashed uppercase label. */
+export function BrandLockup({ style }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 20, ...style }}>
+      <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 76, height: "auto" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 22, letterSpacing: "0.26em", textTransform: "uppercase", color: "#F4F4F4" }}>
+        <span style={{ width: 30, height: 3, background: ORANGE }} />
+        Valkeakosken Kiekko-Ahma
+      </div>
+    </div>
+  );
+}
+
+/** Dash + uppercase label (orange by default). */
+export function Eyebrow({ children, color = ORANGE, size = 26 }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, fontFamily: FONT_BODY, fontWeight: 700, fontSize: size, letterSpacing: "0.24em", textTransform: "uppercase", color }}>
+      <span style={{ width: 34, height: 3, background: color }} />
+      {children}
+    </div>
+  );
+}
+
+// Content inset: pages position their body between MAST_TOP and the bottom bar,
+// with SIDE_PAD left/right. Kept tight so almost the whole stage is content.
+export const MAST_TOP = 108;
+export const SIDE_PAD = 44;
+export const BAR_H = 88;
+
+/**
+ * Slim single-row masthead: club mark + page title on the left, meta on the
+ * right. One ~64px line on the backdrop — deliberately minimal so it steals as
+ * little of the stage as possible (the content is what matters on signage).
+ */
+export function Masthead({ title, meta }) {
+  return (
+    <div style={{ position: "absolute", top: 26, left: SIDE_PAD, right: SIDE_PAD, height: 72, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 84, height: "auto" }} />
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 56, lineHeight: 0.9, letterSpacing: "0.04em", color: "#fff" }}>{title}</div>
+      </div>
+      {meta && <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, letterSpacing: "0.06em", color: STEEL }}>{meta}</div>}
+    </div>
+  );
+}
+
+/** Plain black bottom bar with a centred URL. */
+export function BottomBar({ height = 90 }) {
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height, background: "#0C0C0D", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 72px", boxSizing: "border-box" }}>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, letterSpacing: "0.32em", color: "rgba(255,255,255,0.66)" }}>WWW.KIEKKO-AHMA.FI</div>
+    </div>
+  );
+}
+
+/** Small orange diamond accent (BrandBook ◆). */
+export function Diamond({ size = 14, color = ORANGE, style }) {
+  return <span style={{ display: "inline-block", width: size, height: size, background: color, transform: "rotate(45deg)", ...style }} />;
+}
+
+const stageCss = `
+html, body, #root { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; }
+.itv-viewport { position:fixed; inset:0; background:#000; overflow:hidden; -webkit-tap-highlight-color:transparent; }
+/* Signage: no keyboard/mouse focus rings anywhere on the stage. */
+.itv-viewport *:focus, .itv-viewport *:focus-visible, .itv-viewport a:focus, .itv-viewport a:active { outline:none !important; box-shadow:none !important; }
+.itv-viewport a { -webkit-tap-highlight-color:transparent; }
+.itv-stage {
+  position:absolute; top:50%; left:50%;
+  width:${STAGE_W}px; height:${STAGE_H}px;
+  transform-origin:center center;
+  background:${INK};
+  color:#fff;
+  font-family:${FONT_BODY};
+  overflow:hidden;
+}
+`;
