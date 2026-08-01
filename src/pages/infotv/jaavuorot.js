@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { LuClock } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -8,8 +9,8 @@ import { getMonday } from "../../Util";
 
 moment.locale("fi");
 
-const MAX_PER_DAY = 13;
-const DEFAULT_COLOR = "#7A7F8C";
+const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const isAhma = (t) => /kiekko.?ahma/i.test(t || "") || /(^|\s)KA[\s/]/i.test(t || "");
 
 export default function InfoTvJaavuorot() {
   const [items, setItems] = useState(null);
@@ -44,15 +45,30 @@ export default function InfoTvJaavuorot() {
       if (col) col.items.push(it);
     }
     for (const c of cols) c.items.sort((a, b) => (a.start_date < b.start_date ? -1 : 1));
-    return cols;
+    return cols.filter((c) => c.items.length > 0);
   }, [items, monday]);
+
+  // Split the (non-empty) days across two balanced columns, chronologically, no
+  // day split. Rows flex to fill, so a heavier column just gets tighter rows.
+  const columns = useMemo(() => {
+    const total = days.reduce((s, d) => s + d.items.length, 0);
+    const target = Math.ceil(total / 2);
+    const cols = [[], []];
+    let acc = 0;
+    for (const d of days) {
+      const c = acc < target || cols[0].length === 0 ? 0 : 1;
+      cols[c].push(d);
+      acc += d.items.length;
+    }
+    return cols;
+  }, [days]);
 
   const weekRange = useMemo(() => {
     const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
     return moment(monday).format("D.M.") + " – " + moment(sun).format("D.M.");
   }, [monday]);
 
-  const todayKey = moment().format("YYYY-MM-DD");
+  const empty = items !== null && !error && days.length === 0;
 
   return (
     <InfoTvStage>
@@ -61,27 +77,12 @@ export default function InfoTvJaavuorot() {
 
       <div className="jv-content">
         {items === null && <div className="jv-msg">Ladataan…</div>}
-        {items !== null && error && <div className="jv-msg">Vuoroja ei saatu haettua.</div>}
-        {items !== null && !error && (
-          <div className="jv-grid">
-            {days.map((c) => {
-              const isToday = c.key === todayKey;
-              const shown = c.items.slice(0, MAX_PER_DAY);
-              const overflow = c.items.length - shown.length;
-              return (
-                <div key={c.key} className={"jv-col" + (isToday ? " jv-col--today" : "")}>
-                  <div className="jv-dayhead">
-                    <span className="jv-dayname">{moment(c.date).format("dd")}</span>
-                    <span className="jv-daydate">{moment(c.date).format("D.M.")}</span>
-                  </div>
-                  <div className="jv-chips">
-                    {shown.map((it) => <Chip key={it.id} item={it} />)}
-                    {overflow > 0 && <div className="jv-more">+{overflow} lisää</div>}
-                    {c.items.length === 0 && <div className="jv-empty">—</div>}
-                  </div>
-                </div>
-              );
-            })}
+        {error && <div className="jv-msg">Vuoroja ei saatu haettua.</div>}
+        {empty && <div className="jv-msg">Ei jäävuoroja tällä viikolla</div>}
+        {!error && days.length > 0 && (
+          <div className="jv-cols">
+            <Column days={columns[0]} />
+            <Column days={columns[1]} />
           </div>
         )}
       </div>
@@ -89,59 +90,55 @@ export default function InfoTvJaavuorot() {
   );
 }
 
-function Chip({ item }) {
-  const color = normHex(item.color) || DEFAULT_COLOR;
-  const start = moment(item.start_date, "YYYY-MM-DD HH:mm").format("HH:mm");
-  const end = moment(item.end_date, "YYYY-MM-DD HH:mm").format("HH:mm");
-  const isGame = item.user_group?.name === "Tilapäisvaraus";
+function Column({ days }) {
   return (
-    <div className="jv-chip" style={{ borderLeftColor: color, background: tint(color) }}>
-      <div className="jv-chip-top">
-        <span className="jv-dot" style={{ background: color }} />
-        <span className="jv-time">{start}<span className="jv-end">–{end}</span></span>
-        {isGame && <span className="jv-game">PELI</span>}
-      </div>
-      <div className="jv-text">{item.text || "Varaus"}</div>
+    <div className="jv-col">
+      {days.map((d) => (
+        <React.Fragment key={d.key}>
+          <div className="jv-day">{capitalize(moment(d.date).format("dddd"))} {moment(d.date).format("D.M.")}</div>
+          {d.items.map((it) => <ResRow key={it.id} item={it} />)}
+        </React.Fragment>
+      ))}
     </div>
   );
 }
 
-function normHex(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
-  return m ? "#" + m[1] : null;
-}
-function tint(hex) {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return "rgba(255,255,255,0.04)";
-  const n = parseInt(m[1], 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.13)`;
+function ResRow({ item }) {
+  const start = moment(item.start_date, "YYYY-MM-DD HH:mm").format("HH:mm");
+  const end = moment(item.end_date, "YYYY-MM-DD HH:mm").format("HH:mm");
+  const game = item.user_group?.name === "Tilapäisvaraus";
+  const ahma = isAhma(item.text);
+  return (
+    <div className="jv-res">
+      <LuClock className="jv-ic" />
+      <span className="jv-time">{start}<span className="jv-dash">–</span>{end}</span>
+      <span className={"jv-name" + (ahma ? " jv-name--ahma" : "")}>{item.text || "Varaus"}</span>
+      {game && <span className="jv-peli">PELI</span>}
+    </div>
+  );
 }
 
 const css = `
-.jv-content { position:absolute; top:120px; bottom:40px; left:44px; right:44px; display:flex; }
+.jv-content { position:absolute; top:120px; bottom:40px; left:44px; right:44px; display:flex; flex-direction:column; }
 .jv-msg { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.06em; color:${STEEL}; }
 
-.jv-grid { flex:1; min-height:0; display:grid; grid-template-columns:repeat(7,1fr); gap:16px; }
-.jv-col { min-height:0; display:flex; flex-direction:column; border-radius:20px; background:linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%); border:1px solid rgba(255,255,255,0.08); overflow:hidden; }
-.jv-col--today { background:linear-gradient(180deg, rgba(240,110,30,0.16) 0%, rgba(240,110,30,0.05) 100%); border-color:rgba(240,110,30,0.4); }
+.jv-cols { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:minmax(0,1fr); column-gap:56px; }
+.jv-col { min-height:0; overflow:hidden; display:flex; flex-direction:column; }
 
-.jv-dayhead { display:flex; align-items:baseline; justify-content:space-between; padding:12px 14px 10px; border-bottom:1px solid rgba(255,255,255,0.1); }
-.jv-dayname { font-family:${FONT_DISPLAY}; font-size:34px; letter-spacing:0.05em; color:#fff; text-transform:uppercase; }
-.jv-col--today .jv-dayname { color:${ORANGE}; }
-.jv-daydate { font-family:${FONT_BODY}; font-weight:700; font-size:21px; color:${STEEL}; }
+.jv-day { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:800; font-size:25px; letter-spacing:0.02em; text-transform:uppercase; color:var(--gz-text-primary, rgba(255,255,255,0.95)); padding:12px 2px 6px; }
+.jv-day:first-child { padding-top:2px; }
 
-.jv-chips { flex:1; min-height:0; display:flex; flex-direction:column; gap:7px; padding:11px 10px; overflow:hidden; }
-.jv-chip { border-left:6px solid ${DEFAULT_COLOR}; border-radius:10px; padding:7px 11px; }
-.jv-chip-top { display:flex; align-items:center; gap:9px; }
-.jv-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
-.jv-time { font-family:${FONT_BODY}; font-weight:800; font-size:20px; color:#fff; line-height:1; }
-.jv-end { font-weight:600; color:${STEEL}; }
-.jv-game { margin-left:auto; font-family:${FONT_DISPLAY}; font-size:16px; letter-spacing:0.08em; color:${ORANGE}; border:1px solid rgba(240,110,30,0.5); border-radius:5px; padding:1px 7px; }
-.jv-text { font-family:${FONT_BODY}; font-weight:600; font-size:18px; color:rgba(255,255,255,0.8); line-height:1.15; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-.jv-more { font-family:${FONT_BODY}; font-weight:700; font-size:17px; color:${ORANGE}; padding:2px 10px; }
-.jv-empty { font-family:${FONT_DISPLAY}; font-size:30px; color:rgba(255,255,255,0.16); text-align:center; padding-top:14px; }
-
-.jv-www { font-family:${FONT_DISPLAY}; font-size:34px; letter-spacing:0.32em; color:rgba(255,255,255,0.62); }
-.jv-venue { font-family:${FONT_DISPLAY}; font-size:30px; letter-spacing:0.14em; color:${STEEL}; }
+.jv-res {
+  flex:1 1 0; min-height:22px; max-height:40px;
+  display:flex; align-items:center; gap:13px;
+  padding:0 6px;
+  border-bottom:1px solid rgba(255,255,255,0.07);
+  overflow:hidden;
+}
+.jv-ic { width:18px; height:18px; flex-shrink:0; color:${STEEL}; }
+.jv-time { flex-shrink:0; font-family:${FONT_BODY}; font-weight:800; font-size:21px; line-height:1.1; letter-spacing:0.01em; color:var(--gz-text-primary, #fff); font-variant-numeric:tabular-nums; }
+.jv-dash { padding:0 3px; color:${STEEL}; }
+.jv-name { flex:1; min-width:0; font-family:${FONT_BODY}; font-weight:600; font-size:21px; line-height:1.1; color:var(--gz-text-secondary, rgba(255,255,255,0.72)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.jv-name--ahma { color:${ORANGE}; font-weight:700; }
+.jv-peli { flex-shrink:0; font-family:${FONT_BODY}; font-weight:800; font-size:16px; letter-spacing:0.08em; color:${ORANGE}; border:1px solid rgba(240,110,30,0.5); border-radius:6px; padding:2px 9px; }
 `;

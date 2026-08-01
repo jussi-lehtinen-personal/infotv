@@ -44,7 +44,10 @@ export default function InfoTvTilastot() {
       if (cancelled || !s || s.active === false) return;
       const parts = [];
       if (s.season) parts.push(`Kausi ${s.season}`);
-      if (s.currentRound && s.roundCount) parts.push(`Jakso ${s.currentRound}/${s.roundCount}`);
+      // currentRound is an object { no, startDate, ... }; `no` is 0-indexed (as
+      // in ranking.js → display no + 1).
+      const roundNo = s.currentRound && typeof s.currentRound.no === "number" ? s.currentRound.no + 1 : null;
+      if (roundNo != null && s.roundCount) parts.push(`Jakso ${roundNo}/${s.roundCount}`);
       if (parts.length) setMeta(parts.join(" · "));
     }).catch(() => {});
     getAhmaliigaRanking("season")

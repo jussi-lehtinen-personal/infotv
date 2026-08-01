@@ -158,12 +158,12 @@ function MatchRow({ m }) {
       </div>
 
       <div className="ot-teams">
-        <div className="ot-tl">
+        <div className="ot-tl" style={{ gridArea: "1 / 1" }}>
           <img className="ot-logo" src={m.home_logo} alt="" />
           <span className="ot-name" style={homeNameMuted ? { color: MUTED } : undefined}>{m.home}</span>
         </div>
         <div className="ot-hdiv" />
-        <div className="ot-tl">
+        <div className="ot-tl" style={{ gridArea: "3 / 1" }}>
           <img className="ot-logo" src={m.away_logo} alt="" />
           <span className="ot-name" style={awayNameMuted ? { color: MUTED } : undefined}>{m.away}</span>
         </div>
@@ -204,8 +204,8 @@ const css = `
 
 .ot-teams { display:grid; grid-template-columns:minmax(0,1fr) auto auto; grid-template-rows:auto auto auto; column-gap:22px; row-gap:5px; align-items:center; }
 .ot-tl { display:flex; align-items:center; gap:15px; min-width:0; }
-.ot-hdiv { grid-column:1; height:1px; background:rgba(255,255,255,0.08); }
-.ot-vdiv { grid-column:2; grid-row:1 / 4; width:2px; align-self:stretch; border-radius:1px; }
+.ot-hdiv { grid-area:2 / 1; height:1px; background:rgba(255,255,255,0.08); }
+.ot-vdiv { grid-area:1 / 2 / 4 / 3; width:2px; align-self:stretch; justify-self:center; border-radius:1px; }
 .ot-logo { width:36px; height:36px; flex-shrink:0; border-radius:9px; background:#fff; object-fit:contain; padding:4px; box-sizing:border-box; box-shadow:0 4px 12px rgba(0,0,0,0.35); }
 .ot-name { min-width:0; font-family:${FONT_BODY}; font-weight:700; font-size:23px; letter-spacing:0.02em; text-transform:uppercase; color:var(--gz-text-primary, rgba(255,255,255,0.95)); line-height:1.1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ot-score { grid-column:3; font-family:${FONT_DISPLAY}; font-size:34px; line-height:1; letter-spacing:0.02em; color:var(--gz-text-primary, #fff); min-width:36px; text-align:center; align-self:center; font-variant-numeric:tabular-nums; }

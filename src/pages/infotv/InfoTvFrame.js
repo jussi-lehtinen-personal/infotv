@@ -68,13 +68,12 @@ export function Backdrop() {
   return <div style={{ position: "absolute", inset: 0, background: "var(--bg-gradient, #15171B)" }} />;
 }
 
-/** Top-left club lockup: wolverine mark + dashed uppercase label. */
+/** Top-left club lockup: wolverine mark + uppercase wordmark. */
 export function BrandLockup({ style }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 20, ...style }}>
-      <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 76, height: "auto" }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 22, letterSpacing: "0.26em", textTransform: "uppercase", color: "#F4F4F4" }}>
-        <span style={{ width: 30, height: 3, background: ORANGE }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 22, ...style }}>
+      <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 84, height: "auto" }} />
+      <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 24, letterSpacing: "0.2em", textTransform: "uppercase", color: "#F4F4F4" }}>
         Valkeakosken Kiekko-Ahma
       </div>
     </div>
