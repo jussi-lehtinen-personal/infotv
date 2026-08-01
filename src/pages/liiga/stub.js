@@ -8,7 +8,7 @@ export const LiigaStub = ({ title, desc, icon: Icon }) => (
   <Screen sx={{ pt: 6, textAlign: "center" }}>
     {Icon && (
       <Box sx={{ width: 72, height: 72, mx: "auto", mb: 2, borderRadius: "50%", display: "grid",
-            placeItems: "center", bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
+            placeItems: "center", bgcolor: "rgba(var(--color-primary-rgb),0.12)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
         <Box component={Icon} sx={{ fontSize: 32, color: "primary.main" }} />
       </Box>
     )}

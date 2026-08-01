@@ -231,7 +231,7 @@ export default function LiigaHome() {
     <Screen>
       <Box sx={{ textAlign: "center", pt: 1, pb: 2 }}>
         <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
-             sx={{ width: "min(60vw, 220px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
+             sx={{ width: "min(60vw, 220px)", height: "auto", filter: "drop-shadow(0 10px 30px rgba(var(--color-primary-rgb),0.25))" }} />
         <Typography sx={{ color: "text.secondary", mt: 1, fontSize: 14.5, fontWeight: 600, letterSpacing: ".01em", whiteSpace: "nowrap" }}>
           Kokoa kortisto ja nouse mestariksi.
         </Typography>
@@ -247,7 +247,7 @@ export default function LiigaHome() {
       {unclaimed > 0 && (
         <ButtonBase onClick={() => nav("/ahmaliiga/rewards")}
           sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%", textAlign: "left", mb: 2, px: 2, py: 1.5,
-              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.4)" }}>
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(var(--color-primary-rgb),0.12)", border: "1px solid rgba(var(--color-primary-rgb),0.4)" }}>
           <Box component={LuTrophy} sx={{ fontSize: 24, color: "primary.main", flexShrink: 0, display: "block" }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.2 }}>
@@ -264,8 +264,8 @@ export default function LiigaHome() {
       {notStarted && (
         <ButtonBase onClick={() => nav("/ahmaliiga/tervetuloa")}
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
-              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
-              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(var(--color-primary-rgb),0.06)",
+              border: "1px solid rgba(var(--color-primary-rgb),0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.10)" } }}>
           <Eyebrow sx={{ mb: 1.25 }}>Beta-testipeli · tulossa</Eyebrow>
           <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
@@ -297,8 +297,8 @@ export default function LiigaHome() {
       {seasonOver && (
         <ButtonBase onClick={() => nav("/ahmaliiga/ranking?tab=season")}
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
-              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
-              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(var(--color-primary-rgb),0.06)",
+              border: "1px solid rgba(var(--color-primary-rgb),0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.10)" } }}>
           <Eyebrow sx={{ mb: 1.25 }}>Kausi päättynyt</Eyebrow>
           <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
@@ -338,9 +338,9 @@ export default function LiigaHome() {
       {round && (
         <ButtonBase onClick={() => nav("/ahmaliiga/timeline")}
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
-              borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.06)",
-              border: "1px solid rgba(249,115,22,0.5)", p: 2, mb: 2,
-              "&:hover": { bgcolor: "rgba(249,115,22,0.10)" } }}>
+              borderRadius: "var(--radius-card)", bgcolor: "rgba(var(--color-primary-rgb),0.06)",
+              border: "1px solid rgba(var(--color-primary-rgb),0.5)", p: 2, mb: 2,
+              "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.10)" } }}>
           <Stack direction="row" sx={{ alignItems: "center", mb: 1.25 }}>
             <Eyebrow sx={{ flex: 1, minWidth: 0 }}>Käynnissä oleva jakso</Eyebrow>
             <Box component="span" sx={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 0.25, color: "text.disabled", fontSize: 12, fontWeight: 700 }}>Aikajana <LuChevronRight size={14} /></Box>
@@ -363,7 +363,7 @@ export default function LiigaHome() {
           <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mt: 2, mb: 0.75 }}>Jakson edistyminen</Typography>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
             <Box sx={{ flex: 1, height: 10, borderRadius: 999, bgcolor: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-              <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #f97316, #e4610f)" }} />
+              <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #F06E1E, #e4610f)" }} />
             </Box>
             <Box component="span" sx={{ flexShrink: 0, fontWeight: 800, fontSize: 15, color: "text.primary" }}>{pct}%</Box>
           </Stack>
@@ -484,7 +484,7 @@ export default function LiigaHome() {
                   trailing={<RowValue color={r.me ? "primary.main" : "text.primary"}>{r.total}</RowValue>} />
               ))}
               {showMe && (
-                <Box sx={{ borderTop: "2px solid rgba(249,115,22,0.45)" }}>
+                <Box sx={{ borderTop: "2px solid rgba(var(--color-primary-rgb),0.45)" }}>
                   <ListRow highlight
                     leading={<RankBadge rank={myRow.rank} highlight />}
                     title={myRow.nickname}

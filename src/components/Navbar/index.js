@@ -184,8 +184,8 @@ const AhmaliigaLaunchCard = () => (
       lineHeight: 0,
       overflow: "hidden",
       borderRadius: "var(--radius-card)",
-      border: "1px solid rgba(249,115,22,0.35)",
-      boxShadow: "0 14px 34px rgba(249,115,22,0.18)",
+      border: "1px solid rgba(var(--color-primary-rgb),0.35)",
+      boxShadow: "0 14px 34px rgba(var(--color-primary-rgb),0.18)",
     }}
   >
     <Box

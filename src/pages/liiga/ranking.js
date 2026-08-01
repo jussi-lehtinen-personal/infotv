@@ -101,7 +101,7 @@ export default function LiigaRanking() {
               <ButtonBase key={j.no} onClick={() => nav(`/ahmaliiga/round?round=${j.no}`)}
                 sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", p: 1.5,
                       borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-                <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "rgba(249,115,22,0.15)" }}>
+                <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "rgba(var(--color-primary-rgb),0.15)" }}>
                   <Box component={LuClipboardList} sx={{ fontSize: 19, color: "primary.main", display: "block" }} />
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -132,8 +132,8 @@ export default function LiigaRanking() {
           {rows.map((r) => (
             <Box key={r.userId} sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5, py: 1, px: 1.25,
                   borderRadius: "var(--radius-item)",
-                  bgcolor: r.me ? "rgba(249,115,22,0.10)" : "transparent",
-                  border: r.me ? "1px solid rgba(249,115,22,0.35)" : "1px solid transparent" }}>
+                  bgcolor: r.me ? "rgba(var(--color-primary-rgb),0.10)" : "transparent",
+                  border: r.me ? "1px solid rgba(var(--color-primary-rgb),0.35)" : "1px solid transparent" }}>
               <RankBadge rank={r.rank} highlight={r.me} />
               <ManagerAvatar avatar={r.avatar} nickname={r.nickname} size={38} />
               <Typography noWrap sx={{ flex: 1, minWidth: 0, lineHeight: 1.2, fontWeight: r.me ? 800 : 700, fontSize: 15,

@@ -19,7 +19,7 @@ import { getAhmaliigaState, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaS
 // ---- Tulokset (per-card breakdown + rank + best card) ----
 const RowIcon = ({ card }) =>
   card.kind === "predict" ? (
-    <Box sx={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", bgcolor: "rgba(249,115,22,0.14)" }}>
+    <Box sx={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", bgcolor: "rgba(var(--color-primary-rgb),0.14)" }}>
       <Box component={LuGoal} sx={{ color: "primary.main", fontSize: 22, display: "block" }} />
     </Box>
   ) : (
@@ -79,7 +79,7 @@ function ResultsTab({ summary, progress, isCurrent }) {
             subtitle={c.reason || (settled ? "Ei pisteitä" : (c.pts > 0 ? "Pelatuista otteluista" : "Ei vielä pisteitä"))}
             trailing={<RowValue size={22} color={c.pts > 0 ? "primary.main" : "text.disabled"}>{signed(c.pts)}</RowValue>} />
         ))}
-        <Box sx={{ display: "flex", alignItems: "center", px: 1.75, py: 1.25, borderTop: "2px solid rgba(249,115,22,0.4)" }}>
+        <Box sx={{ display: "flex", alignItems: "center", px: 1.75, py: 1.25, borderTop: "2px solid rgba(var(--color-primary-rgb),0.4)" }}>
           <Box sx={{ flex: 1, fontFamily: "var(--font-family-display)", fontSize: 18, lineHeight: 1,
                 letterSpacing: "var(--font-display-tracking)", color: "primary.main" }}>Yhteensä</Box>
           <RowValue size={22}>{total}</RowValue>
@@ -135,7 +135,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, mode, onMode }) {
     <>
       <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 }}>Jakson eteneminen</Typography>
       <Box sx={{ mb: 1.25, px: 2, py: 1.5, borderRadius: "var(--radius-card)", display: "flex", alignItems: "center", justifyContent: "space-between",
-            bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.35)" }}>
+            bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
         <Box>
           <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "primary.main" }}>
             {isCurrent ? "Pisteesi tähän mennessä" : "Jakson pisteet"}
@@ -159,8 +159,8 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, mode, onMode }) {
           <ButtonBase key={k} onClick={() => onMode(k)}
             sx={{ px: 1.5, py: 0.55, borderRadius: 999, fontSize: 12.5, fontWeight: 800, lineHeight: 1,
                   color: mode === k ? "primary.main" : "text.disabled",
-                  bgcolor: mode === k ? "rgba(249,115,22,0.16)" : "transparent",
-                  border: `1px solid ${mode === k ? "rgba(249,115,22,0.45)" : "var(--color-surface-border)"}` }}>{label}</ButtonBase>
+                  bgcolor: mode === k ? "rgba(var(--color-primary-rgb),0.16)" : "transparent",
+                  border: `1px solid ${mode === k ? "rgba(var(--color-primary-rgb),0.45)" : "var(--color-surface-border)"}` }}>{label}</ButtonBase>
         ))}
       </Box>
       {events.length === 0 ? (
@@ -253,7 +253,7 @@ export default function LiigaRound() {
       <PageHead title={`Jakso ${targetRound + 1}`}
         right={dl != null && (
           <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1.25, py: 0.6, borderRadius: 999,
-                bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
+                bgcolor: "rgba(var(--color-primary-rgb),0.12)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
             <Box component={LuClock} sx={{ fontSize: 14, color: "primary.main", display: "block" }} />
             <Box component="span" sx={{ fontSize: 12.5, fontWeight: 800, color: "primary.main", whiteSpace: "nowrap" }}>{dl} pv jäljellä</Box>
           </Box>

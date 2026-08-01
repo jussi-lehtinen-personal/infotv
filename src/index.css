@@ -4,7 +4,7 @@
      paletin (musta = --color-bg, valkoinen = --color-secondary). */
   /* Pääväri johdetaan RGB-tokenista → brändimuutos = 1 rivi (--color-primary-rgb).
      Alfatasot: rgba(var(--color-primary-rgb), a). */
-  --color-primary-rgb:     249, 115, 22;               /* Oranssi — AHMA-brändi */
+  --color-primary-rgb:     240, 110, 30;               /* Ahma Orange #F06E1E — Kiekko-Ahma BrandBook */
   --color-primary:         rgb(var(--color-primary-rgb));
   --color-primary-dim:     rgba(var(--color-primary-rgb), 0.45);   /* Oranssi haalistuneena */
   --color-primary-glow:    rgba(var(--color-primary-rgb), 0.20);   /* Oranssi hover/glow */
@@ -14,7 +14,7 @@
   --color-accent:          rgba(255, 255, 255, 0.65);  /* Harmaa — toissijainen teksti */
   --color-muted:           rgba(255, 255, 255, 0.40);  /* Haalistunut */
 
-  --color-bg:              #111111;                    /* Sivun tausta */
+  --color-bg:              #15171B;                    /* Ink — Kiekko-Ahma BrandBook (sivun tausta) */
   --color-surface:         rgba(255, 255, 255, 0.03);  /* Kortti-tausta */
   --color-surface-border:  rgba(255, 255, 255, 0.14);  /* Kortti-reuna */
   --color-surface-divider: rgba(255, 255, 255, 0.08);  /* Sisäiset erottimet */
@@ -25,7 +25,7 @@
   --color-draw: #e8e8e8;
   --color-live: #4ade80;   /* Käynnissä / OK-tila (vaalea vihreä) */
   --color-info: #60a5fa;   /* Info / Jopox (sininen) */
-  --color-accent-yellow: #fbbf24;   /* Keltainen korostus (brändin Eye Yellow myöhemmin) */
+  --color-accent-yellow: #FFC21A;   /* Eye Yellow — Kiekko-Ahma BrandBook */
 
   /* === TYPOGRAFIA — KIOSKI (InfoTV) ===
      Näitä käytetään ainoastaan InfoTV-sivuilla (this_week, schedule,
@@ -112,14 +112,14 @@
   /* === TAUSTAGRADIENTI === */
   --bg-gradient:
     radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.1), transparent 55%),
-    linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
+    linear-gradient(180deg, #191b20 0%, #15171B 55%, #0e0f13 100%);
 }
 
 /* Globaali tap-highlight ja focus-väri — Android- ja iOS-default sininen
    ei sovi brändiin, käytetään AHMA-oranssin haaleampaa sävyä. Yksittäisten
    elementtien explicit :active/:hover -säännöt voivat ylikirjoittaa tämän. */
 * {
-  -webkit-tap-highlight-color: rgba(249, 115, 22, 0.22);
+  -webkit-tap-highlight-color: rgba(var(--color-primary-rgb), 0.22);
 }
 :focus-visible {
   outline: 2px solid var(--color-primary);
@@ -145,13 +145,13 @@
 html, #root {
   margin: 0;
   min-height: 100%;
-  background: #111111;
+  background: var(--color-bg);
 }
 
 body {
   margin: 0;
   min-height: 100%;
-  background: #111111;
+  background: var(--color-bg);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;

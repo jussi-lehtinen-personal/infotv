@@ -164,8 +164,8 @@ export default function LiigaEdit() {
       WebkitTapHighlightColor: "transparent", "&:focus, &.Mui-focusVisible": { outline: "none" },
       borderRadius: "14px", overflow: "hidden", transformOrigin: lifted ? "center" : "bottom center", zIndex: lifted ? 2 : 1,
       transform: `${lifted ? "scale(1.22) " : ""}rotate(${rotate}deg)`,
-      border: `1.5px solid ${isCap ? "rgba(249,115,22,0.95)" : "rgba(249,115,22,0.45)"}`,
-      boxShadow: isCap ? "0 10px 26px rgba(249,115,22,0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
+      border: `1.5px solid ${isCap ? "rgba(var(--color-primary-rgb),0.95)" : "rgba(var(--color-primary-rgb),0.45)"}`,
+      boxShadow: isCap ? "0 10px 26px rgba(var(--color-primary-rgb),0.4)" : "0 6px 16px rgba(0,0,0,0.45)",
       background: "linear-gradient(180deg, #2b2b2b 0%, #141414 100%)",
     };
     const press = pressProps(() => setMenuCard(c), () => ((c.id === captainId || captainLocked) ? undefined : setCapConfirm(c)));
@@ -267,8 +267,8 @@ export default function LiigaEdit() {
             display: "grid", placeItems: "center", gap: 0.5, WebkitTapHighlightColor: "transparent",
             "&:focus, &.Mui-focusVisible": { outline: "none" },
             color: teamOnly ? "primary.main" : "text.disabled",
-            border: `1.5px dashed ${teamOnly ? "rgba(249,115,22,0.6)" : "rgba(255,255,255,0.22)"}`,
-            bgcolor: teamOnly ? "rgba(249,115,22,0.06)" : "rgba(255,255,255,0.02)" }}>
+            border: `1.5px dashed ${teamOnly ? "rgba(var(--color-primary-rgb),0.6)" : "rgba(255,255,255,0.22)"}`,
+            bgcolor: teamOnly ? "rgba(var(--color-primary-rgb),0.06)" : "rgba(255,255,255,0.02)" }}>
       {teamOnly ? (
         <Box sx={{ display: "grid", placeItems: "center", gap: 0.75, px: 1, textAlign: "center" }}>
           <Box component={LuShieldCheck} sx={{ fontSize: 26, display: "block" }} />
@@ -345,7 +345,7 @@ export default function LiigaEdit() {
 
       {teamsNeeded > 0 && (
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center", mb: 1, py: 1, px: 1.5,
-              borderRadius: "var(--radius-item)", bgcolor: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.28)" }}>
+              borderRadius: "var(--radius-item)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.28)" }}>
           <Box component={LuShieldCheck} sx={{ fontSize: 16, color: "primary.main", display: "block", flexShrink: 0 }} />
           <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}>
             Joukkuekortteja {teamCount}/{minTeams} — lisää vielä {teamsNeeded}
@@ -545,8 +545,8 @@ const SheetAction = ({ icon: Icon, label, sub, danger, chevron, onClick, disable
         cursor: disabled ? "default" : "pointer",
         px: 1, py: 1.15, borderRadius: "var(--radius-item)", "&:hover": { bgcolor: disabled ? "transparent" : "rgba(255,255,255,0.04)" } }}>
     <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "var(--radius-small)", display: "grid", placeItems: "center",
-          bgcolor: danger ? "rgba(239,68,68,0.12)" : "rgba(249,115,22,0.12)",
-          border: `1px solid ${danger ? "rgba(239,68,68,0.28)" : "rgba(249,115,22,0.28)"}`,
+          bgcolor: danger ? "rgba(239,68,68,0.12)" : "rgba(var(--color-primary-rgb),0.12)",
+          border: `1px solid ${danger ? "rgba(239,68,68,0.28)" : "rgba(var(--color-primary-rgb),0.28)"}`,
           color: danger ? "#f87171" : "primary.main" }}>
       <Box component={Icon} sx={{ fontSize: 19, display: "block" }} />
     </Box>
@@ -561,7 +561,7 @@ const SheetAction = ({ icon: Icon, label, sub, danger, chevron, onClick, disable
 const SwapCard = ({ card, price, label, tone }) => (
   <Box sx={{ flex: 1, minWidth: 0, textAlign: "center", p: 1.5, borderRadius: "var(--radius-item)",
         bgcolor: "var(--color-surface)",
-        border: `1px solid ${tone === "out" ? "rgba(249,115,22,0.4)" : "var(--color-surface-border)"}` }}>
+        border: `1px solid ${tone === "out" ? "rgba(var(--color-primary-rgb),0.4)" : "var(--color-surface-border)"}` }}>
     <Box component="span" sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
           color: tone === "in" ? "var(--color-live)" : "#f87171" }}>{label}</Box>
     <Box sx={{ display: "flex", justifyContent: "center", my: 1 }}><CardAvatar card={card} size={62} /></Box>

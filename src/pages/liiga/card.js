@@ -71,7 +71,7 @@ const BarRow = ({ label, value, bar, max, coin, live }) => (
     </Box>
     <Box sx={{ height: 6, borderRadius: 3, bgcolor: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
       <Box sx={{ height: "100%", width: `${Math.max(3, (bar / max) * 100)}%`, borderRadius: 3,
-            background: coin ? "linear-gradient(90deg, #f97316, #e4610f)" : live ? "var(--color-primary)" : "var(--color-live)" }} />
+            background: coin ? "linear-gradient(90deg, #F06E1E, #e4610f)" : live ? "var(--color-primary)" : "var(--color-live)" }} />
     </Box>
   </Box>
 );
@@ -97,7 +97,7 @@ const RosterRow = ({ p }) => {
                 border: "1px solid var(--color-surface-border)", bgcolor: "#222" }} />
       ) : (
         <Box sx={{ width: 34, height: 34, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
-              bgcolor: gk ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.06)", border: "1px solid var(--color-surface-border)",
+              bgcolor: gk ? "rgba(var(--color-primary-rgb),0.15)" : "rgba(255,255,255,0.06)", border: "1px solid var(--color-surface-border)",
               fontWeight: 800, fontSize: 13, color: gk ? "primary.main" : "text.secondary" }}>{p.number || "–"}</Box>
       )}
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -122,7 +122,7 @@ const LineChart = ({ points, coin }) => {
   const y = (v) => P.t + (1 - (v - lo) / span) * (H - P.t - P.b);
   const d = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
   const last = points.length - 1;
-  const stroke = coin ? "#f97316" : "#22c55e";
+  const stroke = coin ? "#F06E1E" : "#22c55e";
   return (
     <Box component="svg" viewBox={`0 0 ${W} ${H}`} sx={{ width: "100%", height: "auto", display: "block" }}>
       {[lo, lo + span / 2, hi].map((t, i) => (
@@ -198,7 +198,7 @@ const PriceHistory = ({ history, current }) => {
           const pc = p && p.price ? ((ch / p.price) * 100).toFixed(1) : null;
           return (
             <Box key={h.live ? "nyt" : h.round} sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1.15,
-                  bgcolor: h.live ? "rgba(249,115,22,0.06)" : "transparent",
+                  bgcolor: h.live ? "rgba(var(--color-primary-rgb),0.06)" : "transparent",
                   borderBottom: "1px solid var(--color-surface-divider)", "&:last-of-type": { borderBottom: 0 } }}>
               <Box sx={{ width: 52, flexShrink: 0, fontSize: 12, fontWeight: h.live ? 800 : 400,
                     color: h.live ? "primary.main" : "text.disabled" }}>{h.live ? "Nyt" : shortDate(h.date)}</Box>
@@ -286,7 +286,7 @@ export default function LiigaCard() {
           <Box sx={{ position: "relative", display: "inline-flex" }}>
             {/* Team cards show just the Ahma logo — no orange ring (that's for round
                 photo/initials avatars). Players/goalies keep the ring. */}
-            <Box sx={card.kind === "team" ? {} : { borderRadius: "50%", boxShadow: "0 0 0 3px rgba(249,115,22,0.7)" }}><CardAvatar card={card} size={140} /></Box>
+            <Box sx={card.kind === "team" ? {} : { borderRadius: "50%", boxShadow: "0 0 0 3px rgba(var(--color-primary-rgb),0.7)" }}><CardAvatar card={card} size={140} /></Box>
             {card.photo && (
               <Box sx={{ position: "absolute", bottom: 2, right: 2, width: 46, height: 46, borderRadius: "50%",
                     bgcolor: "var(--color-bg)", display: "grid", placeItems: "center" }}>

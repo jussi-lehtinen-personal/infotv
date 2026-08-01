@@ -7,8 +7,8 @@ import { createTheme } from "@mui/material/styles";
 export const muiTheme = createTheme({
   palette: {
     mode: "dark",
-    primary: { main: "#f97316", contrastText: "#ffffff" }, // Ahma orange / --color-primary; white text on filled buttons
-    background: { default: "#111111", paper: "#1a1a1a" },
+    primary: { main: "#F06E1E", contrastText: "#ffffff" }, // Ahma Orange (BrandBook) / --color-primary; white text on filled buttons
+    background: { default: "#15171B", paper: "#1a1a1a" },
     text: { primary: "rgba(255,255,255,0.95)", secondary: "rgba(255,255,255,0.62)" },
     divider: "rgba(255,255,255,0.10)",
   },

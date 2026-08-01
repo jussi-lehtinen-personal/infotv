@@ -18,7 +18,7 @@ const hasAccount = (u) => !!(u && (u.hasPasskey || u.googleLinked));
 const Feature = ({ icon: Icon, title, text }) => (
   <Stack direction="row" spacing={1.75} sx={{ alignItems: "flex-start", width: "100%" }}>
     <Box sx={{ width: 42, height: 42, flexShrink: 0, borderRadius: "var(--radius-item)", display: "grid", placeItems: "center",
-          bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.3)" }}>
+          bgcolor: "rgba(var(--color-primary-rgb),0.12)", border: "1px solid rgba(var(--color-primary-rgb),0.3)" }}>
       <Box component={Icon} sx={{ fontSize: 21, color: "primary.main", display: "block" }} />
     </Box>
     <Box sx={{ minWidth: 0 }}>
@@ -51,7 +51,7 @@ export default function LiigaPromo() {
       </Box>
 
       <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
-        sx={{ width: "min(66vw, 240px)", height: "auto", mt: 2, filter: "drop-shadow(0 10px 30px rgba(249,115,22,0.25))" }} />
+        sx={{ width: "min(66vw, 240px)", height: "auto", mt: 2, filter: "drop-shadow(0 10px 30px rgba(var(--color-primary-rgb),0.25))" }} />
 
       <Typography sx={{ mt: 1.5, textAlign: "center", fontSize: 15.5, fontWeight: 600, color: "text.secondary", maxWidth: 440, lineHeight: 1.5 }}>
         Kiekko-Ahman oma fantasialiiga. Kokoa kortisto seuran joukkueista ja pelaajista — ja kerää pisteitä oikeista otteluista.
@@ -65,7 +65,7 @@ export default function LiigaPromo() {
 
       {/* Beta invite */}
       <Box sx={{ width: "100%", maxWidth: 440, mt: 4, p: 2.5, borderRadius: "var(--radius-card)", textAlign: "center",
-            bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.4)" }}>
+            bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.4)" }}>
         <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "primary.main" }}>Beta</Typography>
         <Typography sx={{ mt: 0.5, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
               fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>Beta on käynnissä</Typography>

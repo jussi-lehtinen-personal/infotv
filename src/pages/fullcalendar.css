@@ -53,7 +53,7 @@
 
 /*
 .fc {
-    background-color: #111111;
+    background-color: var(--color-bg, #15171B);
     color: #6b6b6b;
 }
 

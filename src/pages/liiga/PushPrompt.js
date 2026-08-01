@@ -38,7 +38,7 @@ export default function PushPrompt() {
   };
 
   return (
-    <Box sx={{ mb: 2, p: 1.75, borderRadius: "var(--radius-card)", bgcolor: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.35)" }}>
+    <Box sx={{ mb: 2, p: 1.75, borderRadius: "var(--radius-card)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
         <IconCircle icon={LuBell} size={40} />
         <Box sx={{ flex: 1, minWidth: 0 }}>

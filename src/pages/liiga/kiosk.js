@@ -154,7 +154,7 @@ export default function LiigaKiosk() {
               return (
                 <ListRow key={v.prizeId} divider
                   leading={<IconCircle icon={redeemed ? LuCheck : LuTrophy}
-                    tint={redeemed ? "rgba(255,255,255,0.06)" : "rgba(249,115,22,0.15)"}
+                    tint={redeemed ? "rgba(255,255,255,0.06)" : "rgba(var(--color-primary-rgb),0.15)"}
                     color={redeemed ? "text.disabled" : "primary.main"} />}
                   title={v.prize}
                   subtitle={`${scopeLabel(v)} · Sija ${v.rank}`}

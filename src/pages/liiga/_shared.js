@@ -70,8 +70,8 @@ export const CardAvatar = ({ card, size, label: labelOverride }) => {
   return (
     <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0,
                display: "flex", alignItems: "center", justifyContent: "center",
-               background: isTeam ? "linear-gradient(160deg, rgba(249,115,22,0.28), rgba(249,115,22,0.08))" : "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
-               border: `1px solid ${isTeam ? "rgba(249,115,22,0.45)" : "rgba(255,255,255,0.12)"}`,
+               background: isTeam ? "linear-gradient(160deg, rgba(var(--color-primary-rgb),0.28), rgba(var(--color-primary-rgb),0.08))" : "linear-gradient(160deg, #3a3a3a, #1b1b1b)",
+               border: `1px solid ${isTeam ? "rgba(var(--color-primary-rgb),0.45)" : "rgba(255,255,255,0.12)"}`,
                fontWeight: 800, fontSize: Math.round(size * (label.length > 2 ? 0.3 : 0.36)),
                color: isTeam ? "#fff" : "text.primary" }}>
       <Box component="span" sx={{ lineHeight: 1, transform: "translateY(0.06em)", letterSpacing: "0.02em" }}>{label}</Box>
@@ -116,7 +116,7 @@ export const gameResult = (a, o) => {
 };
 
 // A tinted round icon (CTA / list-row icons). Pass the react-icons component.
-export const IconCircle = ({ icon: Icon, size = 40, tint = "rgba(249,115,22,0.15)", color = "primary.main" }) => (
+export const IconCircle = ({ icon: Icon, size = 40, tint = "rgba(var(--color-primary-rgb),0.15)", color = "primary.main" }) => (
   <Box sx={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: tint }}>
     <Box component={Icon} sx={{ fontSize: Math.round(size * 0.48), color, display: "block" }} />
   </Box>
@@ -214,9 +214,9 @@ export const ListRow = ({ leading, title, titleRight, subtitle, trailing, onClic
   );
   const base = { display: "flex", alignItems: "center", gap: 1.5, width: "100%", px: 1.75, py: 1.25,
         borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0,
-        bgcolor: highlight ? "rgba(249,115,22,0.10)" : "transparent", ...sx };
+        bgcolor: highlight ? "rgba(var(--color-primary-rgb),0.10)" : "transparent", ...sx };
   return onClick
-    ? <ButtonBase onClick={onClick} sx={{ ...base, textAlign: "left", "&:hover": { bgcolor: highlight ? "rgba(249,115,22,0.14)" : "rgba(255,255,255,0.03)" } }}>{inner}</ButtonBase>
+    ? <ButtonBase onClick={onClick} sx={{ ...base, textAlign: "left", "&:hover": { bgcolor: highlight ? "rgba(var(--color-primary-rgb),0.14)" : "rgba(255,255,255,0.03)" } }}>{inner}</ButtonBase>
     : <Box sx={base}>{inner}</Box>;
 };
 
@@ -279,8 +279,8 @@ export const CoinPill = ({ value, total }) => (
       px: 1.5,
       py: 0.7,
       borderRadius: 999,
-      bgcolor: "rgba(249,115,22,0.12)",
-      border: "1px solid rgba(249,115,22,0.35)",
+      bgcolor: "rgba(var(--color-primary-rgb),0.12)",
+      border: "1px solid rgba(var(--color-primary-rgb),0.35)",
     }}
   >
     <Box
@@ -300,8 +300,8 @@ export const PricePill = ({ value, size = 15, sx }) => (
     sx={{
       display: "inline-flex", alignItems: "center", alignSelf: "center",
       px: 1.25, py: "6px", borderRadius: 999, flexShrink: 0,
-      background: "linear-gradient(180deg, #f97316, #e4610f)",
-      boxShadow: "0 3px 10px rgba(249,115,22,0.35)",
+      background: "linear-gradient(180deg, #F06E1E, #e4610f)",
+      boxShadow: "0 3px 10px rgba(var(--color-primary-rgb),0.35)",
       ...sx,
     }}
   >
@@ -369,7 +369,7 @@ export const EmptyState = ({ icon: Icon, title, text, action, sx }) => (
   <Screen sx={{ pt: 6, textAlign: "center", ...sx }}>
     {Icon && (
       <Box sx={{ width: 72, height: 72, mx: "auto", mb: 2, borderRadius: "50%", display: "grid", placeItems: "center",
-            bgcolor: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)" }}>
+            bgcolor: "rgba(var(--color-primary-rgb),0.12)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
         <Box component={Icon} sx={{ fontSize: 32, color: "primary.main", display: "block" }} />
       </Box>
     )}
@@ -383,8 +383,8 @@ export const EmptyState = ({ icon: Icon, title, text, action, sx }) => (
 // to make it a button. THE accent surface — don't hand-roll the gradient per page.
 export const AccentPanel = ({ children, onClick, sx }) => {
   const base = { display: "flex", alignItems: "center", gap: 1.75, width: "100%", textAlign: "left", p: 2,
-    borderRadius: "var(--radius-card)", background: "linear-gradient(135deg, rgba(249,115,22,0.20), rgba(249,115,22,0.04))",
-    border: "1px solid rgba(249,115,22,0.5)", ...sx };
+    borderRadius: "var(--radius-card)", background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.20), rgba(var(--color-primary-rgb),0.04))",
+    border: "1px solid rgba(var(--color-primary-rgb),0.5)", ...sx };
   return onClick
     ? <ButtonBase onClick={onClick} sx={base}>{children}</ButtonBase>
     : <Box sx={base}>{children}</Box>;
@@ -395,7 +395,7 @@ export const AccentPanel = ({ children, onClick, sx }) => {
 export const PillButton = ({ active, children, sx, ...rest }) => (
   <ButtonBase {...rest} sx={{ px: 1.5, py: 0.7, borderRadius: 999, whiteSpace: "nowrap", fontSize: 13, fontWeight: 700,
         border: "1px solid", borderColor: active ? "primary.main" : "var(--color-surface-border)",
-        bgcolor: active ? "rgba(249,115,22,0.15)" : "transparent",
+        bgcolor: active ? "rgba(var(--color-primary-rgb),0.15)" : "transparent",
         color: active ? "primary.main" : "text.secondary", ...sx }}>
     {children}
   </ButtonBase>

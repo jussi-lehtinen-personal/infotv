@@ -98,7 +98,7 @@ const statTableSx = {
   "& td:nth-of-type(2), & th:nth-of-type(2)": { width: "100%" },
   "& td:last-of-type, & th:last-of-type": { pr: 2 },
 };
-const ahmaRowSx = (me) => (me ? { bgcolor: "rgba(249,115,22,0.12)" } : null);
+const ahmaRowSx = (me) => (me ? { bgcolor: "rgba(var(--color-primary-rgb),0.12)" } : null);
 
 // Team name that keeps the club name and lets only the variant ("lisänimi" —
 // colour word like Sininen/Musta) drop to a dimmer second line when space is tight.

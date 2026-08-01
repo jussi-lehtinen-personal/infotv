@@ -106,7 +106,7 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
   const inner = (
     <>
       <IconCircle icon={Icon} size={40}
-        tint={highlight ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.06)"}
+        tint={highlight ? "rgba(var(--color-primary-rgb),0.18)" : "rgba(255,255,255,0.06)"}
         color={highlight ? "primary.main" : "text.secondary"} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.25, color: "text.primary" }}>{endDone ? "Jakso päättyi" : ev.title}</Typography>
@@ -140,8 +140,8 @@ export function EventRow({ ev, simDate, highlight, points, onClick, sx, own }) {
     borderRadius: "var(--radius-item)", opacity: played ? 0.6 : 1,
     // `own` (your game) OR `highlight` (next-up / your upcoming) → full orange border.
     // `highlight` also tints the background; played rows dim via opacity.
-    border: `1px solid ${highlight || own ? "rgba(249,115,22,0.5)" : "var(--color-surface-border)"}`,
-    bgcolor: highlight ? "rgba(249,115,22,0.08)" : "var(--color-surface)",
+    border: `1px solid ${highlight || own ? "rgba(var(--color-primary-rgb),0.5)" : "var(--color-surface-border)"}`,
+    bgcolor: highlight ? "rgba(var(--color-primary-rgb),0.08)" : "var(--color-surface)",
     ...sx,
   };
   return onClick

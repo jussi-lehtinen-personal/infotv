@@ -94,8 +94,8 @@ const selectSx = {
 const menuProps = {
   PaperProps: { sx: { bgcolor: "#1b1b1b", border: "1px solid var(--color-surface-border)", maxHeight: 320,
     "& .MuiMenuItem-root": { color: "text.primary", fontSize: 14 },
-    "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(249,115,22,0.2)" },
-    "& .MuiMenuItem-root.Mui-selected:hover": { bgcolor: "rgba(249,115,22,0.28)" } } },
+    "& .MuiMenuItem-root.Mui-selected": { bgcolor: "rgba(var(--color-primary-rgb),0.2)" },
+    "& .MuiMenuItem-root.Mui-selected:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.28)" } } },
 };
 // Score number: big, centred horizontally AND vertically (symmetric padding so
 // the dropdown arrow doesn't push the digit off-centre).

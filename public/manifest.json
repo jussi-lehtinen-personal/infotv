@@ -25,6 +25,6 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#111111",
-  "background_color": "#111111"
+  "theme_color": "#15171B",
+  "background_color": "#15171B"
 }

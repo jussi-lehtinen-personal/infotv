@@ -43,7 +43,7 @@ export default function LiigaRewards() {
 
       {/* Beta notice — prizes are NOT actually handed out during the test season. */}
       <Box sx={{ mb: 2.5, p: 1.75, borderRadius: "var(--radius-item)", display: "flex", alignItems: "flex-start", gap: 1.25,
-            bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.35)" }}>
+            bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
         <Box component="span" sx={{ fontSize: 20, lineHeight: 1.2, flexShrink: 0 }}>🧪</Box>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.3 }}>Beta-testipeli</Typography>
@@ -56,7 +56,7 @@ export default function LiigaRewards() {
       {/* Identity QR — shown when there's something to claim. */}
       {issued.length > 0 && qrUrl && (
         <Box sx={{ mb: 3, p: 2.5, borderRadius: "var(--radius-card)", textAlign: "center",
-              bgcolor: "rgba(249,115,22,0.10)", border: "1px solid rgba(249,115,22,0.35)" }}>
+              bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
           <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "primary.main", mb: 0.5 }}>
             {issued.length === 1 ? "Sinulla on 1 lunastamaton palkinto" : `Sinulla on ${issued.length} lunastamatonta palkintoa`}
           </Typography>
@@ -77,7 +77,7 @@ export default function LiigaRewards() {
             return (
               <ListRow key={v.prizeId} divider
                 leading={<IconCircle icon={redeemed ? LuCheck : LuTrophy}
-                  tint={redeemed ? "rgba(255,255,255,0.06)" : "rgba(249,115,22,0.15)"}
+                  tint={redeemed ? "rgba(255,255,255,0.06)" : "rgba(var(--color-primary-rgb),0.15)"}
                   color={redeemed ? "text.disabled" : "primary.main"} />}
                 title={v.prize}
                 subtitle={`${scopeLabel(v)} · ${rankLabel(v.rank)}`}

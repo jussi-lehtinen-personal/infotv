@@ -169,7 +169,7 @@ export default function CardList({ cards, settled, roundLive, onPick, canPick, h
               opacity: ok ? 1 : 0.38,
               // Owned cards: faint orange fill + a 3px inset left accent bar (no layout
               // shift). Same orange as the ranking's "your row" highlight.
-              bgcolor: owned ? "rgba(249,115,22,0.08)" : "transparent",
+              bgcolor: owned ? "rgba(var(--color-primary-rgb),0.08)" : "transparent",
               boxShadow: owned ? "inset 3px 0 0 0 var(--color-primary)" : "none",
               borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0 };
             const body = (
@@ -205,7 +205,7 @@ export default function CardList({ cards, settled, roundLive, onPick, canPick, h
             );
             return ok ? (
               <ButtonBase key={c.id} onClick={() => onPick && onPick(c)}
-                sx={{ ...rowSx, "&:hover": { bgcolor: owned ? "rgba(249,115,22,0.13)" : "rgba(255,255,255,0.03)" } }}>{body}</ButtonBase>
+                sx={{ ...rowSx, "&:hover": { bgcolor: owned ? "rgba(var(--color-primary-rgb),0.13)" : "rgba(255,255,255,0.03)" } }}>{body}</ButtonBase>
             ) : (
               <Box key={c.id} sx={rowSx}>{body}</Box>
             );

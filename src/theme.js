@@ -15,5 +15,5 @@ export const themeCSS = ``;
  * AHMA brand colour for JS usage (e.g. canvas drawing). Keep in sync with the
  * --color-primary variable.
  */
-export const COLOR_PRIMARY  = '#f97316';
-export const COLOR_PRIMARY_DIM  = 'rgba(249, 115, 22, 0.45)';
+export const COLOR_PRIMARY  = '#F06E1E';
+export const COLOR_PRIMARY_DIM  = 'rgba(240, 110, 30, 0.45)';
