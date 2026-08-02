@@ -11,7 +11,9 @@ import { isLiveMatch } from "../../hooks/useHeroMatches";
 
 moment.locale("fi");
 
-const SLOTS = 15; // 3 columns × 5 rows
+const COLS = 3;
+const ROWS = 5;
+const SLOTS = COLS * ROWS; // 3 columns × 5 rows
 const WIN = "var(--color-win)";
 const LOSS = "var(--color-loss)";
 const DRAW = "var(--color-draw)";
@@ -78,18 +80,43 @@ export default function InfoTvOttelut() {
     return { n: games.length, played, w, l, d, gf, ga };
   }, [games]);
 
-  // Build the 15 grid items: games first (column-by-column via CSS), then filler
-  // modules to fill the rest of the grid.
-  const items = useMemo(() => {
-    const g = games.slice(0, SLOTS).map((m, i) => ({ type: "game", key: m.id ?? `g${i}`, m }));
-    const out = [...g];
+  // Build 3 columns × 5 rows. Games fill column-by-column (col0 top→bottom,
+  // then col1…) exactly like the CSS grid did; leftover slots get filler
+  // modules. Each game item carries the progress/day metadata the rail needs.
+  const columns = useMemo(() => {
+    const gameItems = games.slice(0, SLOTS).map((m, i) => {
+      const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
+      const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
+      const done = Number(m.finished) > 0 && !isNaN(hg) && !isNaN(ag);
+      const live = isLiveMatch(m);
+      return { type: "game", key: m.id ?? `g${i}`, m, wd: md.isValid() ? md.format("dd").toUpperCase() : "", done, live };
+    });
+    const firstUpcoming = gameItems.findIndex((g) => !g.done && !g.live);
+    gameItems.forEach((g, i) => { g.isNext = i === firstUpcoming; });
+
     const fillers = [];
-    if (games.length > 0) fillers.push({ type: "summary", key: "sum" });
-    for (let i = 0; i < partners.length; i++) fillers.push({ type: "partner", key: `p${i}`, p: partners[i] });
-    fillers.push({ type: "follow", key: "follow" });
+    if (games.length > 0) fillers.push({ type: "summary" });
+    for (let i = 0; i < partners.length; i++) fillers.push({ type: "partner", p: partners[i] });
+    fillers.push({ type: "follow" });
+
+    const out = [...gameItems];
     let fi = 0;
     while (out.length < SLOTS) { out.push({ ...fillers[fi % fillers.length], key: `f${out.length}` }); fi++; }
-    return out;
+
+    const cols = [];
+    for (let c = 0; c < COLS; c++) cols.push(out.slice(c * ROWS, c * ROWS + ROWS));
+
+    // Day label per column: always label the column's first game, plus any game
+    // where the weekday changes from the game above it in the same column.
+    for (const col of cols) {
+      let prevWd = null;
+      for (const it of col) {
+        if (it.type !== "game") continue;
+        if (prevWd === null || it.wd !== prevWd) it.dayLabel = it.wd;
+        prevWd = it.wd;
+      }
+    }
+    return cols;
   }, [games, partners]);
 
   const loading = !isSeasonLoaded() && games.length === 0;
@@ -100,12 +127,50 @@ export default function InfoTvOttelut() {
       <style>{css}</style>
       <Masthead title="KOTIOTTELUT" meta={weekRange} />
 
-      <div className="ok-grid">
-        {loading
-          ? <div className="ok-empty">Ladataan otteluita…</div>
-          : items.map((it) => <Cell key={it.key} it={it} summary={summary} />)}
-      </div>
+      {loading ? (
+        <div className="ok-grid"><div className="ok-empty">Ladataan otteluita…</div></div>
+      ) : (
+        <div className="ok-grid">
+          {columns.map((col, ci) => (
+            <div className="ok-col" key={ci}>
+              <div className="ok-cells">
+                {col.map((it) => (
+                  <div className="ok-cellwrap" key={it.key}><Cell it={it} summary={summary} /></div>
+                ))}
+              </div>
+              <Rail col={col} />
+            </div>
+          ))}
+        </div>
+      )}
     </InfoTvStage>
+  );
+}
+
+// GameZone jakso-style progress rail down the right edge of a column: one node
+// per game (played = solid orange, next = orange ring, upcoming = dim), joined
+// by segments coloured by progress, with a weekday pill where the day changes.
+function Rail({ col }) {
+  return (
+    <div className="ok-rail">
+      {col.map((it, li) => {
+        if (it.type !== "game") return <div className="ok-railslot" key={li} />;
+        const prev = col[li - 1], next = col[li + 1];
+        const upConnect = prev && prev.type === "game";
+        const downConnect = next && next.type === "game";
+        const upDone = upConnect && (prev.done || prev.live);
+        const downDone = it.done || it.live;
+        const node = it.live ? "ok-node--live" : it.done ? "ok-node--done" : it.isNext ? "ok-node--next" : "ok-node--todo";
+        return (
+          <div className="ok-railslot" key={li}>
+            {upConnect && <span className={"ok-seg ok-seg--up " + (upDone ? "ok-seg--done" : "ok-seg--todo")} />}
+            {downConnect && <span className={"ok-seg ok-seg--down " + (downDone ? "ok-seg--done" : "ok-seg--todo")} />}
+            <span className={"ok-node " + node} />
+            {it.dayLabel && <span className="ok-day">{it.dayLabel}</span>}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -118,7 +183,6 @@ function Cell({ it, summary }) {
 
 function MatchCell({ m }) {
   const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
-  const wd = md.isValid() ? md.format("dd").toUpperCase() : "";
   const time = md.isValid() ? md.format("HH:mm") : "";
   const level = simplifyLevel(m.level ?? "");
   const live = isLiveMatch(m);
@@ -138,7 +202,7 @@ function MatchCell({ m }) {
     <div className="ok-card">
       <div className="ok-line" style={{ background: line }} />
       <div className="ok-head">
-        <span className="ok-time"><LuClock className="ok-ic" /><b>{wd}</b> {time}</span>
+        <span className="ok-time"><LuClock className="ok-ic" />{time}</span>
         {level && <span className="ok-level">{level}</span>}
         {live && <span className="ok-livebadge">LIVE</span>}
       </div>
@@ -194,8 +258,28 @@ function FollowCell() {
 }
 
 const css = `
-.ok-grid { position:absolute; top:110px; bottom:32px; left:40px; right:40px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:repeat(5,minmax(0,1fr)); grid-auto-flow:column; gap:16px; z-index:2; }
-.ok-empty { grid-column:1 / -1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:60px; color:rgba(255,255,255,0.32); }
+.ok-grid { position:absolute; top:110px; bottom:32px; left:40px; right:40px; display:flex; gap:16px; z-index:2; }
+.ok-empty { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:60px; color:rgba(255,255,255,0.32); }
+
+.ok-col { flex:1; min-width:0; display:flex; gap:10px; }
+.ok-cells { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.ok-cellwrap { flex:1; min-height:0; display:flex; }
+.ok-cellwrap > * { flex:1; min-width:0; }
+
+/* progress rail */
+.ok-rail { flex:0 0 40px; display:flex; flex-direction:column; gap:16px; }
+.ok-railslot { flex:1; position:relative; }
+.ok-seg { position:absolute; left:50%; transform:translateX(-50%); width:3px; border-radius:2px; }
+.ok-seg--up { top:-8px; height:calc(50% + 8px); }
+.ok-seg--down { top:50%; bottom:-8px; }
+.ok-seg--done { background:${ORANGE}; }
+.ok-seg--todo { background:rgba(255,255,255,0.14); }
+.ok-node { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:15px; height:15px; border-radius:50%; box-sizing:border-box; z-index:2; }
+.ok-node--done { background:${ORANGE}; border:2px solid ${ORANGE}; }
+.ok-node--live { background:${ORANGE}; border:2px solid ${ORANGE}; box-shadow:0 0 0 5px rgba(240,110,30,0.28); }
+.ok-node--next { background:#141418; border:3px solid ${ORANGE}; width:17px; height:17px; }
+.ok-node--todo { background:#141418; border:2px solid rgba(255,255,255,0.3); }
+.ok-day { position:absolute; left:50%; transform:translateX(-50%); top:6px; font-family:${FONT_DISPLAY}; font-size:20px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; background:rgba(9,9,11,0.9); padding:2px 6px 1px; border-radius:6px; z-index:3; white-space:nowrap; }
 
 .ok-card { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; gap:7px; padding:11px 20px 11px 24px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-line { position:absolute; left:0; top:11px; bottom:11px; width:5px; border-radius:0 3px 3px 0; }
@@ -203,7 +287,6 @@ const css = `
 .ok-head { display:flex; align-items:center; gap:11px; }
 .ok-ic { width:18px; height:18px; color:${STEEL}; flex-shrink:0; }
 .ok-time { display:flex; align-items:center; gap:7px; font-family:${FONT_BODY}; font-weight:700; font-size:21px; line-height:1; color:var(--gz-text-primary, #fff); }
-.ok-time b { color:${ORANGE}; font-weight:800; }
 .ok-level { font-family:${FONT_BODY}; font-weight:600; font-size:17px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.18); border-radius:7px; padding:1px 9px; }
 .ok-livebadge { margin-left:auto; font-family:${FONT_BODY}; font-weight:800; font-size:16px; letter-spacing:0.06em; color:${LOSS}; }
 
