@@ -74,10 +74,10 @@ export function Backdrop() {
  * radial glow and a strong left-to-right dim so text stays readable. Assets from
  * the BrandBook logopankki (public/infotv/).
  */
-export function HeroBackdrop() {
+export function HeroBackdrop({ calm }) {
   return (
     <>
-      <div style={{ position: "absolute", inset: 0, background: "#0b0b0d url('/infotv/hero_bg.webp') center/cover no-repeat" }} />
+      <div style={{ position: "absolute", inset: 0, background: `#0b0b0d url('/infotv/${calm ? "hero_bg_calm" : "hero_bg"}.webp') center/cover no-repeat` }} />
       {/* Slight extra dim on the left so titles/cards keep contrast. */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(8,8,10,0.6) 0%, rgba(8,8,10,0.22) 42%, rgba(8,8,10,0) 66%)", pointerEvents: "none" }} />
     </>
@@ -129,7 +129,7 @@ export function Masthead({ title, meta }) {
         <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 104, height: 104, objectFit: "contain" }} />
         <div style={{ fontFamily: FONT_DISPLAY, fontSize: 60, lineHeight: 0.9, letterSpacing: "0.04em", color: "#fff", transform: "translateY(0.07em)" }}>{title}</div>
       </div>
-      {meta && <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, letterSpacing: "0.06em", color: STEEL }}>{meta}</div>}
+      {meta && <div style={{ fontFamily: FONT_DISPLAY, fontSize: 36, letterSpacing: "0.08em", color: STEEL, transform: "translateY(0.06em)" }}>{meta}</div>}
     </div>
   );
 }
@@ -153,7 +153,7 @@ html, body, #root { margin:0; padding:0; width:100%; height:100%; background:#00
 .itv-viewport { position:fixed; inset:0; background:#000; overflow:hidden; -webkit-tap-highlight-color:transparent; }
 /* Signage: no keyboard/mouse focus rings anywhere on the stage. */
 .itv-viewport *:focus, .itv-viewport *:focus-visible, .itv-viewport a:focus, .itv-viewport a:active { outline:none !important; box-shadow:none !important; }
-.itv-viewport a { -webkit-tap-highlight-color:transparent; }
+.itv-viewport a, .itv-viewport a:link, .itv-viewport a:visited, .itv-viewport a:hover, .itv-viewport a:active { text-decoration:none !important; color:inherit; -webkit-tap-highlight-color:transparent; }
 .itv-stage {
   position:absolute; top:50%; left:50%;
   width:${STAGE_W}px; height:${STAGE_H}px;

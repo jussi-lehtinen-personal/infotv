@@ -32,7 +32,6 @@ export default function InfoTvKotipeli() {
   }, [snapshot]);
 
   const away = match ? splitTeamName(match.away ?? "") : null;
-  const dayName = match ? moment(match.date).format("dddd").toUpperCase() : "";
   const dateStr = match ? moment(match.date).format("D.M.YYYY") : "";
   const timeStr = match ? moment(match.date).format("HH:mm") : "";
 
@@ -61,20 +60,11 @@ export default function InfoTvKotipeli() {
           </div>
 
           <div className="kp-info">
-            <div className="kp-info-cell">
-              <LuCalendarDays className="kp-info-ic" />
-              <div className="kp-info-txt"><span>{dayName}</span><b>{dateStr}</b></div>
-            </div>
+            <div className="kp-info-cell"><LuCalendarDays className="kp-info-ic" /><b className="kp-info-val">{dateStr}</b></div>
             <div className="kp-info-sep" />
-            <div className="kp-info-cell">
-              <LuClock className="kp-info-ic" />
-              <div className="kp-info-txt"><span>Klo</span><b>{timeStr}</b></div>
-            </div>
+            <div className="kp-info-cell"><LuClock className="kp-info-ic" /><b className="kp-info-val">{timeStr}</b></div>
             <div className="kp-info-sep" />
-            <div className="kp-info-cell">
-              <LuMapPin className="kp-info-ic" />
-              <div className="kp-info-txt"><span>Valkeakosken</span><b>Jäähalli</b></div>
-            </div>
+            <div className="kp-info-cell"><LuMapPin className="kp-info-ic" /><b className="kp-info-val">Wareena</b></div>
           </div>
 
           <div className="kp-entry">Liput 5 € &nbsp;·&nbsp; Alle 15 v. ilmaiseksi</div>
@@ -94,7 +84,7 @@ const css = `
 .kp-level { display:flex; align-items:center; gap:22px; font-family:${FONT_BODY}; font-weight:800; font-size:30px; letter-spacing:0.16em; text-transform:uppercase; color:#fff; }
 .kp-dash { width:44px; height:3px; background:${ORANGE}; }
 
-.kp-teams { display:flex; align-items:flex-start; justify-content:center; gap:96px; margin:6px 0; }
+.kp-teams { display:flex; align-items:flex-start; justify-content:center; gap:172px; margin:6px 0; }
 .kp-team { display:flex; flex-direction:column; align-items:center; gap:22px; }
 .kp-logo { width:232px; height:232px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; padding:34px; box-sizing:border-box; box-shadow:0 12px 44px rgba(0,0,0,0.6); }
 .kp-logo img { max-width:100%; max-height:100%; object-fit:contain; }
@@ -102,12 +92,10 @@ const css = `
 .kp-vs { font-family:${FONT_DISPLAY}; font-size:112px; line-height:1; letter-spacing:0.05em; color:${ORANGE}; margin-top:58px; }
 
 .kp-info { display:flex; align-items:stretch; gap:0; border:1.5px solid rgba(255,255,255,0.18); border-radius:18px; background:rgba(16,16,19,0.6); padding:6px 0; }
-.kp-info-cell { display:flex; align-items:center; gap:20px; padding:16px 46px; }
+.kp-info-cell { display:flex; align-items:center; gap:22px; padding:18px 52px; }
 .kp-info-ic { width:46px; height:46px; flex-shrink:0; color:${ORANGE}; }
-.kp-info-txt { text-align:left; line-height:1.05; }
-.kp-info-txt span { display:block; font-family:${FONT_BODY}; font-weight:700; font-size:21px; letter-spacing:0.14em; text-transform:uppercase; color:${STEEL}; }
-.kp-info-txt b { display:block; font-family:${FONT_DISPLAY}; font-size:44px; letter-spacing:0.06em; color:#fff; margin-top:4px; }
-.kp-info-sep { width:1.5px; background:rgba(255,255,255,0.14); margin:12px 0; }
+.kp-info-val { font-family:${FONT_DISPLAY}; font-size:50px; letter-spacing:0.06em; color:#fff; }
+.kp-info-sep { width:1.5px; background:rgba(255,255,255,0.14); margin:14px 0; }
 
 .kp-entry { font-family:${FONT_BODY}; font-weight:700; font-size:30px; letter-spacing:0.12em; text-transform:uppercase; color:${STEEL}; margin-top:4px; }
 

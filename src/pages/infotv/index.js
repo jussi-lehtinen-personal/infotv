@@ -86,13 +86,13 @@ const css = `
 .hub { position:absolute; inset:0; overflow:hidden; font-family:${FONT_BODY}; }
 
 .hub-clock { position:absolute; top:46px; right:56px; text-align:right; z-index:2; line-height:1; }
-.hub-clock-date { font-family:${FONT_BODY}; font-weight:700; font-size:22px; letter-spacing:0.14em; color:${STEEL}; }
+.hub-clock-date { font-family:${FONT_BODY}; font-weight:700; font-size:22px; letter-spacing:0.05em; color:${STEEL}; }
 .hub-clock-time { font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.04em; color:#fff; margin-top:6px; }
 
 /* ── hero (block centred, text left-aligned) ── */
-.hub-hero { position:absolute; top:150px; left:56px; right:56px; display:flex; justify-content:flex-start; z-index:2; }
+.hub-hero { position:absolute; top:178px; left:56px; right:56px; display:flex; justify-content:flex-start; z-index:2; }
 .hub-hero-inner { display:inline-block; text-align:left; }
-.hub-eyebrow { display:flex; align-items:center; gap:18px; font-family:${FONT_BODY}; font-weight:800; font-size:34px; letter-spacing:0.34em; text-transform:uppercase; color:${ORANGE}; margin-bottom:6px; }
+.hub-eyebrow { display:flex; align-items:center; gap:18px; font-family:${FONT_BODY}; font-weight:800; font-size:33px; letter-spacing:0.2em; text-transform:uppercase; color:${ORANGE}; margin-bottom:10px; }
 .hub-eyebrow-line { width:64px; height:4px; background:${ORANGE}; flex-shrink:0; }
 .hub-headline { font-family:${FONT_DISPLAY}; line-height:0.9; letter-spacing:0.02em; color:#fff; text-shadow:0 8px 40px rgba(0,0,0,0.6); white-space:nowrap; }
 .hub-gz { font-size:188px; }

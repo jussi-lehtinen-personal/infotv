@@ -139,7 +139,7 @@ function InfoTvJaavuorot() {
                     {d.events.map((e) => {
                       const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
                       const w = 100 / e.lanes;
-                      const short = e.endMin - e.startMin <= 30; // ≤30 min → name inline after the time
+                      const short = e.endMin - e.startMin < 50; // < 50 min → name inline after the time
                       return (
                         <div key={e.id} className={"jv-ev" + (short ? " jv-ev--short" : "")} style={{
                           top: y(e.startMin) + "%", height: `calc(${y(e.endMin) - y(e.startMin)}% - 3px)`,
@@ -175,18 +175,18 @@ function tint(hex) {
 export default InfoTvJaavuorot;
 
 const css = `
-.jv-cal { position:absolute; top:116px; bottom:30px; left:40px; right:40px; display:flex; flex-direction:column; }
+.jv-cal { position:absolute; top:116px; bottom:30px; left:22px; right:34px; display:flex; flex-direction:column; }
 .jv-msg { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.06em; color:${STEEL}; }
 
 .jv-head { flex:0 0 auto; display:flex; padding-bottom:8px; }
-.jv-axishead { width:64px; flex:0 0 auto; }
+.jv-axishead { width:50px; flex:0 0 auto; }
 .jv-dayhead { flex:1; display:flex; align-items:baseline; gap:12px; padding-left:12px; }
 .jv-dayname { font-family:${FONT_DISPLAY}; font-size:30px; letter-spacing:0.05em; color:#fff; text-transform:uppercase; }
 .jv-daydate { font-family:${FONT_BODY}; font-weight:700; font-size:20px; color:${STEEL}; }
 
 .jv-body { flex:1 1 auto; min-height:0; display:flex; position:relative; }
-.jv-axis { width:64px; flex:0 0 auto; position:relative; }
-.jv-hour { position:absolute; right:10px; transform:translateY(-50%); font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:${STEEL}; }
+.jv-axis { width:50px; flex:0 0 auto; position:relative; }
+.jv-hour { position:absolute; right:8px; transform:translateY(-50%); font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:${STEEL}; }
 .jv-cols { flex:1 1 auto; position:relative; display:flex; }
 .jv-gridline { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
 .jv-vline { position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.05); }
