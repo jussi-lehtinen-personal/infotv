@@ -38,14 +38,12 @@ function PodCard({ r, idx }) {
   return (
     <div className={"tl-pod" + (top ? " tl-pod--first" : "")}>
       <div className="tl-pod-rank" style={{ color: c }}>{r.rank}</div>
-      <Avatar url={r.avatar} name={r.nickname} size={78} ring={c} />
+      <Avatar url={r.avatar} name={r.nickname} size={118} ring={c} />
       <div className="tl-pod-name">
         {first && <span className="tl-pod-first">{first}</span>}
         <span className="tl-pod-last">{last}</span>
       </div>
-      <div className="tl-pod-pts" style={top ? { color: ORANGE } : undefined}>
-        {r.total}<span>p</span>
-      </div>
+      <div className="tl-pod-pts" style={top ? { color: ORANGE } : undefined}>{r.total}</div>
       <Crown className="tl-pod-crown" style={{ color: c }} />
     </div>
   );
@@ -98,7 +96,7 @@ export default function InfoTvTilastot() {
                   <div className="tl-row-rank">{r.rank}</div>
                   <Avatar url={r.avatar} name={r.nickname} size={42} ring="rgba(255,255,255,0.14)" />
                   <div className="tl-row-name">{r.nickname}</div>
-                  <div className="tl-row-pts">{r.total}<span>p</span></div>
+                  <div className="tl-row-pts">{r.total}</div>
                 </div>
               ))}
             </div>
@@ -124,15 +122,14 @@ const css = `
 .tl-list { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding-top:2px; }
 
 /* podium */
-.tl-pod { position:relative; flex:1; display:flex; align-items:center; gap:26px; padding:0 34px; border-radius:18px; background:rgba(18,18,22,0.72); border:1.5px solid rgba(255,255,255,0.10); overflow:hidden; }
+.tl-pod { position:relative; flex:1; display:flex; align-items:center; gap:34px; padding:0 44px; border-radius:18px; background:rgba(18,18,22,0.72); border:1.5px solid rgba(255,255,255,0.10); overflow:hidden; }
 .tl-pod--first { border-color:${ORANGE}; box-shadow:0 0 0 1px rgba(240,110,30,0.4), 0 12px 40px rgba(240,110,30,0.12); }
-.tl-pod-rank { font-family:${FONT_DISPLAY}; font-size:92px; line-height:1; letter-spacing:0.02em; width:82px; text-align:center; flex-shrink:0; }
+.tl-pod-rank { font-family:${FONT_DISPLAY}; font-size:120px; line-height:1; letter-spacing:0.02em; width:96px; text-align:center; flex-shrink:0; }
 .tl-pod-name { flex:1; min-width:0; line-height:1; }
-.tl-pod-first { display:block; font-family:${FONT_DISPLAY}; font-size:30px; letter-spacing:0.06em; color:${STEEL}; }
-.tl-pod-last { display:block; font-family:${FONT_DISPLAY}; font-size:52px; letter-spacing:0.03em; color:#fff; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tl-pod-pts { font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.02em; color:#fff; flex-shrink:0; }
-.tl-pod-pts span { font-size:0.48em; color:${STEEL}; margin-left:3px; }
-.tl-pod-crown { position:absolute; top:14px; right:18px; width:34px; height:34px; }
+.tl-pod-first { display:block; font-family:${FONT_DISPLAY}; font-size:40px; letter-spacing:0.06em; color:${STEEL}; }
+.tl-pod-last { display:block; font-family:${FONT_DISPLAY}; font-size:78px; letter-spacing:0.03em; color:#fff; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tl-pod-pts { font-family:${FONT_DISPLAY}; font-size:92px; line-height:1; letter-spacing:0.02em; color:#fff; flex-shrink:0; }
+.tl-pod-crown { position:absolute; top:18px; right:22px; width:40px; height:40px; }
 
 /* list */
 .tl-row { flex:1; display:flex; align-items:center; gap:22px; padding:0 8px; border-bottom:1px solid rgba(255,255,255,0.07); }
