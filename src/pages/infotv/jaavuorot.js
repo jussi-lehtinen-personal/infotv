@@ -187,7 +187,7 @@ const css = `
 .jv-vline { position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.05); }
 .jv-col { flex:1; position:relative; }
 
-.jv-ev { position:absolute; box-sizing:border-box; border-radius:6px; padding:3px 8px; overflow:hidden; display:flex; flex-direction:column; }
+.jv-ev { position:absolute; box-sizing:border-box; border-radius:6px; padding:3px 8px; overflow:hidden; display:flex; flex-direction:column; text-shadow:0 1px 2px rgba(0,0,0,0.38); }
 .jv-ev--short { flex-direction:row; align-items:baseline; gap:6px; }
 .jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:15px; line-height:1.1; color:#fff; white-space:nowrap; flex-shrink:0; }
 .jv-ev-time span { font-weight:600; color:rgba(255,255,255,0.8); }
