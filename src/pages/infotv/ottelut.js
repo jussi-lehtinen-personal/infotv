@@ -256,18 +256,16 @@ function DetailCell({ it, s }) {
         <div className="ok-filler">
           <div className="ok-filler-title">Viikon yhteenveto</div>
           <div className="ok-stats">
-            <Stat val={s.n} label="Kotiottelua" />
-            <span className="ok-statdiv" /><Stat label={"V · T" + (s.d ? " · TP" : "")}
-              val={<><span style={{ color: WIN }}>{s.w}</span>·<span style={{ color: LOSS }}>{s.l}</span>{s.d ? <>·{s.d}</> : null}</>} />
-            <span className="ok-statdiv" /><Stat label="Maalit"
-              val={<><span style={{ color: ORANGE }}>{s.gf}</span>–{s.ga}</>} />
+            <Stat val={s.n} label="Kotiottelut" />
+            <span className="ok-statdiv" /><Stat label="V · T · H"
+              val={<><span style={{ color: WIN }}>{s.w}</span> · {s.d} · <span style={{ color: LOSS }}>{s.l}</span></>} />
           </div>
         </div>
       );
     case "goals":
-      return <BigStat title="Maalit" val={<><span style={{ color: ORANGE }}>{s.gf}</span>–{s.ga}</>} sub="Tehdyt – päästetyt" />;
+      return <BigStat title="Maalit" val={<><span style={{ color: ORANGE }}>{s.gf}</span> – {s.ga}</>} sub="Tehdyt – päästetyt" />;
     case "wins":
-      return <BigStat title="Voitot" val={s.w} valColor={WIN} sub={`${s.played} pelatusta`} />;
+      return <BigStat title="Voitot" val={<>{s.w}<span className="ok-bigstat-suffix"> / {s.played} ottelua pelattu</span></>} valColor={WIN} />;
     case "avg":
       return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
     case "biggestWin":
@@ -275,7 +273,13 @@ function DetailCell({ it, s }) {
     case "hashtag":
       return <div className="ok-filler ok-center"><div className="ok-big">#KIEKKOAHMA</div><div className="ok-sub2">Jaa somessa</div></div>;
     case "app":
-      return <div className="ok-filler ok-center"><div className="ok-big" style={{ color: ORANGE }}>GAMEZONE</div><div className="ok-sub2">Lataa seuran sovellus</div></div>;
+      return (
+        <div className="ok-filler ok-center">
+          <div className="ok-big" style={{ color: ORANGE }}>GAMEZONE</div>
+          <div className="ok-sub2">Lataa seuran sovellus</div>
+          <div className="ok-appurl">gamezone.kiekko-ahma.fi</div>
+        </div>
+      );
     case "social":
       return (
         <div className="ok-filler ok-center">
@@ -305,8 +309,10 @@ function DetailCell({ it, s }) {
   }
 }
 
+// Multi-stat cell: LABEL on top (small), big number below — the GameZone
+// "otsikko + luku + divider" pattern used whenever several stats sit together.
 function Stat({ val, label }) {
-  return <div className="ok-stat"><div className="ok-stat-val">{val}</div><div className="ok-stat-lbl">{label}</div></div>;
+  return <div className="ok-stat"><div className="ok-stat-lbl">{label}</div><div className="ok-stat-val">{val}</div></div>;
 }
 
 function BigStat({ title, val, valColor, sub }) {
@@ -326,6 +332,7 @@ function BigStat({ title, val, valColor, sub }) {
 function MiniMatch({ g, title }) {
   const m = g.m;
   const home = splitTeamName(m.home ?? ""), away = splitTeamName(m.away ?? "");
+  const level = simplifyLevel(m.level ?? "");
   const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
   const hasResult = !isNaN(hg) && !isNaN(ag);
   const side = (t, logo, win) => (
@@ -336,7 +343,10 @@ function MiniMatch({ g, title }) {
   );
   return (
     <div className="ok-filler">
-      <div className="ok-filler-title">{title}</div>
+      <div className="ok-filler-head">
+        <span className="ok-filler-title">{title}</span>
+        {level && <span className="ok-vs-level">{level}</span>}
+      </div>
       <div className="ok-vs">
         {side(home, m.home_logo, hg > ag)}
         <div className="ok-vs-score">{hasResult ? `${m.home_goals}–${m.away_goals}` : "VS"}</div>
@@ -416,8 +426,12 @@ const css = `
 .ok-bigstat { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .ok-bigstat-val { font-family:${FONT_DISPLAY}; font-size:86px; line-height:1; letter-spacing:0.02em; color:#fff; white-space:nowrap; }
 .ok-bigstat-sub { font-family:${FONT_BODY}; font-weight:700; font-size:17px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; margin-top:10px; }
+.ok-bigstat-suffix { font-family:${FONT_BODY}; font-weight:700; font-size:23px; letter-spacing:0.04em; text-transform:uppercase; color:${STEEL}; }
+.ok-appurl { font-family:${FONT_BODY}; font-weight:700; font-size:24px; letter-spacing:0.02em; color:#fff; margin-top:8px; }
 
 /* head-to-head (GameZone predict style): logo · SCORE · logo, names below */
+.ok-filler-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ok-vs-level { font-family:${FONT_BODY}; font-weight:700; font-size:19px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.24); border-radius:7px; padding:2px 11px; flex-shrink:0; }
 .ok-vs { flex:1; min-height:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:14px; }
 .ok-vs-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
 .ok-vs-logowrap { width:78px; height:78px; border-radius:14px; background:#fff; display:flex; align-items:center; justify-content:center; padding:9px; box-sizing:border-box; }
@@ -440,7 +454,7 @@ const css = `
 .ok-al-url--c { text-align:center; }
 /* tall (3-slot): text on top, big QR below */
 .ok-al-tall { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; text-align:center; padding-top:8px; }
-.ok-al-qrwrap { flex:1; min-height:0; align-self:stretch; display:flex; align-items:center; justify-content:center; gap:22px; margin-top:14px; }
+.ok-al-qrwrap { flex:1; min-height:0; align-self:stretch; display:flex; align-items:center; justify-content:center; gap:42px; margin-top:14px; }
 .ok-al-wordmark { max-height:78%; max-width:44%; object-fit:contain; }
 .ok-al-qr-big { height:100%; aspect-ratio:1; max-width:100%; object-fit:contain; background:#fff; border-radius:12px; padding:10px; box-sizing:border-box; }
 
