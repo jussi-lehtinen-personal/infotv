@@ -133,12 +133,12 @@ export default function InfoTvOttelut() {
         <div className="ok-grid">
           {columns.map((col, ci) => (
             <div className="ok-col" key={ci}>
+              <Rail col={col} />
               <div className="ok-cells">
                 {col.map((it) => (
                   <div className="ok-cellwrap" key={it.key}><Cell it={it} summary={summary} /></div>
                 ))}
               </div>
-              <Rail col={col} />
             </div>
           ))}
         </div>
@@ -147,9 +147,11 @@ export default function InfoTvOttelut() {
   );
 }
 
-// GameZone jakso-style progress rail down the right edge of a column: one node
+// GameZone jakso-style progress rail down the LEFT edge of a column: one node
 // per game (played = solid orange, next = orange ring, upcoming = dim), joined
-// by segments coloured by progress, with a weekday pill where the day changes.
+// by segments coloured by progress. The first game of each day gets a bigger
+// labelled ball (weekday) instead of a plain dot — the day marker sits right at
+// that match.
 function Rail({ col }) {
   return (
     <div className="ok-rail">
@@ -160,13 +162,14 @@ function Rail({ col }) {
         const downConnect = next && next.type === "game";
         const upDone = upConnect && (prev.done || prev.live);
         const downDone = it.done || it.live;
-        const node = it.live ? "ok-node--live" : it.done ? "ok-node--done" : it.isNext ? "ok-node--next" : "ok-node--todo";
+        const state = it.live ? "live" : it.done ? "done" : it.isNext ? "next" : "todo";
         return (
           <div className="ok-railslot" key={li}>
             {upConnect && <span className={"ok-seg ok-seg--up " + (upDone ? "ok-seg--done" : "ok-seg--todo")} />}
             {downConnect && <span className={"ok-seg ok-seg--down " + (downDone ? "ok-seg--done" : "ok-seg--todo")} />}
-            <span className={"ok-node " + node} />
-            {it.dayLabel && <span className="ok-day">{it.dayLabel}</span>}
+            {it.dayLabel
+              ? <span className={"ok-dayball ok-dayball--" + state}>{it.dayLabel}</span>
+              : <span className={"ok-node ok-node--" + state} />}
           </div>
         );
       })}
@@ -261,13 +264,13 @@ const css = `
 .ok-grid { position:absolute; top:110px; bottom:32px; left:40px; right:40px; display:flex; gap:16px; z-index:2; }
 .ok-empty { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:60px; color:rgba(255,255,255,0.32); }
 
-.ok-col { flex:1; min-width:0; display:flex; gap:10px; }
+.ok-col { flex:1; min-width:0; display:flex; gap:12px; }
 .ok-cells { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
 .ok-cellwrap { flex:1; min-height:0; display:flex; }
 .ok-cellwrap > * { flex:1; min-width:0; }
 
-/* progress rail */
-.ok-rail { flex:0 0 40px; display:flex; flex-direction:column; gap:16px; }
+/* progress rail (left edge of each column) */
+.ok-rail { flex:0 0 42px; display:flex; flex-direction:column; gap:16px; }
 .ok-railslot { flex:1; position:relative; }
 .ok-seg { position:absolute; left:50%; transform:translateX(-50%); width:3px; border-radius:2px; }
 .ok-seg--up { top:-8px; height:calc(50% + 8px); }
@@ -279,7 +282,11 @@ const css = `
 .ok-node--live { background:${ORANGE}; border:2px solid ${ORANGE}; box-shadow:0 0 0 5px rgba(240,110,30,0.28); }
 .ok-node--next { background:#141418; border:3px solid ${ORANGE}; width:17px; height:17px; }
 .ok-node--todo { background:#141418; border:2px solid rgba(255,255,255,0.3); }
-.ok-day { position:absolute; left:50%; transform:translateX(-50%); top:6px; font-family:${FONT_DISPLAY}; font-size:20px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; background:rgba(9,9,11,0.9); padding:2px 6px 1px; border-radius:6px; z-index:3; white-space:nowrap; }
+.ok-dayball { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:38px; height:38px; border-radius:50%; box-sizing:border-box; z-index:3; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:21px; line-height:1; letter-spacing:0.03em; padding-top:2px; }
+.ok-dayball--done, .ok-dayball--live { background:${ORANGE}; border:2px solid ${ORANGE}; color:#fff; }
+.ok-dayball--live { box-shadow:0 0 0 5px rgba(240,110,30,0.28); }
+.ok-dayball--next { background:#141418; border:3px solid ${ORANGE}; color:${ORANGE}; }
+.ok-dayball--todo { background:#141418; border:2px solid rgba(255,255,255,0.3); color:${STEEL}; }
 
 .ok-card { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; gap:7px; padding:11px 20px 11px 24px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-line { position:absolute; left:0; top:11px; bottom:11px; width:5px; border-radius:0 3px 3px 0; }
