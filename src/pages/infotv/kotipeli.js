@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { LuCalendarDays, LuClock, LuMapPin } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
-import InfoTvStage, { BrandLockup, Eyebrow, Diamond, FONT_DISPLAY, FONT_BODY, ORANGE, YELLOW, STEEL } from "./InfoTvFrame";
+import InfoTvStage, { HeroBackdrop, Lockup, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
 import { splitTeamName } from "../../Util";
 import { fetchSeasonGames, peekSeasonGames, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 
 moment.locale("fi");
 
-// Next Edustus (men's rep) home game hero. Data = the ONE season-schedule cache
-// (getSeasonGames — a single cached call), NOT a week-by-week scan. Edustus = a
-// home game at the II-divisioona level.
-
 const gtime = (d) => new Date(String(d).replace(" ", "T")).getTime();
 
+// Next Edustus (men's rep) home game hero — one cached call (season cache), not a
+// scan. Edustus = a home game whose processed level is "II-Div".
 export default function InfoTvKotipeli() {
   const [snapshot, setSnapshot] = useState(peekSeasonGames);
   const [loaded, setLoaded] = useState(isSeasonLoaded());
@@ -25,83 +24,92 @@ export default function InfoTvKotipeli() {
     return unsub;
   }, []);
 
-  // Men's Edustus = a home game whose (already processed) level is "II-Div".
-  // NOTE: seasonGamesCache runs processIncomingDataEvents, which simplifies levels
-  // — "II-divisioona" → "II-Div" (replaceAll is case-insensitive) and any junior
-  // "U18 II-divisioona" → "U18". So anchoring on "II-Div" matches ONLY the men's
-  // team. Earliest future one.
   const match = useMemo(() => {
     const now = Date.now();
-    const list = snapshot
+    return snapshot
       .filter((g) => g.isHomeGame && /^ii-div/i.test(g.level || "") && gtime(g.date) > now)
-      .sort((a, b) => gtime(a.date) - gtime(b.date));
-    return list[0] || null;
+      .sort((a, b) => gtime(a.date) - gtime(b.date))[0] || null;
   }, [snapshot]);
-  const loading = !loaded;
 
   const away = match ? splitTeamName(match.away ?? "") : null;
-  const dayStr = match ? moment(match.date).format("dddd D.M.YYYY").toUpperCase() : "";
+  const dayName = match ? moment(match.date).format("dddd").toUpperCase() : "";
+  const dateStr = match ? moment(match.date).format("D.M.YYYY") : "";
   const timeStr = match ? moment(match.date).format("HH:mm") : "";
-  // Always the Edustus (II-div) game → paid entry. (The cache's `isFree` is
-  // unreliable: processIncomingDataEvents rewrites the level to "II-Div" before
-  // computing isFree, so it's always true there.)
-  const isFree = false;
 
   return (
-    <InfoTvStage focus="50% 30%">
+    <InfoTvStage backdrop={false}>
       <style>{css}</style>
-      <BrandLockup style={{ position: "absolute", top: 56, left: 72 }} />
+      <HeroBackdrop />
+      <Lockup height={92} style={{ position: "absolute", top: 44, left: 56, zIndex: 2 }} />
 
-      <div className="kp-hero">
-        <div className="kp-eyebrow"><Eyebrow size={30}>Seuraava edustuksen</Eyebrow></div>
-        <div className="kp-title">KOTIPELI</div>
+      {match ? (
+        <div className="kp">
+          <div className="kp-eyebrow">Seuraava edustuksen</div>
+          <div className="kp-title">KOTIPELI</div>
+          <div className="kp-level"><span className="kp-dash" />II-Divisioona<span className="kp-dash" /></div>
 
-        {match ? (
-          <>
-            {match.level && <div className="kp-level">{match.level.toUpperCase()}</div>}
-
-            <div className="kp-teams">
-              <div className="kp-team">
-                <div className="kp-logowrap"><img className="kp-logo" src={match.home_logo} alt="" /></div>
-                <div className="kp-teamname">KIEKKO-AHMA</div>
-                <div className="kp-teamsub">EDUSTUS</div>
-              </div>
-
-              <div className="kp-vs">VS</div>
-
-              <div className="kp-team">
-                <div className="kp-logowrap"><img className="kp-logo" src={match.away_logo} alt="" /></div>
-                <div className="kp-teamname">{away.main}</div>
-                {away.sub && <div className="kp-teamsub">{away.sub}</div>}
-              </div>
+          <div className="kp-teams">
+            <div className="kp-team">
+              <div className="kp-logo"><img src={match.home_logo} alt="" /></div>
+              <div className="kp-name">Kiekko-Ahma</div>
             </div>
+            <div className="kp-vs">VS</div>
+            <div className="kp-team">
+              <div className="kp-logo"><img src={match.away_logo} alt="" /></div>
+              <div className="kp-name">{away.main}</div>
+            </div>
+          </div>
 
-            <div className="kp-when"><Diamond size={18} style={{ marginRight: 20 }} />{dayStr} · KLO {timeStr}<Diamond size={18} style={{ marginLeft: 20 }} /></div>
-            <div className="kp-entry">{isFree ? "VAPAA SISÄÄNPÄÄSY" : "LIPUT 5 € · ALLE 15 V. ILMAISEKSI"}</div>
-          </>
-        ) : (
-          <div className="kp-none">{loading ? "HAETAAN…" : "EI TULEVIA KOTIPELEJÄ"}</div>
-        )}
-      </div>
+          <div className="kp-info">
+            <div className="kp-info-cell">
+              <LuCalendarDays className="kp-info-ic" />
+              <div className="kp-info-txt"><span>{dayName}</span><b>{dateStr}</b></div>
+            </div>
+            <div className="kp-info-sep" />
+            <div className="kp-info-cell">
+              <LuClock className="kp-info-ic" />
+              <div className="kp-info-txt"><span>Klo</span><b>{timeStr}</b></div>
+            </div>
+            <div className="kp-info-sep" />
+            <div className="kp-info-cell">
+              <LuMapPin className="kp-info-ic" />
+              <div className="kp-info-txt"><span>Valkeakosken</span><b>Jäähalli</b></div>
+            </div>
+          </div>
+
+          <div className="kp-entry">Liput 5 € &nbsp;·&nbsp; Alle 15 v. ilmaiseksi</div>
+        </div>
+      ) : (
+        <div className="kp-none">{loaded ? "Ei tulevia kotipelejä" : "Haetaan…"}</div>
+      )}
     </InfoTvStage>
   );
 }
 
 const css = `
-.kp-hero { position:absolute; top:150px; left:0; right:0; bottom:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; padding:20px 120px; }
-.kp-eyebrow { }
-.kp-title { font-family:${FONT_DISPLAY}; font-size:150px; line-height:0.84; letter-spacing:0.05em; color:${ORANGE}; text-shadow:0 6px 44px rgba(0,0,0,0.9), 0 0 90px rgba(240,110,30,0.4); }
-.kp-level { font-family:${FONT_DISPLAY}; font-size:46px; letter-spacing:0.12em; color:${YELLOW}; }
+.kp { position:absolute; top:130px; left:60px; right:60px; bottom:40px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; z-index:2; text-align:center; }
 
-.kp-teams { display:flex; align-items:flex-start; justify-content:center; gap:80px; width:100%; margin:6px 0; }
-.kp-team { flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; }
-.kp-logowrap { width:220px; height:220px; display:flex; align-items:center; justify-content:center; background:#fff; border-radius:24px; padding:22px; box-sizing:border-box; box-shadow:0 12px 40px rgba(0,0,0,0.55); }
-.kp-logo { max-width:100%; max-height:100%; object-fit:contain; }
-.kp-teamname { font-family:${FONT_DISPLAY}; font-size:62px; line-height:1; letter-spacing:0.03em; color:#fff; }
-.kp-teamsub { font-family:${FONT_DISPLAY}; font-size:44px; line-height:1; letter-spacing:0.05em; color:${ORANGE}; }
-.kp-vs { flex-shrink:0; font-family:${FONT_DISPLAY}; font-size:96px; letter-spacing:0.06em; color:rgba(255,255,255,0.5); margin-top:70px; }
+.kp-eyebrow { font-family:${FONT_BODY}; font-weight:800; font-size:36px; letter-spacing:0.32em; text-transform:uppercase; color:${ORANGE}; }
+.kp-title { font-family:${FONT_DISPLAY}; font-size:158px; line-height:0.82; letter-spacing:0.05em; color:${ORANGE}; text-shadow:0 6px 40px rgba(0,0,0,0.7), 0 0 90px rgba(240,110,30,0.28); }
+.kp-level { display:flex; align-items:center; gap:22px; font-family:${FONT_BODY}; font-weight:800; font-size:30px; letter-spacing:0.16em; text-transform:uppercase; color:#fff; }
+.kp-dash { width:44px; height:3px; background:${ORANGE}; }
 
-.kp-when { display:flex; align-items:center; font-family:${FONT_DISPLAY}; font-size:68px; letter-spacing:0.04em; color:#fff; }
-.kp-entry { font-family:${FONT_BODY}; font-weight:700; font-size:32px; letter-spacing:0.12em; color:${STEEL}; }
-.kp-none { font-family:${FONT_DISPLAY}; font-size:76px; letter-spacing:0.08em; color:rgba(255,255,255,0.35); }
+.kp-teams { display:flex; align-items:flex-start; justify-content:center; gap:96px; margin:6px 0; }
+.kp-team { display:flex; flex-direction:column; align-items:center; gap:22px; }
+.kp-logo { width:232px; height:232px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; padding:34px; box-sizing:border-box; box-shadow:0 12px 44px rgba(0,0,0,0.6); }
+.kp-logo img { max-width:100%; max-height:100%; object-fit:contain; }
+.kp-name { font-family:${FONT_DISPLAY}; font-size:60px; line-height:1; letter-spacing:0.03em; color:#fff; }
+.kp-vs { font-family:${FONT_DISPLAY}; font-size:112px; line-height:1; letter-spacing:0.05em; color:${ORANGE}; margin-top:58px; }
+
+.kp-info { display:flex; align-items:stretch; gap:0; border:1.5px solid rgba(255,255,255,0.18); border-radius:18px; background:rgba(16,16,19,0.6); padding:6px 0; }
+.kp-info-cell { display:flex; align-items:center; gap:20px; padding:16px 46px; }
+.kp-info-ic { width:46px; height:46px; flex-shrink:0; color:${ORANGE}; }
+.kp-info-txt { text-align:left; line-height:1.05; }
+.kp-info-txt span { display:block; font-family:${FONT_BODY}; font-weight:700; font-size:21px; letter-spacing:0.14em; text-transform:uppercase; color:${STEEL}; }
+.kp-info-txt b { display:block; font-family:${FONT_DISPLAY}; font-size:44px; letter-spacing:0.03em; color:#fff; margin-top:4px; }
+.kp-info-sep { width:1.5px; background:rgba(255,255,255,0.14); margin:12px 0; }
+
+.kp-entry { font-family:${FONT_BODY}; font-weight:700; font-size:30px; letter-spacing:0.12em; text-transform:uppercase; color:${STEEL}; margin-top:4px; }
+
+.kp-none { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:76px; letter-spacing:0.08em; color:rgba(255,255,255,0.4); z-index:2; }
 `;

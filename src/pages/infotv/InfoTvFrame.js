@@ -68,6 +68,30 @@ export function Backdrop() {
   return <div style={{ position: "absolute", inset: 0, background: "var(--bg-gradient, #15171B)" }} />;
 }
 
+/**
+ * Rich "hero" background used by the hub + kotipeli — the official colour ahma
+ * head (sharp 1024px) dimmed on the right, the orange Raapaisu scratch, an orange
+ * radial glow and a strong left-to-right dim so text stays readable. Assets from
+ * the BrandBook logopankki (public/infotv/).
+ */
+export function HeroBackdrop() {
+  return (
+    <>
+      <div style={{ position: "absolute", inset: 0, background: "#0c0c0e" }} />
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(82% 92% at 28% 28%, #1a1b1f 0%, #0c0c0e 62%)" }} />
+      <img src="/infotv/ahma_head.png" alt="" style={{ position: "absolute", right: -170, top: "50%", transform: "translateY(-50%)", height: 1480, width: "auto", opacity: 0.5, filter: "brightness(0.32) grayscale(0.35) contrast(1.12)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", left: "6%", top: "-8%", width: 1120, height: 820, background: "radial-gradient(circle, rgba(240,110,30,0.13) 0%, rgba(240,110,30,0) 60%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(9,9,11,0.96) 0%, rgba(9,9,11,0.82) 40%, rgba(9,9,11,0.42) 70%, rgba(9,9,11,0.6) 100%)", pointerEvents: "none" }} />
+      <img src="/infotv/raapaisu.png" alt="" style={{ position: "absolute", right: 40, top: 90, height: 980, width: "auto", opacity: 0.85, pointerEvents: "none" }} />
+    </>
+  );
+}
+
+/** Official horizontal club lockup (BrandBook vaaka_taysi) for dark backgrounds. */
+export function Lockup({ height = 92, style }) {
+  return <img src="/infotv/lockup.png" alt="Valkeakosken Kiekko-Ahma" style={{ height, width: "auto", display: "block", ...style }} />;
+}
+
 /** Top-left club lockup: wolverine mark + uppercase wordmark. */
 export function BrandLockup({ style }) {
   return (

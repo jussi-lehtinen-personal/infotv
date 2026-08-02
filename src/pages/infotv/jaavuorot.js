@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LuClock } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -9,10 +8,41 @@ import { getMonday } from "../../Util";
 
 moment.locale("fi");
 
+const GAME_COLOR = "#3B9BFF";
+const AHMA_COLOR = ORANGE;
+const OTHER_COLOR = "#8A90A0";
+
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const isAhma = (t) => /kiekko.?ahma/i.test(t || "") || /(^|\s)KA[\s/]/i.test(t || "");
+const toMin = (s) => { const m = moment(s, "YYYY-MM-DD HH:mm"); return m.hours() * 60 + m.minutes(); };
 
-export default function InfoTvJaavuorot() {
+// Greedy lane packing per overlap-cluster → overlapping reservations sit side by
+// side; a lone reservation gets full column width. Like a time-grid calendar.
+function packLanes(list) {
+  const evs = [...list].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  let cluster = [], clusterEnd = -1;
+  const flush = () => {
+    if (!cluster.length) return;
+    const laneEnds = [];
+    for (const e of cluster) {
+      let lane = laneEnds.findIndex((end) => end <= e.startMin);
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(e.endMin); }
+      else laneEnds[lane] = e.endMin;
+      e.lane = lane;
+    }
+    const lanes = laneEnds.length;
+    for (const e of cluster) { e.lanes = lanes; }
+    cluster = []; clusterEnd = -1;
+  };
+  for (const e of evs) {
+    if (cluster.length && e.startMin >= clusterEnd) flush();
+    cluster.push(e); clusterEnd = Math.max(clusterEnd, e.endMin);
+  }
+  flush();
+  return evs;
+}
+
+function InfoTvJaavuorot() {
   const [items, setItems] = useState(null);
   const [error, setError] = useState(false);
   const [params] = useSearchParams();
@@ -33,112 +63,128 @@ export default function InfoTvJaavuorot() {
     return () => { cancelled = true; };
   }, [mondayStr]);
 
-  const days = useMemo(() => {
+  const { days, range } = useMemo(() => {
     const cols = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday); d.setDate(d.getDate() + i);
-      cols.push({ date: d, key: moment(d).format("YYYY-MM-DD"), items: [] });
+      cols.push({ date: d, key: moment(d).format("YYYY-MM-DD"), events: [] });
     }
     const byKey = new Map(cols.map((c) => [c.key, c]));
+    let lo = 24 * 60, hi = 0;
     for (const it of items || []) {
-      const col = byKey.get((it.start_date || "").slice(0, 10));
-      if (col) col.items.push(it);
+      const key = (it.start_date || "").slice(0, 10);
+      const col = byKey.get(key);
+      if (!col) continue;
+      const startMin = toMin(it.start_date), endMin = Math.max(toMin(it.end_date), startMin + 20);
+      lo = Math.min(lo, startMin); hi = Math.max(hi, endMin);
+      const text = it.text || "Varaus";
+      const kind = it.user_group?.name === "Tilapäisvaraus" ? "game" : isAhma(text) ? "ahma" : "other";
+      col.events.push({ id: it.id, startMin, endMin, text, kind });
     }
-    for (const c of cols) c.items.sort((a, b) => (a.start_date < b.start_date ? -1 : 1));
-    return cols.filter((c) => c.items.length > 0);
+    for (const c of cols) c.events = packLanes(c.events);
+    // Range snapped to whole hours, clamped to a sensible default.
+    const start = items && hi > lo ? Math.min(Math.floor(lo / 60) * 60, 8 * 60) : 8 * 60;
+    const end = items && hi > lo ? Math.max(Math.ceil(hi / 60) * 60, 22 * 60) : 22 * 60;
+    return { days: cols, range: { start, end } };
   }, [items, monday]);
-
-  // Split the (non-empty) days across two balanced columns, chronologically, no
-  // day split. Rows flex to fill, so a heavier column just gets tighter rows.
-  const columns = useMemo(() => {
-    const total = days.reduce((s, d) => s + d.items.length, 0);
-    const target = Math.ceil(total / 2);
-    const cols = [[], []];
-    let acc = 0;
-    for (const d of days) {
-      const c = acc < target || cols[0].length === 0 ? 0 : 1;
-      cols[c].push(d);
-      acc += d.items.length;
-    }
-    return cols;
-  }, [days]);
 
   const weekRange = useMemo(() => {
     const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
     return moment(monday).format("D.M.") + " – " + moment(sun).format("D.M.");
   }, [monday]);
 
-  const empty = items !== null && !error && days.length === 0;
+  const span = range.end - range.start;
+  const y = (min) => ((min - range.start) / span) * 100;
+  const hours = [];
+  for (let h = range.start; h <= range.end; h += 60) hours.push(h);
+
+  const hasAny = (days || []).some((d) => d.events.length > 0);
 
   return (
     <InfoTvStage>
       <style>{css}</style>
       <Masthead title="JÄÄVUOROT" meta={weekRange} />
 
-      <div className="jv-content">
+      <div className="jv-cal">
         {items === null && <div className="jv-msg">Ladataan…</div>}
-        {error && <div className="jv-msg">Vuoroja ei saatu haettua.</div>}
-        {empty && <div className="jv-msg">Ei jäävuoroja tällä viikolla</div>}
-        {!error && days.length > 0 && (
-          <div className="jv-cols">
-            <Column days={columns[0]} />
-            <Column days={columns[1]} />
-          </div>
+        {items !== null && error && <div className="jv-msg">Vuoroja ei saatu haettua.</div>}
+        {items !== null && !error && !hasAny && <div className="jv-msg">Ei jäävuoroja tällä viikolla</div>}
+        {items !== null && !error && hasAny && (
+          <>
+            <div className="jv-head">
+              <div className="jv-axishead" />
+              {days.map((d) => (
+                <div key={d.key} className="jv-dayhead">
+                  <span className="jv-dayname">{capitalize(moment(d.date).format("dd"))}</span>
+                  <span className="jv-daydate">{moment(d.date).format("D.M.")}</span>
+                </div>
+              ))}
+            </div>
+            <div className="jv-body">
+              <div className="jv-axis">
+                {hours.map((h) => (
+                  <div key={h} className="jv-hour" style={{ top: y(h) + "%" }}>{String(h / 60).padStart(2, "0")}</div>
+                ))}
+              </div>
+              <div className="jv-cols">
+                {hours.map((h) => <div key={h} className="jv-gridline" style={{ top: y(h) + "%" }} />)}
+                {days.map((d) => (
+                  <div key={d.key} className="jv-col">
+                    {d.events.map((e) => {
+                      const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
+                      const w = 100 / e.lanes;
+                      return (
+                        <div key={e.id} className="jv-ev" style={{
+                          top: y(e.startMin) + "%", height: (y(e.endMin) - y(e.startMin)) + "%",
+                          left: e.lane * w + "%", width: w + "%",
+                          background: tint(color), borderLeft: `3px solid ${color}`,
+                        }}>
+                          <div className="jv-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></div>
+                          <div className="jv-ev-name" style={e.kind === "ahma" ? { color: ORANGE } : undefined}>{e.text}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </InfoTvStage>
   );
 }
 
-function Column({ days }) {
-  return (
-    <div className="jv-col">
-      {days.map((d) => (
-        <React.Fragment key={d.key}>
-          <div className="jv-day">{capitalize(moment(d.date).format("dddd"))} {moment(d.date).format("D.M.")}</div>
-          {d.items.map((it) => <ResRow key={it.id} item={it} />)}
-        </React.Fragment>
-      ))}
-    </div>
-  );
+const fmt = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+function tint(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return "rgba(255,255,255,0.05)";
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.16)`;
 }
 
-function ResRow({ item }) {
-  const start = moment(item.start_date, "YYYY-MM-DD HH:mm").format("HH:mm");
-  const end = moment(item.end_date, "YYYY-MM-DD HH:mm").format("HH:mm");
-  const game = item.user_group?.name === "Tilapäisvaraus";
-  const ahma = isAhma(item.text);
-  return (
-    <div className="jv-res">
-      <LuClock className="jv-ic" />
-      <span className="jv-time">{start}<span className="jv-dash">–</span>{end}</span>
-      <span className={"jv-name" + (ahma ? " jv-name--ahma" : "")}>{item.text || "Varaus"}</span>
-      {game && <span className="jv-peli">PELI</span>}
-    </div>
-  );
-}
+export default InfoTvJaavuorot;
 
 const css = `
-.jv-content { position:absolute; top:120px; bottom:40px; left:44px; right:44px; display:flex; flex-direction:column; }
+.jv-cal { position:absolute; top:116px; bottom:30px; left:40px; right:40px; display:flex; flex-direction:column; }
 .jv-msg { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.06em; color:${STEEL}; }
 
-.jv-cols { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:minmax(0,1fr); column-gap:56px; }
-.jv-col { min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+.jv-head { flex:0 0 auto; display:flex; padding-bottom:8px; }
+.jv-axishead { width:64px; flex:0 0 auto; }
+.jv-dayhead { flex:1; display:flex; align-items:baseline; gap:12px; padding-left:12px; }
+.jv-dayname { font-family:${FONT_DISPLAY}; font-size:30px; letter-spacing:0.05em; color:#fff; text-transform:uppercase; }
+.jv-daydate { font-family:${FONT_BODY}; font-weight:700; font-size:20px; color:${STEEL}; }
 
-.jv-day { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:800; font-size:25px; letter-spacing:0.02em; text-transform:uppercase; color:var(--gz-text-primary, rgba(255,255,255,0.95)); padding:12px 2px 6px; }
-.jv-day:first-child { padding-top:2px; }
+.jv-body { flex:1 1 auto; min-height:0; display:flex; position:relative; }
+.jv-axis { width:64px; flex:0 0 auto; position:relative; }
+.jv-hour { position:absolute; right:10px; transform:translateY(-50%); font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:${STEEL}; }
+.jv-cols { flex:1 1 auto; position:relative; display:flex; border-top:1px solid rgba(255,255,255,0.09); }
+.jv-gridline { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
+.jv-col { flex:1; position:relative; border-left:1px solid rgba(255,255,255,0.08); }
+.jv-col:first-child { border-left:none; }
 
-.jv-res {
-  flex:1 1 0; min-height:22px; max-height:40px;
-  display:flex; align-items:center; gap:13px;
-  padding:0 6px;
-  border-bottom:1px solid rgba(255,255,255,0.07);
-  overflow:hidden;
-}
-.jv-ic { width:18px; height:18px; flex-shrink:0; color:${STEEL}; }
-.jv-time { flex-shrink:0; font-family:${FONT_BODY}; font-weight:800; font-size:21px; line-height:1.1; letter-spacing:0.01em; color:var(--gz-text-primary, #fff); font-variant-numeric:tabular-nums; }
-.jv-dash { padding:0 3px; color:${STEEL}; }
-.jv-name { flex:1; min-width:0; font-family:${FONT_BODY}; font-weight:600; font-size:21px; line-height:1.1; color:var(--gz-text-secondary, rgba(255,255,255,0.72)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.jv-name--ahma { color:${ORANGE}; font-weight:700; }
-.jv-peli { flex-shrink:0; font-family:${FONT_BODY}; font-weight:800; font-size:16px; letter-spacing:0.08em; color:${ORANGE}; border:1px solid rgba(240,110,30,0.5); border-radius:6px; padding:2px 9px; }
+.jv-ev { position:absolute; box-sizing:border-box; border-radius:7px; padding:5px 8px; overflow:hidden; }
+.jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:18px; line-height:1.05; color:#fff; white-space:nowrap; }
+.jv-ev-time span { font-weight:600; color:${STEEL}; }
+.jv-ev-name { font-family:${FONT_BODY}; font-weight:600; font-size:17px; line-height:1.1; color:rgba(255,255,255,0.82); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
 `;
