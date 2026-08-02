@@ -1,18 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL, YELLOW } from "./InfoTvFrame";
 import { getAhmaliigaRanking, getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga season leaderboard signage. Public read. LEFT column = top-3 podium
-// cards + ads (Liity mukaan promo + partner logos); RIGHT column = ranks 4–15.
+// cards + a "Liity mukaan" promo; RIGHT column = ranks 4–15.
 
 const MEDAL = [YELLOW, "#D8DBE0", "#C88B4A"];
-const PARTNERS_LS = "ahma.infotv.partners.v1";
-
-function sample(arr, n) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a.slice(0, n);
-}
 
 const Crown = ({ className, style }) => (
   <svg className={className} style={style} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -56,24 +49,10 @@ function PodCard({ r, idx }) {
   );
 }
 
-function PartnerLogo({ p }) {
-  const [err, setErr] = useState(false);
-  return (
-    <div className="tl-partner-box" style={{ background: p.light ? "transparent" : "#fff" }}>
-      {p.image && !err
-        ? <img src={p.image} alt={p.name} onError={() => setErr(true)} className="tl-partner-img" />
-        : <span className="tl-partner-name" style={{ color: p.light ? "#fff" : "#333" }}>{p.name}</span>}
-    </div>
-  );
-}
-
 export default function InfoTvTilastot() {
   const [rows, setRows] = useState(null);
   const [meta, setMeta] = useState("Kauden kärki");
   const [error, setError] = useState(false);
-  const [partners, setPartners] = useState(() => {
-    try { const r = JSON.parse(localStorage.getItem(PARTNERS_LS)); return Array.isArray(r) ? r : []; } catch { return []; }
-  });
 
   useEffect(() => {
     let cancelled = false;
@@ -88,12 +67,6 @@ export default function InfoTvTilastot() {
     getAhmaliigaRanking("season")
       .then((d) => { if (!cancelled) setRows(Array.isArray(d.rows) ? d.rows : []); })
       .catch(() => { if (!cancelled) { setError(true); setRows([]); } });
-    fetch("/api/getPartners").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
-      if (cancelled) return;
-      const list = Array.isArray(d.partners) ? d.partners.filter((p) => p.image) : [];
-      setPartners(list);
-      try { localStorage.setItem(PARTNERS_LS, JSON.stringify(list)); } catch { /* ignore */ }
-    }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -101,7 +74,6 @@ export default function InfoTvTilastot() {
   const top3 = all.slice(0, 3);
   const rest = all.slice(3, 15);
   const has = top3.length > 0;
-  const ads = useMemo(() => sample(partners, 2), [partners]);
 
   return (
     <InfoTvStage backdrop={false}>
@@ -118,23 +90,13 @@ export default function InfoTvTilastot() {
             <div className="tl-podium">
               {top3.map((r, i) => <PodCard key={r.userId ?? i} r={r} idx={i} />)}
             </div>
-            <div className="tl-ads">
-              <div className="tl-cta">
-                <div className="tl-cta-main">
-                  <span className="tl-cta-btn">Liity mukaan!</span>
-                  <span className="tl-cta-txt">Pelaa, kerää pisteitä ja voita.</span>
-                  <span className="tl-cta-url">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></span>
-                </div>
-                <img className="tl-cta-qr" src="/infotv/qr_ahmaliiga.png" alt="" />
+            <div className="tl-cta">
+              <div className="tl-cta-main">
+                <span className="tl-cta-btn">Liity mukaan!</span>
+                <span className="tl-cta-txt">Pelaa, kerää pisteitä ja voita.</span>
+                <span className="tl-cta-url">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></span>
               </div>
-              {ads.length > 0 && (
-                <div className="tl-partner">
-                  <div className="tl-partner-title">Yhteistyössä</div>
-                  <div className="tl-partner-list">
-                    {ads.map((p, i) => <PartnerLogo key={i} p={p} />)}
-                  </div>
-                </div>
-              )}
+              <img className="tl-cta-qr" src="/infotv/qr_ahmaliiga.png" alt="" />
             </div>
           </div>
 
@@ -180,20 +142,12 @@ const css = `
 .tl-row-pts { font-family:${FONT_DISPLAY}; font-size:36px; letter-spacing:0.02em; color:${STEEL}; flex-shrink:0; }
 .tl-row-pts span { font-size:0.5em; margin-left:2px; }
 
-/* ads row (left column bottom): Liity mukaan promo + partner logos */
-.tl-ads { flex:0 0 232px; display:flex; gap:18px; }
-.tl-cta { flex:1.5; display:flex; align-items:center; gap:24px; padding:0 30px; border-radius:16px; background:rgba(16,16,19,0.72); border:1px solid rgba(255,255,255,0.1); }
-.tl-cta-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:13px; }
-.tl-cta-btn { align-self:flex-start; font-family:${FONT_DISPLAY}; font-size:38px; letter-spacing:0.06em; color:#fff; background:${ORANGE}; padding:8px 22px; border-radius:10px; }
-.tl-cta-txt { font-family:${FONT_DISPLAY}; font-size:33px; letter-spacing:0.04em; color:${ORANGE}; }
-.tl-cta-url { font-family:${FONT_DISPLAY}; font-size:28px; letter-spacing:0.03em; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Liity mukaan promo (left column bottom, full width) */
+.tl-cta { flex:0 0 214px; display:flex; align-items:center; gap:34px; padding:34px 44px; border-radius:16px; background:rgba(16,16,19,0.72); border:1px solid rgba(255,255,255,0.1); }
+.tl-cta-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.tl-cta-btn { align-self:flex-start; font-family:${FONT_DISPLAY}; font-size:40px; letter-spacing:0.06em; color:#fff; background:${ORANGE}; padding:9px 26px; border-radius:10px; }
+.tl-cta-txt { font-family:${FONT_DISPLAY}; font-size:36px; letter-spacing:0.04em; color:${ORANGE}; }
+.tl-cta-url { font-family:${FONT_DISPLAY}; font-size:30px; letter-spacing:0.03em; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tl-cta-url b { color:${ORANGE}; font-weight:400; }
-.tl-cta-qr { width:150px; height:150px; border-radius:12px; background:#fff; padding:8px; box-sizing:border-box; flex-shrink:0; }
-
-.tl-partner { flex:1; min-width:0; display:flex; flex-direction:column; padding:14px 20px; border-radius:16px; background:rgba(16,16,19,0.72); border:1px solid rgba(255,255,255,0.1); overflow:hidden; }
-.tl-partner-title { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:800; font-size:17px; letter-spacing:0.14em; text-transform:uppercase; color:${ORANGE}; }
-.tl-partner-list { flex:1; min-height:0; margin-top:10px; display:flex; flex-direction:column; gap:10px; }
-.tl-partner-box { flex:1; min-height:0; border-radius:12px; display:flex; align-items:center; justify-content:center; padding:8px 14px; box-sizing:border-box; }
-.tl-partner-img { width:100%; height:100%; object-fit:contain; }
-.tl-partner-name { font-family:${FONT_DISPLAY}; font-size:26px; text-align:center; }
+.tl-cta-qr { width:146px; height:146px; border-radius:12px; background:#fff; padding:8px; box-sizing:border-box; flex-shrink:0; }
 `;
