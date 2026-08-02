@@ -19,9 +19,9 @@ const PAGES = [
 // Preview links to eyeball the data pages in different scenarios (?date= pins the
 // week; ?cols= forces ottelut's column count). Testing aid, not signage.
 const TESTS = [
-  { to: "/infotv/ottelut?cols=1&date=2026-08-11", label: "Ottelut · 1 palsta" },
-  { to: "/infotv/ottelut?cols=2&date=2026-01-19", label: "Ottelut · 2 palstaa" },
-  { to: "/infotv/ottelut?date=2026-01-19", label: "Ottelut · aamu + ilta" },
+  { to: "/infotv/ottelut?date=2026-08-11", label: "Ottelut · vähän pelejä" },
+  { to: "/infotv/ottelut?date=2026-01-19", label: "Ottelut · 9 peliä" },
+  { to: "/infotv/ottelut?date=2026-03-02", label: "Ottelut · 16 peliä" },
   { to: "/infotv/jaavuorot?date=2026-08-11", label: "Jäävuorot · vilkas viikko" },
   { to: "/infotv/jaavuorot", label: "Jäävuorot · tämä viikko" },
 ];

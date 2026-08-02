@@ -28,7 +28,7 @@ function Row({ r }) {
       <div className="tl-rank" style={{ color: medal || "#fff" }}>{r.rank}</div>
       <Avatar url={r.avatar} name={r.nickname} ring={medal || "rgba(255,255,255,0.14)"} />
       <div className="tl-nick">{r.nickname}</div>
-      <div className="tl-pts">{r.total}<span className="tl-p">p</span></div>
+      <div className="tl-pts">{r.total}</div>
     </div>
   );
 }

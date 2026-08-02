@@ -1,59 +1,51 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/fi";
 
 import InfoTvStage, { BrandLockup, Eyebrow, Diamond, FONT_DISPLAY, FONT_BODY, ORANGE, YELLOW, STEEL } from "./InfoTvFrame";
-import { processIncomingDataEventsDoNotStrip, buildGamesQueryUri, splitTeamName } from "../../Util";
+import { splitTeamName } from "../../Util";
+import { fetchSeasonGames, peekSeasonGames, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 
 moment.locale("fi");
 
-// Next Edustus (men's rep) home game hero — same week-by-week search as the old
-// next_home_game, rebuilt in the InfoTV ad-style visual language.
+// Next Edustus (men's rep) home game hero. Data = the ONE season-schedule cache
+// (getSeasonGames — a single cached call), NOT a week-by-week scan. Edustus = a
+// home game at the II-divisioona level.
+
+const gtime = (d) => new Date(String(d).replace(" ", "T")).getTime();
 
 export default function InfoTvKotipeli() {
-  const [match, setMatch] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [teamsMap, setTeamsMap] = useState(new Map());
-  const [teamsReady, setTeamsReady] = useState(false);
+  const [snapshot, setSnapshot] = useState(peekSeasonGames);
+  const [loaded, setLoaded] = useState(isSeasonLoaded());
 
   useEffect(() => {
-    fetch("/api/getTeams").then((r) => r.json()).then((teams) => {
-      const map = new Map();
-      for (const team of teams) for (const g of team.levelGroups ?? []) map.set(`${g.levelId}|${g.statGroupId}`, team.teamKey);
-      setTeamsMap(map);
-    }).catch(() => {}).finally(() => setTeamsReady(true));
+    const upd = () => { setSnapshot(peekSeasonGames()); setLoaded(isSeasonLoaded()); };
+    const unsub = subscribe(upd);
+    fetchSeasonGames().catch(() => {}).finally(upd);
+    return unsub;
   }, []);
 
-  useEffect(() => {
-    if (!teamsReady) return;
-    let cancelled = false;
-    const isEdustus = (g, map) => {
-      const tk = map.get(`${g.levelId}|${g.statGroupId}`);
-      if (tk !== undefined) return tk.toLowerCase().includes("miehet") && tk.toLowerCase().includes("edustus");
-      return (g.level ?? "").toLowerCase().includes("ii-divisioona");
-    };
-    const search = async () => {
-      setLoading(true);
-      let found = null;
-      for (let offset = 0; offset < 12 && !cancelled; offset++) {
-        try {
-          const d = new Date(); d.setDate(d.getDate() + offset * 7);
-          const data = await fetch(buildGamesQueryUri(moment(d).format("YYYY-MM-DD"))).then((r) => r.json());
-          const now = new Date();
-          found = processIncomingDataEventsDoNotStrip(data).find((g) => isEdustus(g, teamsMap) && new Date(g.date) > now) ?? null;
-          if (found) break;
-        } catch {}
-      }
-      if (!cancelled) { setMatch(found); setLoading(false); }
-    };
-    search();
-    return () => { cancelled = true; };
-  }, [teamsReady, teamsMap]);
+  // Men's Edustus = a home game whose (already processed) level is "II-Div".
+  // NOTE: seasonGamesCache runs processIncomingDataEvents, which simplifies levels
+  // — "II-divisioona" → "II-Div" (replaceAll is case-insensitive) and any junior
+  // "U18 II-divisioona" → "U18". So anchoring on "II-Div" matches ONLY the men's
+  // team. Earliest future one.
+  const match = useMemo(() => {
+    const now = Date.now();
+    const list = snapshot
+      .filter((g) => g.isHomeGame && /^ii-div/i.test(g.level || "") && gtime(g.date) > now)
+      .sort((a, b) => gtime(a.date) - gtime(b.date));
+    return list[0] || null;
+  }, [snapshot]);
+  const loading = !loaded;
 
   const away = match ? splitTeamName(match.away ?? "") : null;
   const dayStr = match ? moment(match.date).format("dddd D.M.YYYY").toUpperCase() : "";
   const timeStr = match ? moment(match.date).format("HH:mm") : "";
-  const isFree = match ? match.isFree !== false : true;
+  // Always the Edustus (II-div) game → paid entry. (The cache's `isFree` is
+  // unreliable: processIncomingDataEvents rewrites the level to "II-Div" before
+  // computing isFree, so it's always true there.)
+  const isFree = false;
 
   return (
     <InfoTvStage focus="50% 30%">

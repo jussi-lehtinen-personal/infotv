@@ -103,10 +103,10 @@ export const BAR_H = 88;
  */
 export function Masthead({ title, meta }) {
   return (
-    <div style={{ position: "absolute", top: 26, left: SIDE_PAD, right: SIDE_PAD, height: 72, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 84, height: "auto" }} />
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 56, lineHeight: 0.9, letterSpacing: "0.04em", color: "#fff" }}>{title}</div>
+    <div style={{ position: "absolute", top: 18, left: SIDE_PAD, right: SIDE_PAD, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 104, height: 104, objectFit: "contain" }} />
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 60, lineHeight: 0.9, letterSpacing: "0.04em", color: "#fff" }}>{title}</div>
       </div>
       {meta && <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, letterSpacing: "0.06em", color: STEEL }}>{meta}</div>}
     </div>
