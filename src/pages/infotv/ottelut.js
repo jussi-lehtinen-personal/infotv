@@ -316,7 +316,7 @@ function DetailCell({ it, s }) {
         </div>
       );
     case "partner":
-      return <PartnerCell p={it.p} featured={it.size >= 3} />;
+      return <PartnerCell p={it.p} />;
     default:
       return <div className="ok-filler ok-center"><div className="ok-big">kiekko-ahma.fi</div><div className="ok-sub2">Seuraa joukkueita ja pelejä</div></div>;
   }
@@ -363,11 +363,11 @@ function MiniMatch({ g, title, upcoming }) {
   );
 }
 
-function PartnerCell({ p, featured }) {
+function PartnerCell({ p }) {
   const [err, setErr] = useState(false);
   return (
     <div className="ok-filler ok-partner">
-      <div className="ok-filler-title">{featured ? "Pääyhteistyökumppani" : "Yhteistyössä"}</div>
+      <div className="ok-filler-title">Yhteistyössä</div>
       <div className="ok-partner-box" style={{ background: p.light ? "transparent" : "#fff" }}>
         {p.image && !err
           ? <img src={p.image} alt={p.name} onError={() => setErr(true)} className="ok-partner-img" />
