@@ -8,9 +8,9 @@ import { getMonday } from "../../Util";
 
 moment.locale("fi");
 
-const GAME_COLOR = "#3B9BFF";
-const AHMA_COLOR = ORANGE;
-const OTHER_COLOR = "#8A90A0";
+const GAME_COLOR = "#2F7FD6"; // normal blue for game reservations (Tilapäisvaraus)
+const AHMA_COLOR = ORANGE; // Kiekko-Ahma's own shifts
+const OTHER_COLOR = "#474E5A"; // muted grey for everyone else
 
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const isAhma = (t) => /kiekko.?ahma/i.test(t || "") || /(^|\s)KA[\s/]/i.test(t || "");
@@ -137,16 +137,15 @@ function InfoTvJaavuorot() {
                 {days.map((d) => (
                   <div key={d.key} className="jv-col">
                     {d.events.map((e) => {
-                      const ahma = e.kind === "ahma";
-                      const color = e.kind === "game" ? GAME_COLOR : ahma ? AHMA_COLOR : OTHER_COLOR;
+                      const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
                       const w = 100 / e.lanes;
                       const short = e.endMin - e.startMin < 50; // < 50 min → name inline after the time
                       return (
-                        <div key={e.id} className={"jv-ev" + (short ? " jv-ev--short" : "") + (ahma ? " jv-ev--ahma" : "")} style={{
+                        <div key={e.id} className={"jv-ev" + (short ? " jv-ev--short" : "")} style={{
                           top: y(e.startMin) + "%", height: `calc(${y(e.endMin) - y(e.startMin)}% - 3px)`,
                           left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 5px)`,
-                          // Kiekko-Ahma's own shifts get the solid Ahma Orange fill; others stay a subtle tint.
-                          background: ahma ? AHMA_COLOR : tint(color),
+                          // Solid fill per kind: Ahma orange, game blue, other grey. White text on all.
+                          background: color,
                         }}>
                           <span className="jv-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></span>
                           <span className="jv-ev-name">{e.text}</span>
@@ -167,12 +166,6 @@ function InfoTvJaavuorot() {
 }
 
 const fmt = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-function tint(hex) {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return "rgba(255,255,255,0.05)";
-  const n = parseInt(m[1], 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.16)`;
-}
 
 export default InfoTvJaavuorot;
 
@@ -197,13 +190,9 @@ const css = `
 .jv-ev { position:absolute; box-sizing:border-box; border-radius:6px; padding:3px 8px; overflow:hidden; display:flex; flex-direction:column; }
 .jv-ev--short { flex-direction:row; align-items:baseline; gap:6px; }
 .jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:15px; line-height:1.1; color:#fff; white-space:nowrap; flex-shrink:0; }
-.jv-ev-time span { font-weight:600; color:${STEEL}; }
-.jv-ev-name { font-family:${FONT_BODY}; font-weight:600; font-size:15px; line-height:1.14; color:rgba(255,255,255,0.82); overflow:hidden; word-break:break-word; margin-top:1px; }
+.jv-ev-time span { font-weight:600; color:rgba(255,255,255,0.8); }
+.jv-ev-name { font-family:${FONT_BODY}; font-weight:700; font-size:15px; line-height:1.14; color:#fff; overflow:hidden; word-break:break-word; margin-top:1px; }
 .jv-ev--short .jv-ev-name { min-width:0; white-space:nowrap; text-overflow:ellipsis; word-break:normal; margin-top:0; }
-/* Kiekko-Ahma's own shifts: white text on the solid Ahma Orange fill. */
-.jv-ev--ahma .jv-ev-time { color:#fff; }
-.jv-ev--ahma .jv-ev-time span { color:rgba(255,255,255,0.85); }
-.jv-ev--ahma .jv-ev-name { color:#fff; font-weight:700; }
 
 .jv-now { position:absolute; left:0; right:0; height:2px; background:#ff5a2a; z-index:6; box-shadow:0 0 8px rgba(255,90,42,0.55); }
 .jv-now-dot { position:absolute; left:-5px; top:-4px; width:10px; height:10px; border-radius:50%; background:#ff5a2a; }
