@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { LuGlobe } from "react-icons/lu";
+import { SiInstagram, SiFacebook, SiYoutube } from "react-icons/si";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -115,13 +117,10 @@ export default function InfoTvOttelut() {
     cols[2] = gameItems.slice((COLS - 1) * ROWS);
 
     // Data-driven "detail" cards derived from this week's games (no extra API).
-    const totG = (g) => (parseInt(g.m.home_goals, 10) || 0) + (parseInt(g.m.away_goals, 10) || 0);
     const marg = (g) => (parseInt(g.m.home_goals, 10) || 0) - (parseInt(g.m.away_goals, 10) || 0);
     const finished = gameItems.filter((g) => { const hg = parseInt(g.m.home_goals, 10), ag = parseInt(g.m.away_goals, 10); return g.done && !isNaN(hg) && !isNaN(ag); });
-    const topGame = finished.length ? finished.reduce((a, b) => (totG(b) > totG(a) ? b : a)) : null;
     const winsArr = finished.filter((g) => marg(g) > 0);
     const biggestWin = winsArr.length ? winsArr.reduce((a, b) => (marg(b) > marg(a) ? b : a)) : null;
-    const nextGame = gameItems.find((g) => !g.done && !g.live) || null;
 
     // Detail modules for the LAST column. Every module appears AT MOST ONCE
     // (never a duplicate) — makeFiller returns null once the unique pool is
@@ -134,13 +133,12 @@ export default function InfoTvOttelut() {
       const add = (variant, size, w, extra) => { if (!used.has(variant) && size >= 1 && size <= rem) c.push({ variant, size, w, extra }); };
       if (s.n > 0) add("summary", rem >= 3 && Math.random() < 0.5 ? 3 : 2, 3);
       if (s.played > 0) { add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
-      if (topGame) add("topGame", 2, 2, { g: topGame });
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
-      if (nextGame) add("nextGame", 2, 2.5, { g: nextGame });
       add("follow", 1, 1);
       add("hashtag", 1, 1);
       add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
       add("app", 1, 1);
+      add("social", 1, 1.5);
       if (!c.length) return null;
       const total = c.reduce((a, b) => a + b.w, 0);
       let r = Math.random() * total, chosen = c[c.length - 1];
@@ -251,15 +249,18 @@ function MatchCell({ m }) {
 function DetailCell({ it, s }) {
   switch (it.variant) {
     case "summary":
+      // Before any game is played there is only the count → show it as a big
+      // number (consistent with the other single-stat cards), not a lone cell.
+      if (s.played === 0) return <BigStat title="Viikon yhteenveto" val={s.n} sub={s.n === 1 ? "kotiottelu" : "kotiottelua"} />;
       return (
         <div className="ok-filler">
           <div className="ok-filler-title">Viikon yhteenveto</div>
           <div className="ok-stats">
             <Stat val={s.n} label="Kotiottelua" />
-            {s.played > 0 && <><span className="ok-statdiv" /><Stat label={"V · T" + (s.d ? " · TP" : "")}
-              val={<><span style={{ color: WIN }}>{s.w}</span>·<span style={{ color: LOSS }}>{s.l}</span>{s.d ? <>·{s.d}</> : null}</>} /></>}
-            {s.played > 0 && <><span className="ok-statdiv" /><Stat label="Maalit"
-              val={<><span style={{ color: ORANGE }}>{s.gf}</span>–{s.ga}</>} /></>}
+            <span className="ok-statdiv" /><Stat label={"V · T" + (s.d ? " · TP" : "")}
+              val={<><span style={{ color: WIN }}>{s.w}</span>·<span style={{ color: LOSS }}>{s.l}</span>{s.d ? <>·{s.d}</> : null}</>} />
+            <span className="ok-statdiv" /><Stat label="Maalit"
+              val={<><span style={{ color: ORANGE }}>{s.gf}</span>–{s.ga}</>} />
           </div>
         </div>
       );
@@ -269,16 +270,20 @@ function DetailCell({ it, s }) {
       return <BigStat title="Voitot" val={s.w} valColor={WIN} sub={`${s.played} pelatusta`} />;
     case "avg":
       return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
-    case "topGame":
-      return <MiniMatch g={it.g} title="Viikon maalisade" />;
     case "biggestWin":
       return <MiniMatch g={it.g} title="Suurin voitto" />;
-    case "nextGame":
-      return <MiniMatch g={it.g} title="Seuraava kotipeli" upcoming />;
     case "hashtag":
       return <div className="ok-filler ok-center"><div className="ok-big">#KIEKKOAHMA</div><div className="ok-sub2">Jaa somessa</div></div>;
     case "app":
       return <div className="ok-filler ok-center"><div className="ok-big" style={{ color: ORANGE }}>GAMEZONE</div><div className="ok-sub2">Lataa seuran sovellus</div></div>;
+    case "social":
+      return (
+        <div className="ok-filler ok-center">
+          <div className="ok-big">SEURAA MEITÄ</div>
+          <div className="ok-social"><SiInstagram /><SiFacebook /><SiYoutube /><LuGlobe /></div>
+          <div className="ok-sub2">@kiekkoahmaofficial</div>
+        </div>
+      );
     case "ahmaliiga":
       return (
         <div className="ok-filler">
@@ -286,14 +291,17 @@ function DetailCell({ it, s }) {
           <div className="ok-al-tall">
             <div className="ok-al-h">Pelaa fantasialiigaa!</div>
             <div className="ok-al-url ok-al-url--c">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></div>
-            <div className="ok-al-qrwrap"><img className="ok-al-qr-big" src="/infotv/qr_ahmaliiga.png" alt="" /></div>
+            <div className="ok-al-qrwrap">
+              <img className="ok-al-wordmark" src="/infotv/ahmaliiga_wordmark.png" alt="Ahmaliiga" />
+              <img className="ok-al-qr-big" src="/infotv/qr_ahmaliiga.png" alt="" />
+            </div>
           </div>
         </div>
       );
     case "partner":
       return <PartnerCell ps={it.ps} />;
     default:
-      return <div className="ok-filler ok-center"><div className="ok-big">gamezone.kiekko-ahma.fi</div><div className="ok-sub2">Seuraa joukkueita ja pelejä</div></div>;
+      return <div className="ok-filler ok-center"><div className="ok-big" style={{ color: ORANGE }}>GAMEZONE.KIEKKO-AHMA.FI</div><div className="ok-sub2">Seuraa joukkueita ja pelejä</div></div>;
   }
 }
 
@@ -313,27 +321,26 @@ function BigStat({ title, val, valColor, sub }) {
   );
 }
 
-function MiniMatch({ g, title, upcoming }) {
+// Head-to-head like the GameZone predict page: two logos with the score big in
+// the centre, team names below each logo (winner bold, loser lighter).
+function MiniMatch({ g, title }) {
   const m = g.m;
   const home = splitTeamName(m.home ?? ""), away = splitTeamName(m.away ?? "");
-  const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
   const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
-  const hasResult = !upcoming && !isNaN(hg) && !isNaN(ag);
-  const meta = upcoming && md.isValid() ? md.format("dd D.M. [klo] HH:mm").toUpperCase() : "";
-  const row = (t, logo, sc, win, lose) => (
-    <div className="ok-mini-row">
-      <img className="ok-mini-logo" src={logo} alt="" />
-      <span className={"ok-mini-name" + (lose ? " ok-mini-name--lose" : "")}>{t.main}{t.sub && <span className="ok-sub"> {t.sub}</span>}</span>
-      {hasResult && <span className={"ok-mini-score" + (win ? " ok-mini-score--win" : lose ? " ok-mini-score--lose" : "")}>{sc}</span>}
+  const hasResult = !isNaN(hg) && !isNaN(ag);
+  const side = (t, logo, win) => (
+    <div className="ok-vs-side">
+      <div className="ok-vs-logowrap"><img className="ok-vs-logo" src={logo} alt="" /></div>
+      <div className={"ok-vs-name" + (hasResult && !win ? " ok-vs-name--lose" : "")}>{t.main}{t.sub && <span className="ok-sub"> {t.sub}</span>}</div>
     </div>
   );
   return (
     <div className="ok-filler">
       <div className="ok-filler-title">{title}</div>
-      <div className="ok-mini">
-        {row(home, m.home_logo, m.home_goals, hasResult && hg > ag, hasResult && hg < ag)}
-        {row(away, m.away_logo, m.away_goals, hasResult && ag > hg, hasResult && ag < hg)}
-        {meta && <div className="ok-mini-meta">{meta}</div>}
+      <div className="ok-vs">
+        {side(home, m.home_logo, hg > ag)}
+        <div className="ok-vs-score">{hasResult ? `${m.home_goals}–${m.away_goals}` : "VS"}</div>
+        {side(away, m.away_logo, ag > hg)}
       </div>
     </div>
   );
@@ -410,15 +417,18 @@ const css = `
 .ok-bigstat-val { font-family:${FONT_DISPLAY}; font-size:86px; line-height:1; letter-spacing:0.02em; color:#fff; white-space:nowrap; }
 .ok-bigstat-sub { font-family:${FONT_BODY}; font-weight:700; font-size:17px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; margin-top:10px; }
 
-/* mini match (top game / biggest win / next game) */
-.ok-mini { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:10px; margin-top:2px; }
-.ok-mini-row { display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:12px; }
-.ok-mini-logo { width:34px; height:34px; object-fit:contain; background:#fff; border-radius:7px; padding:3px; box-sizing:border-box; }
-.ok-mini-name { min-width:0; font-family:${FONT_BODY}; font-weight:800; font-size:24px; line-height:1.05; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ok-mini-name--lose { font-weight:500; }
-.ok-mini-score { font-family:${FONT_DISPLAY}; font-size:38px; line-height:1; letter-spacing:0.02em; color:#fff; text-align:right; }
-.ok-mini-score--win { font-size:44px; }
-.ok-mini-score--lose { font-size:32px; color:rgba(255,255,255,0.85); }
+/* head-to-head (GameZone predict style): logo · SCORE · logo, names below */
+.ok-vs { flex:1; min-height:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:14px; }
+.ok-vs-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
+.ok-vs-logowrap { width:78px; height:78px; border-radius:14px; background:#fff; display:flex; align-items:center; justify-content:center; padding:9px; box-sizing:border-box; }
+.ok-vs-logo { max-width:100%; max-height:100%; object-fit:contain; }
+.ok-vs-name { max-width:100%; font-family:${FONT_BODY}; font-weight:800; font-size:23px; line-height:1.05; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ok-vs-name--lose { font-weight:500; }
+.ok-vs-score { font-family:${FONT_DISPLAY}; font-size:56px; line-height:1; letter-spacing:0.03em; color:${ORANGE}; white-space:nowrap; }
+
+/* social follow */
+.ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
+.ok-social svg { width:46px; height:46px; }
 .ok-mini-meta { font-family:${FONT_DISPLAY}; font-size:32px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; margin-top:4px; }
 
 /* ahmaliiga promo */
@@ -430,7 +440,8 @@ const css = `
 .ok-al-url--c { text-align:center; }
 /* tall (3-slot): text on top, big QR below */
 .ok-al-tall { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; text-align:center; padding-top:8px; }
-.ok-al-qrwrap { flex:1; min-height:0; align-self:stretch; display:flex; align-items:center; justify-content:center; margin-top:14px; }
+.ok-al-qrwrap { flex:1; min-height:0; align-self:stretch; display:flex; align-items:center; justify-content:center; gap:22px; margin-top:14px; }
+.ok-al-wordmark { max-height:78%; max-width:44%; object-fit:contain; }
 .ok-al-qr-big { height:100%; aspect-ratio:1; max-width:100%; object-fit:contain; background:#fff; border-radius:12px; padding:10px; box-sizing:border-box; }
 
 /* partner logo(s) — one card stacks 1–3 logos */
