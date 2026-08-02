@@ -275,9 +275,8 @@ function DetailCell({ it, s }) {
     case "app":
       return (
         <div className="ok-filler ok-center">
-          <div className="ok-big" style={{ color: ORANGE }}>GAMEZONE</div>
+          <div className="ok-big" style={{ color: ORANGE }}>gamezone.kiekko-ahma.fi</div>
           <div className="ok-sub2">Lataa seuran sovellus</div>
-          <div className="ok-appurl">gamezone.kiekko-ahma.fi</div>
         </div>
       );
     case "social":
@@ -427,7 +426,6 @@ const css = `
 .ok-bigstat-val { font-family:${FONT_DISPLAY}; font-size:86px; line-height:1; letter-spacing:0.02em; color:#fff; white-space:nowrap; }
 .ok-bigstat-sub { font-family:${FONT_BODY}; font-weight:700; font-size:17px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; margin-top:10px; }
 .ok-bigstat-suffix { font-family:${FONT_BODY}; font-weight:700; font-size:23px; letter-spacing:0.04em; text-transform:uppercase; color:${STEEL}; }
-.ok-appurl { font-family:${FONT_BODY}; font-weight:700; font-size:24px; letter-spacing:0.02em; color:#fff; margin-top:8px; }
 
 /* head-to-head (GameZone predict style): logo · SCORE · logo, names below */
 .ok-filler-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
