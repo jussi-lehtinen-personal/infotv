@@ -106,7 +106,7 @@ export function Masthead({ title, meta }) {
     <div style={{ position: "absolute", top: 18, left: SIDE_PAD, right: SIDE_PAD, height: 96, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
         <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 104, height: 104, objectFit: "contain" }} />
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 60, lineHeight: 0.9, letterSpacing: "0.04em", color: "#fff" }}>{title}</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 60, lineHeight: 0.9, letterSpacing: "0.04em", color: "#fff", transform: "translateY(0.07em)" }}>{title}</div>
       </div>
       {meta && <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, letterSpacing: "0.06em", color: STEEL }}>{meta}</div>}
     </div>

@@ -23,17 +23,34 @@ function Tile({ p }) {
   );
 }
 
+const LS_KEY = "ahma.infotv.partners.v1";
+
 export default function InfoTvKumppanit() {
-  const [partners, setPartners] = useState(null);
+  // Instant paint from localStorage (partners change rarely) → the signage never
+  // waits on the slow first getPartners (Jopox fetch + logo analysis). Then
+  // revalidate in the background and re-cache. SWR.
+  const [partners, setPartners] = useState(() => {
+    try { const r = JSON.parse(localStorage.getItem(LS_KEY)); return Array.isArray(r) ? r : null; } catch { return null; }
+  });
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/getPartners")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => { if (!cancelled) setPartners(Array.isArray(d.partners) ? d.partners : []); })
-      .catch(() => { if (!cancelled) { setError(true); setPartners([]); } });
+      .then((d) => {
+        if (cancelled) return;
+        const list = Array.isArray(d.partners) ? d.partners : [];
+        setPartners(list);
+        try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch { /* quota/private */ }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Only surface an error when there's no cached list to fall back on.
+        if (partners == null) { setError(true); setPartners([]); }
+      });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
