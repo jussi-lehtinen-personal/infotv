@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LuClock } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
@@ -16,6 +15,7 @@ const ROWS = 5;
 const SLOTS = COLS * ROWS; // 3 columns × 5 rows
 const WIN = "var(--color-win)";
 const LOSS = "var(--color-loss)";
+const DRAW = "var(--color-draw)";
 const LIVE = "var(--color-primary)";
 const MUTED = "rgba(255,255,255,0.4)";
 const PARTNERS_LS = "ahma.infotv.partners.v1";
@@ -102,20 +102,12 @@ export default function InfoTvOttelut() {
       // a score, so a result alone would leave already-played games looking
       // upcoming.
       const done = !live && (hasResult || (md.isValid() && md.isBefore(now)));
-      return { type: "game", key: m.id ?? `g${i}`, size: 1, m, wd: md.isValid() ? md.format("dd").toUpperCase() : "", done, live };
+      return { type: "game", key: m.id ?? `g${i}`, size: 1, m, done, live };
     });
-    const firstUpcoming = gameItems.findIndex((g) => !g.done && !g.live);
-    gameItems.forEach((g, i) => { g.isNext = i === firstUpcoming; });
 
     // Games fill column-major (col0 top→bottom, then col1…), one slot each.
     const cols = [[], [], []];
     gameItems.forEach((g, i) => { const c = Math.floor(i / ROWS); if (c < COLS) cols[c].push(g); });
-
-    // Day label per column: the column's first game + any weekday change within.
-    for (const col of cols) {
-      let prevWd = null;
-      for (const it of col) { if (prevWd === null || it.wd !== prevWd) it.dayLabel = it.wd; prevWd = it.wd; }
-    }
 
     // Data-driven "detail" cards derived from this week's games (no extra API).
     const totG = (g) => (parseInt(g.m.home_goals, 10) || 0) + (parseInt(g.m.away_goals, 10) || 0);
@@ -130,7 +122,7 @@ export default function InfoTvOttelut() {
     // (1, 2 or 3 slots tall). Data cards appear once; promos + partners repeat.
     // Partners are a random few, refreshed every load. Each column fills exactly.
     const s = summary;
-    const partnerPicks = sample(partners, 3);
+    const partnerPicks = sample(partners, partners.length); // shuffled once per load
     // Every module is once-per-screen except partners, which repeat to fill.
     const SINGLE = ["summary", "goals", "wins", "avg", "topGame", "biggestWin", "nextGame", "follow", "hashtag", "ahmaliiga", "app"];
     let pIdx = 0, fk = 0;
@@ -150,8 +142,11 @@ export default function InfoTvOttelut() {
       if (!used.has("ahmaliiga")) add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
       if (!used.has("app")) add("app", 1, 1);
       if (partnerPicks.length) {
-        const size = rem >= 3 && Math.random() < 0.25 ? 3 : rem >= 2 && Math.random() < 0.5 ? 2 : 1;
-        add("partner", size, 3.5, { p: partnerPicks[pIdx++ % partnerPicks.length] });
+        // A partner card holds `size` logos stacked (1, 2 or 3 partners).
+        const size = rem >= 3 && Math.random() < 0.3 ? 3 : rem >= 2 && Math.random() < 0.55 ? 2 : 1;
+        const ps = [];
+        for (let k = 0; k < size; k++) ps.push(partnerPicks[pIdx++ % partnerPicks.length]);
+        add("partner", size, 3.5, { ps });
       }
       if (!c.length) add("follow", 1, 1);
       const total = c.reduce((a, b) => a + b.w, 0);
@@ -180,48 +175,15 @@ export default function InfoTvOttelut() {
       ) : (
         <div className="ok-grid">
           {columns.map((col, ci) => (
-            <div className="ok-col" key={ci}>
-              <Rail col={col} />
-              <div className="ok-cells">
-                {col.map((it) => (
-                  <div className="ok-cellwrap" key={it.key} style={{ flex: it.size }}><Cell it={it} summary={summary} /></div>
-                ))}
-              </div>
+            <div className="ok-cells" key={ci}>
+              {col.map((it) => (
+                <div className="ok-cellwrap" key={it.key} style={{ flex: it.size }}><Cell it={it} summary={summary} /></div>
+              ))}
             </div>
           ))}
         </div>
       )}
     </InfoTvStage>
-  );
-}
-
-// GameZone jakso-style progress rail down the LEFT edge of a column: one node
-// per game (played = solid orange, next = orange ring, upcoming = dim), joined
-// by segments coloured by progress. The first game of each day gets a bigger
-// labelled ball (weekday) instead of a plain dot — the day marker sits right at
-// that match.
-function Rail({ col }) {
-  const games = col.filter((c) => c.type === "game");
-  return (
-    <div className="ok-rail">
-      {Array.from({ length: ROWS }).map((_, li) => {
-        const it = games[li];
-        if (!it) return <div className="ok-railslot" key={li} />;
-        const prev = games[li - 1], next = games[li + 1];
-        const upDone = prev && (prev.done || prev.live);
-        const downDone = it.done || it.live;
-        const state = it.live ? "live" : it.done ? "done" : it.isNext ? "next" : "todo";
-        return (
-          <div className="ok-railslot" key={li}>
-            {prev && <span className={"ok-seg ok-seg--up " + (upDone ? "ok-seg--done" : "ok-seg--todo")} />}
-            {next && <span className={"ok-seg ok-seg--down " + (downDone ? "ok-seg--done" : "ok-seg--todo")} />}
-            {it.dayLabel
-              ? <span className={"ok-dayball ok-dayball--" + state}>{it.dayLabel}</span>
-              : <span className={"ok-node ok-node--" + state} />}
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -232,6 +194,7 @@ function Cell({ it, summary }) {
 
 function MatchCell({ m }) {
   const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
+  const wd = md.isValid() ? md.format("dd").toUpperCase() : "";
   const time = md.isValid() ? md.format("HH:mm") : "";
   const level = simplifyLevel(m.level ?? "");
   const live = isLiveMatch(m);
@@ -241,6 +204,7 @@ function MatchCell({ m }) {
   const away = splitTeamName(m.away ?? "");
   const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
   const hasResult = finished && !isNaN(hg) && !isNaN(ag);
+  const line = live ? LIVE : !hasResult ? "rgba(255,255,255,0.12)" : hg > ag ? WIN : hg < ag ? LOSS : DRAW;
   const homeSc = live ? { color: LIVE } : !hasResult || hg === ag ? undefined : hg > ag ? { color: WIN } : { color: MUTED };
   const awaySc = live ? { color: LIVE } : !hasResult || hg === ag ? undefined : ag > hg ? { color: LOSS } : { color: MUTED };
   const homeMuted = hasResult && hg < ag && !live;
@@ -248,20 +212,24 @@ function MatchCell({ m }) {
 
   return (
     <div className="ok-card">
-      <div className="ok-head">
-        <span className="ok-time"><LuClock className="ok-ic" />{time}</span>
-        {level && <span className="ok-level">{level}</span>}
-        {live && <span className="ok-livebadge">LIVE</span>}
+      <div className="ok-line" style={{ background: line }} />
+      <div className="ok-when">
+        <span className="ok-when-day">{wd}</span>
+        <span className="ok-when-time">{time}</span>
+        {live ? <span className="ok-when-live">LIVE</span> : level && <span className="ok-when-level">{level}</span>}
       </div>
-      <div className="ok-team">
-        <div className="ok-logowrap"><img className="ok-logo" src={m.home_logo} alt="" /></div>
-        <span className="ok-name" style={homeMuted ? { color: MUTED } : undefined}>{home.main}{home.sub && <span className="ok-sub"> {home.sub}</span>}</span>
-        <span className="ok-score" style={homeSc}>{show ? m.home_goals : ""}</span>
-      </div>
-      <div className="ok-team">
-        <div className="ok-logowrap"><img className="ok-logo" src={m.away_logo} alt="" /></div>
-        <span className="ok-name" style={awayMuted ? { color: MUTED } : undefined}>{away.main}{away.sub && <span className="ok-sub"> {away.sub}</span>}</span>
-        <span className="ok-score" style={awaySc}>{show ? m.away_goals : ""}</span>
+      <div className="ok-when-div" />
+      <div className="ok-teams">
+        <div className="ok-team">
+          <div className="ok-logowrap"><img className="ok-logo" src={m.home_logo} alt="" /></div>
+          <span className="ok-name" style={homeMuted ? { color: MUTED } : undefined}>{home.main}{home.sub && <span className="ok-sub"> {home.sub}</span>}</span>
+          <span className="ok-score" style={homeSc}>{show ? m.home_goals : ""}</span>
+        </div>
+        <div className="ok-team">
+          <div className="ok-logowrap"><img className="ok-logo" src={m.away_logo} alt="" /></div>
+          <span className="ok-name" style={awayMuted ? { color: MUTED } : undefined}>{away.main}{away.sub && <span className="ok-sub"> {away.sub}</span>}</span>
+          <span className="ok-score" style={awaySc}>{show ? m.away_goals : ""}</span>
+        </div>
       </div>
     </div>
   );
@@ -291,7 +259,7 @@ function DetailCell({ it, s }) {
     case "wins":
       return <BigStat title="Voitot" val={s.w} valColor={WIN} sub={`${s.played} pelatusta`} />;
     case "avg":
-      return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Omat maalit" />;
+      return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
     case "topGame":
       return <MiniMatch g={it.g} title="Viikon maalisade" />;
     case "biggestWin":
@@ -306,19 +274,17 @@ function DetailCell({ it, s }) {
       return (
         <div className="ok-filler">
           <div className="ok-filler-title">Ahmaliiga</div>
-          <div className="ok-al-body">
-            <div className="ok-al-txt">
-              <div className="ok-al-h">Pelaa fantasialiigaa!</div>
-              <div className="ok-al-url">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></div>
-            </div>
-            {it.size >= 3 && <img className="ok-al-qr" src="/infotv/qr_ahmaliiga.png" alt="" />}
+          <div className="ok-al-tall">
+            <div className="ok-al-h">Pelaa fantasialiigaa!</div>
+            <div className="ok-al-url ok-al-url--c">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></div>
+            <div className="ok-al-qrwrap"><img className="ok-al-qr-big" src="/infotv/qr_ahmaliiga.png" alt="" /></div>
           </div>
         </div>
       );
     case "partner":
-      return <PartnerCell p={it.p} />;
+      return <PartnerCell ps={it.ps} />;
     default:
-      return <div className="ok-filler ok-center"><div className="ok-big">kiekko-ahma.fi</div><div className="ok-sub2">Seuraa joukkueita ja pelejä</div></div>;
+      return <div className="ok-filler ok-center"><div className="ok-big">gamezone.kiekko-ahma.fi</div><div className="ok-sub2">Seuraa joukkueita ja pelejä</div></div>;
   }
 }
 
@@ -342,77 +308,70 @@ function MiniMatch({ g, title, upcoming }) {
   const m = g.m;
   const home = splitTeamName(m.home ?? ""), away = splitTeamName(m.away ?? "");
   const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
-  const meta = upcoming
-    ? (md.isValid() ? md.format("dd D.M. [klo] HH:mm").toUpperCase() : "")
-    : `${m.home_goals}–${m.away_goals}`;
+  const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
+  const hasResult = !upcoming && !isNaN(hg) && !isNaN(ag);
+  const meta = upcoming && md.isValid() ? md.format("dd D.M. [klo] HH:mm").toUpperCase() : "";
+  const row = (t, logo, sc, scStyle, muted) => (
+    <div className="ok-mini-row">
+      <img className="ok-mini-logo" src={logo} alt="" />
+      <span className="ok-mini-name" style={muted ? { color: MUTED } : undefined}>{t.main}{t.sub && <span className="ok-sub"> {t.sub}</span>}</span>
+      {hasResult && <span className="ok-mini-score" style={scStyle}>{sc}</span>}
+    </div>
+  );
   return (
     <div className="ok-filler">
       <div className="ok-filler-title">{title}</div>
       <div className="ok-mini">
-        <div className="ok-mini-row">
-          <img className="ok-mini-logo" src={m.home_logo} alt="" />
-          <span className="ok-mini-name">{home.main}{home.sub && <span className="ok-sub"> {home.sub}</span>}</span>
-        </div>
-        <div className="ok-mini-row">
-          <img className="ok-mini-logo" src={m.away_logo} alt="" />
-          <span className="ok-mini-name">{away.main}{away.sub && <span className="ok-sub"> {away.sub}</span>}</span>
-        </div>
-        <div className="ok-mini-meta">{meta}</div>
+        {row(home, m.home_logo, m.home_goals, hasResult && hg > ag ? { color: WIN } : undefined, hasResult && hg < ag)}
+        {row(away, m.away_logo, m.away_goals, hasResult && ag > hg ? { color: WIN } : undefined, hasResult && ag < hg)}
+        {meta && <div className="ok-mini-meta">{meta}</div>}
       </div>
     </div>
   );
 }
 
-function PartnerCell({ p }) {
-  const [err, setErr] = useState(false);
+// A partner card holds one or more logos stacked (size = number of partners).
+function PartnerCell({ ps }) {
   return (
     <div className="ok-filler ok-partner">
       <div className="ok-filler-title">Yhteistyössä</div>
-      <div className="ok-partner-box" style={{ background: p.light ? "transparent" : "#fff" }}>
-        {p.image && !err
-          ? <img src={p.image} alt={p.name} onError={() => setErr(true)} className="ok-partner-img" />
-          : <span className="ok-partner-name" style={{ color: p.light ? "#fff" : "#333" }}>{p.name}</span>}
+      <div className="ok-partner-list">
+        {ps.map((p, i) => <PartnerLogo key={i} p={p} />)}
       </div>
+    </div>
+  );
+}
+
+function PartnerLogo({ p }) {
+  const [err, setErr] = useState(false);
+  return (
+    <div className="ok-partner-box" style={{ background: p.light ? "transparent" : "#fff" }}>
+      {p.image && !err
+        ? <img src={p.image} alt={p.name} onError={() => setErr(true)} className="ok-partner-img" />
+        : <span className="ok-partner-name" style={{ color: p.light ? "#fff" : "#333" }}>{p.name}</span>}
     </div>
   );
 }
 
 const css = `
-.ok-grid { position:absolute; top:110px; bottom:32px; left:40px; right:40px; display:flex; gap:16px; z-index:2; }
+.ok-grid { position:absolute; top:110px; bottom:32px; left:30px; right:30px; display:flex; gap:16px; z-index:2; }
 .ok-empty { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:60px; color:rgba(255,255,255,0.32); }
 
-.ok-col { flex:1; min-width:0; display:flex; gap:12px; }
 .ok-cells { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
 .ok-cellwrap { flex:1; min-height:0; display:flex; }
 .ok-cellwrap > * { flex:1; min-width:0; }
 
-/* progress rail (left edge of each column) */
-.ok-rail { flex:0 0 52px; display:flex; flex-direction:column; gap:16px; }
-.ok-railslot { flex:1; position:relative; }
-.ok-seg { position:absolute; left:50%; transform:translateX(-50%); width:3px; border-radius:2px; }
-.ok-seg--up { top:-8px; height:calc(50% + 8px); }
-.ok-seg--down { top:50%; bottom:-8px; }
-.ok-seg--done { background:${ORANGE}; }
-.ok-seg--todo { background:rgba(255,255,255,0.14); }
-.ok-node { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:15px; height:15px; border-radius:50%; box-sizing:border-box; z-index:2; }
-.ok-node--done { background:${ORANGE}; border:2px solid ${ORANGE}; }
-.ok-node--live { background:${ORANGE}; border:2px solid ${ORANGE}; box-shadow:0 0 0 5px rgba(240,110,30,0.28); }
-.ok-node--next { background:#141418; border:3px solid ${ORANGE}; width:17px; height:17px; }
-.ok-node--todo { background:#141418; border:2px solid rgba(255,255,255,0.3); }
-.ok-dayball { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:52px; height:52px; border-radius:50%; box-sizing:border-box; z-index:3; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:29px; line-height:1; letter-spacing:0.03em; padding-top:2px; }
-.ok-dayball--done, .ok-dayball--live { background:${ORANGE}; border:2px solid ${ORANGE}; color:#fff; }
-.ok-dayball--live { box-shadow:0 0 0 5px rgba(240,110,30,0.28); }
-.ok-dayball--next { background:#141418; border:3px solid ${ORANGE}; color:${ORANGE}; }
-.ok-dayball--todo { background:#141418; border:2px solid rgba(255,255,255,0.3); color:${STEEL}; }
+/* match card: day+time (left) | divider | teams */
+.ok-card { position:relative; overflow:hidden; display:flex; align-items:center; gap:16px; padding:11px 22px 11px 26px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
+.ok-line { position:absolute; left:0; top:10px; bottom:10px; width:6px; border-radius:0 3px 3px 0; }
+.ok-when { flex:0 0 auto; min-width:66px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+.ok-when-day { font-family:${FONT_DISPLAY}; font-size:30px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; }
+.ok-when-time { font-family:${FONT_DISPLAY}; font-size:37px; line-height:1; letter-spacing:0.02em; color:#fff; }
+.ok-when-level { font-family:${FONT_BODY}; font-weight:600; font-size:14px; letter-spacing:0.04em; text-transform:uppercase; color:${STEEL}; border:1px solid rgba(255,255,255,0.18); border-radius:6px; padding:1px 7px; margin-top:3px; }
+.ok-when-live { font-family:${FONT_BODY}; font-weight:800; font-size:15px; letter-spacing:0.06em; color:${LOSS}; margin-top:3px; }
+.ok-when-div { flex:0 0 auto; width:1.5px; align-self:stretch; margin:9px 0; background:rgba(255,255,255,0.12); }
 
-.ok-card { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; gap:7px; padding:11px 22px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
-
-.ok-head { display:flex; align-items:center; gap:11px; }
-.ok-ic { width:18px; height:18px; color:${STEEL}; flex-shrink:0; }
-.ok-time { display:flex; align-items:center; gap:7px; font-family:${FONT_BODY}; font-weight:700; font-size:21px; line-height:1; color:var(--gz-text-primary, #fff); }
-.ok-level { font-family:${FONT_BODY}; font-weight:600; font-size:17px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.18); border-radius:7px; padding:1px 9px; }
-.ok-livebadge { margin-left:auto; font-family:${FONT_BODY}; font-weight:800; font-size:16px; letter-spacing:0.06em; color:${LOSS}; }
-
+.ok-teams { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:9px; }
 .ok-team { display:grid; grid-template-columns:38px 1fr auto; align-items:center; gap:13px; }
 .ok-logowrap { width:38px; height:38px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; padding:4px; box-sizing:border-box; }
 .ok-logo { max-width:100%; max-height:100%; object-fit:contain; }
@@ -424,7 +383,7 @@ const css = `
 .ok-filler { display:flex; flex-direction:column; padding:13px 22px; border-radius:16px; overflow:hidden; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-filler-title { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:800; font-size:18px; letter-spacing:0.14em; text-transform:uppercase; color:${ORANGE}; }
 .ok-center { align-items:center; justify-content:center; text-align:center; }
-.ok-big { font-family:${FONT_DISPLAY}; font-size:46px; line-height:1; letter-spacing:0.03em; color:#fff; }
+.ok-big { font-family:${FONT_DISPLAY}; font-size:42px; line-height:1; letter-spacing:0.03em; color:#fff; white-space:nowrap; }
 .ok-sub2 { font-family:${FONT_BODY}; font-weight:600; font-size:20px; color:${STEEL}; margin-top:8px; }
 
 /* summary stat row (GameZone jakso style: value + divider + value) */
@@ -440,11 +399,12 @@ const css = `
 .ok-bigstat-sub { font-family:${FONT_BODY}; font-weight:700; font-size:17px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; margin-top:10px; }
 
 /* mini match (top game / biggest win / next game) */
-.ok-mini { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:9px; margin-top:2px; }
-.ok-mini-row { display:flex; align-items:center; gap:12px; }
-.ok-mini-logo { width:34px; height:34px; object-fit:contain; background:#fff; border-radius:7px; padding:3px; box-sizing:border-box; flex-shrink:0; }
+.ok-mini { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:10px; margin-top:2px; }
+.ok-mini-row { display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:12px; }
+.ok-mini-logo { width:34px; height:34px; object-fit:contain; background:#fff; border-radius:7px; padding:3px; box-sizing:border-box; }
 .ok-mini-name { min-width:0; font-family:${FONT_BODY}; font-weight:800; font-size:24px; line-height:1.05; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ok-mini-meta { font-family:${FONT_DISPLAY}; font-size:36px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; margin-top:3px; }
+.ok-mini-score { font-family:${FONT_DISPLAY}; font-size:38px; line-height:1; letter-spacing:0.02em; color:#fff; text-align:right; }
+.ok-mini-meta { font-family:${FONT_DISPLAY}; font-size:32px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; margin-top:4px; }
 
 /* ahmaliiga promo */
 .ok-al-body { flex:1; min-height:0; display:flex; align-items:center; gap:16px; }
@@ -452,11 +412,16 @@ const css = `
 .ok-al-h { font-family:${FONT_DISPLAY}; font-size:40px; line-height:1; letter-spacing:0.03em; color:#fff; }
 .ok-al-url { font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:#fff; margin-top:8px; word-break:break-word; }
 .ok-al-url b { color:${ORANGE}; font-weight:800; }
-.ok-al-qr { width:92px; height:92px; border-radius:8px; background:#fff; padding:5px; box-sizing:border-box; flex-shrink:0; }
+.ok-al-url--c { text-align:center; }
+/* tall (3-slot): text on top, big QR below */
+.ok-al-tall { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; text-align:center; padding-top:8px; }
+.ok-al-qrwrap { flex:1; min-height:0; align-self:stretch; display:flex; align-items:center; justify-content:center; margin-top:14px; }
+.ok-al-qr-big { height:100%; aspect-ratio:1; max-width:100%; object-fit:contain; background:#fff; border-radius:12px; padding:10px; box-sizing:border-box; }
 
-/* partner logo */
+/* partner logo(s) — one card stacks 1–3 logos */
 .ok-partner { align-items:stretch; }
-.ok-partner-box { flex:1; min-height:0; margin-top:10px; border-radius:12px; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box; }
+.ok-partner-list { flex:1; min-height:0; margin-top:10px; display:flex; flex-direction:column; gap:10px; }
+.ok-partner-box { flex:1; min-height:0; border-radius:12px; display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box; }
 .ok-partner-img { max-width:100%; max-height:100%; object-fit:contain; }
-.ok-partner-name { font-family:${FONT_DISPLAY}; font-size:34px; text-align:center; }
+.ok-partner-name { font-family:${FONT_DISPLAY}; font-size:30px; text-align:center; }
 `;
