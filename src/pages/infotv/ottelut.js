@@ -131,8 +131,8 @@ export default function InfoTvOttelut() {
     const makeFiller = (rem) => {
       const c = [];
       const add = (variant, size, w, extra) => { if (!used.has(variant) && size >= 1 && size <= rem) c.push({ variant, size, w, extra }); };
-      if (s.n > 0) add("summary", rem >= 3 && Math.random() < 0.5 ? 3 : 2, 3);
-      if (s.played > 0) { add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
+      if (s.n > 0) add("count", 1, 2);
+      if (s.played > 0) { add("record", 1, 2.5); add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
       add("follow", 1, 1);
       add("hashtag", 1, 1);
@@ -248,24 +248,37 @@ function MatchCell({ m }) {
 // height adapts automatically, so most variants need no size-specific styling.
 function DetailCell({ it, s }) {
   switch (it.variant) {
-    case "summary":
-      // Before any game is played there is only the count → show it as a big
-      // number (consistent with the other single-stat cards), not a lone cell.
-      if (s.played === 0) return <BigStat title="Viikon yhteenveto" val={s.n} sub={s.n === 1 ? "kotiottelu" : "kotiottelua"} />;
+    case "count":
+      return <BigStat title="Kotiottelut" val={s.n} sub="Tällä viikolla" />;
+    case "record":
       return (
         <div className="ok-filler">
-          <div className="ok-filler-title">Viikon yhteenveto</div>
+          <div className="ok-filler-title">Viikon tulokset</div>
           <div className="ok-stats">
-            <Stat val={s.n} label="Kotiottelut" />
-            <span className="ok-statdiv" /><Stat label="V · T · H"
-              val={<><span style={{ color: WIN }}>{s.w}</span> · {s.d} · <span style={{ color: LOSS }}>{s.l}</span></>} />
+            <Stat label="Voitot" val={<span style={{ color: WIN }}>{s.w}</span>} />
+            <span className="ok-statdiv" />
+            <Stat label="Tasapelit" val={s.d} />
+            <span className="ok-statdiv" />
+            <Stat label="Häviöt" val={<span style={{ color: LOSS }}>{s.l}</span>} />
           </div>
         </div>
       );
     case "goals":
-      return <BigStat title="Maalit" val={<><span style={{ color: ORANGE }}>{s.gf}</span> – {s.ga}</>} sub="Tehdyt – päästetyt" />;
+      return (
+        <div className="ok-filler">
+          <div className="ok-filler-title">Maalit</div>
+          <div className="ok-goals">
+            <span className="ok-goals-n" style={{ color: ORANGE }}>{s.gf}</span>
+            <span className="ok-goals-dash">–</span>
+            <span className="ok-goals-n">{s.ga}</span>
+            <span className="ok-goals-l">Tehdyt</span>
+            <span />
+            <span className="ok-goals-l">Päästetyt</span>
+          </div>
+        </div>
+      );
     case "wins":
-      return <BigStat title="Voitot" val={<>{s.w}<span className="ok-bigstat-suffix"> / {s.played} ottelua pelattu</span></>} valColor={WIN} />;
+      return <BigStat title="Voitot" val={<><span style={{ color: WIN }}>{s.w}</span>/{s.played}</>} sub="Ottelua voitettu" />;
     case "avg":
       return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
     case "biggestWin":
@@ -424,8 +437,13 @@ const css = `
 /* single big-number stat */
 .ok-bigstat { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .ok-bigstat-val { font-family:${FONT_DISPLAY}; font-size:86px; line-height:1; letter-spacing:0.02em; color:#fff; white-space:nowrap; }
-.ok-bigstat-sub { font-family:${FONT_BODY}; font-weight:700; font-size:17px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; margin-top:10px; }
-.ok-bigstat-suffix { font-family:${FONT_BODY}; font-weight:700; font-size:23px; letter-spacing:0.04em; text-transform:uppercase; color:${STEEL}; }
+.ok-bigstat-sub { font-family:${FONT_BODY}; font-weight:700; font-size:20px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; margin-top:11px; }
+
+/* Maalit: 54 – 48 with labels aligned under each number */
+.ok-goals { flex:1; min-height:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; justify-items:center; row-gap:10px; }
+.ok-goals-n { font-family:${FONT_DISPLAY}; font-size:86px; line-height:1; letter-spacing:0.02em; color:#fff; }
+.ok-goals-dash { font-family:${FONT_DISPLAY}; font-size:66px; line-height:1; color:#fff; padding:0 16px; }
+.ok-goals-l { font-family:${FONT_BODY}; font-weight:700; font-size:19px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; }
 
 /* head-to-head (GameZone predict style): logo · SCORE · logo, names below */
 .ok-filler-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
