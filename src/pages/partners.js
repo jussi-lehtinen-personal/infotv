@@ -14,7 +14,7 @@ const PartnerCard = ({ p }) => {
           card; dark/opaque logos keep the white box behind them. */}
       <Box sx={{ width: "100%", height: 88, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 1.25, bgcolor: p.light ? "transparent" : "#fff", p: 1.25, boxSizing: "border-box" }}>
         {showImg ? (
-          <Box component="img" src={p.image} alt={p.name} loading="lazy" onError={() => setFailed(true)} sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+          <Box component="img" src={p.image} alt={p.name} loading="lazy" onError={() => setFailed(true)} sx={{ width: "100%", height: "100%", objectFit: "contain" }} />
         ) : (
           <Typography sx={{ color: "#333", fontWeight: 700, fontSize: 14, textAlign: "center", lineHeight: 1.3, wordBreak: "break-word" }}>{p.name}</Typography>
         )}
