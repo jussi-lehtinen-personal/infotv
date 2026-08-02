@@ -118,46 +118,49 @@ export default function InfoTvOttelut() {
     const biggestWin = winsArr.length ? winsArr.reduce((a, b) => (marg(b) > marg(a) ? b : a)) : null;
     const nextGame = gameItems.find((g) => !g.done && !g.live) || null;
 
-    // Pack the leftover slots of each column with random detail/partner modules
-    // (1, 2 or 3 slots tall). Data cards appear once; promos + partners repeat.
-    // Partners are a random few, refreshed every load. Each column fills exactly.
+    // Pack the leftover slots with random DETAIL modules (1/2/3 slots tall).
+    // Every detail module appears at most once. Partners are handled separately
+    // (rule: exactly ONE partner card, placed LAST — see below), so they are not
+    // in this pool. A follow card is the size-1 fallback if the pool runs dry.
     const s = summary;
-    const partnerPicks = sample(partners, partners.length); // shuffled once per load
-    // Every module is once-per-screen except partners, which repeat to fill.
-    const SINGLE = ["summary", "goals", "wins", "avg", "topGame", "biggestWin", "nextGame", "follow", "hashtag", "ahmaliiga", "app"];
-    let pIdx = 0, fk = 0;
+    let fk = 0;
     const used = new Set();
     const makeFiller = (rem) => {
       const c = [];
-      const add = (variant, size, w, extra) => { if (size >= 1 && size <= rem) c.push({ variant, size, w, extra }); };
-      if (!used.has("summary") && s.n > 0) add("summary", rem >= 3 && Math.random() < 0.5 ? 3 : 2, 3);
-      if (!used.has("goals") && s.played > 0) add("goals", 1, 2);
-      if (!used.has("wins") && s.played > 0) add("wins", 1, 2);
-      if (!used.has("avg") && s.played > 0) add("avg", 1, 1.5);
-      if (!used.has("topGame") && topGame) add("topGame", 2, 2, { g: topGame });
-      if (!used.has("biggestWin") && biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
-      if (!used.has("nextGame") && nextGame) add("nextGame", 2, 2.5, { g: nextGame });
-      if (!used.has("follow")) add("follow", 1, 1);
-      if (!used.has("hashtag")) add("hashtag", 1, 1);
-      if (!used.has("ahmaliiga")) add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
-      if (!used.has("app")) add("app", 1, 1);
-      if (partnerPicks.length) {
-        // A partner card holds `size` logos stacked (1, 2 or 3 partners).
-        const size = rem >= 3 && Math.random() < 0.3 ? 3 : rem >= 2 && Math.random() < 0.55 ? 2 : 1;
-        const ps = [];
-        for (let k = 0; k < size; k++) ps.push(partnerPicks[pIdx++ % partnerPicks.length]);
-        add("partner", size, 3.5, { ps });
-      }
-      if (!c.length) add("follow", 1, 1);
+      const add = (variant, size, w, extra) => { if (!used.has(variant) && size >= 1 && size <= rem) c.push({ variant, size, w, extra }); };
+      if (s.n > 0) add("summary", rem >= 3 && Math.random() < 0.5 ? 3 : 2, 3);
+      if (s.played > 0) { add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
+      if (topGame) add("topGame", 2, 2, { g: topGame });
+      if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
+      if (nextGame) add("nextGame", 2, 2.5, { g: nextGame });
+      add("follow", 1, 1);
+      add("hashtag", 1, 1);
+      add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
+      add("app", 1, 1);
+      if (!c.length) return { type: "detail", variant: "follow", size: 1, key: `f${fk++}` };
       const total = c.reduce((a, b) => a + b.w, 0);
       let r = Math.random() * total, chosen = c[c.length - 1];
       for (const x of c) { r -= x.w; if (r <= 0) { chosen = x; break; } }
-      if (SINGLE.includes(chosen.variant)) used.add(chosen.variant);
+      used.add(chosen.variant);
       return { type: "detail", variant: chosen.variant, size: chosen.size, key: `f${fk++}`, ...(chosen.extra || {}) };
     };
-    for (const col of cols) {
-      let rem = ROWS - col.reduce((acc, c) => acc + c.size, 0);
-      while (rem > 0) { const f = makeFiller(rem); col.push(f); rem -= f.size; }
+
+    // Rule: at most ONE partner card, at the very END (bottom of the last column
+    // that holds fillers). It stacks up to 3 shuffled logos (or 1). Everything
+    // above it is filled with the detail modules.
+    const partnerPicks = sample(partners, partners.length); // shuffled once per load
+    let lastFillCol = -1;
+    for (let c = COLS - 1; c >= 0; c--) { if (cols[c].length < ROWS) { lastFillCol = c; break; } }
+    const partnerSize = partnerPicks.length && lastFillCol >= 0 ? Math.min(3, ROWS - cols[lastFillCol].length) : 0;
+
+    for (let c = 0; c < COLS; c++) {
+      const col = cols[c];
+      const reserve = c === lastFillCol ? partnerSize : 0;
+      let rem = ROWS - col.reduce((acc, x) => acc + x.size, 0);
+      while (rem - reserve > 0) { const f = makeFiller(rem - reserve); col.push(f); rem -= f.size; }
+      if (reserve > 0) {
+        col.push({ type: "detail", variant: "partner", size: reserve, key: "partner", ps: partnerPicks.slice(0, reserve) });
+      }
     }
     return cols;
   }, [games, partners, summary]);
@@ -364,11 +367,11 @@ const css = `
 /* match card: day+time (left) | divider | teams */
 .ok-card { position:relative; overflow:hidden; display:flex; align-items:center; gap:16px; padding:11px 22px 11px 26px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-line { position:absolute; left:0; top:10px; bottom:10px; width:6px; border-radius:0 3px 3px 0; }
-.ok-when { flex:0 0 auto; min-width:66px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+.ok-when { flex:0 0 auto; min-width:78px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
 .ok-when-day { font-family:${FONT_DISPLAY}; font-size:30px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; }
 .ok-when-time { font-family:${FONT_DISPLAY}; font-size:37px; line-height:1; letter-spacing:0.02em; color:#fff; }
-.ok-when-level { font-family:${FONT_BODY}; font-weight:600; font-size:14px; letter-spacing:0.04em; text-transform:uppercase; color:${STEEL}; border:1px solid rgba(255,255,255,0.18); border-radius:6px; padding:1px 7px; margin-top:3px; }
-.ok-when-live { font-family:${FONT_BODY}; font-weight:800; font-size:15px; letter-spacing:0.06em; color:${LOSS}; margin-top:3px; }
+.ok-when-level { font-family:${FONT_BODY}; font-weight:700; font-size:19px; letter-spacing:0.03em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.22); border-radius:7px; padding:2px 10px; margin-top:4px; }
+.ok-when-live { font-family:${FONT_BODY}; font-weight:800; font-size:18px; letter-spacing:0.06em; color:${LOSS}; margin-top:4px; }
 .ok-when-div { flex:0 0 auto; width:1.5px; align-self:stretch; margin:9px 0; background:rgba(255,255,255,0.12); }
 
 .ok-teams { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:9px; }
