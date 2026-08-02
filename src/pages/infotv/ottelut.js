@@ -339,30 +339,25 @@ function BigStat({ title, val, valColor, sub }) {
   );
 }
 
-// Head-to-head like the GameZone predict page: two logos with the score big in
-// the centre, team names below each logo (winner bold, loser lighter).
+// Big score centred + the two teams on one line below (winner bold, loser
+// lighter). "Suurin voitto" — a Kiekko-Ahma home win, so home is the winner.
 function MiniMatch({ g, title }) {
   const m = g.m;
   const home = splitTeamName(m.home ?? ""), away = splitTeamName(m.away ?? "");
   const level = simplifyLevel(m.level ?? "");
-  const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
-  const hasResult = !isNaN(hg) && !isNaN(ag);
-  const side = (t, logo, win) => (
-    <div className="ok-vs-side">
-      <div className="ok-vs-logowrap"><img className="ok-vs-logo" src={logo} alt="" /></div>
-      <div className={"ok-vs-name" + (hasResult && !win ? " ok-vs-name--lose" : "")}>{t.main}{t.sub && <span className="ok-sub"> {t.sub}</span>}</div>
-    </div>
-  );
   return (
     <div className="ok-filler">
       <div className="ok-filler-head">
         <span className="ok-filler-title">{title}</span>
         {level && <span className="ok-vs-level">{level}</span>}
       </div>
-      <div className="ok-vs">
-        {side(home, m.home_logo, hg > ag)}
-        <div className="ok-vs-score">{hasResult ? `${m.home_goals}–${m.away_goals}` : "VS"}</div>
-        {side(away, m.away_logo, ag > hg)}
+      <div className="ok-bw">
+        <div className="ok-bw-score"><span style={{ color: ORANGE }}>{m.home_goals}</span> – {m.away_goals}</div>
+        <div className="ok-bw-teams">
+          <span className="ok-bw-name">{home.main}{home.sub && <span className="ok-sub"> {home.sub}</span>}</span>
+          <span className="ok-bw-vs">·</span>
+          <span className="ok-bw-name ok-bw-name--lose">{away.main}{away.sub && <span className="ok-sub"> {away.sub}</span>}</span>
+        </div>
       </div>
     </div>
   );
@@ -445,16 +440,15 @@ const css = `
 .ok-goals-dash { font-family:${FONT_DISPLAY}; font-size:66px; line-height:1; color:#fff; padding:0 16px; }
 .ok-goals-l { font-family:${FONT_BODY}; font-weight:700; font-size:19px; letter-spacing:0.06em; text-transform:uppercase; color:${STEEL}; }
 
-/* head-to-head (GameZone predict style): logo · SCORE · logo, names below */
+/* biggest win: big score centred + the two teams on one line below */
 .ok-filler-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .ok-vs-level { font-family:${FONT_BODY}; font-weight:700; font-size:19px; letter-spacing:0.04em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.24); border-radius:7px; padding:2px 11px; flex-shrink:0; }
-.ok-vs { flex:1; min-height:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:14px; }
-.ok-vs-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
-.ok-vs-logowrap { width:78px; height:78px; border-radius:14px; background:#fff; display:flex; align-items:center; justify-content:center; padding:9px; box-sizing:border-box; }
-.ok-vs-logo { max-width:100%; max-height:100%; object-fit:contain; }
-.ok-vs-name { max-width:100%; font-family:${FONT_BODY}; font-weight:800; font-size:23px; line-height:1.05; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ok-vs-name--lose { font-weight:500; }
-.ok-vs-score { font-family:${FONT_DISPLAY}; font-size:56px; line-height:1; letter-spacing:0.03em; color:${ORANGE}; white-space:nowrap; }
+.ok-bw { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+.ok-bw-score { font-family:${FONT_DISPLAY}; font-size:90px; line-height:1; letter-spacing:0.03em; color:#fff; white-space:nowrap; }
+.ok-bw-teams { max-width:100%; display:flex; align-items:baseline; gap:14px; }
+.ok-bw-name { min-width:0; font-family:${FONT_BODY}; font-weight:800; font-size:26px; line-height:1.05; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ok-bw-name--lose { font-weight:500; color:rgba(255,255,255,0.72); }
+.ok-bw-vs { flex-shrink:0; font-family:${FONT_BODY}; font-weight:700; font-size:24px; color:${STEEL}; }
 
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
