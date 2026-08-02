@@ -77,12 +77,9 @@ export function Backdrop() {
 export function HeroBackdrop() {
   return (
     <>
-      <div style={{ position: "absolute", inset: 0, background: "#0c0c0e" }} />
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(82% 92% at 28% 28%, #1a1b1f 0%, #0c0c0e 62%)" }} />
-      <img src="/infotv/ahma_head.png" alt="" style={{ position: "absolute", right: -170, top: "50%", transform: "translateY(-50%)", height: 1480, width: "auto", opacity: 0.5, filter: "brightness(0.32) grayscale(0.35) contrast(1.12)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", left: "6%", top: "-8%", width: 1120, height: 820, background: "radial-gradient(circle, rgba(240,110,30,0.13) 0%, rgba(240,110,30,0) 60%)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(9,9,11,0.96) 0%, rgba(9,9,11,0.82) 40%, rgba(9,9,11,0.42) 70%, rgba(9,9,11,0.6) 100%)", pointerEvents: "none" }} />
-      <img src="/infotv/raapaisu.png" alt="" style={{ position: "absolute", right: 40, top: 90, height: 980, width: "auto", opacity: 0.85, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, background: "#0b0b0d url('/infotv/hero_bg.webp') center/cover no-repeat" }} />
+      {/* Slight extra dim on the left so titles/cards keep contrast. */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(8,8,10,0.6) 0%, rgba(8,8,10,0.22) 42%, rgba(8,8,10,0) 66%)", pointerEvents: "none" }} />
     </>
   );
 }

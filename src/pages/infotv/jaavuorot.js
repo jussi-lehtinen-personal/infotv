@@ -100,6 +100,12 @@ function InfoTvJaavuorot() {
 
   const hasAny = (days || []).some((d) => d.events.length > 0);
 
+  // "Now" line — only when the shown week IS the current week.
+  const nowD = new Date();
+  const nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  const isCurrentWeek = moment(monday).isSame(getMonday(new Date()), "day");
+  const showNow = isCurrentWeek && nowMin >= range.start && nowMin <= range.end;
+
   return (
     <InfoTvStage>
       <style>{css}</style>
@@ -135,8 +141,8 @@ function InfoTvJaavuorot() {
                       const w = 100 / e.lanes;
                       return (
                         <div key={e.id} className="jv-ev" style={{
-                          top: y(e.startMin) + "%", height: (y(e.endMin) - y(e.startMin)) + "%",
-                          left: e.lane * w + "%", width: w + "%",
+                          top: y(e.startMin) + "%", height: `calc(${y(e.endMin) - y(e.startMin)}% - 3px)`,
+                          left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 5px)`,
                           background: tint(color), borderLeft: `3px solid ${color}`,
                         }}>
                           <div className="jv-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></div>
@@ -146,6 +152,7 @@ function InfoTvJaavuorot() {
                     })}
                   </div>
                 ))}
+                {showNow && <div className="jv-now" style={{ top: y(nowMin) + "%" }}><span className="jv-now-dot" /></div>}
               </div>
             </div>
           </>
@@ -178,13 +185,15 @@ const css = `
 .jv-body { flex:1 1 auto; min-height:0; display:flex; position:relative; }
 .jv-axis { width:64px; flex:0 0 auto; position:relative; }
 .jv-hour { position:absolute; right:10px; transform:translateY(-50%); font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:${STEEL}; }
-.jv-cols { flex:1 1 auto; position:relative; display:flex; border-top:1px solid rgba(255,255,255,0.09); }
+.jv-cols { flex:1 1 auto; position:relative; display:flex; }
 .jv-gridline { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
-.jv-col { flex:1; position:relative; border-left:1px solid rgba(255,255,255,0.08); }
-.jv-col:first-child { border-left:none; }
+.jv-col { flex:1; position:relative; }
 
-.jv-ev { position:absolute; box-sizing:border-box; border-radius:7px; padding:5px 8px; overflow:hidden; }
-.jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:18px; line-height:1.05; color:#fff; white-space:nowrap; }
+.jv-ev { position:absolute; box-sizing:border-box; border-radius:6px; padding:3px 8px; overflow:hidden; }
+.jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:16px; line-height:1.02; color:#fff; white-space:nowrap; }
 .jv-ev-time span { font-weight:600; color:${STEEL}; }
-.jv-ev-name { font-family:${FONT_BODY}; font-weight:600; font-size:17px; line-height:1.1; color:rgba(255,255,255,0.82); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
+.jv-ev-name { font-family:${FONT_BODY}; font-weight:600; font-size:15px; line-height:1.14; color:rgba(255,255,255,0.82); overflow:hidden; word-break:break-word; margin-top:1px; }
+
+.jv-now { position:absolute; left:0; right:0; height:2px; background:#ff5a2a; z-index:6; box-shadow:0 0 8px rgba(255,90,42,0.55); }
+.jv-now-dot { position:absolute; left:-5px; top:-4px; width:10px; height:10px; border-radius:50%; background:#ff5a2a; }
 `;

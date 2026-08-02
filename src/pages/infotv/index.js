@@ -63,6 +63,7 @@ export default function InfoTvHub() {
           {PAGES.map((p) => (
             <Link key={p.to} to={p.to} className="hub-card">
               <p.Icon className="hub-card-icon" />
+              <span className="hub-card-div" />
               <div className="hub-card-text">
                 <div className="hub-card-title">{p.title}</div>
                 <div className="hub-card-desc">{p.desc}</div>
@@ -89,7 +90,7 @@ const css = `
 .hub-clock-time { font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.04em; color:#fff; margin-top:6px; }
 
 /* ── hero (block centred, text left-aligned) ── */
-.hub-hero { position:absolute; top:150px; left:56px; right:56px; display:flex; justify-content:center; z-index:2; }
+.hub-hero { position:absolute; top:150px; left:56px; right:56px; display:flex; justify-content:flex-start; z-index:2; }
 .hub-hero-inner { display:inline-block; text-align:left; }
 .hub-eyebrow { display:flex; align-items:center; gap:18px; font-family:${FONT_BODY}; font-weight:800; font-size:34px; letter-spacing:0.34em; text-transform:uppercase; color:${ORANGE}; margin-bottom:6px; }
 .hub-eyebrow-line { width:64px; height:4px; background:${ORANGE}; flex-shrink:0; }
@@ -99,8 +100,9 @@ const css = `
 
 /* ── cards ── */
 .hub-grid { position:absolute; top:432px; left:56px; right:56px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:26px; height:388px; z-index:2; }
-.hub-card { display:flex; align-items:center; gap:30px; padding:0 44px; border-radius:20px; text-decoration:none; background:rgba(22,22,26,0.68); border:1.5px solid rgba(255,255,255,0.10); backdrop-filter:blur(4px); }
-.hub-card-icon { width:76px; height:76px; flex-shrink:0; color:${ORANGE}; }
+.hub-card { display:flex; align-items:center; gap:30px; padding:0 42px; border-radius:20px; text-decoration:none; background:rgba(22,22,26,0.66); border:1.5px solid rgba(255,255,255,0.10); backdrop-filter:blur(4px); }
+.hub-card-icon { width:74px; height:74px; flex-shrink:0; color:${ORANGE}; stroke-width:1.6px; }
+.hub-card-div { width:1.5px; height:60px; flex-shrink:0; background:rgba(255,255,255,0.16); }
 .hub-card-text { min-width:0; }
 .hub-card-title { font-family:${FONT_DISPLAY}; font-size:46px; line-height:1; letter-spacing:0.03em; color:#fff; }
 .hub-card-desc { font-family:${FONT_BODY}; font-weight:600; font-size:24px; letter-spacing:0.02em; color:${STEEL}; margin-top:8px; }
