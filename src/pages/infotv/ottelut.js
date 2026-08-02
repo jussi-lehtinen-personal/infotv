@@ -16,7 +16,6 @@ const ROWS = 5;
 const SLOTS = COLS * ROWS; // 3 columns × 5 rows
 const WIN = "var(--color-win)";
 const LOSS = "var(--color-loss)";
-const DRAW = "var(--color-draw)";
 const LIVE = "var(--color-primary)";
 const MUTED = "rgba(255,255,255,0.4)";
 const PARTNERS_LS = "ahma.infotv.partners.v1";
@@ -84,11 +83,17 @@ export default function InfoTvOttelut() {
   // then col1…) exactly like the CSS grid did; leftover slots get filler
   // modules. Each game item carries the progress/day metadata the rail needs.
   const columns = useMemo(() => {
+    const now = moment();
     const gameItems = games.slice(0, SLOTS).map((m, i) => {
       const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
       const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
-      const done = Number(m.finished) > 0 && !isNaN(hg) && !isNaN(ag);
+      const hasResult = Number(m.finished) > 0 && !isNaN(hg) && !isNaN(ag);
       const live = isLiveMatch(m);
+      // A game counts as "played" for the progress rail once it has a result OR
+      // its start time is in the past — many junior games (U9/U10) never record
+      // a score, so a result alone would leave already-played games looking
+      // upcoming.
+      const done = !live && (hasResult || (md.isValid() && md.isBefore(now)));
       return { type: "game", key: m.id ?? `g${i}`, m, wd: md.isValid() ? md.format("dd").toUpperCase() : "", done, live };
     });
     const firstUpcoming = gameItems.findIndex((g) => !g.done && !g.live);
@@ -195,7 +200,6 @@ function MatchCell({ m }) {
   const away = splitTeamName(m.away ?? "");
   const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
   const hasResult = finished && !isNaN(hg) && !isNaN(ag);
-  const line = !hasResult ? (live ? LIVE : "rgba(255,255,255,0.14)") : hg > ag ? WIN : hg < ag ? LOSS : DRAW;
   const homeSc = live ? { color: LIVE } : !hasResult || hg === ag ? undefined : hg > ag ? { color: WIN } : { color: MUTED };
   const awaySc = live ? { color: LIVE } : !hasResult || hg === ag ? undefined : ag > hg ? { color: LOSS } : { color: MUTED };
   const homeMuted = hasResult && hg < ag && !live;
@@ -203,7 +207,6 @@ function MatchCell({ m }) {
 
   return (
     <div className="ok-card">
-      <div className="ok-line" style={{ background: line }} />
       <div className="ok-head">
         <span className="ok-time"><LuClock className="ok-ic" />{time}</span>
         {level && <span className="ok-level">{level}</span>}
@@ -288,8 +291,7 @@ const css = `
 .ok-dayball--next { background:#141418; border:3px solid ${ORANGE}; color:${ORANGE}; }
 .ok-dayball--todo { background:#141418; border:2px solid rgba(255,255,255,0.3); color:${STEEL}; }
 
-.ok-card { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; gap:7px; padding:11px 20px 11px 24px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
-.ok-line { position:absolute; left:0; top:11px; bottom:11px; width:5px; border-radius:0 3px 3px 0; }
+.ok-card { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; gap:7px; padding:11px 22px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 
 .ok-head { display:flex; align-items:center; gap:11px; }
 .ok-ic { width:18px; height:18px; color:${STEEL}; flex-shrink:0; }
