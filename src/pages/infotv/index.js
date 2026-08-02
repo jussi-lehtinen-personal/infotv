@@ -90,7 +90,7 @@ const css = `
 .hub-clock-time { font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.04em; color:#fff; margin-top:6px; }
 
 /* ── hero (block centred, text left-aligned) ── */
-.hub-hero { position:absolute; top:178px; left:56px; right:56px; display:flex; justify-content:flex-start; z-index:2; }
+.hub-hero { position:absolute; top:212px; left:56px; right:56px; display:flex; justify-content:flex-start; z-index:2; }
 .hub-hero-inner { display:inline-block; text-align:left; }
 .hub-eyebrow { display:flex; align-items:center; gap:18px; font-family:${FONT_BODY}; font-weight:800; font-size:33px; letter-spacing:0.2em; text-transform:uppercase; color:${ORANGE}; margin-bottom:10px; }
 .hub-eyebrow-line { width:64px; height:4px; background:${ORANGE}; flex-shrink:0; }
@@ -99,7 +99,7 @@ const css = `
 .hub-itv { font-size:138px; color:${ORANGE}; margin-left:30px; }
 
 /* ── cards ── */
-.hub-grid { position:absolute; top:432px; left:56px; right:56px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:26px; height:388px; z-index:2; }
+.hub-grid { position:absolute; top:470px; left:56px; right:56px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:26px; height:388px; z-index:2; }
 .hub-card { display:flex; align-items:center; gap:30px; padding:0 42px; border-radius:20px; text-decoration:none; background:rgba(22,22,26,0.66); border:1.5px solid rgba(255,255,255,0.10); backdrop-filter:blur(4px); }
 .hub-card-icon { width:74px; height:74px; flex-shrink:0; color:${ORANGE}; stroke-width:1.6px; }
 .hub-card-div { width:1.5px; height:60px; flex-shrink:0; background:rgba(255,255,255,0.16); }
