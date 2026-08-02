@@ -4,7 +4,7 @@ import { LuClock } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 
-import InfoTvStage, { Masthead, FONT_DISPLAY, FONT_BODY } from "./InfoTvFrame";
+import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY } from "./InfoTvFrame";
 import { getMonday } from "../../Util";
 import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 import { isLiveMatch } from "../../hooks/useHeroMatches";
@@ -81,7 +81,8 @@ export default function InfoTvOttelut() {
   }, [games, params]);
 
   return (
-    <InfoTvStage>
+    <InfoTvStage backdrop={false}>
+      <HeroBackdrop />
       <style>{css}</style>
       <Masthead title="KOTIOTTELUT" meta={weekRange} />
 

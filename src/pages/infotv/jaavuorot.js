@@ -114,8 +114,7 @@ function InfoTvJaavuorot() {
       <div className="jv-cal">
         {items === null && <div className="jv-msg">Ladataan…</div>}
         {items !== null && error && <div className="jv-msg">Vuoroja ei saatu haettua.</div>}
-        {items !== null && !error && !hasAny && <div className="jv-msg">Ei jäävuoroja tällä viikolla</div>}
-        {items !== null && !error && hasAny && (
+        {items !== null && !error && (
           <>
             <div className="jv-head">
               <div className="jv-axishead" />
@@ -134,19 +133,21 @@ function InfoTvJaavuorot() {
               </div>
               <div className="jv-cols">
                 {hours.map((h) => <div key={h} className="jv-gridline" style={{ top: y(h) + "%" }} />)}
+                {[1, 2, 3, 4, 5, 6].map((i) => <div key={"v" + i} className="jv-vline" style={{ left: (i / 7) * 100 + "%" }} />)}
                 {days.map((d) => (
                   <div key={d.key} className="jv-col">
                     {d.events.map((e) => {
                       const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
                       const w = 100 / e.lanes;
+                      const short = e.endMin - e.startMin <= 30; // ≤30 min → name inline after the time
                       return (
-                        <div key={e.id} className="jv-ev" style={{
+                        <div key={e.id} className={"jv-ev" + (short ? " jv-ev--short" : "")} style={{
                           top: y(e.startMin) + "%", height: `calc(${y(e.endMin) - y(e.startMin)}% - 3px)`,
                           left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 5px)`,
-                          background: tint(color), borderLeft: `3px solid ${color}`,
+                          background: tint(color),
                         }}>
-                          <div className="jv-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></div>
-                          <div className="jv-ev-name" style={e.kind === "ahma" ? { color: ORANGE } : undefined}>{e.text}</div>
+                          <span className="jv-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></span>
+                          <span className={"jv-ev-name" + (e.kind === "ahma" ? " jv-ev-name--ahma" : "")}>{e.text}</span>
                         </div>
                       );
                     })}
@@ -155,6 +156,7 @@ function InfoTvJaavuorot() {
                 {showNow && <div className="jv-now" style={{ top: y(nowMin) + "%" }}><span className="jv-now-dot" /></div>}
               </div>
             </div>
+            {!hasAny && <div className="jv-overlay"><span>Ei vuoroja tällä viikolla</span></div>}
           </>
         )}
       </div>
@@ -187,13 +189,20 @@ const css = `
 .jv-hour { position:absolute; right:10px; transform:translateY(-50%); font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:${STEEL}; }
 .jv-cols { flex:1 1 auto; position:relative; display:flex; }
 .jv-gridline { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
+.jv-vline { position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.05); }
 .jv-col { flex:1; position:relative; }
 
-.jv-ev { position:absolute; box-sizing:border-box; border-radius:6px; padding:3px 8px; overflow:hidden; }
-.jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:16px; line-height:1.02; color:#fff; white-space:nowrap; }
+.jv-ev { position:absolute; box-sizing:border-box; border-radius:6px; padding:3px 8px; overflow:hidden; display:flex; flex-direction:column; }
+.jv-ev--short { flex-direction:row; align-items:baseline; gap:6px; }
+.jv-ev-time { font-family:${FONT_BODY}; font-weight:800; font-size:15px; line-height:1.1; color:#fff; white-space:nowrap; flex-shrink:0; }
 .jv-ev-time span { font-weight:600; color:${STEEL}; }
 .jv-ev-name { font-family:${FONT_BODY}; font-weight:600; font-size:15px; line-height:1.14; color:rgba(255,255,255,0.82); overflow:hidden; word-break:break-word; margin-top:1px; }
+.jv-ev--short .jv-ev-name { min-width:0; white-space:nowrap; text-overflow:ellipsis; word-break:normal; margin-top:0; }
+.jv-ev-name--ahma { color:${ORANGE}; }
 
 .jv-now { position:absolute; left:0; right:0; height:2px; background:#ff5a2a; z-index:6; box-shadow:0 0 8px rgba(255,90,42,0.55); }
 .jv-now-dot { position:absolute; left:-5px; top:-4px; width:10px; height:10px; border-radius:50%; background:#ff5a2a; }
+
+.jv-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(11,11,13,0.5); z-index:8; }
+.jv-overlay span { font-family:${FONT_DISPLAY}; font-size:56px; letter-spacing:0.06em; color:${STEEL}; }
 `;
