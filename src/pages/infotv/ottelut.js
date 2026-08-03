@@ -453,11 +453,8 @@ const css = `
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
 .ok-social svg { width:46px; height:46px; }
-.ok-mini-meta { font-family:${FONT_DISPLAY}; font-size:32px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; margin-top:4px; }
 
 /* ahmaliiga promo */
-.ok-al-body { flex:1; min-height:0; display:flex; align-items:center; gap:16px; }
-.ok-al-txt { flex:1; min-width:0; }
 .ok-al-h { font-family:${FONT_DISPLAY}; font-size:40px; line-height:1; letter-spacing:0.03em; color:#fff; }
 .ok-al-url { font-family:${FONT_BODY}; font-weight:700; font-size:19px; color:#fff; margin-top:8px; word-break:break-word; }
 .ok-al-url b { color:${ORANGE}; font-weight:800; }

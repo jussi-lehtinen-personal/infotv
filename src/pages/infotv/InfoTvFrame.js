@@ -89,33 +89,8 @@ export function Lockup({ height = 92, style }) {
   return <img src="/infotv/lockup.png" alt="Valkeakosken Kiekko-Ahma" style={{ height, width: "auto", display: "block", ...style }} />;
 }
 
-/** Top-left club lockup: wolverine mark + uppercase wordmark. */
-export function BrandLockup({ style }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 22, ...style }}>
-      <img src="/infotv/wolverine.png" alt="Kiekko-Ahma" style={{ width: 84, height: "auto" }} />
-      <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 24, letterSpacing: "0.2em", textTransform: "uppercase", color: "#F4F4F4" }}>
-        Valkeakosken Kiekko-Ahma
-      </div>
-    </div>
-  );
-}
-
-/** Dash + uppercase label (orange by default). */
-export function Eyebrow({ children, color = ORANGE, size = 26 }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, fontFamily: FONT_BODY, fontWeight: 700, fontSize: size, letterSpacing: "0.24em", textTransform: "uppercase", color }}>
-      <span style={{ width: 34, height: 3, background: color }} />
-      {children}
-    </div>
-  );
-}
-
-// Content inset: pages position their body between MAST_TOP and the bottom bar,
-// with SIDE_PAD left/right. Kept tight so almost the whole stage is content.
-export const MAST_TOP = 108;
+// Side inset used by the masthead (and available to pages).
 export const SIDE_PAD = 44;
-export const BAR_H = 88;
 
 /**
  * Slim single-row masthead: club mark + page title on the left, meta on the
@@ -134,19 +109,6 @@ export function Masthead({ title, meta }) {
   );
 }
 
-/** Plain black bottom bar with a centred URL. */
-export function BottomBar({ height = 90 }) {
-  return (
-    <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height, background: "#0C0C0D", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 72px", boxSizing: "border-box" }}>
-      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, letterSpacing: "0.32em", color: "rgba(255,255,255,0.66)" }}>WWW.KIEKKO-AHMA.FI</div>
-    </div>
-  );
-}
-
-/** Small orange diamond accent (BrandBook ◆). */
-export function Diamond({ size = 14, color = ORANGE, style }) {
-  return <span style={{ display: "inline-block", width: size, height: size, background: color, transform: "rotate(45deg)", ...style }} />;
-}
 
 const stageCss = `
 html, body, #root { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; }
