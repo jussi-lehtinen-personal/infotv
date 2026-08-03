@@ -37,6 +37,7 @@ function playerReason(d) {
   const parts = [];
   if (d.goals) parts.push(`${d.goals} maali${d.goals > 1 ? "a" : ""}`);
   if (d.assists) parts.push(`${d.assists} syöttö${d.assists > 1 ? "ä" : ""}`);
+  if (d.def) parts.push(`puolustus +${d.def}`);
   return parts.join(", ");
 }
 

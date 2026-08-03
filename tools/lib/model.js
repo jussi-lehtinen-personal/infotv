@@ -10,9 +10,13 @@ const path = require("path");
 // LOCKED config (identical to backtest.js CFG).
 const CFG = {
   jaksoWeeks: 2,
-  team: { win: 3, tie: 1, loss: 0, cleanSheet: 2, goalDiffPer: 0.5, goalDiffCap: 2 },
+  // v2.2 (2026-08-03): team weight raised (win 3→5, cs 2→3, gdCap 2→4) — matches SCORING.team.
+  team: { win: 5, tie: 1, loss: 0, cleanSheet: 3, goalDiffPer: 0.5, goalDiffCap: 4 },
   predict: { winner: 3, margin: 7, exact: 20 }, // v2.1 (2026-07-22): 3/5/8 → 3/7/20 (matches ECON.predict)
   player: { goal: 3, assist: 2 },
+  // v2.2 (2026-08-03): defender bonus (position OP/VP) — shutout +3, ≤2 conceded +1.
+  // Matches SCORING.defense in api/src/lib/scoring.js. No-op where positions are untagged.
+  defense: { cleanSheet: 3, lowGa: 1, lowGaMax: 2, roles: ["OP", "VP"] },
   // Goalie save-% bonus tiers: 88/92 (2026-07-17, matches api/src/lib/scoring.js).
   // v2 (2026-07-19): shutout cleanSheet 2→4 (team.cleanSheet stays 2).
   goalie: { win: 3, cleanSheet: 4, sv92: 2, sv95: 3, minShots: 15, savePer: 0.5, savesFloor: 45 }, // v2.1 (2026-07-22): +0.5/save above 45 (heroic workload) — matches scoring.js
@@ -167,6 +171,17 @@ function buildPlayerCards(year, start, opts = {}) {
     }
     const gp = goaliePoints(r, g);
     if (gp && nameOk(gp.name)) { add(gp.name, tkk, J, gp.pts, true); const d = dj(gp.name, J); d.gk = { pct: gp.pct, won: gp.won, cs: gp.cs, shots: gp.shots }; }
+    // U12: defender bonus — IDENTICAL to defensePoints() in api/src/lib/scoring.js.
+    const df = CFG.defense, dga = Number(ahma(g).ga);
+    const dbonus = dga === 0 ? df.cleanSheet : dga <= df.lowGaMax ? df.lowGa : 0;
+    if (dbonus) {
+      const side = r.rosters ? r.rosters[ahmaSide] : null;
+      for (const p of (side && side.players) || []) {
+        if (!df.roles.includes(p.role)) continue;
+        const nm = `${p.last || ""} ${p.first || ""}`.trim();
+        if (nm && nameOk(nm)) { add(nm, tkk, J, dbonus, false); dj(nm, J).def = (dj(nm, J).def || 0) + dbonus; }
+      }
+    }
   }
   return { players, teamJaksot, detail };
 }

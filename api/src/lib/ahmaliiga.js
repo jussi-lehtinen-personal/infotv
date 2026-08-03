@@ -772,8 +772,15 @@ async function settleRound(seasonId, round) {
     // Gradual: move at most priceStepCap coins toward the form target, so a card can't
     // jump min→max in one settle (appreciation is a slow skill play).
     const target = targetPrice[c.rowKey];
+    const step = Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
+    // U9 (2026-08-03): a card that had NO game this round (not in resJ) doesn't DROP — you
+    // can't be marked down for a round you didn't play (its target fell only because other
+    // cards scored). A card that played and earned little still rebands normally. Fixes the
+    // open-beta "punished from nothing" complaint with zero market collateral (sim tools/
+    // sim-u9.js: 61→17 drops, price spread + volatility unchanged).
     const price = form[c.rowKey] == null ? old
-      : old + Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
+      : (!(c.rowKey in resJ) && step < 0) ? old
+      : old + step;
     return {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
@@ -990,7 +997,13 @@ async function liveReband(seasonId, round) {
     const anchor = Number(c.price); // settled price = round-start anchor (frozen this round)
     const target = targetPrice[c.rowKey];
     // only cards with real form this round move; others sit at the settled price
-    const livePrice = form[c.rowKey] == null ? anchor : anchor + Math.max(-cap, Math.min(cap, target - anchor));
+    const step = Math.max(-cap, Math.min(cap, target - anchor));
+    // U9 (2026-08-03): mirror the settle guard — a card not played THIS round doesn't drop
+    // in the live preview either (else live shows a drop settlement then reverts).
+    const playedThis = Object.prototype.hasOwnProperty.call(liveRes, c.rowKey);
+    const livePrice = form[c.rowKey] == null ? anchor
+      : (!playedThis && step < 0) ? anchor
+      : anchor + step;
     const liveTrend = livePrice > anchor ? 'up' : livePrice < anchor ? 'down' : '';
     if (livePrice !== anchor) moved++;
     // this round's live points for the card (intrinsic, no captain 2×) → the market

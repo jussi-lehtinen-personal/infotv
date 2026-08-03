@@ -6,8 +6,22 @@
 // without re-running that validation.
 
 const SCORING = {
-  team: { win: 3, tie: 1, loss: 0, cleanSheet: 2, goalDiffPer: 0.5, goalDiffCap: 2 },
+  // v2.2 (2026-08-03): team weight raised (win 3→5, cleanSheet 2→3, goalDiffCap 2→4) so
+  // a strong team is worth captaining. The third open-beta analysis (U11a) showed the v2
+  // team-reprice OVER-corrected — teams fell to ~26 % of points, individuals dominated at
+  // 61 %; the best team's ×2-captain ceiling was 42 vs a player's 70. The sim (tools/
+  // balance-sim.js) put win 5 + cleanSheet 3 + goalDiffCap 4 at a 68 team ceiling (≈ the
+  // player's 70, not past it) → teams become captain-worthy without dominating.
+  team: { win: 5, tie: 1, loss: 0, cleanSheet: 3, goalDiffPer: 0.5, goalDiffCap: 4 },
   player: { goal: 3, assist: 2 },
+  // v2.2 (2026-08-03): DEFENDER bonus — reward keeping goals against down, so defencemen
+  // (who rarely score) are worth picking. U12 analysis: forwards 59.7 vs defenders 28.4
+  // p/card (2.1×); every top scorer was a forward. Awarded per game to each rostered
+  // defender (position OP/VP from the box-score roster): shutout +3, ≤2 conceded +1. The
+  // sim lifted the defender mean 28.4→38.1 (gap 2.1×→1.6×). ⚠️ Needs positions tagged in
+  // the source roster — currently the older teams; juniors once tagged in Jopox. Untagged
+  // players (role "" / "KP") get nothing → the bonus is a no-op until tagging happens.
+  defense: { cleanSheet: 3, lowGa: 1, lowGaMax: 2, roles: ["OP", "VP"] },
   // Save-% bonus tiers (2026-07-17: lowered from 92/95 → 88/92 — the old cut was too
   // demanding, the bonus hit only ~30% of games; 88/92 makes goalies fair vs skaters).
   // v2 (2026-07-19): goalie SHUTOUT cleanSheet 2→4 (raises the ceiling 8→10 ≈ a hattrick,
@@ -31,6 +45,25 @@ function teamGamePoints(gf, ga) {
   const cs = ga === 0 ? t.cleanSheet : 0;
   const gd = Math.max(0, Math.min(t.goalDiffCap, gf - ga)) * t.goalDiffPer;
   return { pts: result + cs + gd, result, cs, gd };
+}
+
+// Defender points for ONE game from the box-score roster + Ahma goals-against (ga).
+// Each rostered defender (position OP/VP) earns a shutout/low-GA bonus (SCORING.defense).
+// `report.rosters` may be absent (older cached data / roster withheld) → []. Names are
+// "LAST First" to match player-card ids (same convention as goal/goalie scoring). ⚠️ Keep
+// IDENTICAL to the inline copy in tools/lib/model.js buildPlayerCards (validate-round-results).
+function defensePoints(report, ahmaSide, ga) {
+  const d = SCORING.defense;
+  const bonus = Number(ga) === 0 ? d.cleanSheet : Number(ga) <= d.lowGaMax ? d.lowGa : 0;
+  if (!bonus) return [];
+  const side = report && report.rosters ? report.rosters[ahmaSide] : null;
+  const out = [];
+  for (const p of (side && side.players) || []) {
+    if (!d.roles.includes(p.role)) continue;
+    const name = `${p.last || ""} ${p.first || ""}`.trim();
+    if (name) out.push({ name, pts: bonus });
+  }
+  return out;
 }
 
 // "M:SS" cumulative game clock → seconds.
@@ -67,4 +100,4 @@ function goaliePoints(report, ctx) {
   return { name: primary, pts, pct, won, cs, shots, saves: S };
 }
 
-module.exports = { SCORING, teamGamePoints, goaliePoints, clockSec };
+module.exports = { SCORING, teamGamePoints, goaliePoints, defensePoints, clockSec };

@@ -5,7 +5,7 @@
 // precomputed file — see tools/validate-round-results.js. Card ids are deterministic:
 // team = "T:"+teamKey, player/goalie = "P:"+name (matching tools/gen-cards.js).
 
-const { SCORING, teamGamePoints, goaliePoints } = require("./scoring");
+const { SCORING, teamGamePoints, goaliePoints, defensePoints } = require("./scoring");
 
 // Player (individual) cards: U18 and older (project_ahmaliiga_plan, 2026-07-13).
 const PLAYER_AGES = new Set(["Edustus", "Naiset", "U20", "U18"]);
@@ -47,6 +47,7 @@ function playerReason(d) {
   const parts = [];
   if (d.goals) parts.push(`${d.goals} maali${d.goals > 1 ? "a" : ""}`);
   if (d.assists) parts.push(`${d.assists} syöttö${d.assists > 1 ? "ä" : ""}`);
+  if (d.def) parts.push(`puolustus +${d.def}`);
   return parts.join(", ");
 }
 
@@ -85,6 +86,9 @@ function computeRoundPoints({ games, reports, extraAges }) {
     }
     const gk = goaliePoints(r, { ahmaSide, oppSide: g.ahmaHome ? "away" : "home", won: gf > ga });
     if (gk) { add("P:" + gk.name, gk.pts); pd("P:" + gk.name).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }
+    // U12: defender bonus (position from the box-score roster) — a defenceman earns from
+    // keeping goals against down even without scoring. No-op where positions are untagged.
+    for (const dp of defensePoints(r, ahmaSide, ga)) { add("P:" + dp.name, dp.pts); pd("P:" + dp.name).def = (pd("P:" + dp.name).def || 0) + dp.pts; }
   }
 
   for (const id in results) results[id] = Math.round(results[id] * 10) / 10;
