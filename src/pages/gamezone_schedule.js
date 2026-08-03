@@ -1,9 +1,11 @@
 // pages/gamezone_schedule.js
 //
-// Mobile-app variant of the schedule page. Wired to /gamezone/schedule.
-// Always renders a 3-panel day carousel ([prev | current | next] FullCalendar
-// instances) — Gamezone is mobile-only, so the InfoTV's wide week view isn't
-// needed. The original schedule.js stays intact at /schedule for the kiosk.
+// Mobile-app ice-schedule (/gamezone/schedule). A 3-panel day carousel
+// ([prev | current | next]) you swipe between. Each panel is our OWN
+// time-grid day view (no FullCalendar) themed like the InfoTV jäävuorot:
+// dark surface, Kiekko-Ahma's own shifts in solid Ahma orange, game
+// reservations blue, everything else muted grey, white text with a faint
+// shadow. Vertical scroll inside each day; horizontal swipe changes the day.
 import React, {
   Fragment,
   useCallback,
@@ -15,24 +17,36 @@ import React, {
 } from "react";
 import { flushSync } from "react-dom";
 import { useDrag } from "@use-gesture/react";
-import FullCalendar from "@fullcalendar/react";
-import Container from "react-bootstrap/Container";
-
-import timeGridPlugin from "@fullcalendar/timegrid";
-import bootstrapPlugin from "@fullcalendar/bootstrap";
-import allLocales from "@fullcalendar/core/locales-all";
-
-import "bootstrap/dist/css/bootstrap.css";
-import "@fortawesome/fontawesome-free/css/all.css";
-import "./fullcalendar.css";
+import moment from "moment";
+import "moment/locale/fi";
 
 import { COLOR_PRIMARY } from "../theme";
+
+moment.locale("fi");
 
 // Module-scope cache shared across mounts: weekStart → array of items.
 const scheduleCache = new Map();
 
 // 3-panel carousel: middle panel (the current day) sits at viewport centre.
 const CENTER_TX = -33.333;
+
+// Time grid geometry (fixed + identical for every panel so a preserved
+// scrollTop maps to the same time of day when you swipe).
+const HOUR_PX = 64;
+const DAY_START = 8 * 60; // 08:00
+const DAY_END = 23.5 * 60; // 23:30
+const PX_MIN = HOUR_PX / 60;
+const GRID_PX = (DAY_END - DAY_START) * PX_MIN;
+
+// Shift colours (match InfoTV jäävuorot).
+const GAME_COLOR = "#2F7FD6"; // game reservations (Tilapäisvaraus)
+const AHMA_COLOR = COLOR_PRIMARY; // Kiekko-Ahma's own shifts (orange)
+const OTHER_COLOR = "#474E5A"; // everyone else (muted grey)
+
+const isAhma = (t) => /kiekko.?ahma/i.test(t || "") || /(^|\s)KA[\s/]/i.test(t || "");
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const toMin = (s) => { const hm = String(s || "").slice(11, 16); const [h, m] = hm.split(":"); return (Number(h) || 0) * 60 + (Number(m) || 0); };
+const fmt = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
 function getWeekStart(date) {
   const d = new Date(date);
@@ -49,12 +63,29 @@ function fetchScheduleWeek(weekStart) {
     });
 }
 
-function sameDay(a, b) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+// Greedy lane packing per overlap-cluster → overlapping reservations sit side
+// by side; a lone reservation gets full column width.
+function packLanes(list) {
+  const evs = [...list].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  let cluster = [], clusterEnd = -1;
+  const flush = () => {
+    if (!cluster.length) return;
+    const laneEnds = [];
+    for (const e of cluster) {
+      let lane = laneEnds.findIndex((end) => end <= e.startMin);
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(e.endMin); }
+      else laneEnds[lane] = e.endMin;
+      e.lane = lane;
+    }
+    for (const e of cluster) e.lanes = laneEnds.length;
+    cluster = []; clusterEnd = -1;
+  };
+  for (const e of evs) {
+    if (cluster.length && e.startMin >= clusterEnd) flush();
+    cluster.push(e); clusterEnd = Math.max(clusterEnd, e.endMin);
+  }
+  flush();
+  return evs;
 }
 
 const GamezoneSchedule = () => {
@@ -74,7 +105,7 @@ const GamezoneSchedule = () => {
 
   // --- Persist date in URL ---
   useEffect(() => {
-    const dateStr = currentDate.toISOString().split("T")[0];
+    const dateStr = ymd(currentDate);
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set("date", dateStr);
     window.history.replaceState(null, "", `?${urlParams.toString()}`);
@@ -89,14 +120,10 @@ const GamezoneSchedule = () => {
 
     let cancelled = false;
     fetchScheduleWeek(weekStart)
-      .then((data) => {
-        if (!cancelled) setItems(data);
-      })
+      .then((data) => { if (!cancelled) setItems(data); })
       .catch((err) => console.log("Error fetching schedule", err));
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [weekStart]);
 
   // --- Prefetch ±1 week silently ---
@@ -115,27 +142,14 @@ const GamezoneSchedule = () => {
 
   // --- Day navigation ---
   const stepDays = useCallback((delta) => {
-    setCurrentDate((d) => {
-      const next = new Date(d);
-      next.setDate(next.getDate() + delta);
-      return next;
-    });
+    setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + delta); return next; });
   }, []);
-
   const goPrevDay = useCallback(() => stepDays(-1), [stepDays]);
   const goNextDay = useCallback(() => stepDays(1), [stepDays]);
 
   // --- Carousel: prev/next dates around current ---
-  const prevDate = useMemo(() => {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() - 1);
-    return d;
-  }, [currentDate]);
-  const nextDate = useMemo(() => {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() + 1);
-    return d;
-  }, [currentDate]);
+  const prevDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() - 1); return d; }, [currentDate]);
+  const nextDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() + 1); return d; }, [currentDate]);
 
   // --- Initialise the track transform on mount ---
   useLayoutEffect(() => {
@@ -145,9 +159,7 @@ const GamezoneSchedule = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, []);
 
-  // --- Reset track transform after navigation (handled inside the commit
-  //     animation already — here we cover external date jumps such as
-  //     browser back/forward or deep links). ---
+  // --- Reset track transform after external date jumps (back/forward, deep links) ---
   useLayoutEffect(() => {
     if (animatingRef.current) return;
     const track = trackRef.current;
@@ -157,39 +169,25 @@ const GamezoneSchedule = () => {
   }, [currentDate]);
 
   // --- Commit slide animation, then navigate ---
-  // direction +1 = next day, -1 = prev day
-  const commitToDay = useCallback(
-    (direction) => {
-      if (animatingRef.current) return;
-      const track = trackRef.current;
-      if (!track) return;
-      animatingRef.current = true;
+  const commitToDay = useCallback((direction) => {
+    if (animatingRef.current) return;
+    const track = trackRef.current;
+    if (!track) return;
+    animatingRef.current = true;
 
-      // Slide track so the destination panel ends up centred:
-      //   prev (-1) → tx 0%      (panel 0 visible)
-      //   next (+1) → tx -66.666% (panel 2 visible)
-      const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
-      track.style.transition = "transform 220ms ease-out";
-      track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
+    const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
+    track.style.transition = "transform 220ms ease-out";
+    track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
 
-      const onEnd = () => {
-        track.removeEventListener("transitionend", onEnd);
-        animatingRef.current = false;
-        // flushSync forces the navigate + the layout-effect transform reset
-        // to land in the same paint, so the user never sees the jump back
-        // to centre — only the destination panel's content rendered there.
-        flushSync(() => {
-          setCurrentDate((d) => {
-            const next = new Date(d);
-            next.setDate(next.getDate() + direction);
-            return next;
-          });
-        });
-      };
-      track.addEventListener("transitionend", onEnd);
-    },
-    []
-  );
+    const onEnd = () => {
+      track.removeEventListener("transitionend", onEnd);
+      animatingRef.current = false;
+      flushSync(() => {
+        setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + direction); return next; });
+      });
+    };
+    track.addEventListener("transitionend", onEnd);
+  }, []);
 
   const snapBack = useCallback(() => {
     const track = trackRef.current;
@@ -198,40 +196,25 @@ const GamezoneSchedule = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, []);
 
-  // --- Swipe gesture (replaces ~150 lines of custom touch+pointer code) ---
+  // --- Swipe gesture ---
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
-      if (animatingRef.current) {
-        cancel();
-        return;
-      }
-      // iOS Safari edge-swipe is the native back gesture. Skip drags that
-      // start within 20px of either edge so the browser handles them.
-      if (first && (x < 20 || x > window.innerWidth - 20)) {
-        cancel();
-        return;
-      }
+      if (animatingRef.current) { cancel(); return; }
+      // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
+      if (first && (x < 20 || x > window.innerWidth - 20)) { cancel(); return; }
 
       const track = trackRef.current;
       if (!track) return;
 
       // On swipe start, sync the off-screen panels' vertical scroll to the
-      // current panel's so the day sliding into view shows the same time of
-      // day the user was looking at — not whatever offset that panel
-      // happened to have (default top, i.e. 08:00).
+      // current panel's so the day sliding into view shows the same time.
       if (first) {
-        const currentScroller = track.children[1]?.querySelector(
-          ".fc-scroller-liquid-absolute"
-        );
+        const currentScroller = track.children[1]?.querySelector(".gz-cal-scroll");
         if (currentScroller) {
           const top = currentScroller.scrollTop;
           [0, 2].forEach((i) => {
-            const s = track.children[i]?.querySelector(
-              ".fc-scroller-liquid-absolute"
-            );
-            if (s && Math.abs(s.scrollTop - top) > 1) {
-              s.scrollTop = top;
-            }
+            const s = track.children[i]?.querySelector(".gz-cal-scroll");
+            if (s && Math.abs(s.scrollTop - top) > 1) s.scrollTop = top;
           });
         }
       }
@@ -243,64 +226,28 @@ const GamezoneSchedule = () => {
         const w = track.parentElement?.clientWidth ?? window.innerWidth;
         const threshold = w * 0.25;
         const fastEnough = Math.abs(vx) > 0.5;
-
-        if (mx <= -threshold || (mx < -10 && fastEnough)) {
-          commitToDay(1); // next day
-        } else if (mx >= threshold || (mx > 10 && fastEnough)) {
-          commitToDay(-1); // prev day
-        } else {
-          snapBack();
-        }
+        if (mx <= -threshold || (mx < -10 && fastEnough)) commitToDay(1);
+        else if (mx >= threshold || (mx > 10 && fastEnough)) commitToDay(-1);
+        else snapBack();
       }
     },
-    {
-      axis: "x",
-      filterTaps: true,
-      pointer: { touch: true },
-    }
+    { axis: "x", filterTaps: true, pointer: { touch: true } }
   );
-
-  // --- Build FullCalendar events from raw items (one set, used by all
-  //     panels — each panel filters by date inside DayPanel) ---
-  const events = useMemo(() => buildEvents(items), [items]);
 
   return (
     <Fragment>
-      <style>
-        {calendarThemeCss({
-          accent: COLOR_PRIMARY,
-          card: "#fff7ed",
-          text: "#111827",
-          muted: "#64748b",
-        })}
-      </style>
+      <style>{calendarThemeCss()}</style>
 
-      <div className="sc-root sc-dayMode">
-        <Container fluid className="sc-container">
+      <div className="sc-root">
+        <div className="sc-container">
           <div className="sc-carousel-viewport">
             <div ref={trackRef} className="sc-carousel-track" {...bind()}>
-              <DayPanel
-                date={prevDate}
-                events={events}
-                onPrev={goPrevDay}
-                onNext={goNextDay}
-              />
-              <DayPanel
-                date={currentDate}
-                events={events}
-                isCurrent
-                onPrev={goPrevDay}
-                onNext={goNextDay}
-              />
-              <DayPanel
-                date={nextDate}
-                events={events}
-                onPrev={goPrevDay}
-                onNext={goNextDay}
-              />
+              <DayPanel date={prevDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
+              <DayPanel date={currentDate} items={items} isCurrent onPrev={goPrevDay} onNext={goNextDay} />
+              <DayPanel date={nextDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
             </div>
           </div>
-        </Container>
+        </div>
       </div>
     </Fragment>
   );
@@ -312,420 +259,136 @@ export default GamezoneSchedule;
 /*           DAY PANEL           */
 /* ============================= */
 
-function DayPanel({ date, events, isCurrent, onPrev, onNext }) {
-  const ref = useRef(null);
-  const panelRef = useRef(null);
-  // Per-panel scroll cache. Saved before gotoDate (which resets the
-  // FullCalendar scroller back to the slotMinTime) and reapplied after the
-  // re-render, so swiping to a new day keeps you at the time of day you
-  // were looking at — particularly relevant for ice schedules that cluster
-  // in the evening. `undefined` means "not yet captured"; once captured,
-  // a literal 0 is a valid value (= scrolled to slotMinTime, i.e. 08:00).
-  const savedScrollRef = useRef(undefined);
+function DayPanel({ date, items, isCurrent, onPrev, onNext }) {
+  const scrollRef = useRef(null);
+  const dayStr = ymd(date);
 
-  // Filter events to this panel's day (FullCalendar can do this itself
-  // when the view is timeGridDay, but explicitly filtering keeps off-screen
-  // panels lighter and avoids any flash of cross-day events during swipe).
-  const dayEvents = useMemo(() => {
-    return events.filter((ev) => {
-      const start = ev.start instanceof Date ? ev.start : new Date(ev.start);
-      return sameDay(start, date);
-    });
-  }, [events, date]);
+  // Filter + position this day's reservations.
+  const events = useMemo(() => {
+    const evs = (items || [])
+      .filter((it) => String(it.start_date || "").slice(0, 10) === dayStr)
+      .map((it) => {
+        const startMin = toMin(it.start_date);
+        const endMin = Math.max(toMin(it.end_date), startMin + 20);
+        const text = it.text || "Varaus";
+        const kind = it.user_group?.name === "Tilapäisvaraus" ? "game" : isAhma(text) ? "ahma" : "other";
+        return { id: it.id, startMin, endMin, text, kind };
+      });
+    return packLanes(evs);
+  }, [items, dayStr]);
 
-  // Keep the calendar locked to its panel's date, and preserve scroll
-  // position across the date change.
-  useEffect(() => {
-    const api = ref.current?.getApi?.();
-    if (!api) return;
-
-    const scroller = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
-    if (scroller) {
-      savedScrollRef.current = scroller.scrollTop;
-    }
-
-    api.gotoDate(date);
-
-    requestAnimationFrame(() => {
-      const s = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
-      if (s && savedScrollRef.current !== undefined) {
-        s.scrollTop = savedScrollRef.current;
-      }
-    });
-  }, [date]);
-
-  // Scroll to roughly "now" once when the current panel first mounts so the
-  // user lands at a useful slot. We deliberately don't re-scroll on
-  // subsequent date changes (the date-effect above preserves scroll instead).
+  // Scroll to roughly "now" once, on the current panel's first mount.
   useEffect(() => {
     if (!isCurrent) return;
-    const t = setTimeout(() => {
-      const api = ref.current?.getApi?.();
-      if (!api) return;
-      const now = new Date();
-      const minutes = now.getHours() * 60 + now.getMinutes();
-      const target = Math.max(0, minutes - 30);
-      const hh = String(Math.floor(target / 60)).padStart(2, "0");
-      const mm = String(target % 60).padStart(2, "0");
-      api.scrollToTime(`${hh}:${mm}:00`);
-      // Seed savedScrollRef so the first swipe preserves "now" rather than
-      // snapping to slotMinTime.
-      const s = panelRef.current?.querySelector(".fc-scroller-liquid-absolute");
-      if (s) savedScrollRef.current = s.scrollTop;
-    }, 0);
-    return () => clearTimeout(t);
+    const el = scrollRef.current;
+    if (!el) return;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const customButtons = useMemo(
-    () => ({
-      prevDay: { text: "", click: () => onPrev?.() },
-      nextDay: { text: "", click: () => onNext?.() },
-    }),
-    [onPrev, onNext]
-  );
+  const isToday = dayStr === ymd(new Date());
+  const nowMin = (() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); })();
+  const showNow = isToday && nowMin >= DAY_START && nowMin <= DAY_END;
+
+  const hours = [];
+  for (let h = 8; h <= 23; h++) hours.push(h);
+  const y = (min) => (min - DAY_START) * PX_MIN;
 
   return (
-    <div
-      ref={panelRef}
-      className={`sc-carousel-panel ${isCurrent ? "" : "sc-carousel-panel--inactive"}`}
-    >
-      <div className="sc-calendarWrap">
-        <FullCalendar
-          ref={ref}
-          plugins={[bootstrapPlugin, timeGridPlugin]}
-          initialView="timeGridDay"
-          locales={allLocales}
-          locale="fi"
-          weekends={true}
-          allDaySlot={false}
-          eventMinHeight={24}
-          slotDuration="00:30:00"
-          slotMinTime="08:00:00"
-          slotMaxTime="23:30:00"
-          dayHeaderContent={dayHeaderContent}
-          dayHeaderFormat={dayHeaderFormat}
-          slotLabelContent={slotLabelContent}
-          slotLabelFormat={slotLabelFormat}
-          initialDate={date}
-          firstDay={1}
-          nowIndicator={true}
-          now={null}
-          events={dayEvents}
-          themeSystem="bootstrap"
-          height="100%"
-          headerToolbar={{ left: "prevDay", center: "title", right: "nextDay" }}
-          customButtons={customButtons}
-          expandRows={true}
-          titleFormat={() => ""}
-        />
+    <div className={`sc-carousel-panel ${isCurrent ? "" : "sc-carousel-panel--inactive"}`}>
+      <div className="gz-cal">
+        <div className="gz-cal-head">
+          <button className="gz-cal-nav" onClick={() => onPrev?.()} aria-label="Edellinen päivä">‹</button>
+          <div className="gz-cal-title">
+            <span className="gz-cal-day">{moment(date).format("dddd")}</span>
+            <span className="gz-cal-date">{moment(date).format("D.M.")}</span>
+          </div>
+          <button className="gz-cal-nav" onClick={() => onNext?.()} aria-label="Seuraava päivä">›</button>
+        </div>
+
+        <div className="gz-cal-scroll" ref={scrollRef}>
+          <div className="gz-cal-grid" style={{ height: GRID_PX }}>
+            <div className="gz-cal-axis">
+              {hours.map((h) => (
+                <div key={h} className="gz-cal-hour" style={{ top: y(h * 60) }}>{String(h).padStart(2, "0")}</div>
+              ))}
+            </div>
+            <div className="gz-cal-col">
+              {hours.map((h) => <div key={h} className="gz-cal-line" style={{ top: y(h * 60) }} />)}
+              {events.map((e) => {
+                const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
+                const w = 100 / e.lanes;
+                const short = e.endMin - e.startMin < 50;
+                return (
+                  <div key={e.id} className={"gz-ev" + (short ? " gz-ev--short" : "")} style={{
+                    top: y(e.startMin), height: Math.max((e.endMin - e.startMin) * PX_MIN - 3, 18),
+                    left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 4px)`, background: color,
+                  }}>
+                    <span className="gz-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></span>
+                    <span className="gz-ev-name">{e.text}</span>
+                  </div>
+                );
+              })}
+              {showNow && <div className="gz-cal-now" style={{ top: y(nowMin) }}><span className="gz-cal-now-dot" /></div>}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 /* ============================= */
-/*           HELPERS             */
-/* ============================= */
-
-const dayHeaderFormat = { weekday: "short", day: "numeric", month: "numeric" };
-const slotLabelFormat = { hour: "2-digit", minute: "2-digit", omitZeroMinute: false, hour12: false };
-
-function dayHeaderContent(arg) {
-  const text = arg.text;
-  return <span>{text.charAt(0).toUpperCase() + text.slice(1)}</span>;
-}
-
-function slotLabelContent(arg) {
-  return <span>{arg.text}</span>;
-}
-
-function buildEvents(items) {
-  const BRAND = { accent: COLOR_PRIMARY, card: "#fff7ed", text: "#111827" };
-  const out = [];
-  for (const item of items) {
-    const text = item.text ?? "";
-    const isGameEvent = item.user_group?.name === "Tilapäisvaraus";
-    const isAhmaEvent =
-      (text.includes("Kiekko") && text.includes("Ahma")) || text.includes("KA U");
-    const isBLDEvent = text.includes("BLD");
-    const isBrand = isAhmaEvent || isBLDEvent;
-
-    const event = {
-      id: item.id,
-      title: text,
-      start: item.start_date,
-      end: item.end_date,
-      classNames: [isGameEvent ? "ev-game" : isBrand ? "ev-brand" : "ev-normal"],
-      backgroundColor: BRAND.card,
-      borderColor: "rgba(17,24,39,0.14)",
-      textColor: BRAND.text,
-    };
-
-    if (isBrand) {
-      event.backgroundColor = BRAND.accent;
-      event.borderColor = BRAND.accent;
-      event.textColor = BRAND.text;
-    }
-    if (isAhmaEvent || isBLDEvent) {
-      event.backgroundColor = BRAND.accent;
-      event.borderColor = BRAND.accent;
-      event.textColor = "#111827";
-    }
-
-    out.push(event);
-  }
-  return out;
-}
-
-/* ============================= */
 /*             CSS               */
 /* ============================= */
 
-function calendarThemeCss(BRAND) {
+function calendarThemeCss() {
   return `
     .sc-root{
-      height:100vh;
-      height:100dvh;
-      overflow:hidden;
+      height:100vh; height:100dvh; overflow:hidden;
+      background: var(--bg-gradient, linear-gradient(180deg,#15171B,#0b0b0d));
+      color:#fff; font-family: var(--font-family-base);
+    }
+    .sc-container{ height:100%; padding:8px 10px 0; overflow:hidden; display:flex; flex-direction:column; }
 
-      background:
-        radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
-        linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
+    /* Carousel viewport clips the 300%-wide track */
+    .sc-carousel-viewport{ flex:1 1 auto; min-height:0; width:100%; overflow:hidden; position:relative; display:flex; flex-direction:column; touch-action:pan-y; }
+    .sc-carousel-track{ display:flex; flex-direction:row; width:300%; flex:1 1 auto; min-height:0; will-change:transform; touch-action:pan-y; }
+    .sc-carousel-panel{ flex:0 0 33.3333%; box-sizing:border-box; padding:0 5px; min-width:0; min-height:0; display:flex; flex-direction:column; }
+    .sc-carousel-panel--inactive{ pointer-events:none; }
 
-      color:${BRAND.text};
-      font-family: var(--font-family-base);
-    }
+    /* One day: header + scrollable time grid inside a glass card */
+    .gz-cal{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; border-radius:16px; overflow:hidden;
+      background:var(--color-surface, rgba(255,255,255,0.03)); border:1px solid var(--color-surface-border, rgba(255,255,255,0.14)); }
 
-    .sc-container{
-      max-width:none !important;
-      height:100%;
-      padding: 8px 12px;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-    }
+    .gz-cal-head{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 8px; border-bottom:1px solid rgba(255,255,255,0.08); }
+    .gz-cal-nav{ flex:0 0 auto; width:40px; height:40px; display:flex; align-items:center; justify-content:center; font-size:34px; line-height:1; color:#fff; background:transparent; border:0; padding:0; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .gz-cal-nav:active{ color:var(--color-primary); }
+    .gz-cal-title{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; line-height:1.05; }
+    .gz-cal-day{ font-family:var(--font-family-display); font-size:24px; letter-spacing:0.03em; text-transform:uppercase; color:#fff; }
+    .gz-cal-date{ font-family:var(--font-family-base); font-weight:700; font-size:14px; letter-spacing:0.02em; color:var(--color-accent, rgba(255,255,255,0.65)); margin-top:1px; }
 
-    /* Carousel viewport — clips the 300%-wide track */
-    .sc-carousel-viewport{
-      flex: 1 1 auto;
-      min-height: 0;
-      width: 100%;
-      overflow: hidden;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      touch-action: pan-y;
-    }
+    .gz-cal-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
+      padding:6px 6px calc(var(--ui-bottom-nav-clearance, 80px)) 6px; box-sizing:border-box; }
+    .gz-cal-scroll::-webkit-scrollbar{ width:0; height:0; }
 
-    /* Carousel track — 3 panels side-by-side, transform driven from JS */
-    .sc-carousel-track{
-      display: flex;
-      flex-direction: row;
-      width: 300%;
-      flex: 1 1 auto;
-      min-height: 0;
-      will-change: transform;
-      touch-action: pan-y;
-    }
+    .gz-cal-grid{ position:relative; display:flex; }
+    .gz-cal-axis{ position:relative; width:38px; flex:0 0 auto; }
+    .gz-cal-hour{ position:absolute; right:8px; transform:translateY(-50%); font-family:var(--font-family-base); font-weight:700; font-size:13px; color:var(--color-accent, rgba(255,255,255,0.6)); }
+    .gz-cal-col{ position:relative; flex:1 1 auto; }
+    .gz-cal-line{ position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
 
-    /* One day panel — fills viewport width */
-    .sc-carousel-panel{
-      flex: 0 0 33.3333%;
-      box-sizing: border-box;
-      padding: 0 6px;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .sc-carousel-panel--inactive{
-      pointer-events: none;
-    }
+    .gz-ev{ position:absolute; box-sizing:border-box; border-radius:7px; padding:3px 8px; overflow:hidden; display:flex; flex-direction:column;
+      text-shadow:0 1px 2px rgba(0,0,0,0.38); }
+    .gz-ev--short{ flex-direction:row; align-items:baseline; gap:6px; }
+    .gz-ev-time{ font-family:var(--font-family-base); font-weight:800; font-size:13px; line-height:1.1; color:#fff; white-space:nowrap; flex-shrink:0; }
+    .gz-ev-time span{ font-weight:600; color:rgba(255,255,255,0.82); }
+    .gz-ev-name{ font-family:var(--font-family-base); font-weight:700; font-size:13px; line-height:1.14; color:#fff; overflow:hidden; word-break:break-word; margin-top:1px; }
+    .gz-ev--short .gz-ev-name{ min-width:0; white-space:nowrap; text-overflow:ellipsis; word-break:normal; margin-top:0; }
 
-    .sc-calendarWrap{
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow:hidden;
-      border-radius: 16px;
-      padding: 3px;
-      background: transparent;
-    }
-
-    /* Portrait/day-mode: make hour slots taller => "2 screens" content, scroll inside calendar */
-    .sc-dayMode .fc .fc-timegrid-slot{ height: 32px; }
-
-/* Hide ALL FullCalendar scrollbars but keep scrolling */
-.fc .fc-scroller::-webkit-scrollbar,
-.fc .fc-scroller-liquid::-webkit-scrollbar,
-.fc .fc-scroller-liquid-absolute::-webkit-scrollbar,
-.fc .fc-scroller-harness::-webkit-scrollbar,
-.fc .fc-scroller-harness-liquid::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-}
-
-.sc-dayMode .fc .fc-timegrid-body table {
-  width: 100% !important;
-}
-.sc-dayMode .fc .fc-timegrid-body {
-  width: 100% !important;
-}
-.sc-dayMode .fc .fc-scroller.fc-scroller-liquid-absolute {
-  overflow-x: hidden !important;
-}
-
-/* Mirror the matches list: extend the calendar all the way to the viewport
-   bottom and reserve clearance INSIDE the time grid scroller so events at
-   the end of the day still scroll above the BottomNav. */
-.sc-dayMode .fc-scroller-liquid-absolute {
-  padding-bottom: var(--ui-bottom-nav-clearance, 80px);
-  box-sizing: border-box;
-}
-
-    .fc{
-      height:100% !important;
-      background:#ffffff;
-      border-radius: 14px;
-      padding: 8px 8px 6px 8px;
-      border: 1px solid rgba(15,23,42,0.10);
-      box-shadow: 0 10px 26px rgba(0,0,0,0.10);
-      overflow:hidden;
-    }
-
-    .fc .fc-header-toolbar{ margin: 0 0 6px 0 !important; }
-
-    .fc .fc-toolbar-title{
-      font-size: var(--gz-fs-xl);
-      font-weight: var(--gz-fw-black);
-      letter-spacing: var(--gz-ls-wider);
-      color: ${BRAND.text};
-    }
-    .fc .fc-toolbar-title::before{
-      content: "JÄÄVUOROT";
-    }
-
-    .sc-dayMode .fc .fc-col-header { width: 100% !important; }
-    .sc-dayMode .fc .fc-col-header-cell { padding: 4px 0 !important; }
-    .sc-dayMode .fc .fc-col-header-cell-cushion {
-      padding: 4px 0 !important;
-      font-size: var(--gz-fs-md);
-      font-weight: var(--gz-fw-bold);
-      letter-spacing: var(--gz-ls-wide);
-      line-height: 1.2;
-    }
-
-    .fc .fc-customTitle-button{
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-      padding: 0 !important;
-      cursor: default !important;
-    }
-    .fc .fc-customTitle-button:focus{
-      outline: none !important;
-      box-shadow: none !important;
-    }
-
-    .sc-dayMode .fc .fc-prevDay-button,
-    .sc-dayMode .fc .fc-nextDay-button{
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-      padding: 0 4px !important;
-      font-family: 'Material Symbols Rounded Variable', sans-serif !important;
-      font-size: 34px !important;
-      font-weight: 400 !important;
-      line-height: 1 !important;
-      letter-spacing: normal !important;
-      text-transform: none !important;
-      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-      color: #111827 !important;
-    }
-    .sc-dayMode .fc .fc-prevDay-button:focus,
-    .sc-dayMode .fc .fc-nextDay-button:focus{
-      outline: none !important;
-      box-shadow: none !important;
-    }
-
-    .fc .fc-timegrid-axis-cushion,
-    .fc .fc-timegrid-slot-label-cushion{
-      font-size: var(--gz-fs-xs);
-      font-weight: var(--gz-fw-medium);
-      color: ${BRAND.muted};
-    }
-
-    .fc-theme-standard td,
-    .fc-theme-standard th{
-      border-color: rgba(15,23,42,0.08);
-    }
-
-    .fc .fc-timegrid-event .fc-event-main{ padding: 2px 8px; }
-
-    .fc .fc-event-time{
-      font-size: var(--gz-fs-xs);
-      font-weight: var(--gz-fw-bold);
-      line-height: 1.05;
-      display: block !important;
-    }
-    .sc-dayMode .fc .fc-event-time {
-      font-size: var(--gz-fs-md);
-      font-weight: var(--gz-fw-bold);
-    }
-
-    .fc .fc-event-title{
-      font-size: var(--gz-fs-xs);
-      font-weight: var(--gz-fw-regular);
-      line-height: 1.05;
-      color: rgba(17,24,39,0.85);
-      display: block !important;
-    }
-    .sc-dayMode .fc .fc-event-title { font-size: var(--gz-fs-sm); }
-
-    .fc .fc-timegrid-event{
-      border-radius: 6px;
-      border: 1px solid rgba(15,23,42,0.12);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-    }
-
-    .fc .fc-event.ev-normal{
-      background: #fdfdfd !important;
-      border-color: rgba(17, 24, 39, 0.35) !important;
-      color: #111827 !important;
-    }
-    .fc .fc-event.ev-normal .fc-event-main,
-    .fc .fc-event.ev-normal .fc-event-time,
-    .fc .fc-event.ev-normal .fc-event-title{
-      color: #111827 !important;
-    }
-
-    .fc .fc-event.ev-game{
-      background: #0d84f4 !important;
-      border-color: #0b59a1 !important;
-      color: #111827 !important;
-    }
-
-    .fc .fc-event.ev-brand{
-      background: var(--color-primary) !important;
-      border-color: #aa6f09 !important;
-      color: #111827 !important;
-    }
-    .fc .fc-event.ev-brand .fc-event-main,
-    .fc .fc-event.ev-brand .fc-event-time,
-    .fc .fc-event.ev-brand .fc-event-title{
-      color: #111827 !important;
-    }
-
-    .fc .fc-timegrid-now-indicator-line{
-        border-top-width: 3px;
-        border-color: ${BRAND.accent};
-    }
-    .fc .fc-timegrid-now-indicator-arrow {
-        width: 0;
-        height: 0;
-        border-top: 6px solid transparent;
-        border-bottom: 6px solid transparent;
-        border-left: 8px solid ${BRAND.accent};
-    }
+    .gz-cal-now{ position:absolute; left:0; right:0; height:2px; background:#ff5a2a; z-index:6; box-shadow:0 0 8px rgba(255,90,42,0.55); }
+    .gz-cal-now-dot{ position:absolute; left:-5px; top:-4px; width:10px; height:10px; border-radius:50%; background:#ff5a2a; }
   `;
 }
