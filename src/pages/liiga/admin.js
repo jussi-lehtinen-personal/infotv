@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuBot, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -85,7 +85,7 @@ export default function LiigaAdmin() {
           <Row k="Kello" v={s.realClock ? "REAALI (oikea päivä)" : "sim (replay)"} />
           <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
-          <Row k="Pelaajia" v={`${s.humans} rekisteröitynyt · ${s.squadsBuilt ?? 0} pakkaa rakennettu${s.bots ? ` · ${s.bots} bottia` : ""}`} />
+          <Row k="Pelaajia" v={`${s.humans} rekisteröitynyt · ${s.squadsBuilt ?? 0} pakkaa rakennettu`} />
           <Row k="Pelit synkattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
         </Box>
       ) : (
@@ -124,8 +124,6 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuTrophy} label="Luo kauden palkinnot (top 3)"
                   busy={busy === "genSeason"} disabled={!s}
                   onClick={() => run("generateVouchers", "Kauden palkinnot luotu", null, { scope: "season" }, "genSeason")} />
-        <AdminBtn icon={LuBot} label="Lisää / päivitä botit"
-                  busy={busy === "seedBots"} disabled={!s} onClick={() => run("seedBots", "Botit lisätty")} />
         <AdminBtn icon={LuImage} label="Hae pelaajakuvat (Jopox)"
                   busy={busy === "enrichPhotos"} disabled={!s} onClick={() => run("enrichPhotos", "Kuvat haettu")} />
         <AdminBtn icon={LuRefreshCw} label="Päivitä trendit + kausipisteet"
@@ -141,10 +139,10 @@ export default function LiigaAdmin() {
                   onClick={() => run("validateResults", "Tulokset validoitu")} />
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
-                  onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet, hinnat ja veikkaukset resetoidaan. Pakat, botit ja tulokset säilyvät.")} />
-        <AdminBtn icon={LuTrash2} label="Nollaa KAIKKI (joukkueet, budjetit, botit)" danger
+                  onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet, hinnat ja veikkaukset resetoidaan. Pakat ja tulokset säilyvät.")} />
+        <AdminBtn icon={LuTrash2} label="Nollaa KAIKKI (joukkueet, budjetit)" danger
                   busy={busy === "resetAll"} disabled={!s}
-                  onClick={() => run("resetAll", "Kaikki nollattu", "Nollataanko KAIKKI? Tämä tyhjentää lisäksi kaikki joukkueet (budjetit täyteen), veikkaukset ja botit. Ihmiskäyttäjät säilyvät mutta menettävät joukkueensa. Kortit ja tulokset säilyvät.")} />
+                  onClick={() => run("resetAll", "Kaikki nollattu", "Nollataanko KAIKKI? Tämä tyhjentää lisäksi kaikki joukkueet (budjetit täyteen) ja veikkaukset. Ihmiskäyttäjät säilyvät mutta menettävät joukkueensa. Kortit ja tulokset säilyvät.")} />
       </Stack>
 
       {s && !s.gamesLoaded && (

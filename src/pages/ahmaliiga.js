@@ -109,16 +109,21 @@ const Ahmaliiga = () => {
         <Section emoji="🎯" title="2. Kerää pisteitä">
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Joukkuekortti</Typography>
           <Box sx={{ mb: 1.5, mt: 0.5 }}>
-            <Rule label="Voitto" value="3" />
+            <Rule label="Voitto" value="5" />
             <Rule label="Tasapeli" value="1" />
             <Rule label="Tappio" value="0" dim />
-            <Rule label="Nollapeli (ette päästä maalia)" value="+2" />
-            <Rule label="Iso voitto (2+ maalin ero)" value="+1" />
+            <Rule label="Nollapeli (ette päästä maalia)" value="+3" />
+            <Rule label="Maaliero" value="+0,5 / maali (max +2)" />
           </Box>
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti — kenttäpelaaja</Typography>
           <Box sx={{ mb: 1.5, mt: 0.5 }}>
             <Rule label="Maali" value="3" />
             <Rule label="Syöttö" value="2" />
+          </Box>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Puolustajan lisäpisteet</Typography>
+          <Box sx={{ mb: 1.5, mt: 0.5 }}>
+            <Rule label="Joukkue ei päästä maalia (nollapeli)" value="+3" />
+            <Rule label="Tiukka puolustus (enintään 2 päästettyä)" value="+1" />
           </Box>
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>Tähtikortti — maalivahti</Typography>
           <Box sx={{ mt: 0.5 }}>
@@ -176,6 +181,10 @@ const Ahmaliiga = () => {
             hinnat <b>elävät pelien mukaan</b> (nousevat hyvistä peleistä), joten kun
             myyt kortin, saat sen <b>nykyhinnan</b> — nappaa nousevat halvalla! 📈
           </Lead>
+          <Lead>
+            👍 <b>Hinta ei laske jaksolta, jona kortilla ei ollut peliä</b> — sinua ei
+            rangaista tyhjästä. Vain oikeat pelisuoritukset liikuttavat hintaa.
+          </Lead>
           <Box sx={{ mt: 1, p: 1.25, borderRadius: "var(--radius-item)", bgcolor: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.25)" }}>
             <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>
               💡 <b>Huom:</b> kortti lukittuu kokoonpanoosi heti kun sen peli alkaa — tee
@@ -216,14 +225,14 @@ const Ahmaliiga = () => {
               badge="🅰️"
               title="Enemmän joukkueita (turvallinen)"
               rows={[
-                { label: "⭐ U13 Valkoinen — voitti 5–1 (kapteeni)", pts: "8" },
-                { label: "Naiset — voitti 3–0 (nollapeli)", pts: "6" },
+                { label: "⭐ U13 Valkoinen — voitti 5–1 (kapteeni)", pts: "14" },
+                { label: "Naiset — voitti 4–0 (nollapeli)", pts: "10" },
                 { label: "U12 Musta — tasapeli", pts: "1" },
                 { label: "U14 — tappio", pts: "0" },
                 { label: "🥅 Veskari (Edustus) — voitto + nollapeli", pts: "7" },
                 { label: "Veikkaus — oikea voittaja", pts: "+3" },
               ]}
-              total="≈ 25"
+              total="≈ 35"
               note="Vähän riskiä, tasaista tuottoa monelta kortilta."
             />
             <Example
@@ -232,12 +241,12 @@ const Ahmaliiga = () => {
               rows={[
                 { label: "⭐ Olander (Naiset) — 2 maalia + syöttö (kapteeni)", pts: "16" },
                 { label: "Mäkinen (U20) — 1 maali", pts: "3" },
-                { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "6" },
-                { label: "U13 Valkoinen — voitti 3–1", pts: "4" },
-                { label: "Edustus — tappio", pts: "0" },
+                { label: "🛡️ Puolustaja (Edustus) — nollapeli", pts: "+3" },
+                { label: "U12 Musta — voitti 2–0 (nollapeli)", pts: "9" },
+                { label: "U13 Valkoinen — voitti 3–1", pts: "6" },
                 { label: "Veikkaus — tarkka tulos", pts: "+20" },
               ]}
-              total="≈ 49"
+              total="≈ 57"
               note="Isompi katto, mutta iso riski: jos tähti-kapteeni on hiljainen jakso, jakso romahtaa. Tarkka veikkaus on harvinainen mutta iso potti."
             />
           </Stack>
