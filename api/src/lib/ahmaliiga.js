@@ -1603,7 +1603,14 @@ async function getPrediction(seasonId, round, userId) {
 
 async function savePrediction(seasonId, round, userId, gameId, homeGoals, awayGoals) {
   const games = await getRoundGames(seasonId, round);
-  if (!games.find((g) => g.gameId === String(gameId))) throw badRequest('Ottelu ei kuulu tähän jaksoon.');
+  const game = games.find((g) => g.gameId === String(gameId));
+  if (!game) throw badRequest('Ottelu ei kuulu tähän jaksoon.');
+  // Kickoff lock: once the predicted game has started, its result is (or soon
+  // will be) known → predicting/editing it is closed. Sim-clock aware, like the
+  // squad rolling-lock (a replay's games have historical dates, so a wall-clock
+  // check would read them ALL as started and lock every prediction).
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (gameStarted(game, season)) throw badRequest('Ottelu on jo alkanut — veikkausta ei voi enää muuttaa.');
   const h = Number(homeGoals), a = Number(awayGoals);
   if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0 || h > 30 || a > 30) throw badRequest('Virheellinen tulos.');
   // Predicting is a real action → join as a manager (like saveSquad). Nickname from profile.
