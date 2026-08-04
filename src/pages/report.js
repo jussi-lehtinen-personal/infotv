@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { COLOR_PRIMARY } from "../theme";
 
 // Finance/admin ice-time report. Unlisted page (not in any menu, no gamezone
 // bottom nav) — opened directly at /report.
@@ -369,7 +368,7 @@ const Report = () => {
 
   return (
     <>
-      <style>{css(COLOR_PRIMARY)}</style>
+      <style>{css()}</style>
       <div className="rp-root">
         <div className="rp-container">
           <header className="rp-head">
@@ -612,28 +611,29 @@ const Report = () => {
 
 export default Report;
 
-function css(accent) {
+function css() {
   return `
     .rp-root{
       min-height:100vh;
       min-height:100dvh;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(243, 223, 191, 0.22), transparent 55%),
-        linear-gradient(180deg, #0f1112 0%, #101213 55%, #090b0b 100%);
-      color:#111827;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--color-secondary);
+      font-family: var(--font-family-base);
       padding: 16px 14px 28px;
     }
     /* Full-bleed like the schedule/calendar page — use the whole screen width. */
     .rp-container{ max-width: none; margin: 0; }
 
-    .rp-head{ margin: 4px 2px 14px; }
+    .rp-head{ margin: 4px 2px 16px; }
     .rp-title{
       margin:0;
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: 0.4px;
-      color:#fff;
+      font-family: var(--font-family-display);
+      font-size: var(--size-heading-lg);
+      font-weight: 400;
+      letter-spacing: var(--font-display-tracking);
+      line-height: 1;
+      color: var(--color-secondary);
     }
 
     /* Search row */
@@ -654,7 +654,7 @@ function css(accent) {
       font-weight:700;
       letter-spacing:0.3px;
       text-transform:uppercase;
-      color: rgba(255,255,255,0.6);
+      color: var(--color-accent);
     }
     /* height forced with !important so globally-bundled Bootstrap (imported by
        schedule.js) can't override it — inputs and buttons must be equal height. */
@@ -663,31 +663,33 @@ function css(accent) {
       height:42px !important;
       box-sizing:border-box;
       padding:0 10px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,0.18);
-      background:#fff;
-      color:#111827;
+      border-radius: var(--radius-small);
+      border:1px solid var(--color-surface-border);
+      background: rgba(255,255,255,0.06);
+      color: var(--color-secondary);
+      color-scheme: dark;
     }
+    .rp-field input:focus{ outline:none; border-color: var(--color-primary); }
     .rp-btn{
       font: inherit;
       font-weight:700;
       height:42px !important;
       box-sizing:border-box;
       padding:0 18px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,0.22);
-      background: rgba(255,255,255,0.10);
-      color:#fff;
+      border-radius: var(--radius-small);
+      border:1px solid var(--color-surface-border);
+      background: rgba(255,255,255,0.08);
+      color: var(--color-secondary);
       cursor:pointer;
     }
-    .rp-btn:hover{ background: rgba(255,255,255,0.16); }
+    .rp-btn:hover{ background: rgba(255,255,255,0.14); }
     .rp-btn:disabled{ opacity:0.5; cursor:default; }
     .rp-btn--primary{
-      background:${accent};
-      border-color:${accent};
-      color:#111827;
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: var(--color-on-primary);
     }
-    .rp-btn--primary:hover{ filter:brightness(1.05); background:${accent}; }
+    .rp-btn--primary:hover{ filter:brightness(1.06); background: var(--color-primary); }
 
     /* Date-range presets */
     .rp-presets{ display:flex; flex-wrap:wrap; gap:6px; margin: 0 0 14px; }
@@ -696,28 +698,28 @@ function css(accent) {
       font-size:12px;
       font-weight:700;
       padding:5px 10px;
-      border-radius:8px;
-      border:1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.85);
+      border-radius: var(--radius-small);
+      border:1px solid var(--color-surface-border);
+      background: rgba(255,255,255,0.06);
+      color: var(--color-accent);
       cursor:pointer;
     }
-    .rp-preset:hover{ background: rgba(255,255,255,0.16); }
-    .rp-preset--on{ background:${accent}; border-color:${accent}; color:#111827; }
+    .rp-preset:hover{ background: rgba(255,255,255,0.12); color: var(--color-secondary); }
+    .rp-preset--on{ background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 
     /* Divider between time-range presets and user (Ahma) quick picks */
-    .rp-divider{ height:1px; background: rgba(255,255,255,0.12); margin: 2px 0 12px; }
+    .rp-divider{ height:1px; background: var(--color-surface-divider); margin: 2px 0 12px; }
 
     .rp-error{
       background: rgba(239,68,68,0.15);
       border:1px solid rgba(239,68,68,0.4);
       color:#fecaca;
       padding:10px 12px;
-      border-radius:10px;
+      border-radius: var(--radius-small);
       margin-bottom:12px;
     }
     .rp-empty{
-      color: rgba(255,255,255,0.7);
+      color: var(--color-accent);
       padding: 24px 4px;
     }
 
@@ -730,10 +732,11 @@ function css(accent) {
     }
 
     .rp-side, .rp-main{
-      background:#fff;
-      border-radius:14px;
-      border:1px solid rgba(15,23,42,0.10);
-      box-shadow: 0 10px 26px rgba(0,0,0,0.18);
+      background: var(--color-surface);
+      border-radius: var(--radius-card);
+      border:1px solid var(--color-surface-border);
+      box-shadow: var(--shadow-card);
+      backdrop-filter: blur(8px);
       display:flex;
       flex-direction:column;
       overflow:hidden;
@@ -753,16 +756,16 @@ function css(accent) {
       font-weight:700;
       padding:5px 12px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.85);
+      border:1px solid var(--color-surface-border);
+      background: rgba(255,255,255,0.06);
+      color: var(--color-accent);
       cursor:pointer;
     }
-    .rp-chip:hover{ background: rgba(255,255,255,0.16); }
+    .rp-chip:hover{ background: rgba(255,255,255,0.12); color: var(--color-secondary); }
     .rp-chip--on{
-      background:${accent};
-      border-color:${accent};
-      color:#111827;
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: var(--color-on-primary);
     }
 
     .rp-search-wrap{ position:relative; margin-bottom:10px; }
@@ -773,13 +776,13 @@ function css(accent) {
       box-sizing:border-box;
       height:40px;
       padding:0 34px 0 12px;
-      border-radius:9px;
-      border:1px solid rgba(15,23,42,0.18);
-      background:#f8fafc;
-      color:#1e293b;
+      border-radius: var(--radius-small);
+      border:1px solid var(--color-surface-border);
+      background: rgba(255,255,255,0.05);
+      color: var(--color-secondary);
     }
-    .rp-search::placeholder{ color:#94a3b8; }
-    .rp-search:focus{ outline:none; border-color:${accent}; background:#fff; }
+    .rp-search::placeholder{ color: var(--color-muted); }
+    .rp-search:focus{ outline:none; border-color: var(--color-primary); background: rgba(255,255,255,0.08); }
     .rp-search-clear{
       position:absolute;
       right:6px;
@@ -795,24 +798,24 @@ function css(accent) {
       border-radius:6px;
       font-size:20px;
       line-height:1;
-      color:#94a3b8;
+      color: var(--color-muted);
       cursor:pointer;
     }
-    .rp-search-clear:hover{ color:#475569; background: rgba(15,23,42,0.06); }
+    .rp-search-clear:hover{ color: var(--color-secondary); background: rgba(255,255,255,0.08); }
 
     .rp-side-actions{
       display:flex;
       align-items:center;
       gap:12px;
       padding:2px 2px 8px;
-      border-bottom:1px solid rgba(15,23,42,0.08);
+      border-bottom:1px solid var(--color-surface-divider);
       margin-bottom:6px;
     }
     .rp-side-count{
       margin-left:auto;
       font-size:11px;
       font-weight:700;
-      color:#94a3b8;
+      color: var(--color-muted);
     }
     .rp-link{
       font: inherit;
@@ -821,7 +824,7 @@ function css(accent) {
       background:none;
       border:none;
       padding:0;
-      color:#0d84f4;
+      color: var(--color-primary);
       cursor:pointer;
     }
     .rp-link:hover{ text-decoration:underline; }
@@ -837,11 +840,11 @@ function css(accent) {
     .rp-users-empty{
       padding:18px 4px;
       font-size:13px;
-      color:#94a3b8;
+      color: var(--color-muted);
     }
 
     /* Tree: group branch (head + nested users) */
-    .rp-group{ border-bottom:1px solid rgba(15,23,42,0.05); }
+    .rp-group{ border-bottom:1px solid var(--color-surface-divider); }
     .rp-group-head{ display:flex; align-items:center; gap:4px; padding:2px 0; }
     .rp-caret{
       flex:0 0 auto;
@@ -855,10 +858,10 @@ function css(accent) {
       padding:0;
       font-size:20px;
       line-height:1;
-      color:#94a3b8;
+      color: var(--color-muted);
       cursor:pointer;
     }
-    .rp-caret:hover{ color:#475569; }
+    .rp-caret:hover{ color: var(--color-secondary); }
     .rp-group-label{
       flex:1 1 auto;
       display:flex;
@@ -870,13 +873,13 @@ function css(accent) {
       cursor:pointer;
       min-width:0;
     }
-    .rp-group-label:hover{ background:#f1f5f9; }
-    .rp-group-label input{ flex:0 0 auto; accent-color:${accent}; width:16px; height:16px; }
+    .rp-group-label:hover{ background: rgba(255,255,255,0.05); }
+    .rp-group-label input{ flex:0 0 auto; accent-color: var(--color-primary); width:16px; height:16px; }
     .rp-group-name{
       flex:1 1 auto;
       font-size:13px;
       font-weight:700;
-      color:#0f172a;
+      color: var(--color-secondary);
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
@@ -885,7 +888,7 @@ function css(accent) {
       flex:0 0 auto;
       font-size:11px;
       font-weight:700;
-      color:#94a3b8;
+      color: var(--color-muted);
     }
     .rp-group-users{ list-style:none; margin:0; padding:0 0 4px 22px; }
 
@@ -898,13 +901,13 @@ function css(accent) {
       border-radius:8px;
       cursor:pointer;
     }
-    .rp-user:hover{ background:#f1f5f9; }
-    .rp-user input{ flex:0 0 auto; accent-color:${accent}; width:16px; height:16px; }
+    .rp-user:hover{ background: rgba(255,255,255,0.05); }
+    .rp-user input{ flex:0 0 auto; accent-color: var(--color-primary); width:16px; height:16px; }
     .rp-user-name{
       flex:1 1 auto;
       font-size:13px;
       font-weight:600;
-      color:#1e293b;
+      color: var(--color-secondary);
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
@@ -913,7 +916,7 @@ function css(accent) {
       flex:0 0 auto;
       font-size:11px;
       font-weight:700;
-      color:#64748b;
+      color: var(--color-accent);
       white-space:nowrap;
     }
 
@@ -930,8 +933,8 @@ function css(accent) {
       width:34px;
       height:34px;
       border-radius:50%;
-      border:3px solid rgba(148,163,184,0.35);
-      border-top-color:${accent};
+      border:3px solid var(--color-surface-border);
+      border-top-color: var(--color-primary);
       animation: rp-spin 0.8s linear infinite;
     }
     @keyframes rp-spin{ to { transform: rotate(360deg); } }
@@ -947,7 +950,7 @@ function css(accent) {
       flex:1 1 auto;
       min-height:240px;
       padding:32px 24px;
-      color:#64748b;
+      color: var(--color-accent);
     }
     .rp-placeholder p{ margin:0; max-width:320px; font-size:14px; font-weight:600; line-height:1.5; }
 
@@ -957,7 +960,7 @@ function css(accent) {
       flex-wrap:wrap;
       gap:10px;
       padding:14px;
-      border-bottom:1px solid rgba(15,23,42,0.08);
+      border-bottom:1px solid var(--color-surface-divider);
       flex:0 0 auto;
     }
     .rp-stat{
@@ -966,12 +969,13 @@ function css(accent) {
       align-items:center;
       min-width:84px;
       padding:8px 14px;
-      border-radius:12px;
-      background:#f8fafc;
+      border-radius: var(--radius-item);
+      background: rgba(255,255,255,0.05);
+      border:1px solid var(--color-surface-divider);
     }
-    .rp-stat-num{ font-size:22px; font-weight:800; color:#0f172a; line-height:1.1; }
-    .rp-stat-num.rp-game{ color:#0d84f4; }
-    .rp-stat-lbl{ font-size:11px; font-weight:700; letter-spacing:0.3px; color:#64748b; text-transform:uppercase; }
+    .rp-stat-num{ font-size:22px; font-weight:800; color: var(--color-secondary); line-height:1.1; }
+    .rp-stat-num.rp-game{ color: var(--color-info); }
+    .rp-stat-lbl{ font-size:11px; font-weight:700; letter-spacing:0.3px; color: var(--color-accent); text-transform:uppercase; }
 
     /* Table */
     .rp-table-wrap{ overflow:auto; flex:1 1 auto; min-height:0; }
@@ -979,26 +983,26 @@ function css(accent) {
     .rp-table thead th{
       position:sticky;
       top:0;
-      background:#f8fafc;
+      background:#1c1f24;
       text-align:left;
       font-size:11px;
       font-weight:800;
       letter-spacing:0.3px;
       text-transform:uppercase;
-      color:#64748b;
+      color: var(--color-accent);
       padding:10px 12px;
-      border-bottom:1px solid rgba(15,23,42,0.10);
+      border-bottom:1px solid var(--color-surface-border);
       z-index:1;
     }
     .rp-table tbody td{
       padding:9px 12px;
-      border-bottom:1px solid rgba(15,23,42,0.06);
-      color:#1e293b;
+      border-bottom:1px solid var(--color-surface-divider);
+      color: var(--color-secondary);
     }
-    .rp-table tbody tr:hover{ background:#f8fafc; }
+    .rp-table tbody tr:hover{ background: rgba(255,255,255,0.04); }
     .rp-nowrap{ white-space:nowrap; }
-    .rp-row-game td{ background: rgba(13,132,244,0.06); }
-    .rp-row-game:hover td{ background: rgba(13,132,244,0.10); }
+    .rp-row-game td{ background: rgba(96,165,250,0.10); }
+    .rp-row-game:hover td{ background: rgba(96,165,250,0.16); }
 
     .rp-badge{
       display:inline-block;
@@ -1006,10 +1010,10 @@ function css(accent) {
       font-weight:700;
       padding:2px 8px;
       border-radius:999px;
-      background:#e2e8f0;
-      color:#475569;
+      background: rgba(255,255,255,0.10);
+      color: var(--color-accent);
     }
-    .rp-badge--game{ background:#0d84f4; color:#fff; }
+    .rp-badge--game{ background: var(--color-info); color:#0b1220; }
 
     @media (max-width: 760px){
       .rp-grid{ grid-template-columns: 1fr; }
