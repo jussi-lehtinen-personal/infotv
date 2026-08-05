@@ -68,6 +68,9 @@ function computeRoundPoints({ games, reports, extraAges }) {
   const pd = (id) => (pDetail[id] = pDetail[id] || { goals: 0, assists: 0 });
 
   for (const g of games || []) {
+    // Skip UPCOMING (unplayed) games — a live/generated season stores the whole fixture
+    // list (schedule + team-card pool), but only games with a result score.
+    if (g.homeGoals == null || g.awayGoals == null) continue;
     const tk = teamKey(g);
     const tid = "T:" + tk;
     const { gf, ga } = ahmaGoals(g);

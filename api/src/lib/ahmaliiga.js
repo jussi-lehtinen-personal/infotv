@@ -4,6 +4,7 @@ const { avatarUrl } = require('./blob');
 const { workerGet } = require('./worker');
 const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResults');
 const { sendPush } = require('./push');
+const { envAdminIds } = require('./admin');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/rounds/cards +
@@ -52,6 +53,17 @@ const T = {
 
 // A 400-class error the endpoints surface as a user-facing validation message.
 function badRequest(msg) { return Object.assign(new Error(msg), { code: 400 }); }
+
+// Launch gate: while now < season.startAt, ONLY env-admins (the operators) may enter/
+// mutate — everyone else is blocked so no player joins before the public open. No startAt
+// or past it → open to all. Enforced on the mutating endpoints (join/squad/prediction);
+// the client mirrors it (AhmaliigaLayout shows a "coming soon" screen to non-admins).
+function assertGameOpen(season, userId) {
+  if (!season || !season.startAt) return;
+  if (Date.now() >= new Date(season.startAt).getTime()) return;
+  if (userId && envAdminIds().includes(userId)) return;
+  throw badRequest('Ahmaliiga ei ole vielä auki — peli avautuu myöhemmin.');
+}
 
 // The active season row (PK='season', one row per seasonId, `active` flag).
 async function getActiveSeason() {
@@ -161,12 +173,34 @@ async function seedSeason(seed) {
     // test include a younger team as individual player cards WITHOUT changing the global
     // U18+ line (the real product stays U18+). Default none.
     playerAges: JSON.stringify(Array.isArray(seed.playerAges) ? seed.playerAges : []),
+    // v2 live preseason beta (2026-08-04): keep harjoituspelit (syncSeasonGames reads
+    // this); `startAt` = the EXISTING launch gate (setStart / notStarted → pre-start card);
+    // `u15Flat` = a single flat seed price for U15 player cards (reconcileCards prices new
+    // U15 entrants at this too). All default off.
+    includeFriendlies: !!seed.includeFriendlies,
+    livePool: !!seed.livePool, // tick syncs games + reconciles the roster pool each run
+    startAt: String(seed.startAt || ''),
+    u15Flat: seed.u15Flat != null ? Number(seed.u15Flat) : null,
     // Sim/replay: an admin-advanced round pointer (settlement moves it forward) +
     // a sim clock (day-stepped by the cron; starts at the first round).
     currentRound: 0, simMode: true,
     simDate: (roundRows[0] && roundRows[0].startDate) || '', autoStep: false,
     ...gen,
   });
+
+  // v2 live beta: the BAKED prior index ({normName→value} + team-by-age + maxes, from
+  // gen-live-seed) lives in a SEPARATE 'seasonMeta' row so the hot getActiveSeason path
+  // (partition 'season') never loads this multi-KB blob — reconcileCards reads it on
+  // demand to price roster entrants with ZERO tulospalvelu calls. Only when provided.
+  if (seed.priorIndex) {
+    await upsertEntity(T.season, {
+      partitionKey: 'seasonMeta', rowKey: seasonId,
+      priorIndex: JSON.stringify(seed.priorIndex || {}),
+      teamPrior: JSON.stringify(seed.teamPrior || {}),
+      priorMaxPlayer: Number(seed.priorMaxPlayer) || 0,
+      priorMaxTeam: Number(seed.priorMaxTeam) || 0,
+    });
+  }
 
   for (const j of roundRows) {
     await upsertEntity(T.rounds, {
@@ -204,12 +238,16 @@ async function seedSeason(seed) {
   // Remove STALE cards — a re-seed with a trimmed pool (e.g. players excluded via
   // gen-cards --overrides _exclude) must DROP the old cards, not just upsert the new
   // ones (upsert alone would leave excluded players lingering in the table).
-  const newIds = new Set(cards.map((c) => c.id));
-  const existingCards = await listByPartition(T.cards, seasonId);
-  const staleCards = existingCards.filter((c) => !newIds.has(c.rowKey));
-  for (const c of staleCards) {
-    await deleteEntity(T.cards, seasonId, c.rowKey);
-    await clearPartition(T.cardHistory, `${seasonId}|${c.rowKey}`); // drop the excluded card's history too
+  // ⚠️ SKIP when the seed carries NO cards — a LIVE seed (cards:[]) means "reconcileCards
+  // owns the pool"; wiping here would nuke a reconciled live pool on any re-seed.
+  if (cards.length) {
+    const newIds = new Set(cards.map((c) => c.id));
+    const existingCards = await listByPartition(T.cards, seasonId);
+    const staleCards = existingCards.filter((c) => !newIds.has(c.rowKey));
+    for (const c of staleCards) {
+      await deleteEntity(T.cards, seasonId, c.rowKey);
+      await clearPartition(T.cardHistory, `${seasonId}|${c.rowKey}`); // drop the excluded card's history too
+    }
   }
 
   // round-0 snapshot so price/points history exists from the start.
@@ -549,6 +587,19 @@ function bandPricesFrom(pool, form, prices, skew = 1) {
 // the in-between steps = keski.
 const bandNameOf = (price, prices) => (price >= prices[0] ? 'kallis' : price <= prices[prices.length - 1] ? 'halpa' : 'keski');
 
+// Value-based launch price for a SINGLE roster entrant from its baked prior (magnitude,
+// not rank): price = snap(prior/maxPrior × ladder[0]); no prior → mid; seedClamp caps at
+// the 2nd tier so a fresh card never starts at the ceiling (reached only by appreciation).
+// IDENTICAL math to tools/gen-cards.js assignBands — used by reconcileCards for mid-season
+// pool additions so a late entrant is priced exactly as the initial seed would have.
+function priorPrice(prior, maxPrior, ladder, seedClamp = true) {
+  const mid = ladder[Math.floor(ladder.length / 2)];
+  if (prior == null || !(maxPrior > 0)) return mid;
+  const snap = (t) => { let best = ladder[0]; for (const x of ladder) if (Math.abs(x - t) < Math.abs(best - t)) best = x; return best; };
+  const p = snap((prior / maxPrior) * ladder[0]);
+  return seedClamp ? Math.min(p, ladder[1]) : p; // cap at 2nd tier (no ceiling at entry)
+}
+
 async function recomputeSeasonScores(seasonId, uptoRound) {
   const totals = {};
   for (let j = 0; j <= uptoRound; j++) {
@@ -568,6 +619,9 @@ async function recomputeSeasonScores(seasonId, uptoRound) {
 async function settleRound(seasonId, round) {
   const seasonRow = await getEntity(T.season, 'season', seasonId);
   if (!seasonRow) throw badRequest('Kausi puuttuu.');
+  // LIVE pool: reconcile the roster FIRST so a player added just before their game has a
+  // card in time for name-match scoring (no orphan points). No-op for non-live seasons.
+  try { await reconcileCards(seasonId); } catch (e) { /* best-effort */ }
   const rounds = await getRounds(seasonId);
   // LIVE: compute this round's results from tulospalvelu (games + box scores) and
   // persist them into AhmaliigaResults — replaces the offline loadResults. Robust:
@@ -1200,13 +1254,25 @@ const FRIENDLY_RE = /harjoitus/i;
 async function syncSeasonGames(seasonId) {
   const data = await workerGet(`/getSeasonGames?season=${encodeURIComponent(seasonId)}`);
   const all = (data && data.games) || [];
-  const games = all.filter((g) =>
-    // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or
-    // the U9-U10 Leijonaliiga no-score format. `== 1` was DROPPING every OT/shootout
-    // game (e.g. the Naisten Mestis shootout playoff win) → those points went uncounted.
-    Number(g.finished) > 0 && g.home_goals != null && g.away_goals != null &&
-    !FRIENDLY_RE.test(g.league || '') && !FRIENDLY_RE.test(g.level || ''));
   const season = await getEntity(T.season, 'season', seasonId);
+  // v2 live preseason beta: a season flagged `includeFriendlies` KEEPS harjoituspelit
+  // (which the real product drops). The round windows still bound what actually scores,
+  // so a friendly-only beta whose windows sit before the league starts stays friendly-
+  // only. The real season leaves the flag off → sarja/alkusarja/jatkosarja/karsinta/
+  // playoffs pass (none are "harjoitus"), only friendlies are excluded.
+  const keepFriendlies = !!(season && (season.includeFriendlies === true || season.includeFriendlies === 'true'));
+  // A GENERATED/live season (roundGen) keeps UPCOMING (unplayed) games too — the schedule
+  // + team-card pool need the whole fixture list ("start date + any later game in tulos-
+  // palvelu"). The round windows bound the range, and scoring (computeRoundPoints) skips a
+  // game with no result. A replay keeps only COMPLETED games (finished>0 with a score).
+  const storeUnplayed = !!(season && (season.roundGen === true || season.roundGen === 'true'));
+  const games = all.filter((g) => {
+    // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or the
+    // U9-U10 Leijonaliiga no-score format. `== 1` DROPPED every OT/shootout game before.
+    if (!keepFriendlies && (FRIENDLY_RE.test(g.league || '') || FRIENDLY_RE.test(g.level || ''))) return false;
+    if (storeUnplayed) return true;
+    return Number(g.finished) > 0 && g.home_goals != null && g.away_goals != null;
+  });
   let rounds = await getRounds(seasonId);
   // F2.6: a GENERATED season extends its round windows forward to cover any fixtures
   // that fall past the last window (playoffs), instead of silently dropping them.
@@ -1686,6 +1752,121 @@ async function fetchRosterPhotos(subsiteId) {
     }
   }
   return map;
+}
+
+// Safe JSON parse with a fallback (baked prior-index / config blobs).
+const safeJson = (s, d) => { try { return JSON.parse(s || ''); } catch { return d; } };
+
+// Jopox roster as a PLAYER LIST (name + goalie flag + photo) — reconcileCards builds the
+// LIVE card pool from this. Goalie flag from the position-group title ("Maalivahti");
+// teams whose roster isn't position-grouped default to skater (cosmetic — scoring is
+// name-based regardless of kind). Name "LAST First" matches box-score scorer card ids.
+async function fetchRosterPlayers(subsiteId) {
+  const res = await fetch(`${ROSTER_BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': ROSTER_UA, Accept: 'text/html' } });
+  if (!res.ok) return [];
+  const html = await res.text();
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!m) return [];
+  let pageProps;
+  try { pageProps = (JSON.parse(m[1]).props || {}).pageProps || {}; } catch { return []; }
+  const out = [];
+  for (const group of pageProps.players || []) {
+    const isGoalie = /maaliv|goalie/i.test(String(group.title || group.name || group.groupName || ''));
+    for (const p of group.players || []) {
+      const first = (p.personFirstname || '').trim(), last = (p.personLastname || '').trim();
+      if (!first && !last) continue;
+      out.push({ name: `${last} ${first}`.trim(), isGoalie, photo: p.imagename ? `${IMAGEBANK}/${p.imagename}` : '' });
+    }
+  }
+  return out;
+}
+
+// LIVE pool reconcile (project_ahmaliiga_live_beta). ADD-ONLY + idempotent: adds any
+// missing PLAYER cards (eligible teams' Jopox rosters) + TEAM cards (teamKeys in the
+// synced games), priced from the BAKED prior index (U15 → flat u15Flat; no prior → mid).
+// NEVER touches/removes existing cards (a shrunk roster just leaves a card that stops
+// scoring). SOLE pool builder: empty initial seed fills on run 1, mid-season roster/
+// fixture changes on later runs. ZERO tulospalvelu calls (prior pre-baked, rosters =
+// Jopox). Best-effort per team. Run hourly (tick) + before settle + on admin sync.
+async function reconcileCards(seasonId) {
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season) return { addedPlayers: 0, addedTeams: 0 };
+  const meta = await getEntity(T.season, 'seasonMeta', seasonId);
+  // ONLY live-pool seasons have a baked seasonMeta → for a replay (game-seeded pool) this
+  // is a safe no-op BEFORE any Jopox fetch, so the tick/settle can call it unconditionally.
+  if (!meta) return { addedPlayers: 0, addedTeams: 0, skipped: 'no-meta' };
+  const priorIndex = safeJson(meta && meta.priorIndex, {});
+  const teamPrior = safeJson(meta && meta.teamPrior, {});
+  const u15Flat = (season.u15Flat != null && season.u15Flat !== '') ? Number(season.u15Flat) : null;
+  const playerAges = safeJson(season.playerAges, []);
+  const curRound = Number(season.currentRound) || 0;
+  const existing = await getCards(seasonId);
+  const have = new Set(existing.map((c) => c.rowKey));
+  const add = [];
+  const bandP = ECON.playerBand, bandT = ECON.band;
+
+  // 1. Player cards from the eligible teams' Jopox rosters. TWO-PHASE: gather the whole
+  // current roster first, then price relative to the MAX prior among ROSTERED (non-flat)
+  // players — NOT a global prevSeason max, which could belong to a non-rostered player and
+  // compress everyone to the floor. So the best rostered player reaches the ceiling tier.
+  const rosterAges = Object.keys(AGE_SUBSITE).filter((a) => isPlayerEligible(a) || playerAges.includes(a));
+  const roster = []; // {id, name, isGoalie, photo, age, flat, prior}
+  for (const age of rosterAges) {
+    let list = [];
+    try { list = await fetchRosterPlayers(AGE_SUBSITE[age]); } catch { continue; }
+    for (const p of list) {
+      const id = 'P:' + p.name;
+      if (have.has(id)) continue;
+      have.add(id);
+      roster.push({ id, name: p.name, isGoalie: p.isGoalie, photo: p.photo, age, flat: (age === 'U15' && u15Flat != null), prior: priorIndex[normName(p.name)] ?? null });
+    }
+  }
+  // Scale to the max prior among ROSTERED (non-flat) players + any already-carded players'
+  // priorForm, so a LATER reconcile never rescales the pool below what already exists.
+  const existMaxP = Math.max(0, ...existing.filter((c) => c.kind !== 'team').map((c) => Number(c.priorForm) || 0));
+  const maxP = Math.max(existMaxP, 0, ...roster.filter((r) => !r.flat && r.prior != null).map((r) => r.prior));
+  for (const r of roster) {
+    const price = r.flat ? u15Flat : priorPrice(r.prior, maxP, bandP);
+    add.push({
+      partitionKey: seasonId, rowKey: r.id, kind: r.isGoalie ? 'goalie' : 'player',
+      name: r.name, sub: r.age, teamKey: '', personName: r.name, age: '',
+      band: bandNameOf(price, bandP), price, ownerCount: 0, lastPts: 0, seasonPts: 0,
+      photo: r.photo || '', priorForm: r.flat ? null : (r.prior ?? null),
+      livePrice: price, liveTrend: '', liveRoundPts: 0, seedPrice: price, seedBand: bandNameOf(price, bandP),
+    });
+  }
+
+  // 2. Team cards from the teamKeys present in the season's synced games (played OR
+  // upcoming — see syncSeasonGames). Same rostered-max scaling among the appearing ages.
+  const rounds = await getRounds(seasonId);
+  const teamKeys = new Set();
+  for (const r of rounds) { for (const g of await getRoundGames(seasonId, Number(r.rowKey))) teamKeys.add(teamKey(g)); }
+  const newTeams = [...teamKeys].filter((tk) => !have.has('T:' + tk));
+  const existMaxT = Math.max(0, ...existing.filter((c) => c.kind === 'team').map((c) => Number(c.priorForm) || 0));
+  const maxT = Math.max(existMaxT, 0, ...newTeams.map((tk) => teamPrior[String(tk).split(' ')[0]] ?? 0));
+  for (const tk of newTeams) {
+    have.add('T:' + tk);
+    const age = String(tk).split(' ')[0];
+    const prior = teamPrior[age] ?? null;
+    const price = priorPrice(prior, maxT, bandT);
+    add.push({
+      partitionKey: seasonId, rowKey: 'T:' + tk, kind: 'team',
+      name: tk, sub: age, teamKey: tk, personName: '', age,
+      band: bandNameOf(price, bandT), price, ownerCount: 0, lastPts: 0, seasonPts: 0,
+      photo: '', priorForm: prior ?? null,
+      livePrice: price, liveTrend: '', liveRoundPts: 0, seedPrice: price, seedBand: bandNameOf(price, bandT),
+    });
+  }
+
+  if (add.length) {
+    await upsertBatch(T.cards, add);
+    // one history point at the CURRENT round so a new card has price/points history.
+    await inChunks(add, 25, (c) => upsertEntity(T.cardHistory, {
+      partitionKey: `${seasonId}|${c.rowKey}`, rowKey: String(curRound),
+      price: c.price, band: c.band, pts: 0, ownerCount: 0, ownerPct: 0,
+    }));
+  }
+  return { addedPlayers: add.filter((c) => c.kind !== 'team').length, addedTeams: add.filter((c) => c.kind === 'team').length };
 }
 
 // Enrich player/goalie cards with a photo from the Jopox rosters. Matches each player
@@ -2205,7 +2386,7 @@ async function pruneRounds(seasonId) {
 
 module.exports = {
   ECON, T, badRequest, shapeGamesForClient,
-  getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason,
+  getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason, assertGameOpen,
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
@@ -2213,6 +2394,6 @@ module.exports = {
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, computeRoundResults, validateRoundResults, roundProgress,
+  syncSeasonGames, reconcileCards, computeRoundResults, validateRoundResults, roundProgress,
   ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,
 };

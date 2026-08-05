@@ -3,7 +3,8 @@ import { Outlet, Link, Navigate, useNavigate, useLocation } from "react-router-d
 import { Box, Typography, IconButton, Button, CircularProgress, GlobalStyles, Badge } from "@mui/material";
 import { LuArrowLeft, LuLogOut, LuInfo, LuSettings, LuBell, LuHome, LuShieldCheck, LuStore, LuGoal, LuMedal, LuTrophy } from "react-icons/lu";
 import { useEnvAdmin, useHasAccount } from "../hooks/useEnvAdmin";
-import { getAhmaliigaNotifications } from "../lib/ahmaliigaApi";
+import { getAhmaliigaNotifications, getAhmaliigaState } from "../lib/ahmaliigaApi";
+import ComingSoon from "../pages/liiga/ComingSoon";
 
 // Ahmaliiga runs as its own "mode" inside Gamezone: own bottom bar, and a top bar
 // styled like the box-score header (sticky, orange Bebas title, framed buttons)
@@ -64,6 +65,14 @@ export const AhmaliigaLayout = () => {
   // The sim admin panel (settle/reset) is the root operator's tool only.
   const isEnvAdmin = useEnvAdmin();
 
+  // Launch gate: before the season opens (state.notStarted) non-admins see a "coming
+  // soon" screen instead of the game — no premature joining/building. Admins bypass it
+  // (they preview + test the live pool). undefined = still loading.
+  const [state, setState] = useState(undefined);
+  useEffect(() => { getAhmaliigaState().then(setState).catch(() => setState(null)); }, [pathname]);
+  const notStarted = !!(state && state.notStarted);
+  const locked = notStarted && !isEnvAdmin;
+
   // Notification count for the bell badge = pending notifications (each disappears
   // when clicked). Refetched on navigation so it drops after one is handled.
   const [unread, setUnread] = useState(0);
@@ -119,22 +128,42 @@ export const AhmaliigaLayout = () => {
           </Button>
         </Box>
 
-        <Outlet />
+        {/* admin bypass note during the pre-launch window */}
+        {isEnvAdmin && notStarted && (
+          <Box sx={{ mx: 1.75, mt: 1.5, px: 1.5, py: 1, borderRadius: 2, bgcolor: "rgba(var(--color-primary-rgb),0.10)",
+                border: "1px solid rgba(var(--color-primary-rgb),0.30)", display: "flex", alignItems: "center", gap: 0.75 }}>
+            <LuShieldCheck size={15} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 12.5, color: "var(--gz-text-secondary)" }}>
+              Admin-esikatselu — peli ei ole vielä auki muille (he näkevät "tulossa"-näkymän).
+            </Typography>
+          </Box>
+        )}
 
-        {/* bottom nav */}
-        <nav className="ui-bottom-nav" aria-label="Ahmaliiga-navigaatio">
-          {TABS.map((t) => {
-            const active = t.to === "/ahmaliiga" ? pathname === t.to : pathname.startsWith(t.to);
-            const Icon = t.Icon;
-            return (
-              <Link key={t.to} to={t.to}
-                    className={`ui-bottom-nav-btn ${active ? "ui-bottom-nav-btn--active" : ""}`}>
-                <Icon className="ui-bottom-nav-icon" aria-hidden="true" />
-                <span className="ui-bottom-nav-label">{t.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {/* launch gate: coming-soon for non-admins before the season opens */}
+        {state === undefined ? (
+          <Box sx={{ minHeight: "50dvh", display: "grid", placeItems: "center" }}><CircularProgress sx={{ color: "primary.main" }} /></Box>
+        ) : locked ? (
+          <ComingSoon state={state} />
+        ) : (
+          <Outlet />
+        )}
+
+        {/* bottom nav — hidden while the game is gated (coming-soon) */}
+        {!locked && (
+          <nav className="ui-bottom-nav" aria-label="Ahmaliiga-navigaatio">
+            {TABS.map((t) => {
+              const active = t.to === "/ahmaliiga" ? pathname === t.to : pathname.startsWith(t.to);
+              const Icon = t.Icon;
+              return (
+                <Link key={t.to} to={t.to}
+                      className={`ui-bottom-nav-btn ${active ? "ui-bottom-nav-btn--active" : ""}`}>
+                  <Icon className="ui-bottom-nav-icon" aria-hidden="true" />
+                  <span className="ui-bottom-nav-label">{t.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </Box>
     </Gate>
   );

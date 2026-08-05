@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, stepSim } = require('../lib/ahmaliiga');
+const { getActiveSeason, stepSim, syncSeasonGames, reconcileCards } = require('../lib/ahmaliiga');
 
 // POST /api/runAhmaliigaTick — advance the Ahmaliiga sim clock one day and settle
 // any round whose window has passed. Fired by a GitHub Actions cron (hourly), so
@@ -20,10 +20,21 @@ app.http('runAhmaliigaTick', {
       await ensureTables();
       const season = await getActiveSeason();
       if (!season) return { jsonBody: { ok: true, skipped: 'no-season' } };
-      if (!season.autoStep) return { jsonBody: { ok: true, skipped: 'auto-off', simDate: season.simDate || '' } };
+
+      // LIVE pool: keep the fixture list + roster pool fresh EVERY tick, regardless of
+      // autoStep — the pool fills during the admin-only pre-launch window too. Both are
+      // best-effort (never break the tick) + idempotent. syncSeasonGames = 1 cached worker
+      // call; reconcileCards = a few Jopox fetches, no-op when nothing changed.
+      let live = null;
+      if (season.livePool) {
+        const sync = await syncSeasonGames(season.rowKey).catch((e) => ({ error: String(e && e.message || e) }));
+        const rec = await reconcileCards(season.rowKey).catch((e) => ({ error: String(e && e.message || e) }));
+        live = { sync, rec };
+      }
+      if (!season.autoStep) return { jsonBody: { ok: true, skipped: 'auto-off', live, simDate: season.simDate || '' } };
 
       const result = await stepSim(season.rowKey, Number(request.query.get('days')) || 1);
-      return { jsonBody: { ok: true, ...result } };
+      return { jsonBody: { ok: true, live, ...result } };
     } catch (err) {
       context.log('runAhmaliigaTick failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };

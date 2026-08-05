@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity } = require('../lib/tables');
-const { joinManager } = require('../lib/ahmaliiga');
+const { joinManager, getActiveSeason, assertGameOpen } = require('../lib/ahmaliiga');
 
 // POST /api/ahmaliiga/join — register the signed-in user as an Ahmaliiga manager
 // (idempotent). Nickname taken from the Users profile. (Saving a squad also
@@ -17,9 +17,11 @@ app.http('ahmaliigaJoin', {
       await ensureTables();
       let nickname = '';
       try { const u = await getEntity('Users', userId, 'profile'); nickname = (u && u.nickname) || ''; } catch { /* optional */ }
+      assertGameOpen(await getActiveSeason(), userId); // launch gate: no joining before startAt (non-admins)
       const manager = await joinManager(userId, nickname);
       return { jsonBody: { ok: true, manager: { nickname: manager.nickname || '', joinedAt: manager.joinedAt } } };
     } catch (err) {
+      if (err && err.code === 400) return { status: 400, jsonBody: { error: err.message } };
       context.log('ahmaliigaJoin failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };
     }

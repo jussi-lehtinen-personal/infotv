@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity } = require('../lib/tables');
-const { getActiveSeason, getCards, getSquad, saveSquad, getRounds, activeRoundNo, ECON } = require('../lib/ahmaliiga');
+const { getActiveSeason, getCards, getSquad, saveSquad, getRounds, activeRoundNo, ECON, assertGameOpen } = require('../lib/ahmaliiga');
 
 // GET  /api/ahmaliiga/squad — the signed-in manager's current squad (resolved card
 //      details + bank), or { squad: null } if none built yet.
@@ -25,6 +25,7 @@ app.http('ahmaliigaSquad', {
         let nickname = '';
         try { const u = await getEntity('Users', userId, 'profile'); nickname = (u && u.nickname) || ''; } catch { /* optional */ }
         try {
+          assertGameOpen(season, userId); // launch gate: blocked before startAt (non-admins)
           const res = await saveSquad(userId, body.cardIds, body.captainId, nickname);
           return { jsonBody: { ok: true, ...(await resolve(season, res, curRound)) } };
         } catch (e) {

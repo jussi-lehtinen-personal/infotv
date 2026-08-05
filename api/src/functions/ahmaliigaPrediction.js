@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getRounds, activeRoundNo, getRoundGames, getPrediction, savePrediction, predictionBonus } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, getRoundGames, getPrediction, savePrediction, predictionBonus, assertGameOpen } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/prediction — the current round's Ahma games (results hidden
 // until the round is settled) + the manager's own prediction (+ earned bonus once
@@ -52,6 +52,7 @@ app.http('ahmaliigaPrediction', {
           if (eg && isLocked(eg)) return { status: 400, jsonBody: { error: 'Aiempi veikkauksesi on jo lukittu.' } };
         }
         try {
+          assertGameOpen(season, userId); // launch gate: blocked before startAt (non-admins)
           const saved = await savePrediction(season.rowKey, round, userId, b.gameId, b.homeGoals, b.awayGoals);
           return { jsonBody: { ok: true, prediction: saved } };
         } catch (e) {
