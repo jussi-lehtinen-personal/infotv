@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
+import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from "@mui/material";
 import { LuPlay, LuFastForward, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy, LuUsers, LuRocket } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
@@ -34,6 +34,8 @@ export default function LiigaAdmin() {
   const [status, setStatus] = useState(undefined);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState(null);
+  const [seedOpen, setSeedOpen] = useState(false);
+  const [seedText, setSeedText] = useState("");
 
   const load = useCallback(() => {
     ahmaliigaAdmin("status").then(setStatus).catch(() => setStatus(null));
@@ -67,6 +69,23 @@ export default function LiigaAdmin() {
     } catch (e) {
       setMsg({ type: "error", text: e.message });
     } finally { setBusy(""); }
+  };
+
+  // Seed a NEW season from a pasted live-seed JSON (tools/gen-live-seed.js output). Uses
+  // the admin's own session (no token copying). The current active season goes inactive
+  // but is RETAINED — verified safe (transition test). Seed is generated offline because
+  // the prior index needs the previous season's box scores.
+  const seedLive = async () => {
+    let parsed;
+    try { parsed = JSON.parse(seedText); } catch { setMsg({ type: "error", text: "JSON ei kelpaa — tarkista liitos." }); return; }
+    if (!parsed || !Array.isArray(parsed.cards)) { setMsg({ type: "error", text: "seed.cards puuttuu (live-seed käyttää []). Väärä tiedosto?" }); return; }
+    if (!window.confirm(`Seedataan kausi "${parsed.season}". Nykyinen aktiivinen kausi DEAKTIVOITUU mutta SÄILYY (rivejä ei tyhjennetä). Jatketaanko?`)) return;
+    setBusy("seedSeason"); setMsg(null);
+    try {
+      const r = await ahmaliigaAdmin("seedSeason", { seed: parsed });
+      setMsg({ type: "success", text: `Kausi ${parsed.season} seedattu ✓ ${JSON.stringify(r).replace(/[{}"]/g, "").slice(0, 100)}` });
+      setSeedOpen(false); setSeedText(""); load();
+    } catch (e) { setMsg({ type: "error", text: e.message }); } finally { setBusy(""); }
   };
 
   if (status === undefined) return <Loading screen />;
@@ -136,7 +155,9 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuDownload} label="Synkkaa pelit (worker + ID:t)"
                   busy={busy === "syncGames"} disabled={!s}
                   onClick={() => run("syncGames", "Pelit synkattu")} />
-        {/* Live-beta: fill the card pool from the Jopox rosters + set the public launch time */}
+        {/* Live-beta: seed a new season (paste JSON), fill the pool, set the launch time */}
+        <AdminBtn icon={LuRocket} label="Seedaa live-kausi (liitä JSON)"
+                  busy={busy === "seedSeason"} onClick={() => { setSeedText(""); setSeedOpen(true); }} />
         <AdminBtn icon={LuUsers} label="Täydennä kortisto (Jopox-rosterit)"
                   busy={busy === "reconcileCards"} disabled={!s}
                   onClick={() => run("reconcileCards", "Kortisto täydennetty")} />
@@ -163,6 +184,33 @@ export default function LiigaAdmin() {
           Aja ensin <b>Synkkaa pelit</b> (hakee otteluohjelman workerista). Tulokset lasketaan tulospalvelusta automaattisesti kun jakso ratkeaa — ei esiseedattua dataa.
         </Typography>
       )}
+
+      <Dialog open={seedOpen} onClose={() => setSeedOpen(false)} fullWidth maxWidth="sm"
+              slotProps={{ paper: { sx: { bgcolor: "var(--color-bg)", backgroundImage: "none", border: "1px solid var(--color-surface-border)" } } }}>
+        <DialogTitle sx={{ color: "text.primary", fontWeight: 800 }}>Seedaa live-kausi</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
+            Generoi seed koneelta ja liitä tuloste tähän:<br />
+            <Box component="code" sx={{ display: "block", mt: 0.5, p: 1, borderRadius: 1, bgcolor: "var(--color-surface)", fontSize: 12, color: "text.primary", overflowX: "auto" }}>
+              node tools/gen-live-seed.js 2027 2026 --start=2026-08-11 --weeks=1 --count=3 --opens=2026-08-12T12:00 --u15flat=40
+            </Box>
+            <Box component="span" sx={{ display: "block", mt: 1, color: "text.disabled", fontSize: 12 }}>
+              → liitä <b>tools/data/live-seed-2027.json</b>. Uusi kausi-id → nykyinen kausi säilyy (deaktivoituu).
+            </Box>
+          </Typography>
+          <TextField multiline minRows={6} maxRows={14} fullWidth placeholder='{ "season": "2027", "cards": [], ... }'
+                     value={seedText} onChange={(e) => setSeedText(e.target.value)}
+                     slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 12, color: "text.primary" } } }}
+                     sx={{ "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-surface-border)" } }} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setSeedOpen(false)} sx={{ color: "text.secondary" }}>Peruuta</Button>
+          <Button onClick={seedLive} disabled={!seedText.trim() || busy === "seedSeason"} variant="contained"
+                  sx={{ bgcolor: "primary.main", color: "var(--color-on-primary)", fontWeight: 800 }}>
+            {busy === "seedSeason" ? <CircularProgress size={18} sx={{ color: "inherit" }} /> : "Seedaa"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Screen>
   );
 }
