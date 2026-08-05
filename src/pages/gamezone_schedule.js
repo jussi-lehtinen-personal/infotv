@@ -51,7 +51,9 @@ const fmt = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(
 function getWeekStart(date) {
   const d = new Date(date);
   while (d.getDay() !== 1) d.setDate(d.getDate() - 1);
-  return d.toISOString().split("T")[0];
+  // LOCAL date — toISOString() is UTC and shifts an early-morning local Monday to the
+  // previous Sunday, which fetched the WRONG (empty) week and showed no shifts overnight.
+  return ymd(d);
 }
 
 function fetchScheduleWeek(weekStart) {
