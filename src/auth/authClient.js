@@ -159,6 +159,9 @@ export async function getMe() {
 
 export function logout() {
   clearToken();
+  // Drop the Ahmaliiga session cache too, so a signed-out user doesn't keep seeing the
+  // previous session's state/squad (inlined to avoid a circular import with ahmaliigaApi).
+  try { Object.keys(sessionStorage).filter((k) => k.startsWith("ahma.cache.")).forEach((k) => sessionStorage.removeItem(k)); } catch { /* ignore */ }
 }
 
 // Persist favourite teams to the account (login required) + mirror locally.

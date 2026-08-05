@@ -4,6 +4,19 @@ import { Box, Typography, Button, Stack } from "@mui/material";
 import { LuArrowLeft, LuUserPlus, LuUsers, LuTrophy, LuStar, LuCheck } from "react-icons/lu";
 import { SiWhatsapp } from "react-icons/si";
 import { getMe, getCachedUser } from "../../auth/authClient";
+import { getAhmaliigaState } from "../../lib/ahmaliigaApi";
+
+const MONTHS = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
+const whenLabel = (s) => { const x = new Date(String(s).replace(" ", "T")); return isNaN(x) ? "" : `${x.getDate()}. ${MONTHS[x.getMonth()]}kuuta klo ${String(x.getHours()).padStart(2, "0")}.${String(x.getMinutes()).padStart(2, "0")}`; };
+
+// The beta invite headline reflects the ACTUAL season phase (so a logged-out landing
+// never claims "käynnissä" when it hasn't opened, or after it ends).
+function betaPhase(st) {
+  if (!st || !st.active) return { title: "Beta tulossa", text: "Tee käyttäjä valmiiksi — pääset mukaan heti kun peli avautuu." };
+  if (st.notStarted) return { title: "Beta alkaa pian", text: st.startAt ? `Tee käyttäjä valmiiksi — peli avautuu ${whenLabel(st.startAt)}.` : "Tee käyttäjä valmiiksi — peli avautuu pian." };
+  if (st.seasonOver) return { title: "Beta päättyi", text: "Seuraava kausi on tulossa — tee käyttäjä niin olet valmiina." };
+  return { title: "Beta on käynnissä", text: "Tee käyttäjä ja pääset heti mukaan pelaamaan." };
+}
 
 // Ahmaliiga WhatsApp group — announcements + beta chatter.
 const WHATSAPP_GROUP = "https://chat.whatsapp.com/GCpW875ZBBD4LSG6S02omW";
@@ -35,11 +48,16 @@ export default function LiigaPromo() {
     return u ? hasAccount(u) : null;
   });
 
+  const [liiga, setLiiga] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
     getMe().then((u) => { if (!cancelled) setRegistered(hasAccount(u)); }).catch(() => { if (!cancelled) setRegistered(false); });
+    getAhmaliigaState().then((st) => { if (!cancelled) setLiiga(st); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  const beta = betaPhase(liiga);
 
   return (
     <Box sx={{ minHeight: "100dvh", background: "var(--bg-gradient)", color: "text.primary",
@@ -68,9 +86,9 @@ export default function LiigaPromo() {
             bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.4)" }}>
         <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "primary.main" }}>Beta</Typography>
         <Typography sx={{ mt: 0.5, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-              fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>Beta on käynnissä</Typography>
+              fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>{beta.title}</Typography>
         <Typography sx={{ mt: 1, fontSize: 14, color: "text.secondary", lineHeight: 1.5 }}>
-          Tee käyttäjä ja pääset heti mukaan pelaamaan.
+          {beta.text}
         </Typography>
 
         {registered ? (
