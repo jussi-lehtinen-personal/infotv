@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert } from "@mui/material";
-import { LuPlay, LuFastForward, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy, LuUsers, LuRocket } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -87,6 +87,8 @@ export default function LiigaAdmin() {
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
           <Row k="Pelaajia" v={`${s.humans} rekisteröitynyt · ${s.squadsBuilt ?? 0} pakkaa rakennettu`} />
           <Row k="Pelit synkattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
+          {s.livePool && <Row k="Live-pooli" v={`${s.players ?? 0} pelaajaa · ${s.teams ?? 0} joukkuetta`} />}
+          {s.livePool && <Row k="Avautuu" v={s.startAt ? new Date(String(s.startAt).replace(" ", "T")).toLocaleString("fi-FI", { dateStyle: "short", timeStyle: "short" }) : "heti (ei asetettu)"} />}
         </Box>
       ) : (
         <Alert severity="warning" sx={{ mb: 2 }}>Kausi ei ole käynnissä. Alusta kausi ensin koneelta.</Alert>
@@ -134,6 +136,17 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuDownload} label="Synkkaa pelit (worker + ID:t)"
                   busy={busy === "syncGames"} disabled={!s}
                   onClick={() => run("syncGames", "Pelit synkattu")} />
+        {/* Live-beta: fill the card pool from the Jopox rosters + set the public launch time */}
+        <AdminBtn icon={LuUsers} label="Täydennä kortisto (Jopox-rosterit)"
+                  busy={busy === "reconcileCards"} disabled={!s}
+                  onClick={() => run("reconcileCards", "Kortisto täydennetty")} />
+        <AdminBtn icon={LuRocket} label={s && s.startAt ? `Avautumisaika: ${new Date(String(s.startAt).replace(" ", "T")).toLocaleString("fi-FI", { dateStyle: "short", timeStyle: "short" })}` : "Aseta avautumisaika (launch)"}
+                  busy={busy === "setStart"} disabled={!s}
+                  onClick={() => {
+                    const v = window.prompt("Avautumisaika ISO-muodossa (esim. 2026-08-12T12:00).\nTyhjä = avaa heti kaikille.", (s && s.startAt) || "2026-08-12T12:00");
+                    if (v === null) return;
+                    run("setStart", v ? "Avautumisaika asetettu" : "Avautumisaika poistettu (avoin kaikille)", null, { startAt: v }, "setStart");
+                  }} />
         <AdminBtn icon={LuShieldCheck} label="Validoi tulokset (live vs. esilaskettu)"
                   busy={busy === "validateResults"} disabled={!s}
                   onClick={() => run("validateResults", "Tulokset validoitu")} />

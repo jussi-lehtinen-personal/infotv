@@ -2318,6 +2318,7 @@ async function getSimStatus(seasonId) {
   // bare registrations (join / stale test managers with no cards).
   const squads = await listEntities(T.squads, "RowKey eq 'current'");
   const squadsBuilt = squads.filter((q) => { try { return JSON.parse(q.cards || '[]').length > 0; } catch { return false; } }).length;
+  const cards = await getCards(seasonId);
   return {
     season: seasonId,
     currentRound: season ? Number(season.currentRound != null ? season.currentRound : 0) : 0,
@@ -2331,6 +2332,11 @@ async function getSimStatus(seasonId) {
     simDate: (season && season.simDate) || '',
     autoStep: !!(season && season.autoStep),
     realClock: !!(season && season.realClock),
+    // live-beta fields
+    startAt: (season && season.startAt) || '',
+    livePool: !!(season && season.livePool),
+    players: cards.filter((c) => c.kind !== 'team').length,
+    teams: cards.filter((c) => c.kind === 'team').length,
   };
 }
 

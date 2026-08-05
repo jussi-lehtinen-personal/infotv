@@ -16,6 +16,7 @@ import { splitTeamName } from "../../Util";
 import { AppHeader } from "../ui/AppHeader";
 import { NavDrawer } from "../ui/NavDrawer";
 import { NewsCard } from "../ui/NewsCard";
+import AhmaliigaBetaPromo from "../AhmaliigaBetaPromo";
 import {
   useHeroMatches,
   isLiveMatch,
@@ -123,7 +124,7 @@ const Index = () => {
 
           {/* Ahmaliiga launch teaser — shown to everyone. Admins open the game; others
               land on the public promo/beta page (routing handled by the Gate). */}
-          <AhmaliigaLaunchCard />
+          <AhmaliigaBetaPromo />
 
           <Box sx={sectionHeadingSx}>Pikatoiminnot</Box>
           <Box
@@ -170,32 +171,6 @@ const Index = () => {
     </>
   );
 };
-
-// Home launch banner for the Ahmaliiga preview (env-admin only). The banner
-// image bakes in the wordmark, tagline, feature icons and CTA — the whole card
-// is a link into the Ahmaliiga mode (its own layout takes over from there).
-const AhmaliigaLaunchCard = () => (
-  <Box
-    component={Link}
-    to="/ahmaliiga"
-    aria-label="Siirry Ahmaliigaan"
-    sx={{
-      display: "block",
-      lineHeight: 0,
-      overflow: "hidden",
-      borderRadius: "var(--radius-card)",
-      border: "1px solid rgba(var(--color-primary-rgb),0.35)",
-      boxShadow: "0 14px 34px rgba(var(--color-primary-rgb),0.18)",
-    }}
-  >
-    <Box
-      component="img"
-      src="/ahmaliiga_hero.png"
-      alt="Ahmaliiga — kokoa unelmajoukkueesi ja kerää pisteitä"
-      sx={{ width: "100%", height: "auto", display: "block" }}
-    />
-  </Box>
-);
 
 const SocialBtn = ({ href, label, icon }) => (
   <Box
