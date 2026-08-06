@@ -159,13 +159,6 @@ const GamezoneSchedule = () => {
     return () => clearTimeout(timer);
   }, [currentDate]);
 
-  // --- Day navigation ---
-  const stepDays = useCallback((delta) => {
-    setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + delta); return next; });
-  }, []);
-  const goPrevDay = useCallback(() => stepDays(-1), [stepDays]);
-  const goNextDay = useCallback(() => stepDays(1), [stepDays]);
-
   // --- Carousel: prev/next dates around current ---
   const prevDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() - 1); return d; }, [currentDate]);
   const nextDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() + 1); return d; }, [currentDate]);
@@ -207,6 +200,11 @@ const GamezoneSchedule = () => {
     };
     track.addEventListener("transitionend", onEnd);
   }, []);
+
+  // Arrow buttons animate the same slide as a swipe (share commitToDay; the
+  // animatingRef lock keeps overlapping taps from fighting the transition).
+  const goPrevDay = useCallback(() => commitToDay(-1), [commitToDay]);
+  const goNextDay = useCallback(() => commitToDay(1), [commitToDay]);
 
   const snapBack = useCallback(() => {
     const track = trackRef.current;
