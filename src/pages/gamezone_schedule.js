@@ -116,28 +116,6 @@ const GamezoneSchedule = () => {
     el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
   }, []);
 
-  // TEMP diagnostic: measure nav → render-commit (JS) and nav → paint (total).
-  const navT0 = useRef(0);
-  const navRenderRef = useRef(0);
-  const [navMs, setNavMs] = useState(null);
-  useLayoutEffect(() => {
-    if (navT0.current) navRenderRef.current = Math.round(performance.now() - navT0.current);
-  }, [currentDate]);
-  useEffect(() => {
-    if (!navT0.current) return;
-    const t0 = navT0.current; navT0.current = 0;
-    const rMs = navRenderRef.current;
-    requestAnimationFrame(() => requestAnimationFrame(() => setNavMs(`render ${rMs} · paint ${Math.round(performance.now() - t0)} ms`)));
-  }, [currentDate]);
-  // TEMP: worst frame interval (fps health) — ~16ms = 60fps, ~300-500ms = throttled.
-  const [fps, setFps] = useState("");
-  useEffect(() => {
-    let raf, last = performance.now(), worst = 0, n = 0;
-    const loop = (t) => { const dt = t - last; last = t; if (dt > worst) worst = dt; if (++n >= 20) { setFps(`worst frame ${Math.round(worst)}ms`); worst = 0; n = 0; } raf = requestAnimationFrame(loop); };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
   // --- Persist date in URL ---
   useEffect(() => {
     const dateStr = ymd(currentDate);
@@ -177,7 +155,6 @@ const GamezoneSchedule = () => {
 
   // --- Day navigation ---
   const stepDays = useCallback((delta) => {
-    navT0.current = performance.now(); // TEMP diagnostic
     // Low-priority so the tap doesn't block re-tapping — the arrows have no slide, so the
     // day can update a beat later while the button stays instantly responsive.
     startTransition(() => {
@@ -221,7 +198,6 @@ const GamezoneSchedule = () => {
 
     const onEnd = () => {
       track.removeEventListener("transitionend", onEnd);
-      navT0.current = performance.now(); // TEMP diagnostic: measure the post-slide commit
       animatingRef.current = false; // release BEFORE the state change so a new swipe can start at once
       // No flushSync: the slide already shows the target day centred, and the reset-after-
       // date-change useLayoutEffect snaps the transform back to centre BEFORE paint with the
@@ -241,19 +217,7 @@ const GamezoneSchedule = () => {
 
   // --- Swipe gesture ---
   const bind = useDrag(
-    ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x], event, timeStamp }) => {
-      // TEMP diagnostic: event→JS dispatch latency + first-move delay.
-      {
-        const now = performance.now();
-        const evTs = (event && event.timeStamp) || timeStamp || now;
-        const lat = Math.round(now - evTs);
-        if (first) { window.__lat = lat; window.__firstT = now; window.__firstMove = -1; }
-        else {
-          window.__lat = Math.max(window.__lat || 0, lat);
-          if (window.__firstMove < 0 && Math.abs(mx) > 2) window.__firstMove = Math.round(now - (window.__firstT || now));
-        }
-        if (!active) setNavMs(`ev→JS ${window.__lat}ms · first→move ${window.__firstMove}ms`);
-      }
+    ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
       if (animatingRef.current) { cancel(); return; }
       // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
       if (first && (x < 20 || x > window.innerWidth - 20)) { cancel(); return; }
@@ -283,7 +247,6 @@ const GamezoneSchedule = () => {
     <Fragment>
       <style>{CALENDAR_CSS}</style>
 
-      <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{navMs || "—"}<br />{fps}</div>
       <div className="sc-root">
         <div className="sc-container">
           <div className="gz-cal">
