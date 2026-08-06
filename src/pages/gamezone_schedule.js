@@ -117,6 +117,14 @@ const GamezoneSchedule = () => {
     const rMs = navRenderRef.current;
     requestAnimationFrame(() => requestAnimationFrame(() => setNavMs(`render ${rMs} · paint ${Math.round(performance.now() - t0)} ms`)));
   }, [currentDate]);
+  // TEMP: worst frame interval (fps health) — ~16ms = 60fps, ~300-500ms = throttled.
+  const [fps, setFps] = useState("");
+  useEffect(() => {
+    let raf, last = performance.now(), worst = 0, n = 0;
+    const loop = (t) => { const dt = t - last; last = t; if (dt > worst) worst = dt; if (++n >= 20) { setFps(`worst frame ${Math.round(worst)}ms`); worst = 0; n = 0; } raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // --- Persist date in URL ---
   useEffect(() => {
@@ -276,7 +284,7 @@ const GamezoneSchedule = () => {
     <Fragment>
       <style>{CALENDAR_CSS}</style>
 
-      {navMs && <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{navMs}</div>}
+      <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{navMs || "—"}<br />{fps}</div>
       <div className="sc-root">
         <div className="sc-container">
           <div className="sc-carousel-viewport">
@@ -413,8 +421,11 @@ function calendarThemeCss() {
     .gz-cal-day{ font-family:var(--font-family-display); font-size:24px; letter-spacing:0.03em; text-transform:uppercase; color:#fff; }
     .gz-cal-date{ font-family:var(--font-family-base); font-weight:700; font-size:14px; letter-spacing:0.02em; color:var(--color-accent, rgba(255,255,255,0.65)); margin-top:1px; }
 
-    .gz-cal-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
-      touch-action:pan-y; /* the swipe STARTS here — declare vertical-native so Chrome Android hands horizontal moves to the gesture handler immediately (no scroll-direction disambiguation delay) */
+    .gz-cal-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden;
+      /* NO -webkit-overflow-scrolling:touch — deprecated, and on Chrome Android it forces a
+         separate composited scroll layer per panel; 3 tall ones + the will-change track layer
+         overloaded the compositor → ~2-3 fps input throttle. Chrome scrolls smoothly without it. */
+      touch-action:pan-y;
       padding:6px 6px calc(var(--ui-bottom-nav-clearance, 80px)) 6px; box-sizing:border-box; }
     .gz-cal-scroll::-webkit-scrollbar{ width:0; height:0; }
 
