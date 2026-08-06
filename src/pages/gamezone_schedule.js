@@ -406,7 +406,7 @@ function calendarThemeCss() {
 
     /* Carousel viewport clips the 300%-wide track */
     .sc-carousel-viewport{ flex:1 1 auto; min-height:0; width:100%; overflow:hidden; position:relative; display:flex; flex-direction:column; touch-action:pan-y; }
-    .sc-carousel-track{ display:flex; flex-direction:row; width:300%; flex:1 1 auto; min-height:0; will-change:transform; touch-action:pan-y; }
+    .sc-carousel-track{ display:flex; flex-direction:row; width:300%; flex:1 1 auto; min-height:0; touch-action:pan-y; }
     .sc-carousel-panel{ flex:0 0 33.3333%; box-sizing:border-box; padding:0 5px; min-width:0; min-height:0; display:flex; flex-direction:column; }
     .sc-carousel-panel--inactive{ pointer-events:none; }
 
