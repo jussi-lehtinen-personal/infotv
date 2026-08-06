@@ -104,6 +104,20 @@ const GamezoneSchedule = () => {
   const trackRef = useRef(null);
   const animatingRef = useRef(false);
 
+  // TEMP diagnostic: measure nav → render-commit (JS) and nav → paint (total).
+  const navT0 = useRef(0);
+  const navRenderRef = useRef(0);
+  const [navMs, setNavMs] = useState(null);
+  useLayoutEffect(() => {
+    if (navT0.current) navRenderRef.current = Math.round(performance.now() - navT0.current);
+  }, [currentDate]);
+  useEffect(() => {
+    if (!navT0.current) return;
+    const t0 = navT0.current; navT0.current = 0;
+    const rMs = navRenderRef.current;
+    requestAnimationFrame(() => requestAnimationFrame(() => setNavMs(`render ${rMs} · paint ${Math.round(performance.now() - t0)} ms`)));
+  }, [currentDate]);
+
   // --- Persist date in URL ---
   useEffect(() => {
     const dateStr = ymd(currentDate);
@@ -143,6 +157,7 @@ const GamezoneSchedule = () => {
 
   // --- Day navigation ---
   const stepDays = useCallback((delta) => {
+    navT0.current = performance.now(); // TEMP diagnostic
     // Low-priority so the tap doesn't block re-tapping — the arrows have no slide, so the
     // day can update a beat later while the button stays instantly responsive.
     startTransition(() => {
@@ -186,6 +201,7 @@ const GamezoneSchedule = () => {
 
     const onEnd = () => {
       track.removeEventListener("transitionend", onEnd);
+      navT0.current = performance.now(); // TEMP diagnostic: measure the post-slide commit
       animatingRef.current = false; // release BEFORE the state change so a new swipe can start at once
       // No flushSync: the slide already shows the target day centred, and the reset-after-
       // date-change useLayoutEffect snaps the transform back to centre BEFORE paint with the
@@ -245,6 +261,7 @@ const GamezoneSchedule = () => {
     <Fragment>
       <style>{CALENDAR_CSS}</style>
 
+      {navMs && <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{navMs}</div>}
       <div className="sc-root">
         <div className="sc-container">
           <div className="sc-carousel-viewport">
