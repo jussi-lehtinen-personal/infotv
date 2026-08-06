@@ -308,12 +308,14 @@ const GamezoneSchedule = () => {
                 (same for every day) so a single shared scroll works for all three panels. */}
             <div className="gz-cal-scroll" ref={scrollRef}>
               <div className="sc-carousel-viewport">
-                {/* key by DAY (not position): on commit the day we slid to persists — React
-                    REORDERS its already-rendered DOM node to centre instead of rebuilding it. */}
+                {/* key by POSITION (not day): on a day change React updates each panel's
+                    content IN PLACE instead of MOVING DOM nodes. Moving the node under an
+                    in-progress touch fired pointercancel on Chrome Android, killing the very
+                    next swipe (the "can't start a new swipe after a day change" stall). */}
                 <div ref={trackRef} className="sc-carousel-track" {...bind()}>
-                  <DayPanel key={ymd(prevDate)} date={prevDate} items={items} />
-                  <DayPanel key={ymd(currentDate)} date={currentDate} items={items} isCurrent />
-                  <DayPanel key={ymd(nextDate)} date={nextDate} items={items} />
+                  <DayPanel key="prev" date={prevDate} items={items} />
+                  <DayPanel key="cur" date={currentDate} items={items} isCurrent />
+                  <DayPanel key="next" date={nextDate} items={items} />
                 </div>
               </div>
             </div>
