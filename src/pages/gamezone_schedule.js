@@ -120,18 +120,19 @@ const GamezoneSchedule = () => {
     el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
   }, []);
 
-  // TEMP diagnostic: worst main-thread long task (what blocks the next gesture) + the
-  // incoming panel's mount cost, both since the last day-change commit.
+  // TEMP diagnostic: RAW input latency. A native pointerdown listener stamps the OS event
+  // time; the useDrag handler stamps when JS actually runs. down→first = how long the browser
+  // held the touch before delivering it (this is the "finger moves, nothing happens, then it
+  // jumps" gap). Compared against the last commit to see if a day-change triggers the delay.
   const [diag, setDiag] = useState("");
+  const downRef = useRef(0);
   useEffect(() => {
-    if (typeof PerformanceObserver === "undefined") return undefined;
-    const obs = new PerformanceObserver((list) => {
-      let worst = 0;
-      for (const e of list.getEntries()) if (e.duration > worst) worst = e.duration;
-      if (worst) setDiag(`longtask ${Math.round(worst)}ms · mount ${window.__mountMs || 0}ms`);
-    });
-    try { obs.observe({ entryTypes: ["longtask"] }); } catch { return undefined; }
-    return () => obs.disconnect();
+    const el = trackRef.current;
+    if (!el) return undefined;
+    const onDown = (e) => { downRef.current = e.timeStamp; window.__downPerf = performance.now(); };
+    el.addEventListener("pointerdown", onDown, { passive: true, capture: true });
+    el.addEventListener("touchstart", onDown, { passive: true, capture: true });
+    return () => { el.removeEventListener("pointerdown", onDown, { capture: true }); el.removeEventListener("touchstart", onDown, { capture: true }); };
   }, []);
 
   // --- Persist date in URL ---
@@ -246,9 +247,20 @@ const GamezoneSchedule = () => {
       // A new gesture preempts (instantly finalizes) any in-flight slide instead of being
       // cancelled by a lock — this is what keeps back-to-back swipes responsive.
       if (first) {
+        // TEMP diagnostic: browser input-hold + gap since the last day-change commit.
+        const nowP = performance.now();
+        window.__d2f = window.__downPerf ? Math.round(nowP - window.__downPerf) : -1;
+        window.__sinceCommit = window.__commitT ? Math.round(nowP - window.__commitT) : -1;
+        window.__moveShown = false;
         if (pendingDir.current) finalizeSlide();
         // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
         if (x < 20 || x > window.innerWidth - 20) { cancel(); return; }
+      }
+      // TEMP diagnostic: down→first move (when the track visibly starts following the finger).
+      if (!window.__moveShown && Math.abs(mx) > 2) {
+        window.__moveShown = true;
+        const d2m = window.__downPerf ? Math.round(performance.now() - window.__downPerf) : -1;
+        setDiag(`down→first ${window.__d2f}ms · down→move ${d2m}ms · sinceCommit ${window.__sinceCommit}ms`);
       }
 
       const track = trackRef.current;
@@ -276,7 +288,7 @@ const GamezoneSchedule = () => {
     <Fragment>
       <style>{CALENDAR_CSS}</style>
 
-      <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{diag || "swipe to measure"}</div>
+      <div style={{ position: "fixed", top: 4, left: 4, right: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "10px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{diag || "swipe to measure"}</div>
       <div className="sc-root">
         <div className="sc-container">
           <div className="gz-cal">
@@ -320,14 +332,6 @@ export default GamezoneSchedule;
 
 const DayPanel = React.memo(function DayPanel({ date, items, isCurrent }) {
   const dayStr = ymd(date);
-
-  // TEMP diagnostic: this panel's mount cost since the last commit (only the newly
-  // revealed edge panel mounts on a swipe; reused panels don't re-run this).
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.__commitT) {
-      window.__mountMs = Math.round(performance.now() - window.__commitT);
-    }
-  }, []);
 
   // Filter + position this day's reservations.
   const events = useMemo(() => {
