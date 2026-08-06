@@ -8,6 +8,7 @@
 // shadow. Vertical scroll inside each day; horizontal swipe changes the day.
 import React, {
   Fragment,
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -142,7 +143,11 @@ const GamezoneSchedule = () => {
 
   // --- Day navigation ---
   const stepDays = useCallback((delta) => {
-    setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + delta); return next; });
+    // Low-priority so the tap doesn't block re-tapping — the arrows have no slide, so the
+    // day can update a beat later while the button stays instantly responsive.
+    startTransition(() => {
+      setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + delta); return next; });
+    });
   }, []);
   const goPrevDay = useCallback(() => stepDays(-1), [stepDays]);
   const goNextDay = useCallback(() => stepDays(1), [stepDays]);
