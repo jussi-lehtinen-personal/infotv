@@ -24,6 +24,7 @@ export default function SwipeTest() {
   const [offset, setOffset] = useState(0);
   const [tall, setTall] = useState(false);
   const [commitMode, setCommitMode] = useState("startTransition"); // flushSync | startTransition | plain
+  const [blurNav, setBlurNav] = useState(false); // fixed bottom bar with backdrop-filter blur (= the real BottomNav)
   const [readout, setReadout] = useState("swipe →");
 
   const trackRef = useRef(null);
@@ -109,6 +110,7 @@ export default function SwipeTest() {
           <div className="st-read">{readout}</div>
           <div className="st-ctrls">
             <label><input type="checkbox" checked={tall} onChange={(e) => setTall(e.target.checked)} /> tall scroll</label>
+            <label><input type="checkbox" checked={blurNav} onChange={(e) => setBlurNav(e.target.checked)} /> blur nav</label>
             <label>commit:&nbsp;
               <select value={commitMode} onChange={(e) => setCommitMode(e.target.value)}>
                 <option value="flushSync">flushSync</option>
@@ -129,6 +131,10 @@ export default function SwipeTest() {
             ))}
           </div>
         </div>
+
+        {/* The real BottomNav's expensive bit: a fixed bar that blurs the content
+            behind it. Toggle to see if it's what stalls input after a re-render. */}
+        {blurNav && <div className="st-blurnav">blur nav (backdrop-filter)</div>}
       </div>
     </Fragment>
   );
@@ -173,4 +179,8 @@ const CSS = `
   .st-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; touch-action:pan-y; }
   .st-grid{ position:relative; height:1024px; }
   .st-hour{ position:absolute; left:12px; font:14px/1 monospace; color:rgba(255,255,255,0.7); }
+  .st-blurnav{ position:fixed; left:0; right:0; bottom:0; height:64px; display:flex; align-items:center; justify-content:center;
+    font:12px/1 monospace; color:rgba(255,255,255,0.7); z-index:50;
+    background:rgba(20,20,22,0.55); border-top:1px solid rgba(255,255,255,0.12);
+    backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%); }
 `;
