@@ -129,10 +129,21 @@ const GamezoneSchedule = () => {
   useEffect(() => {
     const el = trackRef.current;
     if (!el) return undefined;
-    const onDown = (e) => { downRef.current = e.timeStamp; window.__downPerf = performance.now(); };
-    el.addEventListener("pointerdown", onDown, { passive: true, capture: true });
-    el.addEventListener("touchstart", onDown, { passive: true, capture: true });
-    return () => { el.removeEventListener("pointerdown", onDown, { capture: true }); el.removeEventListener("touchstart", onDown, { capture: true }); };
+    const since = () => (window.__commitT ? Math.round(performance.now() - window.__commitT) : -1);
+    const onDown = (e) => { downRef.current = e.timeStamp; window.__downPerf = performance.now(); window.__downInfo = `down@${since()}`; };
+    const onCancel = (e) => { setDiag(`CANCEL ${e.type} @${since()}ms · ${window.__downInfo || ""}`); };
+    const opts = { passive: true, capture: true };
+    el.addEventListener("pointerdown", onDown, opts);
+    el.addEventListener("touchstart", onDown, opts);
+    el.addEventListener("pointercancel", onCancel, opts);
+    el.addEventListener("touchcancel", onCancel, opts);
+    window.addEventListener("pointercancel", onCancel, opts);
+    window.addEventListener("touchcancel", onCancel, opts);
+    return () => {
+      el.removeEventListener("pointerdown", onDown, opts); el.removeEventListener("touchstart", onDown, opts);
+      el.removeEventListener("pointercancel", onCancel, opts); el.removeEventListener("touchcancel", onCancel, opts);
+      window.removeEventListener("pointercancel", onCancel, opts); window.removeEventListener("touchcancel", onCancel, opts);
+    };
   }, []);
 
   // --- Persist date in URL ---
@@ -252,6 +263,7 @@ const GamezoneSchedule = () => {
         window.__d2f = window.__downPerf ? Math.round(nowP - window.__downPerf) : -1;
         window.__sinceCommit = window.__commitT ? Math.round(nowP - window.__commitT) : -1;
         window.__moveShown = false;
+        setDiag(`first@${window.__sinceCommit}ms d2f${window.__d2f} · waiting move…`);
         if (pendingDir.current) finalizeSlide();
         // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
         if (x < 20 || x > window.innerWidth - 20) { cancel(); return; }
@@ -260,7 +272,7 @@ const GamezoneSchedule = () => {
       if (!window.__moveShown && Math.abs(mx) > 2) {
         window.__moveShown = true;
         const d2m = window.__downPerf ? Math.round(performance.now() - window.__downPerf) : -1;
-        setDiag(`down→first ${window.__d2f}ms · down→move ${d2m}ms · sinceCommit ${window.__sinceCommit}ms`);
+        setDiag(`first@${window.__sinceCommit}ms · MOVE d2m${d2m}ms`);
       }
 
       const track = trackRef.current;
