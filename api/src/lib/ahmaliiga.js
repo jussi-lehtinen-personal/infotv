@@ -1255,11 +1255,11 @@ async function syncSeasonGames(seasonId) {
   const data = await workerGet(`/getSeasonGames?season=${encodeURIComponent(seasonId)}`);
   const all = (data && data.games) || [];
   const season = await getEntity(T.season, 'season', seasonId);
-  // v2 live preseason beta: a season flagged `includeFriendlies` KEEPS harjoituspelit
-  // (which the real product drops). The round windows still bound what actually scores,
-  // so a friendly-only beta whose windows sit before the league starts stays friendly-
-  // only. The real season leaves the flag off → sarja/alkusarja/jatkosarja/karsinta/
-  // playoffs pass (none are "harjoitus"), only friendlies are excluded.
+  // v2 live preseason beta: a season flagged `includeFriendlies` is FRIENDLY-ONLY — it keeps
+  // ONLY harjoituspelit (level/league name contains "harjoitus") and drops every league game.
+  // This is what bounds the beta: the junior series (alkusarja/jatkosarja/karsinta/playoffs +
+  // the men's Edustus games) are NOT "harjoitus" → excluded, so only the pre-season friendlies
+  // score. The real season leaves the flag off → the inverse: friendlies dropped, series kept.
   const keepFriendlies = !!(season && (season.includeFriendlies === true || season.includeFriendlies === 'true'));
   // A GENERATED/live season (roundGen) keeps UPCOMING (unplayed) games too — the schedule
   // + team-card pool need the whole fixture list ("start date + any later game in tulos-
@@ -1269,7 +1269,9 @@ async function syncSeasonGames(seasonId) {
   const games = all.filter((g) => {
     // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or the
     // U9-U10 Leijonaliiga no-score format. `== 1` DROPPED every OT/shootout game before.
-    if (!keepFriendlies && (FRIENDLY_RE.test(g.league || '') || FRIENDLY_RE.test(g.level || ''))) return false;
+    const isFriendly = FRIENDLY_RE.test(g.league || '') || FRIENDLY_RE.test(g.level || '');
+    // beta = friendly-ONLY (drop every non-harjoitus game); real season = series-only (drop friendlies).
+    if (keepFriendlies ? !isFriendly : isFriendly) return false;
     if (storeUnplayed) return true;
     return Number(g.finished) > 0 && g.home_goals != null && g.away_goals != null;
   });

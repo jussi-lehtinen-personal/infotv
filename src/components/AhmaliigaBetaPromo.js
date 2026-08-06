@@ -39,17 +39,19 @@ export default function AhmaliigaBetaPromo() {
 
   const cd = countdown(state.startAt);
   return (
-    <Box component={Link} to="/ahmaliiga" aria-label="Ahmaliiga live-beta — siirry"
+    <Box component={Link} to="/ahmaliiga" aria-label="Ahmaliiga esikausibeta — siirry"
       sx={{ display: "block", textDecoration: "none", borderRadius: "var(--radius-card)", overflow: "hidden",
             position: "relative", p: 2.25, color: "#fff",
-            background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.95) 0%, rgba(var(--color-primary-rgb),0.72) 55%, #7a2f0c 100%)",
-            border: "1px solid rgba(var(--color-primary-rgb),0.6)", boxShadow: "0 14px 34px rgba(var(--color-primary-rgb),0.28)" }}>
-      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", opacity: 0.92 }}>
-        Ahmaliiga · live-beta
+            // Dark glass card with a SUBTLE orange tint + accent border — matches the app's
+            // design language (the full-orange fill was far too loud on the home page).
+            background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.16) 0%, rgba(var(--color-primary-rgb),0.05) 55%, var(--color-surface, rgba(255,255,255,0.03)) 100%)",
+            border: "1px solid rgba(var(--color-primary-rgb),0.4)", boxShadow: "var(--shadow-card, 0 14px 34px rgba(0,0,0,0.35))" }}>
+      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "primary.main" }}>
+        Ahmaliiga · pre-season beta
       </Typography>
       <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
             fontSize: "clamp(28px,7.5vw,40px)", lineHeight: 1, mt: 0.5 }}>
-        Kausi alkaa pian
+        Pre-season alkaa pian
       </Typography>
 
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.5 }}>
