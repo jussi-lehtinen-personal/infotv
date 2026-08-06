@@ -115,32 +115,6 @@ const GamezoneSchedule = () => {
     el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
   }, []);
 
-  // TEMP diagnostic: RAW input latency. A native pointerdown listener stamps the OS event
-  // time; the useDrag handler stamps when JS actually runs. down→first = how long the browser
-  // held the touch before delivering it (this is the "finger moves, nothing happens, then it
-  // jumps" gap). Compared against the last commit to see if a day-change triggers the delay.
-  const [diag, setDiag] = useState("");
-  const downRef = useRef(0);
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return undefined;
-    const since = () => (window.__commitT ? Math.round(performance.now() - window.__commitT) : -1);
-    const onDown = (e) => { downRef.current = e.timeStamp; window.__downPerf = performance.now(); window.__downInfo = `down@${since()}`; };
-    const onCancel = (e) => { setDiag(`CANCEL ${e.type} @${since()}ms · ${window.__downInfo || ""}`); };
-    const opts = { passive: true, capture: true };
-    el.addEventListener("pointerdown", onDown, opts);
-    el.addEventListener("touchstart", onDown, opts);
-    el.addEventListener("pointercancel", onCancel, opts);
-    el.addEventListener("touchcancel", onCancel, opts);
-    window.addEventListener("pointercancel", onCancel, opts);
-    window.addEventListener("touchcancel", onCancel, opts);
-    return () => {
-      el.removeEventListener("pointerdown", onDown, opts); el.removeEventListener("touchstart", onDown, opts);
-      el.removeEventListener("pointercancel", onCancel, opts); el.removeEventListener("touchcancel", onCancel, opts);
-      window.removeEventListener("pointercancel", onCancel, opts); window.removeEventListener("touchcancel", onCancel, opts);
-    };
-  }, []);
-
   // --- Persist date in URL ---
   useEffect(() => {
     const dateStr = ymd(currentDate);
@@ -217,7 +191,6 @@ const GamezoneSchedule = () => {
   // Chrome Android (first didn't even fire); startTransition doesn't. The reset useLayoutEffect
   // snaps the track back to centre on the new day once the deferred update lands. ---
   const commitToDay = useCallback((direction) => {
-    window.__commitT = performance.now(); // TEMP diagnostic
     const track = trackRef.current;
     if (track) {
       const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
@@ -239,24 +212,8 @@ const GamezoneSchedule = () => {
   // --- Swipe gesture ---
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
-      // A new gesture preempts (instantly finalizes) any in-flight slide instead of being
-      // cancelled by a lock — this is what keeps back-to-back swipes responsive.
-      if (first) {
-        // TEMP diagnostic: browser input-hold + gap since the last day-change commit.
-        const nowP = performance.now();
-        window.__d2f = window.__downPerf ? Math.round(nowP - window.__downPerf) : -1;
-        window.__sinceCommit = window.__commitT ? Math.round(nowP - window.__commitT) : -1;
-        window.__moveShown = false;
-        setDiag(`first@${window.__sinceCommit}ms d2f${window.__d2f} · waiting move…`);
-        // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
-        if (x < 20 || x > window.innerWidth - 20) { cancel(); return; }
-      }
-      // TEMP diagnostic: down→first move (when the track visibly starts following the finger).
-      if (!window.__moveShown && Math.abs(mx) > 2) {
-        window.__moveShown = true;
-        const d2m = window.__downPerf ? Math.round(performance.now() - window.__downPerf) : -1;
-        setDiag(`first@${window.__sinceCommit}ms · MOVE d2m${d2m}ms`);
-      }
+      // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
+      if (first && (x < 20 || x > window.innerWidth - 20)) { cancel(); return; }
 
       const track = trackRef.current;
       if (!track) return;
@@ -283,7 +240,6 @@ const GamezoneSchedule = () => {
     <Fragment>
       <style>{CALENDAR_CSS}</style>
 
-      <div style={{ position: "fixed", top: 4, left: 4, right: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "10px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{diag || "swipe to measure"}</div>
       <div className="sc-root">
         <div className="sc-container">
           <div className="gz-cal">
