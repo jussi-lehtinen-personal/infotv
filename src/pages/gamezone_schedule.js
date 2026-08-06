@@ -103,7 +103,11 @@ const GamezoneSchedule = () => {
 
   const trackRef = useRef(null);
   const scrollRef = useRef(null);
-  const animatingRef = useRef(false);
+  // In-flight slide: a timer that finalizes the day change + the pending direction.
+  // NO "animating" lock that cancels new gestures (that was the ~0.5 s "can't start a
+  // new swipe" stall — SwipeableTabs has none and never stalls); a new drag preempts.
+  const slideTimer = useRef(null);
+  const pendingDir = useRef(0);
 
   // Scroll the (single, shared) time grid to roughly "now" once on mount. With one
   // scroll container for all three days, the vertical position is shared — flipping
@@ -164,6 +168,9 @@ const GamezoneSchedule = () => {
   const goPrevDay = useCallback(() => stepDays(-1), [stepDays]);
   const goNextDay = useCallback(() => stepDays(1), [stepDays]);
 
+  // Clear a pending slide timer on unmount.
+  useEffect(() => () => { if (slideTimer.current) clearTimeout(slideTimer.current); }, []);
+
   // --- Carousel: prev/next dates around current ---
   const prevDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() - 1); return d; }, [currentDate]);
   const nextDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() + 1); return d; }, [currentDate]);
@@ -176,37 +183,40 @@ const GamezoneSchedule = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, []);
 
-  // --- Reset track transform after external date jumps (back/forward, deep links) ---
+  // --- Reset track transform whenever the day changes (slide end, arrows, deep links) ---
+  // Runs BEFORE paint with the slid-to day now centred → the animated slide's end frame and
+  // this snap-to-centre land together with no flicker.
   useLayoutEffect(() => {
-    if (animatingRef.current) return;
     const track = trackRef.current;
     if (!track) return;
     track.style.transition = "none";
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, [currentDate]);
 
+  // Finalize an in-flight slide NOW: apply the day change (re-render re-centres via the
+  // useLayoutEffect above). Idempotent — safe to call from the timer or a preempting drag.
+  const finalizeSlide = useCallback(() => {
+    if (!pendingDir.current) return;
+    const dir = pendingDir.current;
+    pendingDir.current = 0;
+    if (slideTimer.current) { clearTimeout(slideTimer.current); slideTimer.current = null; }
+    setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + dir); return next; });
+  }, []);
+
   // --- Commit slide animation, then navigate ---
   const commitToDay = useCallback((direction) => {
-    if (animatingRef.current) return;
     const track = trackRef.current;
     if (!track) return;
-    animatingRef.current = true;
+    finalizeSlide(); // flush any previous pending slide first
 
     const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
     track.style.transition = "transform 170ms ease-out";
     track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
-
-    const onEnd = () => {
-      track.removeEventListener("transitionend", onEnd);
-      animatingRef.current = false; // release BEFORE the state change so a new swipe can start at once
-      // No flushSync: the slide already shows the target day centred, and the reset-after-
-      // date-change useLayoutEffect snaps the transform back to centre BEFORE paint with the
-      // SAME day now current → no flicker, and no blocking synchronous re-render (which added
-      // ~0.3 s of "stuck" feel after every swipe).
-      setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + direction); return next; });
-    };
-    track.addEventListener("transitionend", onEnd);
-  }, []);
+    pendingDir.current = direction;
+    // Time-based finalize (NOT transitionend, which fires late/never on Chrome Android and
+    // left the old lock stuck). Slightly longer than the transition so the slide completes.
+    slideTimer.current = setTimeout(finalizeSlide, 190);
+  }, [finalizeSlide]);
 
   const snapBack = useCallback(() => {
     const track = trackRef.current;
@@ -218,9 +228,13 @@ const GamezoneSchedule = () => {
   // --- Swipe gesture ---
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
-      if (animatingRef.current) { cancel(); return; }
-      // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
-      if (first && (x < 20 || x > window.innerWidth - 20)) { cancel(); return; }
+      // A new gesture preempts (instantly finalizes) any in-flight slide instead of being
+      // cancelled by a lock — this is what keeps back-to-back swipes responsive.
+      if (first) {
+        if (pendingDir.current) finalizeSlide();
+        // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
+        if (x < 20 || x > window.innerWidth - 20) { cancel(); return; }
+      }
 
       const track = trackRef.current;
       if (!track) return;
@@ -237,10 +251,10 @@ const GamezoneSchedule = () => {
         else snapBack();
       }
     },
-    // POINTER events (not touch): with touch-action:pan-y set, Chrome Android delivers the
-    // horizontal drag declaratively without a non-passive touchmove listener — the touch-event
-    // path (pointer:{touch:true}) added ~0.5 s of input latency on Chrome Android only.
-    { axis: "x", filterTaps: true }
+    // TOUCH events (pointer:{touch:true}) — same config as SwipeableTabs, which is smooth on
+    // Chrome Android. (The pointer-event path was tried and made no difference; the stall was
+    // the animating lock, not the event mode.)
+    { axis: "x", filterTaps: true, pointer: { touch: true } }
   );
 
   return (
