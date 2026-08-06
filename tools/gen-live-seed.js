@@ -31,6 +31,7 @@ const count = Number(flag("count", "3"));
 const opensAt = flag("opens", "");
 const u15Flat = Number(flag("u15flat", "40"));
 const budget = Number(flag("budget", String(CFG.budget)));
+const name = flag("name", "");            // display name (else seedSeason defaults to "Kausi <id>")
 if (!startDate) { console.error("--start=YYYY-MM-DD required"); process.exit(1); }
 
 // Prior sector: the younger competitions that can realistically FEED a 2027 player-card
@@ -56,6 +57,7 @@ const priorMaxTeam = Math.max(0, ...Object.values(teamPrior));
 
 const seed = {
   season, pricedFrom: prevSeason,
+  ...(name ? { name } : {}),
   budget, squadSize: CFG.squadSize, maxPlayers: CFG.maxPlayers,
   bands: { team: CFG.bandTiers, player: CFG.playerBandTiers },
   playerAges: ["U15"],            // U15 included as individual player cards

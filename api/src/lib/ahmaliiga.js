@@ -166,7 +166,7 @@ async function seedSeason(seed) {
   }
   await upsertEntity(T.season, {
     partitionKey: 'season', rowKey: seasonId, active: true,
-    name: `Kausi ${seasonId}`, pricedFrom: String(seed.pricedFrom || ''),
+    name: seed.name ? String(seed.name) : `Kausi ${seasonId}`, pricedFrom: String(seed.pricedFrom || ''),
     budget: seed.budget ?? ECON.budget, squadSize: seed.squadSize ?? ECON.squadSize,
     maxPlayers: seed.maxPlayers ?? ECON.maxPlayers, bands: JSON.stringify(seed.bands || {}),
     // Season-scoped extra player-eligible age tokens (e.g. ["U15"]) — lets a specific
@@ -1279,7 +1279,11 @@ async function syncSeasonGames(seasonId) {
   // F2.6: a GENERATED season extends its round windows forward to cover any fixtures
   // that fall past the last window (playoffs), instead of silently dropping them.
   // Replay/running seasons (no roundGen) are unaffected.
-  if (season && season.roundGen && games.length) {
+  // EXCEPTION — a friendly beta (keepFriendlies) is a FIXED window: it does NOT extend, so
+  // the seeded round count is a hard cap. Friendlies past the last round (e.g. Sept pre-
+  // season games after the ~3-week August window) fall outside every window → roundOfDay
+  // returns null below → they're skipped. This is the "cut before the junior series" bound.
+  if (season && season.roundGen && !keepFriendlies && games.length) {
     const maxDay = games.reduce((m, g) => { const d = String(g.date || '').slice(0, 10); return d > m ? d : m; }, '');
     if (maxDay) rounds = await ensureRoundsCover(seasonId, maxDay);
   }
