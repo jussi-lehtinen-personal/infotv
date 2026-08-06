@@ -25,6 +25,8 @@ export default function SwipeTest() {
   const [tall, setTall] = useState(false);
   const [commitMode, setCommitMode] = useState("startTransition"); // flushSync | startTransition | plain
   const [blurNav, setBlurNav] = useState(false); // fixed bottom bar with backdrop-filter blur (= the real BottomNav)
+  const [urlUpd, setUrlUpd] = useState(false); // history.replaceState on each day change (like the real page)
+  const [doFetch, setDoFetch] = useState(false); // prefetch a real week 200ms after each change (like the real page)
   const [readout, setReadout] = useState("swipe →");
 
   const trackRef = useRef(null);
@@ -44,6 +46,15 @@ export default function SwipeTest() {
   const applyDay = useCallback((dir) => {
     commitTRef.current = performance.now();
     const upd = () => setOffset((o) => o + dir);
+    if (urlUpd) {
+      const p = new URLSearchParams(window.location.search);
+      p.set("day", String(offset + dir));
+      window.history.replaceState(null, "", `?${p.toString()}`);
+    }
+    if (doFetch) {
+      // Mimic the real prefetch: a real network round-trip + JSON parse a beat later.
+      setTimeout(() => { fetch(`/api/schedule?date=2026-08-03`).then((r) => r.json()).catch(() => {}); }, 200);
+    }
     if (commitMode === "flushSync") {
       // mimic the original: change AFTER a slide, inside flushSync
       const t = trackRef.current;
@@ -66,7 +77,7 @@ export default function SwipeTest() {
     } else {
       upd(); // plain
     }
-  }, [commitMode]);
+  }, [commitMode, urlUpd, doFetch, offset]);
 
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], first, last, cancel, xy: [x] }) => {
@@ -111,6 +122,8 @@ export default function SwipeTest() {
           <div className="st-ctrls">
             <label><input type="checkbox" checked={tall} onChange={(e) => setTall(e.target.checked)} /> tall scroll</label>
             <label><input type="checkbox" checked={blurNav} onChange={(e) => setBlurNav(e.target.checked)} /> blur nav</label>
+            <label><input type="checkbox" checked={urlUpd} onChange={(e) => setUrlUpd(e.target.checked)} /> url</label>
+            <label><input type="checkbox" checked={doFetch} onChange={(e) => setDoFetch(e.target.checked)} /> fetch</label>
             <label>commit:&nbsp;
               <select value={commitMode} onChange={(e) => setCommitMode(e.target.value)}>
                 <option value="flushSync">flushSync</option>
