@@ -163,7 +163,6 @@ const globalStyles = (
 const Gamezone = () => {
   const { timestamp } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const goBack = useGoBack("/");
 
   const { includeAway, showOptions } = useMemo(() => {
@@ -173,6 +172,13 @@ const Gamezone = () => {
       showOptions: parseTruthy(sp.get("options")),
     };
   }, [location.search]);
+
+  // The visible week lives in LOCAL state — NOT the URL. Changing it via react-router
+  // navigate() (= history.replaceState) stalls Chrome-Android touch input ~0.7 s per call,
+  // which lagged rapid week-swiping. We change weekTs locally and sync the URL only on
+  // pagehide (below). Deep-links + external nav still flow in via the route param.
+  const [weekTs, setWeekTs] = useState(timestamp);
+  useEffect(() => { setWeekTs(timestamp); }, [timestamp]);
 
   const [onlyHome, setOnlyHome] = useState(() => {
     try { return localStorage.getItem("ahma_only_home") === "1"; } catch { return false; }
@@ -212,7 +218,7 @@ const Gamezone = () => {
     curDate, prevDate, nextDate,
     curMatches, prevMatches, nextMatches,
     loading, bgFetching,
-  } = useWeekData(timestamp, includeAway);
+  } = useWeekData(weekTs, includeAway);
 
   const { request: requestAvailability, getCount: getWeekCount, isPending: isWeekPending } = useLazyAvailability(includeAway);
 
@@ -246,16 +252,16 @@ const Gamezone = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, []);
 
-  // After URL navigation, reset transform without animation so the new "current"
+  // After a week change, reset transform without animation so the new "current"
   // panel sits in the middle. Skipped during commit animation (the transitionend
-  // handler resets transform itself before navigating).
+  // handler resets transform itself before changing the week).
   useLayoutEffect(() => {
     if (animatingRef.current) return;
     const track = trackRef.current;
     if (!track) return;
     track.style.transition = "none";
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
-  }, [timestamp, includeAway]);
+  }, [weekTs, includeAway]);
 
   const buildWeekUrl = useCallback(
     (offsetWeeks) => {
@@ -271,12 +277,37 @@ const Gamezone = () => {
     [curDate, includeAway, showOptions]
   );
 
-  // Animate to the prev/next panel, then navigate. The track stays at the
-  // animation end position until the URL change triggers React's re-render
-  // (which fills panel 1 with the new "current" week's data); only then does
-  // useLayoutEffect reset the transform back to centre. flushSync forces this
-  // re-render + transform reset to land in the same paint as the gesture's
-  // end, preventing a flash of the previous "current" week's data.
+  // Just the YYYY-MM-DD of a week offset — for LOCAL week changes (no URL touch).
+  const weekDateStr = useCallback(
+    (offsetWeeks) => {
+      const base = new Date(curDate);
+      base.setDate(base.getDate() + offsetWeeks * 7);
+      return moment(base).format("YYYY-MM-DD");
+    },
+    [curDate]
+  );
+
+  // Sync the URL to the current week ONLY on pagehide/hide (fires on refresh/close/nav
+  // BEFORE unload) — never on a week change, so rapid swiping never calls replaceState and
+  // never stalls Chrome-Android input. Deep-link + refresh still restore the last week.
+  const curUrlRef = useRef("");
+  curUrlRef.current = buildWeekUrl(0);
+  useEffect(() => {
+    const sync = () => { try { window.history.replaceState(null, "", curUrlRef.current); } catch { /* ignore */ } };
+    const onVis = () => { if (document.visibilityState === "hidden") sync(); };
+    window.addEventListener("pagehide", sync);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", sync);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  // Animate to the prev/next panel, then change the week (LOCAL state — no URL). The track
+  // stays at the animation end position until the week change triggers React's re-render
+  // (which fills panel 1 with the new "current" week's data); only then does useLayoutEffect
+  // reset the transform back to centre. flushSync forces this re-render + transform reset to
+  // land in the same paint as the gesture's end, preventing a flash of the previous week.
   const commitTo = useCallback(
     (direction) => {
       if (animatingRef.current) return;
@@ -292,12 +323,12 @@ const Gamezone = () => {
         track.removeEventListener("transitionend", onEnd);
         animatingRef.current = false;
         flushSync(() => {
-          navigate(buildWeekUrl(direction), { replace: true });
+          setWeekTs(weekDateStr(direction));
         });
       };
       track.addEventListener("transitionend", onEnd);
     },
-    [navigate, buildWeekUrl]
+    [weekDateStr]
   );
 
   const snapBack = useCallback(() => {
@@ -307,18 +338,14 @@ const Gamezone = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, []);
 
-  // Jump straight to a specific week (VK strip chip). Direct navigation (no
-  // slide) since jumps can span many weeks.
+  // Jump straight to a specific week (VK strip chip). No slide (jumps can span many
+  // weeks); local state change, no URL touch.
   const goToWeek = useCallback(
     (mondayStr) => {
       if (!mondayStr || mondayStr === selectedKey) return;
-      const params = [];
-      if (includeAway) params.push("includeAway=1");
-      if (showOptions) params.push("options=1");
-      const qs = params.length ? "?" + params.join("&") : "";
-      navigate(`/gamezone/${mondayStr}${qs}`, { replace: true });
+      setWeekTs(mondayStr);
     },
-    [navigate, includeAway, showOptions, selectedKey]
+    [selectedKey]
   );
 
   // Calendar: native date picker → jump to that date's week.
@@ -335,13 +362,9 @@ const Gamezone = () => {
     (e) => {
       const v = e.target.value;
       if (!v) return;
-      const params = [];
-      if (includeAway) params.push("includeAway=1");
-      if (showOptions) params.push("options=1");
-      const qs = params.length ? "?" + params.join("&") : "";
-      navigate(`/gamezone/${v}${qs}`, { replace: true });
+      setWeekTs(v);
     },
-    [includeAway, showOptions, navigate]
+    []
   );
 
   // Swipe gesture (unchanged): writes transform directly to the DOM during
