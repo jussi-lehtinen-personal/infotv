@@ -15,7 +15,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { flushSync } from "react-dom";
 import { useDrag } from "@use-gesture/react";
 import moment from "moment";
 import "moment/locale/fi";
@@ -178,15 +177,17 @@ const GamezoneSchedule = () => {
     animatingRef.current = true;
 
     const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
-    track.style.transition = "transform 220ms ease-out";
+    track.style.transition = "transform 170ms ease-out";
     track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
 
     const onEnd = () => {
       track.removeEventListener("transitionend", onEnd);
-      animatingRef.current = false;
-      flushSync(() => {
-        setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + direction); return next; });
-      });
+      animatingRef.current = false; // release BEFORE the state change so a new swipe can start at once
+      // No flushSync: the slide already shows the target day centred, and the reset-after-
+      // date-change useLayoutEffect snaps the transform back to centre BEFORE paint with the
+      // SAME day now current → no flicker, and no blocking synchronous re-render (which added
+      // ~0.3 s of "stuck" feel after every swipe).
+      setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + direction); return next; });
     };
     track.addEventListener("transitionend", onEnd);
   }, []);
