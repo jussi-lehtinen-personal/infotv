@@ -244,10 +244,14 @@ const GamezoneSchedule = () => {
       <div className="sc-root">
         <div className="sc-container">
           <div className="sc-carousel-viewport">
+            {/* key by DAY (not position): on commit the day we slid to persists — React
+                REORDERS its already-rendered DOM node (with its events) to centre instead of
+                rebuilding it; only the one genuinely-new day mounts, off-screen. Keeps the
+                next swipe's finger-follow instant (no blocking rebuild of the visible panel). */}
             <div ref={trackRef} className="sc-carousel-track" {...bind()}>
-              <DayPanel date={prevDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
-              <DayPanel date={currentDate} items={items} isCurrent onPrev={goPrevDay} onNext={goNextDay} />
-              <DayPanel date={nextDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
+              <DayPanel key={ymd(prevDate)} date={prevDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
+              <DayPanel key={ymd(currentDate)} date={currentDate} items={items} isCurrent onPrev={goPrevDay} onNext={goNextDay} />
+              <DayPanel key={ymd(nextDate)} date={nextDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
             </div>
           </div>
         </div>
