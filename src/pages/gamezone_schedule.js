@@ -221,7 +221,19 @@ const GamezoneSchedule = () => {
 
   // --- Swipe gesture ---
   const bind = useDrag(
-    ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x] }) => {
+    ({ active, movement: [mx], velocity: [vx], cancel, first, xy: [x], event, timeStamp }) => {
+      // TEMP diagnostic: event→JS dispatch latency + first-move delay.
+      {
+        const now = performance.now();
+        const evTs = (event && event.timeStamp) || timeStamp || now;
+        const lat = Math.round(now - evTs);
+        if (first) { window.__lat = lat; window.__firstT = now; window.__firstMove = -1; }
+        else {
+          window.__lat = Math.max(window.__lat || 0, lat);
+          if (window.__firstMove < 0 && Math.abs(mx) > 2) window.__firstMove = Math.round(now - (window.__firstT || now));
+        }
+        if (!active) setNavMs(`ev→JS ${window.__lat}ms · first→move ${window.__firstMove}ms`);
+      }
       if (animatingRef.current) { cancel(); return; }
       // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
       if (first && (x < 20 || x > window.innerWidth - 20)) { cancel(); return; }
