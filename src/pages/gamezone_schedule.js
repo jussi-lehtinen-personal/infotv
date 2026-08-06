@@ -103,11 +103,6 @@ const GamezoneSchedule = () => {
 
   const trackRef = useRef(null);
   const scrollRef = useRef(null);
-  // In-flight slide: a timer that finalizes the day change + the pending direction.
-  // NO "animating" lock that cancels new gestures (that was the ~0.5 s "can't start a
-  // new swipe" stall — SwipeableTabs has none and never stalls); a new drag preempts.
-  const slideTimer = useRef(null);
-  const pendingDir = useRef(0);
 
   // Scroll the (single, shared) time grid to roughly "now" once on mount. With one
   // scroll container for all three days, the vertical position is shared — flipping
@@ -194,9 +189,6 @@ const GamezoneSchedule = () => {
   const goPrevDay = useCallback(() => stepDays(-1), [stepDays]);
   const goNextDay = useCallback(() => stepDays(1), [stepDays]);
 
-  // Clear a pending slide timer on unmount.
-  useEffect(() => () => { if (slideTimer.current) clearTimeout(slideTimer.current); }, []);
-
   // --- Carousel: prev/next dates around current ---
   const prevDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() - 1); return d; }, [currentDate]);
   const nextDate = useMemo(() => { const d = new Date(currentDate); d.setDate(d.getDate() + 1); return d; }, [currentDate]);
@@ -219,31 +211,23 @@ const GamezoneSchedule = () => {
     track.style.transform = `translate3d(${CENTER_TX}%, 0, 0)`;
   }, [currentDate]);
 
-  // Finalize an in-flight slide NOW: apply the day change (re-render re-centres via the
-  // useLayoutEffect above). Idempotent — safe to call from the timer or a preempting drag.
-  const finalizeSlide = useCallback(() => {
-    if (!pendingDir.current) return;
-    const dir = pendingDir.current;
-    pendingDir.current = 0;
-    if (slideTimer.current) { clearTimeout(slideTimer.current); slideTimer.current = null; }
-    window.__commitT = performance.now(); // TEMP diagnostic
-    setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + dir); return next; });
-  }, []);
-
-  // --- Commit slide animation, then navigate ---
+  // --- Commit a swipe: animate the slide, then change the day via the SAME low-priority
+  // path as the arrow buttons (which never stall). The old approach — a manual setTimeout
+  // that fired a plain (urgent) setCurrentDate — suppressed the very next gesture ~0.8 s on
+  // Chrome Android (first didn't even fire); startTransition doesn't. The reset useLayoutEffect
+  // snaps the track back to centre on the new day once the deferred update lands. ---
   const commitToDay = useCallback((direction) => {
+    window.__commitT = performance.now(); // TEMP diagnostic
     const track = trackRef.current;
-    if (!track) return;
-    finalizeSlide(); // flush any previous pending slide first
-
-    const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
-    track.style.transition = "transform 170ms ease-out";
-    track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
-    pendingDir.current = direction;
-    // Time-based finalize (NOT transitionend, which fires late/never on Chrome Android and
-    // left the old lock stuck). Slightly longer than the transition so the slide completes.
-    slideTimer.current = setTimeout(finalizeSlide, 190);
-  }, [finalizeSlide]);
+    if (track) {
+      const targetTx = direction === -1 ? 0 : CENTER_TX * 2;
+      track.style.transition = "transform 170ms ease-out";
+      track.style.transform = `translate3d(${targetTx}%, 0, 0)`;
+    }
+    startTransition(() => {
+      setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + direction); return next; });
+    });
+  }, []);
 
   const snapBack = useCallback(() => {
     const track = trackRef.current;
@@ -264,7 +248,6 @@ const GamezoneSchedule = () => {
         window.__sinceCommit = window.__commitT ? Math.round(nowP - window.__commitT) : -1;
         window.__moveShown = false;
         setDiag(`first@${window.__sinceCommit}ms d2f${window.__d2f} · waiting move…`);
-        if (pendingDir.current) finalizeSlide();
         // iOS Safari edge-swipe is the native back gesture — skip drags from the edges.
         if (x < 20 || x > window.innerWidth - 20) { cancel(); return; }
       }
