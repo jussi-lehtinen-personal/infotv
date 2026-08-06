@@ -254,7 +254,10 @@ const GamezoneSchedule = () => {
         else snapBack();
       }
     },
-    { axis: "x", filterTaps: true, pointer: { touch: true } }
+    // POINTER events (not touch): with touch-action:pan-y set, Chrome Android delivers the
+    // horizontal drag declaratively without a non-passive touchmove listener — the touch-event
+    // path (pointer:{touch:true}) added ~0.5 s of input latency on Chrome Android only.
+    { axis: "x", filterTaps: true }
   );
 
   return (
