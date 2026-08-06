@@ -105,12 +105,19 @@ const GamezoneSchedule = () => {
   const trackRef = useRef(null);
   const animatingRef = useRef(false);
 
-  // --- Persist date in URL ---
+  // --- Persist date in URL (DEBOUNCED) ---
+  // history.replaceState is throttled by Chrome Android; calling it on every day change
+  // stalled touch input ~0.7 s during rapid swiping/arrow taps (confirmed via /swipe-test:
+  // the URL update was the single trigger). The URL is only for deep-linking/refresh, so
+  // update it once the day settles (500 ms idle) instead of on every intermediate day.
   useEffect(() => {
     const dateStr = ymd(currentDate);
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set("date", dateStr);
-    window.history.replaceState(null, "", `?${urlParams.toString()}`);
+    const id = setTimeout(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set("date", dateStr);
+      window.history.replaceState(null, "", `?${urlParams.toString()}`);
+    }, 500);
+    return () => clearTimeout(id);
   }, [currentDate]);
 
   // --- Fetch schedule when the week changes (stale-while-revalidate) ---
