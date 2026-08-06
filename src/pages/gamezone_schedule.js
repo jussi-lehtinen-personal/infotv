@@ -105,20 +105,30 @@ const GamezoneSchedule = () => {
   const trackRef = useRef(null);
   const animatingRef = useRef(false);
 
-  // --- Persist date in URL (DEBOUNCED) ---
-  // history.replaceState is throttled by Chrome Android; calling it on every day change
-  // stalled touch input ~0.7 s during rapid swiping/arrow taps (confirmed via /swipe-test:
-  // the URL update was the single trigger). The URL is only for deep-linking/refresh, so
-  // update it once the day settles (500 ms idle) instead of on every intermediate day.
+  // --- Persist date in URL — ONLY when leaving the page, never during active use ---
+  // A SINGLE history.replaceState stalls Chrome Android touch input ~0.7 s (confirmed on
+  // /swipe-test — it was the sole trigger; not the gesture, render, or backdrop-filter).
+  // So we never call it on a day change; we sync the URL once on pagehide/hide, which also
+  // fires on refresh/close/navigate BEFORE unload → deep-link + refresh still restore the
+  // last viewed day, but rapid swiping/arrow taps never touch history and never stall.
+  const currentDateRef = useRef(currentDate);
+  useEffect(() => { currentDateRef.current = currentDate; }, [currentDate]);
   useEffect(() => {
-    const dateStr = ymd(currentDate);
-    const id = setTimeout(() => {
-      const urlParams = new URLSearchParams(window.location.search);
-      urlParams.set("date", dateStr);
-      window.history.replaceState(null, "", `?${urlParams.toString()}`);
-    }, 500);
-    return () => clearTimeout(id);
-  }, [currentDate]);
+    const sync = () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set("date", ymd(currentDateRef.current));
+        window.history.replaceState(null, "", `?${urlParams.toString()}`);
+      } catch { /* ignore */ }
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") sync(); };
+    window.addEventListener("pagehide", sync);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", sync);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   // --- Fetch schedule when the week changes (stale-while-revalidate) ---
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
