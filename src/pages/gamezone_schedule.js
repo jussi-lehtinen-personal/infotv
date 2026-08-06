@@ -102,7 +102,19 @@ const GamezoneSchedule = () => {
   const [items, setItems] = useState(() => scheduleCache.get(getWeekStart(initialDate)) ?? []);
 
   const trackRef = useRef(null);
+  const scrollRef = useRef(null);
   const animatingRef = useRef(false);
+
+  // Scroll the (single, shared) time grid to roughly "now" once on mount. With one
+  // scroll container for all three days, the vertical position is shared — flipping
+  // days keeps the same time in view for free (no per-panel scroll sync needed).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
+  }, []);
 
   // TEMP diagnostic: measure nav → render-commit (JS) and nav → paint (total).
   const navT0 = useRef(0);
@@ -249,19 +261,6 @@ const GamezoneSchedule = () => {
       const track = trackRef.current;
       if (!track) return;
 
-      // On swipe start, sync the off-screen panels' vertical scroll to the
-      // current panel's so the day sliding into view shows the same time.
-      if (first) {
-        const currentScroller = track.children[1]?.querySelector(".gz-cal-scroll");
-        if (currentScroller) {
-          const top = currentScroller.scrollTop;
-          [0, 2].forEach((i) => {
-            const s = track.children[i]?.querySelector(".gz-cal-scroll");
-            if (s && Math.abs(s.scrollTop - top) > 1) s.scrollTop = top;
-          });
-        }
-      }
-
       if (active) {
         track.style.transition = "none";
         track.style.transform = `translate3d(calc(${CENTER_TX}% + ${mx}px), 0, 0)`;
@@ -287,15 +286,31 @@ const GamezoneSchedule = () => {
       <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{navMs || "—"}<br />{fps}</div>
       <div className="sc-root">
         <div className="sc-container">
-          <div className="sc-carousel-viewport">
-            {/* key by DAY (not position): on commit the day we slid to persists — React
-                REORDERS its already-rendered DOM node (with its events) to centre instead of
-                rebuilding it; only the one genuinely-new day mounts, off-screen. Keeps the
-                next swipe's finger-follow instant (no blocking rebuild of the visible panel). */}
-            <div ref={trackRef} className="sc-carousel-track" {...bind()}>
-              <DayPanel key={ymd(prevDate)} date={prevDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
-              <DayPanel key={ymd(currentDate)} date={currentDate} items={items} isCurrent onPrev={goPrevDay} onNext={goNextDay} />
-              <DayPanel key={ymd(nextDate)} date={nextDate} items={items} onPrev={goPrevDay} onNext={goNextDay} />
+          <div className="gz-cal">
+            {/* Shared header — stays put while only the grid slides. */}
+            <div className="gz-cal-head">
+              <button className="gz-cal-nav" onClick={goPrevDay} aria-label="Edellinen päivä">‹</button>
+              <div className="gz-cal-title">
+                <span className="gz-cal-day">{currentDate.toLocaleDateString("fi-FI", { weekday: "long" })}</span>
+                <span className="gz-cal-date">{`${currentDate.getDate()}.${currentDate.getMonth() + 1}.`}</span>
+              </div>
+              <button className="gz-cal-nav" onClick={goNextDay} aria-label="Seuraava päivä">›</button>
+            </div>
+
+            {/* The ONE vertical-scroll container is an ANCESTOR of the horizontal-drag track
+                (like SwipeableTabs: drag surface has no nested scroll → Chrome Android doesn't
+                stall horizontal events disambiguating scroll-vs-drag). The grid height is fixed
+                (same for every day) so a single shared scroll works for all three panels. */}
+            <div className="gz-cal-scroll" ref={scrollRef}>
+              <div className="sc-carousel-viewport">
+                {/* key by DAY (not position): on commit the day we slid to persists — React
+                    REORDERS its already-rendered DOM node to centre instead of rebuilding it. */}
+                <div ref={trackRef} className="sc-carousel-track" {...bind()}>
+                  <DayPanel key={ymd(prevDate)} date={prevDate} items={items} />
+                  <DayPanel key={ymd(currentDate)} date={currentDate} items={items} isCurrent />
+                  <DayPanel key={ymd(nextDate)} date={nextDate} items={items} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -310,8 +325,7 @@ export default GamezoneSchedule;
 /*           DAY PANEL           */
 /* ============================= */
 
-const DayPanel = React.memo(function DayPanel({ date, items, isCurrent, onPrev, onNext }) {
-  const scrollRef = useRef(null);
+const DayPanel = React.memo(function DayPanel({ date, items, isCurrent }) {
   const dayStr = ymd(date);
 
   // Filter + position this day's reservations.
@@ -328,17 +342,6 @@ const DayPanel = React.memo(function DayPanel({ date, items, isCurrent, onPrev, 
     return packLanes(evs);
   }, [items, dayStr]);
 
-  // Scroll to roughly "now" once, on the current panel's first mount.
-  useEffect(() => {
-    if (!isCurrent) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const isToday = dayStr === ymd(new Date());
   const nowMin = (() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); })();
   const showNow = isToday && nowMin >= DAY_START && nowMin <= DAY_END;
@@ -349,42 +352,29 @@ const DayPanel = React.memo(function DayPanel({ date, items, isCurrent, onPrev, 
 
   return (
     <div className={`sc-carousel-panel ${isCurrent ? "" : "sc-carousel-panel--inactive"}`}>
-      <div className="gz-cal">
-        <div className="gz-cal-head">
-          <button className="gz-cal-nav" onClick={() => onPrev?.()} aria-label="Edellinen päivä">‹</button>
-          <div className="gz-cal-title">
-            <span className="gz-cal-day">{date.toLocaleDateString("fi-FI", { weekday: "long" })}</span>
-            <span className="gz-cal-date">{`${date.getDate()}.${date.getMonth() + 1}.`}</span>
-          </div>
-          <button className="gz-cal-nav" onClick={() => onNext?.()} aria-label="Seuraava päivä">›</button>
+      <div className="gz-cal-grid" style={{ height: GRID_PX }}>
+        <div className="gz-cal-axis">
+          {hours.map((h) => (
+            <div key={h} className="gz-cal-hour" style={{ top: y(h * 60) }}>{String(h).padStart(2, "0")}</div>
+          ))}
         </div>
-
-        <div className="gz-cal-scroll" ref={scrollRef}>
-          <div className="gz-cal-grid" style={{ height: GRID_PX }}>
-            <div className="gz-cal-axis">
-              {hours.map((h) => (
-                <div key={h} className="gz-cal-hour" style={{ top: y(h * 60) }}>{String(h).padStart(2, "0")}</div>
-              ))}
-            </div>
-            <div className="gz-cal-col">
-              {hours.map((h) => <div key={h} className="gz-cal-line" style={{ top: y(h * 60) }} />)}
-              {events.map((e) => {
-                const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
-                const w = 100 / e.lanes;
-                const short = e.endMin - e.startMin < 50;
-                return (
-                  <div key={e.id} className={"gz-ev" + (short ? " gz-ev--short" : "")} style={{
-                    top: y(e.startMin), height: Math.max((e.endMin - e.startMin) * PX_MIN - 3, 18),
-                    left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 4px)`, background: color,
-                  }}>
-                    <span className="gz-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></span>
-                    <span className="gz-ev-name">{e.text}</span>
-                  </div>
-                );
-              })}
-              {showNow && <div className="gz-cal-now" style={{ top: y(nowMin) }}><span className="gz-cal-now-dot" /></div>}
-            </div>
-          </div>
+        <div className="gz-cal-col">
+          {hours.map((h) => <div key={h} className="gz-cal-line" style={{ top: y(h * 60) }} />)}
+          {events.map((e) => {
+            const color = e.kind === "game" ? GAME_COLOR : e.kind === "ahma" ? AHMA_COLOR : OTHER_COLOR;
+            const w = 100 / e.lanes;
+            const short = e.endMin - e.startMin < 50;
+            return (
+              <div key={e.id} className={"gz-ev" + (short ? " gz-ev--short" : "")} style={{
+                top: y(e.startMin), height: Math.max((e.endMin - e.startMin) * PX_MIN - 3, 18),
+                left: `calc(${e.lane * w}% + 1px)`, width: `calc(${w}% - 4px)`, background: color,
+              }}>
+                <span className="gz-ev-time">{fmt(e.startMin)}<span>–{fmt(e.endMin)}</span></span>
+                <span className="gz-ev-name">{e.text}</span>
+              </div>
+            );
+          })}
+          {showNow && <div className="gz-cal-now" style={{ top: y(nowMin) }}><span className="gz-cal-now-dot" /></div>}
         </div>
       </div>
     </div>
@@ -404,15 +394,16 @@ function calendarThemeCss() {
     }
     .sc-container{ height:100%; padding:8px 10px 0; overflow:hidden; display:flex; flex-direction:column; }
 
-    /* Carousel viewport clips the 300%-wide track */
-    .sc-carousel-viewport{ flex:1 1 auto; min-height:0; width:100%; overflow:hidden; position:relative; display:flex; flex-direction:column; touch-action:pan-y; }
-    .sc-carousel-track{ display:flex; flex-direction:row; width:300%; flex:1 1 auto; min-height:0; touch-action:pan-y; }
-    .sc-carousel-panel{ flex:0 0 33.3333%; box-sizing:border-box; padding:0 5px; min-width:0; min-height:0; display:flex; flex-direction:column; }
-    .sc-carousel-panel--inactive{ pointer-events:none; }
-
-    /* One day: header + scrollable time grid inside a glass card */
+    /* Glass card wrapping the SHARED header + the ONE vertical-scroll container. */
     .gz-cal{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; border-radius:16px; overflow:hidden;
       background:var(--color-surface, rgba(255,255,255,0.03)); border:1px solid var(--color-surface-border, rgba(255,255,255,0.14)); }
+
+    /* Viewport clips the 300%-wide track horizontally; it does NOT scroll (the ancestor
+       .gz-cal-scroll owns the vertical scroll), so no nested-scroll disambiguation. */
+    .sc-carousel-viewport{ width:100%; overflow:hidden; position:relative; }
+    .sc-carousel-track{ display:flex; flex-direction:row; width:300%; touch-action:pan-y; }
+    .sc-carousel-panel{ flex:0 0 33.3333%; box-sizing:border-box; padding:0 5px; min-width:0; }
+    .sc-carousel-panel--inactive{ pointer-events:none; }
 
     .gz-cal-head{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 8px; border-bottom:1px solid rgba(255,255,255,0.08); }
     .gz-cal-nav{ flex:0 0 auto; width:40px; height:40px; display:flex; align-items:center; justify-content:center; font-size:34px; line-height:1; color:#fff; background:transparent; border:0; padding:0; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
@@ -421,11 +412,11 @@ function calendarThemeCss() {
     .gz-cal-day{ font-family:var(--font-family-display); font-size:24px; letter-spacing:0.03em; text-transform:uppercase; color:#fff; }
     .gz-cal-date{ font-family:var(--font-family-base); font-weight:700; font-size:14px; letter-spacing:0.02em; color:var(--color-accent, rgba(255,255,255,0.65)); margin-top:1px; }
 
-    .gz-cal-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden;
-      /* NO -webkit-overflow-scrolling:touch — deprecated, and on Chrome Android it forces a
-         separate composited scroll layer per panel; 3 tall ones + the will-change track layer
-         overloaded the compositor → ~2-3 fps input throttle. Chrome scrolls smoothly without it. */
-      touch-action:pan-y;
+    /* THE single vertical-scroll container — ancestor of the drag track. touch-action:pan-y
+       means vertical touches scroll here while horizontal touches go to the JS drag on the
+       track; because the drag surface has NO scrollable descendant, Chrome Android delivers
+       the horizontal events immediately (this was the ~0.5 s input stall's root cause). */
+    .gz-cal-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; touch-action:pan-y;
       padding:6px 6px calc(var(--ui-bottom-nav-clearance, 80px)) 6px; box-sizing:border-box; }
     .gz-cal-scroll::-webkit-scrollbar{ width:0; height:0; }
 
