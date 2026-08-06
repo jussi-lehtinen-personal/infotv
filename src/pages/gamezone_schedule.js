@@ -120,6 +120,20 @@ const GamezoneSchedule = () => {
     el.scrollTop = Math.max(0, (nowMin - 30 - DAY_START) * PX_MIN);
   }, []);
 
+  // TEMP diagnostic: worst main-thread long task (what blocks the next gesture) + the
+  // incoming panel's mount cost, both since the last day-change commit.
+  const [diag, setDiag] = useState("");
+  useEffect(() => {
+    if (typeof PerformanceObserver === "undefined") return undefined;
+    const obs = new PerformanceObserver((list) => {
+      let worst = 0;
+      for (const e of list.getEntries()) if (e.duration > worst) worst = e.duration;
+      if (worst) setDiag(`longtask ${Math.round(worst)}ms · mount ${window.__mountMs || 0}ms`);
+    });
+    try { obs.observe({ entryTypes: ["longtask"] }); } catch { return undefined; }
+    return () => obs.disconnect();
+  }, []);
+
   // --- Persist date in URL ---
   useEffect(() => {
     const dateStr = ymd(currentDate);
@@ -200,6 +214,7 @@ const GamezoneSchedule = () => {
     const dir = pendingDir.current;
     pendingDir.current = 0;
     if (slideTimer.current) { clearTimeout(slideTimer.current); slideTimer.current = null; }
+    window.__commitT = performance.now(); // TEMP diagnostic
     setCurrentDate((d) => { const next = new Date(d); next.setDate(next.getDate() + dir); return next; });
   }, []);
 
@@ -261,6 +276,7 @@ const GamezoneSchedule = () => {
     <Fragment>
       <style>{CALENDAR_CSS}</style>
 
+      <div style={{ position: "fixed", top: 4, left: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#5f5", font: "11px/1.4 monospace", padding: "3px 7px", borderRadius: 4, pointerEvents: "none" }}>{diag || "swipe to measure"}</div>
       <div className="sc-root">
         <div className="sc-container">
           <div className="gz-cal">
@@ -304,6 +320,14 @@ export default GamezoneSchedule;
 
 const DayPanel = React.memo(function DayPanel({ date, items, isCurrent }) {
   const dayStr = ymd(date);
+
+  // TEMP diagnostic: this panel's mount cost since the last commit (only the newly
+  // revealed edge panel mounts on a swipe; reused panels don't re-run this).
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.__commitT) {
+      window.__mountMs = Math.round(performance.now() - window.__commitT);
+    }
+  }, []);
 
   // Filter + position this day's reservations.
   const events = useMemo(() => {
