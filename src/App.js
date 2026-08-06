@@ -14,6 +14,7 @@ import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
 import Gamezone from "./pages/gamezone";
 import GamezoneSchedule from "./pages/gamezone_schedule";
+import SwipeTest from "./pages/swipe_test";
 import BoxScore from "./pages/game";
 import { GamezoneLayout } from "./components/GamezoneLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -162,6 +163,7 @@ function App() {
             <Route path="/infotv/ahmaliiga" element={<InfoTvAhmaliiga />} />
             <Route path="/infotv/tilastot" element={<InfoTvTilastot />} />
             <Route path="/infotv/kumppanit" element={<InfoTvKumppanit />} />
+            <Route path="/swipe-test" element={<SwipeTest />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"
