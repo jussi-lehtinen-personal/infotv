@@ -16,12 +16,8 @@ import React, {
   useState,
 } from "react";
 import { useDrag } from "@use-gesture/react";
-import moment from "moment";
-import "moment/locale/fi";
 
 import { COLOR_PRIMARY } from "../theme";
-
-moment.locale("fi");
 
 // Module-scope cache shared across mounts: weekStart → array of items.
 const scheduleCache = new Map();
@@ -46,6 +42,9 @@ const isAhma = (t) => /kiekko.?ahma/i.test(t || "") || /(^|\s)KA[\s/]/i.test(t |
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const toMin = (s) => { const hm = String(s || "").slice(11, 16); const [h, m] = hm.split(":"); return (Number(h) || 0) * 60 + (Number(m) || 0); };
 const fmt = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+// Built ONCE at module load, not per render (the theme string is static).
+const CALENDAR_CSS = calendarThemeCss();
 
 function getWeekStart(date) {
   const d = new Date(date);
@@ -239,7 +238,7 @@ const GamezoneSchedule = () => {
 
   return (
     <Fragment>
-      <style>{calendarThemeCss()}</style>
+      <style>{CALENDAR_CSS}</style>
 
       <div className="sc-root">
         <div className="sc-container">
@@ -266,7 +265,7 @@ export default GamezoneSchedule;
 /*           DAY PANEL           */
 /* ============================= */
 
-function DayPanel({ date, items, isCurrent, onPrev, onNext }) {
+const DayPanel = React.memo(function DayPanel({ date, items, isCurrent, onPrev, onNext }) {
   const scrollRef = useRef(null);
   const dayStr = ymd(date);
 
@@ -309,8 +308,8 @@ function DayPanel({ date, items, isCurrent, onPrev, onNext }) {
         <div className="gz-cal-head">
           <button className="gz-cal-nav" onClick={() => onPrev?.()} aria-label="Edellinen päivä">‹</button>
           <div className="gz-cal-title">
-            <span className="gz-cal-day">{moment(date).format("dddd")}</span>
-            <span className="gz-cal-date">{moment(date).format("D.M.")}</span>
+            <span className="gz-cal-day">{date.toLocaleDateString("fi-FI", { weekday: "long" })}</span>
+            <span className="gz-cal-date">{`${date.getDate()}.${date.getMonth() + 1}.`}</span>
           </div>
           <button className="gz-cal-nav" onClick={() => onNext?.()} aria-label="Seuraava päivä">›</button>
         </div>
@@ -345,7 +344,7 @@ function DayPanel({ date, items, isCurrent, onPrev, onNext }) {
       </div>
     </div>
   );
-}
+}, (a, b) => ymd(a.date) === ymd(b.date) && a.items === b.items && a.isCurrent === b.isCurrent);
 
 /* ============================= */
 /*             CSS               */
