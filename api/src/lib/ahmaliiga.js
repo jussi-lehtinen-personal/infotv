@@ -1811,11 +1811,21 @@ async function reconcileCards(seasonId) {
   const add = [];
   const bandP = ECON.playerBand, bandT = ECON.band;
 
-  // 1. Player cards from the eligible teams' Jopox rosters. TWO-PHASE: gather the whole
-  // current roster first, then price relative to the MAX prior among ROSTERED (non-flat)
-  // players — NOT a global prevSeason max, which could belong to a non-rostered player and
-  // compress everyone to the floor. So the best rostered player reaches the ceiling tier.
-  const rosterAges = Object.keys(AGE_SUBSITE).filter((a) => isPlayerEligible(a) || playerAges.includes(a));
+  // Which teams actually appear in the season's synced games (played OR upcoming). Player
+  // cards AND team cards are BOTH gated on this: a team with no game in the window gets no
+  // cards. E.g. men's Edustus — whose only fixture sits outside the friendly beta's rounds —
+  // must not seed player cards, since none of its players can ever score in this window.
+  const rounds = await getRounds(seasonId);
+  const teamKeys = new Set();
+  for (const r of rounds) { for (const g of await getRoundGames(seasonId, Number(r.rowKey))) teamKeys.add(teamKey(g)); }
+  const gameAges = new Set([...teamKeys].map((tk) => String(tk).split(' ')[0]));
+
+  // 1. Player cards from the eligible teams' Jopox rosters — ONLY for ages that have a game
+  // in the window (so an eligible-but-not-playing team seeds no players). TWO-PHASE: gather
+  // the whole current roster first, then price relative to the MAX prior among ROSTERED
+  // (non-flat) players — NOT a global prevSeason max, which could belong to a non-rostered
+  // player and compress everyone to the floor. So the best rostered player reaches the ceiling.
+  const rosterAges = Object.keys(AGE_SUBSITE).filter((a) => (isPlayerEligible(a) || playerAges.includes(a)) && gameAges.has(a));
   const roster = []; // {id, name, isGoalie, photo, age, flat, prior}
   for (const age of rosterAges) {
     let list = [];
@@ -1842,11 +1852,8 @@ async function reconcileCards(seasonId) {
     });
   }
 
-  // 2. Team cards from the teamKeys present in the season's synced games (played OR
-  // upcoming — see syncSeasonGames). Same rostered-max scaling among the appearing ages.
-  const rounds = await getRounds(seasonId);
-  const teamKeys = new Set();
-  for (const r of rounds) { for (const g of await getRoundGames(seasonId, Number(r.rowKey))) teamKeys.add(teamKey(g)); }
+  // 2. Team cards from the teamKeys present in the season's synced games (computed above).
+  // Same rostered-max scaling among the appearing ages.
   const newTeams = [...teamKeys].filter((tk) => !have.has('T:' + tk));
   const existMaxT = Math.max(0, ...existing.filter((c) => c.kind === 'team').map((c) => Number(c.priorForm) || 0));
   const maxT = Math.max(existMaxT, 0, ...newTeams.map((tk) => teamPrior[String(tk).split(' ')[0]] ?? 0));
