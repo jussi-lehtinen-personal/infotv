@@ -31,7 +31,7 @@ app.http('ahmaliigaCards', {
       if (filter && filter !== 'all') cards = cards.filter((c) => c.kind === filter);
       const out = cards
         .map((c) => ({
-          id: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
+          id: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '', position: c.position || '',
           // U5: `price` on the wire = the LIVE price (moves mid-round); falls back to
           // the settled price when live hasn't moved it. `trend` = live trend.
           band: c.band, price: c.livePrice != null ? c.livePrice : c.price, ownerCount: c.ownerCount || 0,

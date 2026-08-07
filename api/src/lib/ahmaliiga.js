@@ -1688,7 +1688,7 @@ async function getCardDetail(seasonId, cardId) {
       // buy/sell amount, which the client reads from card.price); `trend` = live trend.
       // The history rows stay SETTLED, so the chart's last real point vs "Nyt" shows
       // the in-round move.
-      id: card.rowKey, kind: card.kind, name: card.name, sub: card.sub || '', band: card.band,
+      id: card.rowKey, kind: card.kind, name: card.name, sub: card.sub || '', position: card.position || '', band: card.band,
       price: card.livePrice != null ? card.livePrice : card.price,
       trend: card.liveTrend || card.trend || '', photo: card.photo || '',
       lastPts: card.lastPts || 0, seasonPts: card.seasonPts || 0,
