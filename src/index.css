@@ -126,6 +126,18 @@
   outline-offset: 2px;
 }
 
+/* Links inherit the surrounding text colour app-wide → kill the browser default
+   blue link colour (+ :visited purple / :hover blue) everywhere. Any link that
+   WANTS a colour sets it explicitly (sx / inline / a component class) and wins on
+   specificity, so intentional coloured links are unaffected. */
+a,
+a:link,
+a:visited,
+a:hover,
+a:active {
+  color: inherit;
+}
+
 .material-symbols-rounded {
   font-family: 'Material Symbols Rounded Variable', sans-serif;
   font-weight: normal;
