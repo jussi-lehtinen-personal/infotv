@@ -31,7 +31,10 @@ Global (`PK = userId`) — a snapshot of the *participants* is copied into the a
 cleared at purge: `AhmaliigaManagers, AhmaliigaSquads`.
 
 Transient/global (cleared at rollover, not archived): `AhmaliigaVouchers, AhmaliigaMessages,
-AhmaliigaNotifyLog, AhmaliigaPushSubs` (push subs may be kept — see open questions).
+AhmaliigaNotifyLog`.
+
+**Kept across seasons (never cleared):** `AhmaliigaPushSubs` — a push subscription is device-level,
+not season participation, so a subscribed device stays subscribed.
 
 ## 3. Archive format
 
@@ -68,10 +71,17 @@ into `finalTop`/`champion` so a purged global-managers table doesn't lose the na
 
 - **`archiveSeason` `{ seasonId }`** → build the blob above, upload, return `{ ok, blob, summary }`.
   Idempotent (overwrites the season's blob). Does NOT purge. Safe to run anytime (read-only on DB).
-- **`purgeSeason` `{ seasonId, clearGlobals?: bool }`** → delete every season-scoped partition
-  for `seasonId` + the season/seasonMeta rows. If `clearGlobals`, also delete `AhmaliigaManagers`
-  + `AhmaliigaSquads` (rollover). **Guards:** refuse unless an archive blob for `seasonId` exists;
-  refuse if `seasonId` is the ACTIVE season unless `force`; return a dry-run count first.
+- **`purgeSeason` `{ seasonId, clearGlobals?: bool, confirm?: "purge" }`** → delete every
+  season-scoped partition for `seasonId` + the season/seasonMeta rows. If `clearGlobals`, also
+  delete `AhmaliigaManagers` + `AhmaliigaSquads` (rollover).
+  - **NEVER purges without explicit confirmation.** Called WITHOUT `confirm` it is a **dry run**:
+    it deletes nothing and returns `{ archived: bool, rowCounts: {…}, isActive: bool }`.
+  - The admin UI turns that dry-run into a **3-way prompt** — *Archive first · Purge · Cancel*:
+    - `archived === false` → default/highlight **Archive first** (runs `archiveSeason`, then re-offers).
+    - `archived === true` → **Purge** (re-calls with `confirm:"purge"`) becomes available.
+    - **Cancel** always. Purge only proceeds on the explicit second call with `confirm:"purge"`.
+  - **Guards even with confirm:** refuse if not `archived` (must archive first); refuse if
+    `isActive` unless `force:true`.
 - **`listArchives`** → list blobs + their `summary` (for the history index).
 - **`rolloverSeason` `{ toSeed }`** (convenience) = `archiveSeason(active)` → `purgeSeason(active,
   clearGlobals:true)` → `seedSeason(toSeed)`. One button for "end this season, start the next".
@@ -118,14 +128,18 @@ counts only once it has a valid squad (≥2 team cards) that has played a game* 
 2026 managers never show. Build the archive deliberately (Phase A→B) for the real season rollover;
 it's the tool that will cleanly retire the pre-season into the real 2026-27 season.
 
-## 10. Open questions
+## 10. Decisions (resolved 2026-08-07)
 
-1. **Blob store:** reuse the existing backups container (new prefix) or a dedicated
-   `ahmaliiga-archives` container? (Lean: dedicated container, clearer lifecycle.)
-2. **Push subs** (`AhmaliigaPushSubs`): keep across seasons (a device stays subscribed) or clear?
-   (Lean: keep — subscription is device-level, not season participation.)
-3. **Raw tables in the archive:** store all raw rows (full fidelity, bigger blob) or only what
-   career stats need? (Lean: store raw — blobs are cheap, and it future-proofs new history views.)
-4. **Restore:** do we ever need to re-import an archive into the DB (debug/dispute), or is
-   read-from-blob enough? (Lean: add a read-only `getArchivedSeason`; a full restore is a later
-   admin tool if ever needed — `backup.js restore()` already exists as a pattern.)
+1. **Blob store:** dedicated container **`ahmaliiga-archives`**. ✅
+2. **Push subs:** **kept** across seasons (device-level, see §2). ✅
+3. **Raw tables:** archive **all raw rows** (full fidelity; blobs are cheap; future-proof). ✅
+4. **Restore:** **read-from-blob is enough** — no DB re-import for now. ✅
+
+## 11. Immediate scope (2026-08-07)
+
+- **Build Phase A NOW** (`archiveSeason` + `purgeSeason` + `listArchives`) — the main near-term
+  value is to **archive the beta data** (2026, and the orphan `2027`) so it's preserved for later
+  comparison, and to clean the hot store to a single active season.
+- **No history UI yet** — no official game has ever been played, so there's nothing to show.
+  Phases B–D (read views, career, champions, rollover button) wait until there's real season data.
+- Purge is used sparingly and always behind the §4 Archive/Purge/Cancel confirmation.
