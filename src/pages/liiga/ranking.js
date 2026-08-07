@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Box, Typography, Stack } from "@mui/material";
+import { useSearchParams, Link } from "react-router-dom";
+import { Box, Typography, Stack, ButtonBase, Collapse } from "@mui/material";
+import { LuChevronDown, LuArrowRight } from "react-icons/lu";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
@@ -59,32 +60,57 @@ const GameRow = ({ g }) => {
         <Typography noWrap sx={{ fontSize: 13.5, color: "text.primary", lineHeight: 1.3 }}>{g.home} – {g.away}</Typography>
         <Typography noWrap sx={{ fontSize: 11, color: "text.disabled", lineHeight: 1.3 }}>{g.level}</Typography>
       </Box>
-      <Typography sx={{ fontSize: 14, fontWeight: 800, flexShrink: 0, color: played ? "text.primary" : "text.disabled" }}>
-        {played ? `${g.homeGoals}–${g.awayGoals}` : "–"}
-      </Typography>
+      {played && (
+        <Typography sx={{ fontSize: 14, fontWeight: 800, flexShrink: 0, color: "text.primary" }}>{g.homeGoals}–{g.awayGoals}</Typography>
+      )}
     </Box>
   );
 };
 
-const RoundCard = ({ j }) => (
-  <Box sx={{ borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", overflow: "hidden" }}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5 }}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.3 }}>Jakso {j.no + 1}</Typography>
-        <Typography sx={{ fontSize: 12, color: "text.disabled" }}>{fmtShort(j.startDate)}–{fmtShort(j.endDate)} · {(j.games || []).length} ottelua</Typography>
-      </Box>
-      <Box sx={{ px: 1, py: 0.35, borderRadius: "999px", fontSize: 11, fontWeight: 800,
-            bgcolor: j.settled ? "rgba(var(--color-primary-rgb),0.15)" : "rgba(255,255,255,0.06)",
-            color: j.settled ? "primary.main" : "text.disabled" }}>
-        {j.settled ? "Pelattu" : "Tulossa"}
-      </Box>
-      {j.settled && j.me ? <RowValue color="primary.main">{j.me.total}</RowValue> : null}
+// Collapsible round: header always visible, games + a link to the round page inside.
+// The relevant round (current or next upcoming) opens by default.
+const RoundCard = ({ j, defaultOpen }) => {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const games = j.games || [];
+  return (
+    <Box sx={{ borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", overflow: "hidden" }}>
+      <ButtonBase onClick={() => setOpen((o) => !o)} sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, width: "100%", textAlign: "left" }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.3 }}>Jakso {j.no + 1}</Typography>
+          <Typography sx={{ fontSize: 12, color: "text.disabled" }}>{fmtShort(j.startDate)}–{fmtShort(j.endDate)} · {games.length} ottelua</Typography>
+        </Box>
+        <Box sx={{ px: 1, py: 0.35, borderRadius: "999px", fontSize: 11, fontWeight: 800, flexShrink: 0,
+              bgcolor: j.settled ? "rgba(var(--color-primary-rgb),0.15)" : "rgba(255,255,255,0.06)",
+              color: j.settled ? "primary.main" : "text.disabled" }}>
+          {j.settled ? "Pelattu" : "Tulossa"}
+        </Box>
+        {j.settled && j.me ? <RowValue color="primary.main">{j.me.total}</RowValue> : null}
+        <Box component={LuChevronDown} sx={{ fontSize: 20, color: "text.disabled", display: "block", flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }} />
+      </ButtonBase>
+      <Collapse in={open} unmountOnExit>
+        {games.length === 0
+          ? <Typography sx={{ px: 1.5, py: 1.25, fontSize: 12.5, color: "text.disabled", borderTop: "1px solid var(--color-surface-divider)" }}>Ei otteluita tässä jaksossa.</Typography>
+          : games.map((g) => <GameRow key={g.gameId} g={g} />)}
+        <ButtonBase component={Link} to={`/ahmaliiga/round?round=${j.no}`}
+          sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, width: "100%", py: 1,
+                borderTop: "1px solid var(--color-surface-divider)", color: "primary.main", fontWeight: 800, fontSize: 13 }}>
+          Tulokset & sijoitukset <Box component={LuArrowRight} sx={{ fontSize: 15, display: "block" }} />
+        </ButtonBase>
+      </Collapse>
     </Box>
-    {(j.games || []).length === 0
-      ? <Typography sx={{ px: 1.5, pb: 1.25, fontSize: 12.5, color: "text.disabled" }}>Ei otteluita tässä jaksossa.</Typography>
-      : (j.games || []).map((g) => <GameRow key={g.gameId} g={g} />)}
-  </Box>
-);
+  );
+};
+
+// The "relevant" round to auto-expand: the one whose window holds today, else the next
+// upcoming (first ending today or later), else the last.
+const relevantRoundNo = (rounds) => {
+  const t = new Date();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  const cur = rounds.find((j) => (j.startDate || "") <= today && today <= (j.endDate || ""));
+  if (cur) return cur.no;
+  const next = rounds.find((j) => (j.endDate || "") >= today);
+  return (next || rounds[rounds.length - 1] || {}).no;
+};
 
 export default function LiigaRanking() {
   const [params] = useSearchParams();
@@ -139,9 +165,14 @@ export default function LiigaRanking() {
             <Typography variant="body2">Ei jaksoja.</Typography>
           </Box>
         ) : (
-          <Stack spacing={1.25}>
-            {rounds.map((j) => <RoundCard key={j.no} j={j} />)}
-          </Stack>
+          (() => {
+            const relevant = relevantRoundNo(rounds);
+            return (
+              <Stack spacing={1.25}>
+                {rounds.map((j) => <RoundCard key={j.no} j={j} defaultOpen={j.no === relevant} />)}
+              </Stack>
+            );
+          })()
         )
       ) : !rows || loading ? (
         <Loading />

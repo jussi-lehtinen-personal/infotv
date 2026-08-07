@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, Button, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from "@mui/material";
 import { LuChevronRight, LuCheck, LuShoppingCart, LuBadgeCheck } from "react-icons/lu";
-import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, TYPE_LABEL, TrendTag } from "./_shared";
+import { Screen, DialogHeader, Loading, CardAvatar, Coins, PricePill, PillButton, initials, gameResult, shortDate, roleLabel, TrendTag } from "./_shared";
 import { getAhmaliigaCard } from "../../lib/ahmaliigaApi";
 import { useSquad } from "./useSquad";
 
@@ -305,7 +305,7 @@ export default function LiigaCard() {
           <InfoRow label="Hinta"><PricePill value={card.price} size={16} /></InfoRow>
           <InfoRow label="Kauden pisteet"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{card.seasonPts} p</Typography></InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
-          <InfoRow label="Tyyppi"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{TYPE_LABEL[card.kind] || "Kortti"}</Typography></InfoRow>
+          <InfoRow label="Positio"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{roleLabel(card)}</Typography></InfoRow>
           {(card.trend === "up" || card.trend === "down") && (
             <InfoRow label="Suunta"><TrendTag trend={card.trend} sx={{ fontSize: 15 }} /></InfoRow>
           )}

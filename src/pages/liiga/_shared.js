@@ -87,6 +87,16 @@ export const Screen = ({ children, sx }) => (
 // ===== Ahmaliiga domain helpers (shared so the labels/format live in ONE place) =====
 export const TYPE_LABEL = { team: "Joukkuekortti", goalie: "Maalivahtikortti", player: "Pelaajakortti" };
 
+// Player position labels (from the card's tagged `position`); goalie/team have their own.
+export const POS_LABEL = { defender: "Puolustaja", forward: "Hyökkääjä", field: "Kenttäpelaaja", goalie: "Maalivahti" };
+// A card's role/position label — Joukkue / Maalivahti / Puolustaja / Hyökkääjä / Kenttäpelaaja.
+export const roleLabel = (card) => {
+  if (!card) return "Kortti";
+  if (card.kind === "team") return "Joukkue";
+  if (card.kind === "goalie") return "Maalivahti";
+  return POS_LABEL[card.position] || "Kenttäpelaaja";
+};
+
 // Rising/falling price tag: "▲ Nousussa" (green) / "▼ Laskussa" (red); nothing if flat.
 // inline-flex + the triangle in its own line-height-1 box so the glyph shares the
 // text's centre line (a bare unicode ▲/▼ sits low and looks misaligned).
