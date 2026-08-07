@@ -3,6 +3,7 @@ const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
 const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
+const { archiveSeason, listArchives, purgeSeason } = require('../lib/archive');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
 // env allowlist (root operator) only, same as the preview gate. Route must NOT
@@ -177,6 +178,30 @@ app.http('manageAhmaliiga', {
         if (!season) return { jsonBody: { active: false } };
         const result = await getSimStatus(season.rowKey);
         return { jsonBody: { active: true, ...result } };
+      }
+
+      // --- Season archive & history (docs/ahmaliiga-archive-spec.md) ---
+      if (action === 'listArchives') {
+        return { jsonBody: { ok: true, archives: await listArchives() } };
+      }
+      if (action === 'archiveSeason') {
+        const active = await getActiveSeason();
+        const seasonId = body.seasonId || (active && active.rowKey);
+        if (!seasonId) return { status: 400, jsonBody: { error: 'seasonId puuttuu.' } };
+        const result = await archiveSeason(seasonId, new Date().toISOString());
+        return { jsonBody: { ok: true, ...result } };
+      }
+      if (action === 'purgeSeason') {
+        // DESTRUCTIVE. Without confirm='purge' this is a DRY RUN → the UI shows
+        // Archive / Purge / Cancel. Purge only proceeds on the explicit confirm.
+        const seasonId = body.seasonId;
+        if (!seasonId) return { status: 400, jsonBody: { error: 'seasonId puuttuu.' } };
+        const active = await getActiveSeason();
+        const isActive = !!(active && active.rowKey === seasonId);
+        const result = await purgeSeason(seasonId, {
+          confirm: body.confirm, clearGlobals: !!body.clearGlobals, force: !!body.force, isActive,
+        });
+        return { jsonBody: { ok: !result.error, ...result } };
       }
 
       if (action === 'settleRound' || action === 'settleAll') {
