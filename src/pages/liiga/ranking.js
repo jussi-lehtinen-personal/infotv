@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Box, Typography, Stack } from "@mui/material";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
@@ -87,7 +87,6 @@ const RoundCard = ({ j }) => (
 );
 
 export default function LiigaRanking() {
-  const nav = useNavigate();
   const [params] = useSearchParams();
   // Deep-link the tab via ?tab=season (from the dashboard "Kausi päättynyt" card etc.).
   const [tab, setTab] = useState(() => (TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "live"));
