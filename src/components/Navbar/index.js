@@ -152,7 +152,8 @@ const Index = () => {
 
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
             <Box sx={sectionHeadingSx}>Shop</Box>
-            <MerchBanner />
+            <MerchBanner href="https://kiekko-ahma.ourwear.shop" title="SEURAMALLISTO" subtitle="Seuran virallinen mallisto" />
+            <MerchBanner href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma" title="AHMA FANITUOTTEET" subtitle="Näytä koko valikoima" image="/fanituotteet.png" />
           </Box>
 
           <Divider sx={dividerSx} />
@@ -268,10 +269,10 @@ const QuickTile = ({ to, icon, label }) => (
   </Box>
 );
 
-const MerchBanner = () => (
+const MerchBanner = ({ href, title, subtitle = "Näytä koko valikoima", image }) => (
   <Box
     component="a"
-    href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma"
+    href={href}
     target="_blank"
     rel="noopener noreferrer"
     sx={{
@@ -298,29 +299,31 @@ const MerchBanner = () => (
     <LuShoppingBag aria-hidden="true" size={22} style={{ position: "relative", zIndex: 1, color: "var(--color-primary)", flexShrink: 0 }} />
     <Box sx={{ position: "relative", zIndex: 1, flex: "1 1 auto", minWidth: 0 }}>
       <Box sx={{ fontSize: 14, fontWeight: "var(--gz-fw-bold)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", color: "var(--color-primary)" }}>
-        AHMA FANITUOTTEET
+        {title}
       </Box>
       <Box sx={{ display: "inline-flex", alignItems: "center", gap: "4px", mt: "2px", fontSize: "var(--gz-fs-2xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", color: "var(--gz-text-secondary)" }}>
-        <span>Näytä koko valikoima</span>
+        <span>{subtitle}</span>
         <LuChevronRight aria-hidden="true" size={14} style={{ flexShrink: 0 }} />
       </Box>
     </Box>
-    <Box
-      component="img"
-      src="/fanituotteet.png"
-      alt=""
-      aria-hidden="true"
-      sx={{
-        position: "absolute",
-        bottom: "-50px",
-        right: "-80px",
-        height: "350%",
-        width: "auto",
-        pointerEvents: "none",
-        WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%)",
-        maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%)",
-      }}
-    />
+    {image && (
+      <Box
+        component="img"
+        src={image}
+        alt=""
+        aria-hidden="true"
+        sx={{
+          position: "absolute",
+          bottom: "-50px",
+          right: "-80px",
+          height: "350%",
+          width: "auto",
+          pointerEvents: "none",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%)",
+          maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 45%, black 55%)",
+        }}
+      />
+    )}
   </Box>
 );
 
