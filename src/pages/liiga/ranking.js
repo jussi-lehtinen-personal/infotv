@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Box, Typography, Stack, ButtonBase } from "@mui/material";
-import { LuChevronRight, LuClipboardList } from "react-icons/lu";
+import { Box, Typography, Stack } from "@mui/material";
 import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
@@ -41,6 +40,51 @@ const RankTrend = ({ delta }) => {
     </Box>
   );
 };
+
+// --- All-rounds schedule (the "Kaikki jaksot" tab) ---
+const parseDate = (s) => new Date(String(s || "").replace(" ", "T"));
+const fmtDay = (s) => { const d = parseDate(s); return isNaN(d) ? "" : d.toLocaleDateString("fi-FI", { weekday: "short", day: "numeric", month: "numeric" }); };
+const fmtClock = (s) => { const d = parseDate(s); return isNaN(d) ? "" : `${String(d.getHours()).padStart(2, "0")}.${String(d.getMinutes()).padStart(2, "0")}`; };
+const fmtShort = (s) => { const d = parseDate(s); return isNaN(d) ? "" : `${d.getDate()}.${d.getMonth() + 1}.`; };
+
+const GameRow = ({ g }) => {
+  const played = g.homeGoals != null && g.awayGoals != null;
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 1.5, py: 0.85, borderTop: "1px solid var(--color-surface-divider)" }}>
+      <Box sx={{ width: 54, flexShrink: 0 }}>
+        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "text.secondary", lineHeight: 1.25, textTransform: "capitalize" }}>{fmtDay(g.date)}</Typography>
+        <Typography sx={{ fontSize: 11, color: "text.disabled", lineHeight: 1.25 }}>{fmtClock(g.date)}</Typography>
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography noWrap sx={{ fontSize: 13.5, color: "text.primary", lineHeight: 1.3 }}>{g.home} – {g.away}</Typography>
+        <Typography noWrap sx={{ fontSize: 11, color: "text.disabled", lineHeight: 1.3 }}>{g.level}</Typography>
+      </Box>
+      <Typography sx={{ fontSize: 14, fontWeight: 800, flexShrink: 0, color: played ? "text.primary" : "text.disabled" }}>
+        {played ? `${g.homeGoals}–${g.awayGoals}` : "–"}
+      </Typography>
+    </Box>
+  );
+};
+
+const RoundCard = ({ j }) => (
+  <Box sx={{ borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", overflow: "hidden" }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.3 }}>Jakso {j.no + 1}</Typography>
+        <Typography sx={{ fontSize: 12, color: "text.disabled" }}>{fmtShort(j.startDate)}–{fmtShort(j.endDate)} · {(j.games || []).length} ottelua</Typography>
+      </Box>
+      <Box sx={{ px: 1, py: 0.35, borderRadius: "999px", fontSize: 11, fontWeight: 800,
+            bgcolor: j.settled ? "rgba(var(--color-primary-rgb),0.15)" : "rgba(255,255,255,0.06)",
+            color: j.settled ? "primary.main" : "text.disabled" }}>
+        {j.settled ? "Pelattu" : "Tulossa"}
+      </Box>
+      {j.settled && j.me ? <RowValue color="primary.main">{j.me.total}</RowValue> : null}
+    </Box>
+    {(j.games || []).length === 0
+      ? <Typography sx={{ px: 1.5, pb: 1.25, fontSize: 12.5, color: "text.disabled" }}>Ei otteluita tässä jaksossa.</Typography>
+      : (j.games || []).map((g) => <GameRow key={g.gameId} g={g} />)}
+  </Box>
+);
 
 export default function LiigaRanking() {
   const nav = useNavigate();
@@ -93,25 +137,11 @@ export default function LiigaRanking() {
           <Loading />
         ) : rounds.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
-            <Typography variant="body2">Ei ratkaistuja jaksoja vielä.</Typography>
+            <Typography variant="body2">Ei jaksoja.</Typography>
           </Box>
         ) : (
-          <Stack spacing={1}>
-            {rounds.map((j) => (
-              <ButtonBase key={j.no} onClick={() => nav(`/ahmaliiga/round?round=${j.no}`)}
-                sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", textAlign: "left", p: 1.5,
-                      borderRadius: "var(--radius-item)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-                <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "rgba(var(--color-primary-rgb),0.15)" }}>
-                  <Box component={LuClipboardList} sx={{ fontSize: 19, color: "primary.main", display: "block" }} />
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography noWrap sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", lineHeight: 1.3 }}>Jakso {j.no + 1}</Typography>
-                  <Typography noWrap variant="caption" sx={{ color: "text.disabled", display: "block", lineHeight: 1.3 }}>katso mistä pisteesi tulivat</Typography>
-                </Box>
-                <RowValue color="primary.main">{j.me ? j.me.total : "—"}</RowValue>
-                <Box component={LuChevronRight} sx={{ fontSize: 18, color: "text.disabled", flexShrink: 0, display: "block" }} />
-              </ButtonBase>
-            ))}
+          <Stack spacing={1.25}>
+            {rounds.map((j) => <RoundCard key={j.no} j={j} />)}
           </Stack>
         )
       ) : !rows || loading ? (

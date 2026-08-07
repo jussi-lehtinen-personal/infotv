@@ -947,15 +947,22 @@ async function getRoundList(seasonId, userId) {
   for (const m of managers) nick[m.userId] = m.nickname;
   const out = [];
   for (const j of rounds) {
-    if (j.status !== 'settled') continue;
     const no = Number(j.rowKey);
-    const rows = await listByPartition(T.scores, `${seasonId}|${no}`);
-    const winner = rows.find((r) => Number(r.rank) === 1);
-    const meRow = userId ? rows.find((r) => r.rowKey === userId) : null;
+    const settled = j.status === 'settled';
+    let winner = null, me = null;
+    if (settled) {
+      const rows = await listByPartition(T.scores, `${seasonId}|${no}`);
+      const w = rows.find((r) => Number(r.rank) === 1);
+      winner = w ? { nickname: nick[w.rowKey] || 'Pelaaja', total: Number(w.total) || 0 } : null;
+      const meRow = userId ? rows.find((r) => r.rowKey === userId) : null;
+      me = meRow ? { total: Number(meRow.total) || 0, rank: Number(meRow.rank) || 0 } : null;
+    }
+    // Every round now carries its games (played OR upcoming) so the schedule is visible
+    // at any time — not just after a round settles.
+    const games = shapeGamesForClient(await getRoundGames(seasonId, no));
     out.push({
       no, startDate: j.startDate || '', endDate: j.endDate || '',
-      winner: winner ? { nickname: nick[winner.rowKey] || 'Pelaaja', total: Number(winner.total) || 0 } : null,
-      me: meRow ? { total: Number(meRow.total) || 0, rank: Number(meRow.rank) || 0 } : null,
+      status: j.status || 'open', settled, winner, me, games,
     });
   }
   return out.sort((a, b) => a.no - b.no);

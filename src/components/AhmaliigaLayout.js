@@ -19,7 +19,7 @@ const TABS = [
   { to: "/ahmaliiga/squad", label: "Joukkue", Icon: LuShieldCheck },
   { to: "/ahmaliiga/market", label: "Markkina", Icon: LuStore },
   { to: "/ahmaliiga/predict", label: "Veikkaus", Icon: LuGoal },
-  { to: "/ahmaliiga/ranking", label: "Ranking", Icon: LuMedal },
+  { to: "/ahmaliiga/ranking", label: "Sarja", Icon: LuMedal },
 ];
 
 // Framed square icon button + labelled pill button — copied from the box-score
