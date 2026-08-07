@@ -3,6 +3,7 @@ const { getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, li
 const { avatarUrl } = require('./blob');
 const { workerGet } = require('./worker');
 const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResults');
+const { posName } = require('./scoring');
 const { sendPush } = require('./push');
 const { envAdminIds } = require('./admin');
 
@@ -1340,6 +1341,16 @@ function extraAgesOf(season) {
   catch { return new Set(); }
 }
 
+// name→tagged position ({ posName: 'defender'|'forward'|'field'|'goalie' }) from the season's
+// player cards — the fallback source for the defender bonus when the box score has no role.
+async function buildCardPos(seasonId) {
+  const map = {};
+  for (const c of await getCards(seasonId)) {
+    if (c.kind === 'player' || c.kind === 'goalie') map[posName(c.personName || c.name || '')] = c.position || 'field';
+  }
+  return map;
+}
+
 async function computeRoundResults(seasonId, round) {
   const season = await getEntity(T.season, 'season', seasonId);
   const extraAges = extraAgesOf(season);
@@ -1348,13 +1359,14 @@ async function computeRoundResults(seasonId, round) {
   const eligible = games.filter(isElig);
   const reports = {};
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
-  const { results, reasons } = computeRoundPoints({ games, reports, extraAges });
+  const cardPos = await buildCardPos(seasonId); // name→tagged position, for the defender-bonus fallback
+  const { results, reasons } = computeRoundPoints({ games, reports, extraAges, cardPos });
   // Per-game card points too, so settlement can attribute each game to the squad
   // frozen at ITS kickoff (rolling lock).
   const perGame = {};
   for (const g of games) {
     const rep = reports[g.gameId];
-    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges }).results;
+    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges, cardPos }).results;
   }
   return { results, reasons, perGame, gameList: games, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
 }
@@ -1461,7 +1473,8 @@ async function roundProgress(seasonId, round, userId) {
   const simDate = season && season.simMode ? season.simDate : null;
   const cardsList = await getCards(seasonId);
   const cardMap = {};
-  for (const c of cardsList) cardMap[c.rowKey] = c;
+  const cardPos = {}; // name→tagged position, for the defender-bonus fallback (live)
+  for (const c of cardsList) { cardMap[c.rowKey] = c; if (c.kind === 'player' || c.kind === 'goalie') cardPos[posName(c.personName || c.name || '')] = c.position || 'field'; }
   const games = await getRoundGames(seasonId, round);
   const isPlayed = (g) => {
     const day = String(g.date || '').slice(0, 10);
@@ -1497,7 +1510,7 @@ async function roundProgress(seasonId, round, userId) {
   let livePoints = 0;
   for (const g of playedGames) {
     const rep = reports[g.gameId];
-    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges });
+    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges, cardPos });
     const eff = effectiveSquad(g, lineups, ids, captainId);
     let gPts = 0;
     for (const id of eff.ids) {
@@ -1515,7 +1528,7 @@ async function roundProgress(seasonId, round, userId) {
   // the already-fetched reports (no new box-score fetches). Combined per card across the
   // played games ("Voitto 3–1 · Tappio 0–2"), so the live Tulokset list can mirror the
   // settled breakdown mid-round.
-  const { reasons: liveReasons } = computeRoundPoints({ games: playedGames, reports, extraAges });
+  const { reasons: liveReasons } = computeRoundPoints({ games: playedGames, reports, extraAges, cardPos });
   // Prediction bonus counts once its predicted game has been played.
   const pred = await getEntity(T.predictions, `${seasonId}|${round}`, userId);
   if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {
@@ -1784,11 +1797,17 @@ async function fetchRosterPlayers(subsiteId) {
   try { pageProps = (JSON.parse(m[1]).props || {}).pageProps || {}; } catch { return []; }
   const out = [];
   for (const group of pageProps.players || []) {
-    const isGoalie = /maaliv|goalie/i.test(String(group.title || group.name || group.groupName || ''));
+    // Position from the Jopox roster group title (Maalivahdit / Puolustajat / Hyökkääjät).
+    // A skater in no specific position group → 'field' (kenttäpelaaja).
+    const gtitle = String(group.title || group.name || group.groupName || '');
+    const position = /maaliv|goalie/i.test(gtitle) ? 'goalie'
+      : /puolust/i.test(gtitle) ? 'defender'
+      : /hy[öo]kk|forward/i.test(gtitle) ? 'forward'
+      : 'field';
     for (const p of group.players || []) {
       const first = (p.personFirstname || '').trim(), last = (p.personLastname || '').trim();
       if (!first && !last) continue;
-      out.push({ name: `${last} ${first}`.trim(), isGoalie, photo: p.imagename ? `${IMAGEBANK}/${p.imagename}` : '' });
+      out.push({ name: `${last} ${first}`.trim(), isGoalie: position === 'goalie', position, photo: p.imagename ? `${IMAGEBANK}/${p.imagename}` : '' });
     }
   }
   return out;
@@ -1841,7 +1860,7 @@ async function reconcileCards(seasonId) {
       const id = 'P:' + p.name;
       if (have.has(id)) continue;
       have.add(id);
-      roster.push({ id, name: p.name, isGoalie: p.isGoalie, photo: p.photo, age, flat: (age === 'U15' && u15Flat != null), prior: priorIndex[normName(p.name)] ?? null });
+      roster.push({ id, name: p.name, isGoalie: p.isGoalie, position: p.position || 'field', photo: p.photo, age, flat: (age === 'U15' && u15Flat != null), prior: priorIndex[normName(p.name)] ?? null });
     }
   }
   // Scale to the max prior among ROSTERED (non-flat) players + any already-carded players'
@@ -1853,6 +1872,7 @@ async function reconcileCards(seasonId) {
     add.push({
       partitionKey: seasonId, rowKey: r.id, kind: r.isGoalie ? 'goalie' : 'player',
       name: r.name, sub: r.age, teamKey: '', personName: r.name, age: '',
+      position: r.position || 'field', // goalie|defender|forward|field (from the Jopox roster group)
       band: bandNameOf(price, bandP), price, ownerCount: 0, lastPts: 0, seasonPts: 0,
       photo: r.photo || '', priorForm: r.flat ? null : (r.prior ?? null),
       livePrice: price, liveTrend: '', liveRoundPts: 0, seedPrice: price, seedBand: bandNameOf(price, bandP),

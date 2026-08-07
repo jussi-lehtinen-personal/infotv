@@ -52,16 +52,31 @@ function teamGamePoints(gf, ga) {
 // `report.rosters` may be absent (older cached data / roster withheld) → []. Names are
 // "LAST First" to match player-card ids (same convention as goal/goalie scoring). ⚠️ Keep
 // IDENTICAL to the inline copy in tools/lib/model.js buildPlayerCards (validate-round-results).
-function defensePoints(report, ahmaSide, ga) {
+const posName = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+// Defensive shutout / low-GA bonus. Position is taken from the per-game box-score role
+// (OP/VP = defender) FIRST; if the box score has no role for that player, the card's tagged
+// position (cardPos, live only). Multiplier: defender ×1, field player (kenttäpelaaja) ×0.5,
+// forward/goalie ×0. WITHOUT cardPos the empty-role case scores 0 — byte-identical to the
+// pre-position behaviour, so the offline validate (validate-scoring.js) is unaffected.
+function defensePoints(report, ahmaSide, ga, cardPos) {
   const d = SCORING.defense;
-  const bonus = Number(ga) === 0 ? d.cleanSheet : Number(ga) <= d.lowGaMax ? d.lowGa : 0;
-  if (!bonus) return [];
+  const base = Number(ga) === 0 ? d.cleanSheet : Number(ga) <= d.lowGaMax ? d.lowGa : 0;
+  if (!base) return [];
   const side = report && report.rosters ? report.rosters[ahmaSide] : null;
   const out = [];
   for (const p of (side && side.players) || []) {
-    if (!d.roles.includes(p.role)) continue;
     const name = `${p.last || ""} ${p.first || ""}`.trim();
-    if (name) out.push({ name, pts: bonus });
+    if (!name) continue;
+    const role = p.role || "";
+    let mult;
+    if (d.roles.includes(role)) mult = 1;         // OP / VP defender (from the box score)
+    else if (role) mult = 0;                      // any other explicit role → forward/goalie
+    else {                                        // no box-score role → fall back to the card tag
+      const pos = cardPos ? cardPos[posName(name)] : null;
+      mult = pos === "defender" ? 1 : pos === "field" ? 0.5 : 0;
+    }
+    if (mult > 0) out.push({ name, pts: base * mult });
   }
   return out;
 }
@@ -100,4 +115,4 @@ function goaliePoints(report, ctx) {
   return { name: primary, pts, pct, won, cs, shots, saves: S };
 }
 
-module.exports = { SCORING, teamGamePoints, goaliePoints, defensePoints, clockSec };
+module.exports = { SCORING, teamGamePoints, goaliePoints, defensePoints, posName, clockSec };

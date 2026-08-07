@@ -58,7 +58,7 @@ function playerReason(d) {
 // player eligibility for a specific test (e.g. the U15 team included as individual
 // cards for a replay). Default: only PLAYER_AGES (U18+). Team scoring is unaffected.
 // Returns { results: { cardId: pts }, reasons: { cardId: reasonStr } }.
-function computeRoundPoints({ games, reports, extraAges }) {
+function computeRoundPoints({ games, reports, extraAges, cardPos }) {
   reports = reports || {};
   const eligible = (tk) => isPlayerEligible(tk) || !!(extraAges && extraAges.has(String(tk).split(" ")[0]));
   const results = {};
@@ -91,7 +91,7 @@ function computeRoundPoints({ games, reports, extraAges }) {
     if (gk) { add("P:" + gk.name, gk.pts); pd("P:" + gk.name).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }
     // U12: defender bonus (position from the box-score roster) — a defenceman earns from
     // keeping goals against down even without scoring. No-op where positions are untagged.
-    for (const dp of defensePoints(r, ahmaSide, ga)) { add("P:" + dp.name, dp.pts); pd("P:" + dp.name).def = (pd("P:" + dp.name).def || 0) + dp.pts; }
+    for (const dp of defensePoints(r, ahmaSide, ga, cardPos)) { add("P:" + dp.name, dp.pts); pd("P:" + dp.name).def = (pd("P:" + dp.name).def || 0) + dp.pts; }
   }
 
   for (const id in results) results[id] = Math.round(results[id] * 10) / 10;
