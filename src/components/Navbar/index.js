@@ -281,6 +281,7 @@ const MerchBanner = ({ href, title, subtitle = "Näytä koko valikoima", image }
       alignItems: "center",
       gap: "14px",
       width: "100%",
+      boxSizing: "border-box", // no global border-box/CssBaseline → width:100% + padding would overflow
       minHeight: 80,
       padding: "14px 18px",
       borderRadius: "var(--radius-item)",
