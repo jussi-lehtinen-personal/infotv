@@ -3,6 +3,20 @@ import React, { useEffect, useState } from "react";
 // Slim bar shown when a new app version is installed and waiting. Tapping
 // "Päivitä" tells the waiting service worker to take over (SKIP_WAITING),
 // which fires controllerchange in serviceWorkerRegistration and reloads.
+// Signage screens (/infotv/*) run unattended on a lobby TV — nobody can tap "Päivitä",
+// so the bar would sit there forever. On those routes we apply the update automatically.
+const isSignage = () => typeof window !== "undefined" && window.location.pathname.startsWith("/infotv");
+
+const applyUpdate = (reg) => {
+  const waiting = reg && reg.waiting;
+  if (waiting) {
+    waiting.postMessage({ type: "SKIP_WAITING" });
+    setTimeout(() => window.location.reload(), 2500); // fallback if controllerchange doesn't fire
+  } else {
+    window.location.reload();
+  }
+};
+
 export const UpdatePrompt = () => {
   const [reg, setReg] = useState(null);
   const [updating, setUpdating] = useState(false);
@@ -15,18 +29,14 @@ export const UpdatePrompt = () => {
     return () => window.removeEventListener("ahma:sw-update", onUpdate);
   }, []);
 
-  if (!reg) return null;
+  // Signage: auto-apply silently (no bar, no tap needed).
+  useEffect(() => { if (reg && isSignage()) applyUpdate(reg); }, [reg]);
+
+  if (!reg || isSignage()) return null;
 
   const doUpdate = () => {
     setUpdating(true);
-    const waiting = reg.waiting;
-    if (waiting) {
-      waiting.postMessage({ type: "SKIP_WAITING" });
-      // Fallback reload in case controllerchange doesn't fire.
-      setTimeout(() => window.location.reload(), 2500);
-    } else {
-      window.location.reload();
-    }
+    applyUpdate(reg);
   };
 
   return (
