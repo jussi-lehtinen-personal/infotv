@@ -127,14 +127,13 @@
 }
 
 /* Links inherit the surrounding text colour app-wide → kill the browser default
-   blue link colour (+ :visited purple / :hover blue) everywhere. Any link that
-   WANTS a colour sets it explicitly (sx / inline / a component class) and wins on
-   specificity, so intentional coloured links are unaffected. */
-a,
-a:link,
-a:visited,
-a:hover,
-a:active {
+   blue link colour (+ :visited purple) everywhere. Just `a` (specificity 0,0,1):
+   an AUTHOR rule beats the UA's `a:link/:visited` by cascade ORIGIN regardless of
+   specificity, so the blue dies — while staying BELOW any sx/inline colour (0,1,0),
+   so intentional coloured links (e.g. Box component={Link} sx={{color}}) keep their
+   colour. (Do NOT re-add a:link/:hover/:active here — the pseudo-class bumps
+   specificity to 0,1,1 and overrides sx, which turned link cards' text invisible.) */
+a {
   color: inherit;
 }
 

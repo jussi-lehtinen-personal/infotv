@@ -46,7 +46,10 @@ export default function AhmaliigaBetaPromo() {
             // design language (the full-orange fill was far too loud on the home page).
             background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.16) 0%, rgba(var(--color-primary-rgb),0.05) 55%, var(--color-surface, rgba(255,255,255,0.03)) 100%)",
             border: "1px solid rgba(var(--color-primary-rgb),0.4)", boxShadow: "var(--shadow-card, 0 14px 34px rgba(0,0,0,0.35))" }}>
-      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "primary.main" }}>
+      <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
+        sx={{ position: "absolute", top: 14, right: 14, height: 30, width: "auto", opacity: 0.95, pointerEvents: "none",
+              filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.35))" }} />
+      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "primary.main", pr: 8 }}>
         Ahmaliiga · pre-season beta
       </Typography>
       <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
