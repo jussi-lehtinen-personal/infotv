@@ -152,7 +152,7 @@ const Index = () => {
 
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
             <Box sx={sectionHeadingSx}>Shop</Box>
-            <MerchBanner href="https://kiekko-ahma.ourwear.shop" title="SEURAMALLISTO" subtitle="Seuran virallinen mallisto" />
+            <MerchBanner href="https://kiekko-ahma.ourwear.shop" title="SEURAMALLISTO" subtitle="Seuran virallinen mallisto" image="/seuramallisto.webp" />
             <MerchBanner href="https://www.tiimituote.fi/c/muiden-tiimituotteet/kiekko-ahma" title="AHMA FANITUOTTEET" subtitle="Näytä koko valikoima" image="/fanituotteet.png" />
           </Box>
 
