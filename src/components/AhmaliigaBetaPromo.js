@@ -40,41 +40,40 @@ export default function AhmaliigaBetaPromo() {
   const cd = countdown(state.startAt);
   return (
     <Box component={Link} to="/ahmaliiga" aria-label="Ahmaliiga esikausibeta — siirry"
-      sx={{ display: "block", textDecoration: "none", borderRadius: "var(--radius-card)", overflow: "hidden",
-            position: "relative", p: 2.25, color: "#fff",
-            // Dark glass card with a SUBTLE orange tint + accent border — matches the app's
-            // design language (the full-orange fill was far too loud on the home page).
+      sx={{ display: "flex", alignItems: "center", gap: 1.75, textDecoration: "none",
+            borderRadius: "var(--radius-card)", overflow: "hidden", position: "relative", p: 2, color: "#fff",
+            // Dark glass card with a SUBTLE orange tint + accent border (matches the app).
             background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.16) 0%, rgba(var(--color-primary-rgb),0.05) 55%, var(--color-surface, rgba(255,255,255,0.03)) 100%)",
             border: "1px solid rgba(var(--color-primary-rgb),0.4)", boxShadow: "var(--shadow-card, 0 14px 34px rgba(0,0,0,0.35))" }}>
+      {/* Big Ahmaliiga logo on the LEFT (near-full badge height). */}
       <Box component="img" src="/ahmaliiga_logo.webp" alt="Ahmaliiga"
-        sx={{ position: "absolute", top: 14, right: 14, height: 30, width: "auto", opacity: 0.95, pointerEvents: "none",
-              filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.35))" }} />
-      <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "primary.main", pr: 8 }}>
-        Ahmaliiga · pre-season beta
-      </Typography>
-      <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-            fontSize: "clamp(28px,7.5vw,40px)", lineHeight: 1, mt: 0.5 }}>
-        Pre-season alkaa pian
-      </Typography>
+        sx={{ flexShrink: 0, width: "clamp(90px, 27vw, 132px)", height: "auto",
+              filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.4))" }} />
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.5 }}>
-        <Box sx={{ px: 1.75, py: 1, borderRadius: "var(--radius-item)", bgcolor: "rgba(0,0,0,0.22)", textAlign: "center", flexShrink: 0 }}>
-          <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 30, lineHeight: 1 }}>{cd || "pian"}</Typography>
-          <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>aikaa jäljellä</Typography>
-        </Box>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: 13.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5 }}>
-            <LuClock size={13} /> Avautuu {whenLabel(state.startAt)}
-          </Typography>
-          <Typography sx={{ fontSize: 12.5, opacity: 0.92, mt: 0.4, lineHeight: 1.4 }}>
-            Kokoa unelmajoukkueesi Ahma-pelaajista ja -joukkueista. Katso jaksot ja mukana olevat joukkueet →
-          </Typography>
-        </Box>
-      </Box>
+      {/* Texts + button on the RIGHT. */}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "primary.main" }}>
+          Ahmaliiga · pre-season beta
+        </Typography>
+        <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+              fontSize: "clamp(22px,6.2vw,30px)", lineHeight: 1.02, mt: 0.4 }}>
+          Pre-season alkaa pian
+        </Typography>
 
-      <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 1.75, px: 1.75, py: 0.9, borderRadius: "999px",
-            bgcolor: "#fff", color: "#7a2f0c", fontSize: 13, fontWeight: 800 }}>
-        Katso lisää <LuArrowRight size={15} />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1.1, flexWrap: "wrap" }}>
+          <Box sx={{ px: 1.4, py: 0.7, borderRadius: "var(--radius-item)", bgcolor: "rgba(0,0,0,0.24)", textAlign: "center", flexShrink: 0 }}>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 24, lineHeight: 1 }}>{cd || "pian"}</Typography>
+            <Typography sx={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>aikaa jäljellä</Typography>
+          </Box>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+            <LuClock size={13} style={{ flexShrink: 0 }} /> Avautuu {whenLabel(state.startAt)}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 1.4, px: 1.6, py: 0.8, borderRadius: "999px",
+              bgcolor: "#fff", color: "#7a2f0c", fontSize: 13, fontWeight: 800 }}>
+          Katso lisää <LuArrowRight size={15} />
+        </Box>
       </Box>
     </Box>
   );
