@@ -60,19 +60,19 @@ export default function AhmaliigaBetaPromo() {
           Pre-season alkaa pian
         </Typography>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1.1, flexWrap: "wrap" }}>
-          <Box sx={{ px: 1.4, py: 0.7, borderRadius: "var(--radius-item)", bgcolor: "rgba(0,0,0,0.24)", textAlign: "center", flexShrink: 0 }}>
-            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 24, lineHeight: 1 }}>{cd || "pian"}</Typography>
-            <Typography sx={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>aikaa jäljellä</Typography>
-          </Box>
-          <Typography sx={{ fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
-            <LuClock size={13} style={{ flexShrink: 0 }} /> Avautuu {whenLabel(state.startAt)}
-          </Typography>
-        </Box>
+        <Typography sx={{ fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, mt: 0.6, opacity: 0.95 }}>
+          <LuClock size={13} style={{ flexShrink: 0 }} /> Avautuu {whenLabel(state.startAt)}
+        </Typography>
 
-        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 1.4, px: 1.6, py: 0.8, borderRadius: "999px",
-              bgcolor: "#fff", color: "#7a2f0c", fontSize: 13, fontWeight: 800 }}>
-          Katso lisää <LuArrowRight size={15} />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1, flexWrap: "wrap" }}>
+          <Box sx={{ px: 1.4, py: 0.7, borderRadius: "var(--radius-item)", bgcolor: "rgba(0,0,0,0.24)", textAlign: "center", flexShrink: 0 }}>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1 }}>{cd || "pian"}</Typography>
+            <Typography sx={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>aikaa jäljellä</Typography>
+          </Box>
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1.6, py: 0.8, borderRadius: "999px",
+                bgcolor: "#fff", color: "#7a2f0c", fontSize: 13, fontWeight: 800 }}>
+            Katso lisää <LuArrowRight size={15} />
+          </Box>
         </Box>
       </Box>
     </Box>

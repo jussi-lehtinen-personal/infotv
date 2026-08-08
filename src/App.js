@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import {
     BrowserRouter as Router,
     Routes,
@@ -8,7 +9,6 @@ import { muiTheme } from "./theme/muiTheme";
 import './App.css';
 
 import Home from "./pages";
-import Schedule from "./pages/schedule";
 import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
 import ThisWeek from "./pages/this_week";
@@ -63,12 +63,18 @@ import LiigaNotifications from "./pages/liiga/notifications";
 import { LiigaStub } from "./pages/liiga/stub";
 import { LuUser, LuAward } from "react-icons/lu";
 
+// Lazy — the ONLY module importing bootstrap/dist/css/bootstrap.css, which bled globally
+// (its `a:hover{color:#0056b3}` turned EVERY link's text blue on hover). Lazy-loading keeps
+// Bootstrap out of the app for normal use; it only arrives if /schedule is actually opened.
+const Schedule = lazy(() => import("./pages/schedule"));
+
 function App() {
   return (
     <ThemeProvider theme={muiTheme}>
     <Router>
       <UpdatePrompt />
       <ErrorBoundary>
+        <Suspense fallback={null}>
         <Routes>
             <Route
                 path="/schedule"
@@ -168,6 +174,7 @@ function App() {
                 element={<SignUp />}
             />
         </Routes>
+        </Suspense>
       </ErrorBoundary>
     </Router>
     </ThemeProvider>
