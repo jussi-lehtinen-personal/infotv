@@ -29,7 +29,8 @@ try {
 
 const graph = require('../api/src/lib/graph');
 
-const MAILBOX = process.env.TOIMISTO_ROOM_UPN || '';
+const mbArg = process.argv.indexOf('--mailbox');
+const MAILBOX = (mbArg !== -1 && process.argv[mbArg + 1]) || process.env.TOIMISTO_ROOM_UPN || '';
 const pad = (n) => String(n).padStart(2, '0');
 const dstr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 

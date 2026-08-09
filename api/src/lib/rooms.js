@@ -9,8 +9,10 @@ const MAX_DURATION_MIN = 180; // 3 h
 // Outlook). See api/src/lib/reservationsM365.js. `mailbox` = the room UPN, from SWA
 // app settings (TOIMISTO_ROOM_UPN); empty until the M365 side is wired → endpoints
 // return a clear "not configured" error rather than failing obscurely.
+// oheistila: `mailbox` set now (for the Table→365 migration to target) but still
+// Table-backed until the data is copied + verified; then flip to backend:'m365'.
 const ROOMS = [
-  { id: 'oheistila', name: 'Oheistila', startHour: 8, endHour: 22 },
+  { id: 'oheistila', name: 'Oheistila', startHour: 8, endHour: 22, mailbox: process.env.OHEISTILA_ROOM_UPN || '' },
   { id: 'toimisto', name: 'Toimisto (Wareena)', startHour: 8, endHour: 22, backend: 'm365', mailbox: process.env.TOIMISTO_ROOM_UPN || '' },
 ];
 
