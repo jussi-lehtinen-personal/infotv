@@ -1853,7 +1853,7 @@ async function reconcileCards(seasonId) {
   // player and compress everyone to the floor. So the best rostered player reaches the ceiling.
   const rosterAges = Object.keys(AGE_SUBSITE).filter((a) => (isPlayerEligible(a) || playerAges.includes(a)) && gameAges.has(a));
   const existingById = new Map(existing.map((c) => [c.rowKey, c]));
-  const posUpdates = []; // existing cards whose Jopox pelipaikka tag changed (position-ONLY)
+  const liveUpdates = []; // existing cards whose Jopox pelipaikka / team (sub) changed — DISPLAY/tag only
   const roster = []; // {id, name, isGoalie, photo, age, flat, prior}
   for (const age of rosterAges) {
     let list = [];
@@ -1861,15 +1861,22 @@ async function reconcileCards(seasonId) {
     for (const p of list) {
       const id = 'P:' + p.name;
       if (have.has(id)) {
-        // Existing card: never touch price/history/squad — but keep the pelipaikka tag
-        // LIVE from Jopox, so a position tagged (or changed) AFTER the seed, even
-        // post-launch, propagates to the card (display + defender-bonus fallback). Only
-        // the `position` field changes; full-entity Replace so nothing else is lost.
+        // Existing card: never touch price/history/squad — but keep the pelipaikka AND the
+        // team (`sub`) LIVE from Jopox, so a tagged position or a team move (e.g. U18→U20)
+        // AFTER the seed, even post-launch, propagates to the card. Scoring is NAME-based
+        // (roundResults keys on "P:"+name, ignores team) → a move needs no card change for
+        // points; this is display/tag only. A player is in exactly ONE Jopox roster, so
+        // `age` here is their current team. Full-entity Replace so nothing else is lost.
         const cur = existingById.get(id);
-        const newPos = p.position || 'field';
-        if (cur && (cur.position || 'field') !== newPos) {
-          const { etag, timestamp, ...clean } = cur;
-          posUpdates.push({ ...clean, position: newPos });
+        if (cur) {
+          const patch = {};
+          const newPos = p.position || 'field';
+          if ((cur.position || 'field') !== newPos) patch.position = newPos;
+          if ((cur.sub || '') !== age) patch.sub = age;
+          if (Object.keys(patch).length) {
+            const { etag, timestamp, ...clean } = cur;
+            liveUpdates.push({ ...clean, ...patch });
+          }
         }
         continue;
       }
@@ -1920,12 +1927,12 @@ async function reconcileCards(seasonId) {
       price: c.price, band: c.band, pts: 0, ownerCount: 0, ownerPct: 0,
     }));
   }
-  // Position-only refresh of existing cards (no history point — economy is untouched).
-  if (posUpdates.length) await upsertBatch(T.cards, posUpdates);
+  // Display-only refresh of existing cards (pelipaikka + team) — no history point, economy untouched.
+  if (liveUpdates.length) await upsertBatch(T.cards, liveUpdates);
   return {
     addedPlayers: add.filter((c) => c.kind !== 'team').length,
     addedTeams: add.filter((c) => c.kind === 'team').length,
-    positionUpdates: posUpdates.length,
+    liveUpdates: liveUpdates.length,
   };
 }
 
