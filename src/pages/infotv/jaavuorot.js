@@ -12,6 +12,29 @@ const GAME_COLOR = "#2F7FD6"; // normal blue for game reservations (Tilapäisvar
 const AHMA_COLOR = ORANGE; // Kiekko-Ahma's own shifts
 const OTHER_COLOR = "#474E5A"; // muted grey for everyone else
 
+// Per-week last-good cache. Signage is loaded by IDID as a fresh document each
+// rotation, so an outage would otherwise blank the calendar; localStorage survives
+// full reloads and offline. Keyed by the week's Monday so weeks never overwrite.
+const LS_PREFIX = "ahma.infotv.schedule.v1.";
+const readCache = (key) => {
+  try { const r = JSON.parse(localStorage.getItem(LS_PREFIX + key)); return Array.isArray(r) ? r : null; }
+  catch { return null; }
+};
+// Save this week's last-good; prune weeks >3 weeks away so a TV running for years
+// keeps only a handful of entries.
+const writeCache = (key, list) => {
+  try {
+    localStorage.setItem(LS_PREFIX + key, JSON.stringify(list));
+    const keep = moment(key, "YYYY-MM-DD");
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(LS_PREFIX) && Math.abs(moment(k.slice(LS_PREFIX.length), "YYYY-MM-DD").diff(keep, "days")) > 21) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch { /* quota / private */ }
+};
+
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const isAhma = (t) => /kiekko.?ahma/i.test(t || "") || /(^|\s)KA[\s/]/i.test(t || "");
 const toMin = (s) => { const m = moment(s, "YYYY-MM-DD HH:mm"); return m.hours() * 60 + m.minutes(); };
@@ -56,10 +79,23 @@ function InfoTvJaavuorot() {
 
   useEffect(() => {
     let cancelled = false;
+    // Paint this week's last-good instantly (null → "Ladataan…"), then revalidate.
+    const cached = readCache(mondayStr);
+    setItems(cached);
+    setError(false);
     fetch(`/api/schedule?date=${mondayStr}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data) => { if (!cancelled) setItems(Array.isArray(data) ? data : []); })
-      .catch(() => { if (!cancelled) { setError(true); setItems([]); } });
+      .then((data) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setItems(list);
+        writeCache(mondayStr, list);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Only surface an error when there's no cached week to fall back on.
+        if (cached == null) { setError(true); setItems([]); }
+      });
     return () => { cancelled = true; };
   }, [mondayStr]);
 

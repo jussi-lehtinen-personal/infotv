@@ -78,7 +78,9 @@ registerRoute(
   })
 );
 
-// API: Schedule data - NetworkFirst
+// API: Schedule data - NetworkFirst. Long fallback window so a lobby signage TV
+// that loses the network for a night still serves the last-known week (the infotv
+// jaavuorot page also keeps a per-week last-good in localStorage as a second layer).
 registerRoute(
   ({ url }) => url.pathname.startsWith('/api/schedule'),
   new NetworkFirst({
@@ -86,8 +88,8 @@ registerRoute(
     networkTimeoutSeconds: 5,
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 5,
-        maxAgeSeconds: 60 * 60, // 1 hour
+        maxEntries: 8,
+        maxAgeSeconds: 12 * 60 * 60, // 12 h offline fallback (signage)
       }),
     ],
   })

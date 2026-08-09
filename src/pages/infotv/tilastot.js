@@ -7,6 +7,15 @@ import { getAhmaliigaRanking, getAhmaliigaState } from "../../lib/ahmaliigaApi";
 
 const MEDAL = [YELLOW, "#D8DBE0", "#C88B4A"];
 
+// Last-good cache — IDID reloads this page as a fresh document each rotation, so an
+// outage would blank the leaderboard; localStorage survives reloads + offline.
+const LS_KEY = "ahma.infotv.tilastot.v1";
+const readCache = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; } };
+const persist = (patch) => {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ ...(readCache() || {}), ...patch })); }
+  catch { /* quota / private */ }
+};
+
 const Crown = ({ className, style }) => (
   <svg className={className} style={style} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M2.6 7.2l4.2 3.4 4-6.2a1.4 1.4 0 0 1 2.4 0l4 6.2 4.2-3.4a1 1 0 0 1 1.6 1l-2.2 9.2a1 1 0 0 1-1 .8H5.2a1 1 0 0 1-1-.8L2 8.2a1 1 0 0 1 1.6-1z" />
@@ -50,24 +59,30 @@ function PodCard({ r, idx }) {
 }
 
 export default function InfoTvTilastot() {
-  const [rows, setRows] = useState(null);
-  const [meta, setMeta] = useState("Kauden kärki");
+  const [rows, setRows] = useState(() => { const c = readCache(); return Array.isArray(c && c.rows) ? c.rows : null; });
+  const [meta, setMeta] = useState(() => { const c = readCache(); return (c && c.meta) || "Kauden kärki"; });
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const hadCache = rows !== null; // LS-hydrated at mount → don't error over it
     getAhmaliigaState().then((s) => {
       if (cancelled || !s || s.active === false) return;
       const parts = [];
       if (s.season) parts.push(`Kausi ${s.season}`);
       const roundNo = s.currentRound && typeof s.currentRound.no === "number" ? s.currentRound.no + 1 : null;
       if (roundNo != null && s.roundCount) parts.push(`Jakso ${roundNo}/${s.roundCount}`);
-      if (parts.length) setMeta(parts.join(" · "));
+      if (parts.length) { const m = parts.join(" · "); setMeta(m); persist({ meta: m }); }
     }).catch(() => {});
     getAhmaliigaRanking("season")
-      .then((d) => { if (!cancelled) setRows(Array.isArray(d.rows) ? d.rows : []); })
-      .catch(() => { if (!cancelled) { setError(true); setRows([]); } });
+      .then((d) => {
+        if (cancelled) return;
+        const list = Array.isArray(d.rows) ? d.rows : [];
+        setRows(list); persist({ rows: list });
+      })
+      .catch(() => { if (!cancelled && !hadCache) { setError(true); setRows([]); } });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const all = rows || [];
