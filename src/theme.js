@@ -4,8 +4,8 @@
  * `themeCSS` used to carry a set of utility classes (.page-root, .card,
  * .heading-*), but every consumer moved to MUI or the `ui-*` classes in
  * index.css, so the utility body is gone. The export is kept as an (empty)
- * prefix for the remaining `const css = \`${themeCSS}\n...\`` pages
- * (gamezone, Navbar, this_week, ads, game_ads) until they migrate too.
+ * prefix for the remaining `const css = \`${themeCSS}\n...\`` canvas pages
+ * (ads, game_ads) until they migrate too.
  *
  * CSS variables live in src/index.css :root.
  */

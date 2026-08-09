@@ -11,7 +11,6 @@ import './App.css';
 import Home from "./pages";
 import Blogs from "./pages/blogs";
 import SignUp from "./pages/signup";
-import ThisWeek from "./pages/this_week";
 import Gamezone from "./pages/gamezone";
 import GamezoneSchedule from "./pages/gamezone_schedule";
 import BoxScore from "./pages/game";
@@ -36,7 +35,6 @@ import Stats from "./pages/stats";
 import Admin from "./pages/admin";
 import AdminUsers from "./pages/admin_users";
 import AdminBackups from "./pages/admin_backups";
-import NextHomeGame from "./pages/next_home_game";
 import InfoTvHub from "./pages/infotv";
 import InfoTvOttelut from "./pages/infotv/ottelut";
 import InfoTvJaavuorot from "./pages/infotv/jaavuorot";
@@ -79,14 +77,6 @@ function App() {
             <Route
                 path="/schedule"
                 element={<Schedule />}
-            />
-            <Route
-                path="/this_week"
-                element={<ThisWeek />}
-            />
-            <Route
-                path="/week/:timestamp"
-                element={<ThisWeek />}
             />
             <Route element={<GamezoneLayout />}>
                 <Route exact path="/" element={<Home />} />
@@ -156,11 +146,9 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/backups" element={<AdminBackups />} />
-            <Route path="/next_home_game" element={<NextHomeGame />} />
 
             {/* InfoTV signage pages (lobby TV, 1920x1080, fullscreen no-scroll).
-                New self-contained set under src/pages/infotv; the old this_week /
-                next_home_game stay until these are verified in place. */}
+                Self-contained set under src/pages/infotv, accessed by direct URI. */}
             <Route path="/infotv" element={<InfoTvHub />} />
             <Route path="/infotv/ottelut" element={<InfoTvOttelut />} />
             <Route path="/infotv/jaavuorot" element={<InfoTvJaavuorot />} />

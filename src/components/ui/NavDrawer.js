@@ -39,7 +39,7 @@ const NAV_SECTIONS = [
   // Seura & sisältö
   [
     { to: "/news", label: "Uutiset", Icon: LuNewspaper },
-    { to: "/next_home_game", label: "Edustus", Icon: LuShield },
+    { to: "/infotv/kotipeli", label: "Edustus", Icon: LuShield },
     { to: "/ads", label: "Mainokset", Icon: LuMegaphone },
   ],
   // Yhteystiedot & tuki
