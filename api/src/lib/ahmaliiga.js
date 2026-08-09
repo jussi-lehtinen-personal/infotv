@@ -1352,6 +1352,28 @@ async function buildCardPos(seasonId) {
   return map;
 }
 
+// Manual card override (admin) — force a player card's position/kind against the Jopox
+// roster, e.g. a goalie Jopox lists in a field group. `posOverride` sticks (reconcile
+// prefers it), so a later reconcile never reverts it. Matches by name words (all present,
+// case/order-insensitive on the words) → must be exactly one card.
+async function overrideCardPosition(seasonId, query, { position, kind } = {}) {
+  const words = posName(query).split(' ').filter(Boolean);
+  if (!words.length) return { ok: false, error: 'name puuttuu.' };
+  const matches = (await getCards(seasonId)).filter((c) => {
+    if (c.kind === 'team') return false;
+    const nm = posName(c.personName || c.name || '');
+    return words.every((w) => nm.includes(w));
+  });
+  if (matches.length !== 1) {
+    return { ok: false, error: `"${query}" → ${matches.length} osumaa`, candidates: matches.map((c) => c.name) };
+  }
+  const { etag, timestamp, ...clean } = matches[0];
+  if (position) { clean.position = position; clean.posOverride = position; }
+  if (kind) clean.kind = kind;
+  await upsertEntity(T.cards, clean);
+  return { ok: true, id: clean.rowKey, name: clean.name, kind: clean.kind, position: clean.position, posOverride: clean.posOverride };
+}
+
 // Per-game FROZEN defender-bonus position resolver. On the LIVE beta a played game's
 // fallback position is LOCKED the first time the game is observed as played — so a
 // later Jopox re-tag never rewrites an already-played game's points (a manager's shown
@@ -1922,7 +1944,9 @@ async function reconcileCards(seasonId) {
         const cur = existingById.get(id);
         if (cur) {
           const patch = {};
-          const newPos = p.position || 'field';
+          // A manual override (posOverride, set via the admin overrideCard action) wins
+          // over the Jopox roster — e.g. a goalie miscategorised as a field player.
+          const newPos = cur.posOverride || (p.position || 'field');
           if ((cur.position || 'field') !== newPos) patch.position = newPos;
           if ((cur.sub || '') !== age) patch.sub = age;
           if (Object.keys(patch).length) {
@@ -2519,6 +2543,6 @@ module.exports = {
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, reconcileCards, freezeGamePositions, computeRoundResults, validateRoundResults, roundProgress,
+  syncSeasonGames, reconcileCards, overrideCardPosition, freezeGamePositions, computeRoundResults, validateRoundResults, roundProgress,
   ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,
 };
