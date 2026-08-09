@@ -1852,13 +1852,27 @@ async function reconcileCards(seasonId) {
   // (non-flat) players — NOT a global prevSeason max, which could belong to a non-rostered
   // player and compress everyone to the floor. So the best rostered player reaches the ceiling.
   const rosterAges = Object.keys(AGE_SUBSITE).filter((a) => (isPlayerEligible(a) || playerAges.includes(a)) && gameAges.has(a));
+  const existingById = new Map(existing.map((c) => [c.rowKey, c]));
+  const posUpdates = []; // existing cards whose Jopox pelipaikka tag changed (position-ONLY)
   const roster = []; // {id, name, isGoalie, photo, age, flat, prior}
   for (const age of rosterAges) {
     let list = [];
     try { list = await fetchRosterPlayers(AGE_SUBSITE[age]); } catch { continue; }
     for (const p of list) {
       const id = 'P:' + p.name;
-      if (have.has(id)) continue;
+      if (have.has(id)) {
+        // Existing card: never touch price/history/squad — but keep the pelipaikka tag
+        // LIVE from Jopox, so a position tagged (or changed) AFTER the seed, even
+        // post-launch, propagates to the card (display + defender-bonus fallback). Only
+        // the `position` field changes; full-entity Replace so nothing else is lost.
+        const cur = existingById.get(id);
+        const newPos = p.position || 'field';
+        if (cur && (cur.position || 'field') !== newPos) {
+          const { etag, timestamp, ...clean } = cur;
+          posUpdates.push({ ...clean, position: newPos });
+        }
+        continue;
+      }
       have.add(id);
       roster.push({ id, name: p.name, isGoalie: p.isGoalie, position: p.position || 'field', photo: p.photo, age, flat: (age === 'U15' && u15Flat != null), prior: priorIndex[normName(p.name)] ?? null });
     }
@@ -1906,7 +1920,13 @@ async function reconcileCards(seasonId) {
       price: c.price, band: c.band, pts: 0, ownerCount: 0, ownerPct: 0,
     }));
   }
-  return { addedPlayers: add.filter((c) => c.kind !== 'team').length, addedTeams: add.filter((c) => c.kind === 'team').length };
+  // Position-only refresh of existing cards (no history point — economy is untouched).
+  if (posUpdates.length) await upsertBatch(T.cards, posUpdates);
+  return {
+    addedPlayers: add.filter((c) => c.kind !== 'team').length,
+    addedTeams: add.filter((c) => c.kind === 'team').length,
+    positionUpdates: posUpdates.length,
+  };
 }
 
 // Enrich player/goalie cards with a photo from the Jopox rosters. Matches each player
