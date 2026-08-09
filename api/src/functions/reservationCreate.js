@@ -1,19 +1,15 @@
 const { app } = require('@azure/functions');
-const { randomUUID } = require('crypto');
 const { requireAuth } = require('../lib/auth');
-const { ensureTables, getEntity, transact } = require('../lib/tables');
+const { ensureTables, getEntity } = require('../lib/tables');
 const { isAdmin, parseRoles, coachTeams } = require('../lib/admin');
-const {
-  getRoom, slotToMinutes, minutesToSlot, minutesToRowKey, bookingSlots,
-} = require('../lib/rooms');
+const { getRoom, slotToMinutes, bookingSlots } = require('../lib/rooms');
 const { graphConfigured } = require('../lib/graph');
 const m365 = require('../lib/reservationsM365');
 
-// POST /api/reservations — book a room for a chosen duration (30 min .. 3 h) as
-// consecutive 30-min slots. Only valmentaja/toimihenkilo (for their team) or an
-// admin (any/blank team) may book. All slots share one PartitionKey (room|date)
-// and are created in a single transactional batch → atomic; if any slot is taken
-// the whole booking fails with 409.
+// POST /api/reservations/create — book a room for a chosen duration (15 min .. 3 h).
+// Only valmentaja/toimihenkilo (for their team) or an admin (any/blank team) may
+// book. Rooms are Microsoft 365 room-mailbox calendars (Graph); an overlapping
+// time fails with 409. (Users/roles still come from the Users table.)
 app.http('reservationCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -38,7 +34,7 @@ app.http('reservationCreate', {
       const durationMin = Number(body.durationMin);
       const startMinutes = slotToMinutes(body.slot);
       const description = String(body.description || '').trim().slice(0, 200);
-      let teamKey = String(body.teamKey || '').trim();
+      const teamKey = String(body.teamKey || '').trim();
 
       if (!room) return { status: 400, jsonBody: { error: 'Tuntematon tila.' } };
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { status: 400, jsonBody: { error: 'Virheellinen päivä.' } };
@@ -48,67 +44,22 @@ app.http('reservationCreate', {
 
       // Team: coaches may only book for a team they coach; admin may pick any team
       // (or leave it blank).
-      if (!admin) {
-        if (!teamKey || !teams.includes(teamKey)) {
-          return { status: 403, jsonBody: { error: 'Et voi varata tälle joukkueelle.' } };
-        }
+      if (!admin && (!teamKey || !teams.includes(teamKey))) {
+        return { status: 403, jsonBody: { error: 'Et voi varata tälle joukkueelle.' } };
       }
       const teamName = teamKey; // teamKey is already the display name (e.g. "U13 Musta")
       const ownerName = (profile && profile.nickname) || 'Käyttäjä';
 
-      // M365 room: create the event in the room-mailbox calendar (Graph) instead of
-      // the Reservations table. Same booking shape back.
-      if (room.backend === 'm365') {
-        if (!graphConfigured()) return { status: 501, jsonBody: { error: 'Toimiston kalenteria ei ole vielä konfiguroitu.' } };
-        try {
-          const result = await m365.createReservation(room, {
-            date, startMinutes, durationMin, teamKey, teamName, ownerName, ownerUserId: callerId, description,
-          });
-          return { jsonBody: result };
-        } catch (e) {
-          if (e && e.status) return { status: e.status, jsonBody: { error: e.message } };
-          throw e;
-        }
-      }
-
-      const bookingId = randomUUID();
-      const now = new Date().toISOString();
-      const pk = `${room.id}|${date}`;
-      const startSlot = minutesToSlot(startMinutes);
-      const endSlot = minutesToSlot(startMinutes + durationMin);
-
-      const entities = slots.map((m) => ({
-        partitionKey: pk,
-        rowKey: minutesToRowKey(m),
-        roomId: room.id,
-        date,
-        slot: minutesToSlot(m),
-        bookingId,
-        startSlot,
-        endSlot,
-        durationMin,
-        ownerUserId: callerId,
-        ownerName,
-        teamKey,
-        teamName,
-        description,
-        createdAt: now,
-        updatedAt: now,
-      }));
-
+      if (!graphConfigured()) return { status: 501, jsonBody: { error: 'Varauskalenteria ei ole konfiguroitu.' } };
       try {
-        await transact('Reservations', entities.map((e) => ['create', e]));
+        const result = await m365.createReservation(room, {
+          date, startMinutes, durationMin, teamKey, teamName, ownerName, ownerUserId: callerId, description,
+        });
+        return { jsonBody: result };
       } catch (e) {
-        const taken = e && (e.statusCode === 409 || /AlreadyExists|conflict/i.test(String(e.message || '')));
-        if (taken) return { status: 409, jsonBody: { error: 'Aika on jo varattu.' } };
+        if (e && e.status) return { status: e.status, jsonBody: { error: e.message } };
         throw e;
       }
-
-      return {
-        jsonBody: {
-          booking: { bookingId, room: room.id, date, startSlot, endSlot, durationMin, teamKey, teamName, description, ownerUserId: callerId, ownerName },
-        },
-      };
     } catch (err) {
       context.log('reservationCreate failed: ' + ((err && err.stack) || err));
       return { status: 500, jsonBody: { error: String((err && err.message) || err) } };
