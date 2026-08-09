@@ -4,8 +4,12 @@ export const SLOT_MIN = 15;
 export const MAX_DURATION_MIN = 180; // 3 h
 export const DEFAULT_DURATION_MIN = 60; // usually a 1 h booking
 
+// `backend:'m365'` rooms are Graph-backed on the server (bookings live in a
+// Microsoft 365 room-mailbox calendar, shared with Outlook) — the client is
+// unaware and renders them like any other room. Mirror of api/src/lib/rooms.js.
 export const ROOMS = [
   { id: "oheistila", name: "Oheistila", startHour: 8, endHour: 22 },
+  { id: "toimisto", name: "Toimisto (Wareena)", startHour: 8, endHour: 22, backend: "m365" },
 ];
 
 export const getRoom = (id) => ROOMS.find((r) => r.id === id) || ROOMS[0];

@@ -1,7 +1,9 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables, listEntities } = require('../lib/tables');
-const { getRoom } = require('../lib/rooms');
+const { getRoom, ROOMS } = require('../lib/rooms');
+const { graphConfigured } = require('../lib/graph');
+const m365 = require('../lib/reservationsM365');
 
 // GET /api/reservations/mine — the signed-in user's own upcoming bookings.
 // MVP: a cross-partition filtered scan on ownerUserId (small dataset). Slots are
@@ -40,9 +42,17 @@ app.http('reservationsMine', {
           });
         }
       }
-      const bookings = Array.from(byBooking.values()).sort(
-        (a, b) => (a.date + a.startSlot).localeCompare(b.date + b.startSlot)
-      );
+      const bookings = Array.from(byBooking.values());
+
+      // M365 rooms aren't in the Reservations table — pull the caller's own events
+      // from each room-mailbox calendar (Graph) and merge them in.
+      if (graphConfigured()) {
+        for (const room of ROOMS.filter((r) => r.backend === 'm365')) {
+          try { bookings.push(...(await m365.myReservations(room, callerId))); }
+          catch (e) { context.log('reservationsMine m365 failed: ' + ((e && e.message) || e)); }
+        }
+      }
+      bookings.sort((a, b) => (a.date + a.startSlot).localeCompare(b.date + b.startSlot));
 
       return { jsonBody: { bookings } };
     } catch (err) {

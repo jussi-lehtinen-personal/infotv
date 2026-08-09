@@ -3,6 +3,8 @@ const { requireAuth } = require('../lib/auth');
 const { ensureTables, getEntity, listByPartition, transact } = require('../lib/tables');
 const { isAdmin, parseRoles, coachTeams } = require('../lib/admin');
 const { getRoom, slotToMinutes, minutesToSlot, minutesToRowKey, bookingSlots } = require('../lib/rooms');
+const { graphConfigured } = require('../lib/graph');
+const m365 = require('../lib/reservationsM365');
 
 // POST /api/reservations/update — edit an own booking: description, team and/or
 // duration (resize from the same start time). Creator or admin only. All slots
@@ -27,6 +29,29 @@ app.http('reservationUpdate', {
       const description = String(body.description || '').trim().slice(0, 200);
       if (!room || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !bookingId) {
         return { status: 400, jsonBody: { error: 'room, date ja bookingId vaaditaan.' } };
+      }
+
+      // M365 room: patch the calendar event (description / team / resize).
+      if (room.backend === 'm365') {
+        if (!graphConfigured()) return { status: 501, jsonBody: { error: 'Toimiston kalenteria ei ole vielä konfiguroitu.' } };
+        const mProfile = await getEntity('Users', callerId, 'profile');
+        const mAdmin = await isAdmin(callerId, mProfile);
+        const patch = {};
+        if (body.description !== undefined) patch.description = String(body.description || '').slice(0, 200);
+        if (body.teamKey !== undefined) {
+          const tk = String(body.teamKey || '').trim();
+          if (!mAdmin && tk && !coachTeams(parseRoles(mProfile)).includes(tk)) {
+            return { status: 403, jsonBody: { error: 'Et voi vaihtaa tälle joukkueelle.' } };
+          }
+          patch.teamKey = tk; patch.teamName = tk;
+        }
+        if (body.durationMin !== undefined) patch.durationMin = Number(body.durationMin);
+        try {
+          return { jsonBody: await m365.updateReservation(room, bookingId, date, patch, callerId, mAdmin) };
+        } catch (e) {
+          if (e && e.status) return { status: e.status, jsonBody: { error: e.message } };
+          throw e;
+        }
       }
 
       const pk = `${room.id}|${date}`;

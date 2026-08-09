@@ -6,6 +6,8 @@ const { isAdmin, parseRoles, coachTeams } = require('../lib/admin');
 const {
   getRoom, slotToMinutes, minutesToSlot, minutesToRowKey, bookingSlots,
 } = require('../lib/rooms');
+const { graphConfigured } = require('../lib/graph');
+const m365 = require('../lib/reservationsM365');
 
 // POST /api/reservations — book a room for a chosen duration (30 min .. 3 h) as
 // consecutive 30-min slots. Only valmentaja/toimihenkilo (for their team) or an
@@ -53,6 +55,22 @@ app.http('reservationCreate', {
       }
       const teamName = teamKey; // teamKey is already the display name (e.g. "U13 Musta")
       const ownerName = (profile && profile.nickname) || 'Käyttäjä';
+
+      // M365 room: create the event in the room-mailbox calendar (Graph) instead of
+      // the Reservations table. Same booking shape back.
+      if (room.backend === 'm365') {
+        if (!graphConfigured()) return { status: 501, jsonBody: { error: 'Toimiston kalenteria ei ole vielä konfiguroitu.' } };
+        try {
+          const result = await m365.createReservation(room, {
+            date, startMinutes, durationMin, teamKey, teamName, ownerName, ownerUserId: callerId, description,
+          });
+          return { jsonBody: result };
+        } catch (e) {
+          if (e && e.status) return { status: e.status, jsonBody: { error: e.message } };
+          throw e;
+        }
+      }
+
       const bookingId = randomUUID();
       const now = new Date().toISOString();
       const pk = `${room.id}|${date}`;

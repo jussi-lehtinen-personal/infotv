@@ -4,8 +4,14 @@
 const SLOT_MIN = 15;
 const MAX_DURATION_MIN = 180; // 3 h
 
+// `backend:'m365'` rooms are NOT stored in the Reservations table — their bookings
+// live in a Microsoft 365 room-mailbox calendar (single source of truth shared with
+// Outlook). See api/src/lib/reservationsM365.js. `mailbox` = the room UPN, from SWA
+// app settings (TOIMISTO_ROOM_UPN); empty until the M365 side is wired → endpoints
+// return a clear "not configured" error rather than failing obscurely.
 const ROOMS = [
   { id: 'oheistila', name: 'Oheistila', startHour: 8, endHour: 22 },
+  { id: 'toimisto', name: 'Toimisto (Wareena)', startHour: 8, endHour: 22, backend: 'm365', mailbox: process.env.TOIMISTO_ROOM_UPN || '' },
 ];
 
 function getRoom(id) {

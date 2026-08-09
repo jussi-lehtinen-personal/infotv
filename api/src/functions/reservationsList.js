@@ -1,6 +1,8 @@
 const { app } = require('@azure/functions');
 const { ensureTables, listEntities } = require('../lib/tables');
 const { getRoom } = require('../lib/rooms');
+const { graphConfigured } = require('../lib/graph');
+const m365 = require('../lib/reservationsM365');
 
 // GET /api/reservations?room=oheistila&from=YYYY-MM-DD&to=YYYY-MM-DD
 // Public (browsing availability is open to everyone). Returns every 30-min slot
@@ -16,17 +18,25 @@ app.http('reservationsList', {
   route: 'reservations',
   handler: async (request) => {
     try {
-      const room = String(request.query.get('room') || '').trim();
+      const roomId = String(request.query.get('room') || '').trim();
       const from = String(request.query.get('from') || '').trim();
       const to = String(request.query.get('to') || from).trim();
-      if (!getRoom(room)) return { status: 400, jsonBody: { error: 'Tuntematon tila.' } };
+      const room = getRoom(roomId);
+      if (!room) return { status: 400, jsonBody: { error: 'Tuntematon tila.' } };
       if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
         return { status: 400, jsonBody: { error: 'from/to (YYYY-MM-DD) vaaditaan.' } };
       }
 
+      // M365 room: read straight from the room-mailbox calendar (Graph).
+      if (room.backend === 'm365') {
+        if (!graphConfigured()) return { status: 200, jsonBody: { reservations: [] } };
+        const reservations = await m365.listReservations(room, from, to);
+        return { jsonBody: { reservations } };
+      }
+
       await ensureTables();
       const filter =
-        `PartitionKey ge '${esc(room)}|${from}' and PartitionKey le '${esc(room)}|${to}'`;
+        `PartitionKey ge '${esc(room.id)}|${from}' and PartitionKey le '${esc(room.id)}|${to}'`;
       const rows = await listEntities('Reservations', filter);
 
       const reservations = rows.map((e) => ({
