@@ -50,6 +50,7 @@ const T = {
   squadLog: 'AhmaliigaSquadLog', // append-only audit of squad edits (transfer disputes + analytics)
   rosters: 'AhmaliigaRosters', // team kokoonpano accumulated from game-report rosters (getrosters) at settlement
   notifyLog: 'AhmaliigaNotifyLog', // durable "already notified" markers (survive in-app clear) → reminders never re-emit/re-push
+  gameData: 'AhmaliigaGameData', // generic per-game snapshot store (PK=season, RK=gameId). Fields written by MERGE so independent concerns coexist. Today: `pos` = frozen defender-bonus position (locked when a game is first played). Extensible.
 };
 
 // A 400-class error the endpoints surface as a user-facing validation message.
@@ -1351,6 +1352,48 @@ async function buildCardPos(seasonId) {
   return map;
 }
 
+// Per-game FROZEN defender-bonus position resolver. On the LIVE beta a played game's
+// fallback position is LOCKED the first time the game is observed as played — so a
+// later Jopox re-tag never rewrites an already-played game's points (a manager's shown
+// points never change retroactively). The snapshot is the whole name→position map at
+// lock time. Returns { get:(gameId)=>map, frozen:N }. For non-live (replay/sim/test)
+// seasons this is a no-op: `liveCardPos` is used for every game, exactly as before.
+async function loadFrozenPositions(seasonId, season, playedGameIds, liveCardPos) {
+  if (!season || !season.livePool) return { get: () => liveCardPos, frozen: 0 };
+  const snap = {};
+  for (const r of await listByPartition(T.gameData, seasonId)) {
+    if (r.pos == null) continue; // row may exist for other per-game data but not `pos` yet
+    try { snap[r.rowKey] = JSON.parse(r.pos); } catch { /* ignore */ }
+  }
+  const toWrite = [];
+  const now = new Date().toISOString();
+  for (const gid of playedGameIds || []) {
+    const k = String(gid);
+    if (!snap[k]) { snap[k] = liveCardPos; toWrite.push({ partitionKey: seasonId, rowKey: k, pos: JSON.stringify(liveCardPos), posFrozenAt: now }); }
+  }
+  // MERGE (not Replace) so writing `pos` never clobbers other per-game fields on the row.
+  for (let i = 0; i < toWrite.length; i += 100) {
+    try { await transact(T.gameData, toWrite.slice(i, i + 100).map((e) => ['upsert', e, 'Merge'])); } catch { /* best-effort */ }
+  }
+  return { get: (gid) => snap[String(gid)] || liveCardPos, frozen: toWrite.length };
+}
+
+// Proactively lock the fallback position of every PLAYED game in the season — run by the
+// hourly tick so a game freezes ~within the hour of being played even if no manager opened
+// the app. Idempotent (only unfrozen games get written).
+async function freezeGamePositions(seasonId, season) {
+  if (!season || !season.livePool) return { frozen: 0, skipped: 'not-live' };
+  const liveCardPos = await buildCardPos(seasonId);
+  const played = [];
+  for (const r of await getRounds(seasonId)) {
+    for (const g of await getRoundGames(seasonId, Number(r.rowKey))) {
+      if (g.homeGoals != null && g.awayGoals != null) played.push(g.gameId);
+    }
+  }
+  const { frozen } = await loadFrozenPositions(seasonId, season, played, liveCardPos);
+  return { frozen, played: played.length };
+}
+
 async function computeRoundResults(seasonId, round) {
   const season = await getEntity(T.season, 'season', seasonId);
   const extraAges = extraAgesOf(season);
@@ -1359,7 +1402,12 @@ async function computeRoundResults(seasonId, round) {
   const eligible = games.filter(isElig);
   const reports = {};
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
-  const cardPos = await buildCardPos(seasonId); // name→tagged position, for the defender-bonus fallback
+  const liveCardPos = await buildCardPos(seasonId); // name→tagged position (current)
+  // FROZEN fallback positions: a played game's defender-bonus position is locked, so a
+  // later re-tag never rewrites its points. `cardPos` is a (gameId)=>map resolver;
+  // no-op (uses liveCardPos everywhere) for non-live seasons.
+  const playedIds = games.filter((g) => g.homeGoals != null && g.awayGoals != null).map((g) => g.gameId);
+  const { get: cardPos } = await loadFrozenPositions(seasonId, season, playedIds, liveCardPos);
   const { results, reasons } = computeRoundPoints({ games, reports, extraAges, cardPos });
   // Per-game card points too, so settlement can attribute each game to the squad
   // frozen at ITS kickoff (rolling lock).
@@ -1473,8 +1521,8 @@ async function roundProgress(seasonId, round, userId) {
   const simDate = season && season.simMode ? season.simDate : null;
   const cardsList = await getCards(seasonId);
   const cardMap = {};
-  const cardPos = {}; // name→tagged position, for the defender-bonus fallback (live)
-  for (const c of cardsList) { cardMap[c.rowKey] = c; if (c.kind === 'player' || c.kind === 'goalie') cardPos[posName(c.personName || c.name || '')] = c.position || 'field'; }
+  const liveCardPos = {}; // name→tagged position (current)
+  for (const c of cardsList) { cardMap[c.rowKey] = c; if (c.kind === 'player' || c.kind === 'goalie') liveCardPos[posName(c.personName || c.name || '')] = c.position || 'field'; }
   const games = await getRoundGames(seasonId, round);
   const isPlayed = (g) => {
     const day = String(g.date || '').slice(0, 10);
@@ -1493,6 +1541,10 @@ async function roundProgress(seasonId, round, userId) {
   const squadHasPlayers = squad.cards.some((c) => { const cd = cardMap[c.id]; return cd && cd.kind !== 'team'; });
   const eligible = squadHasPlayers ? playedGames.filter((g) => isPlayerEligible(teamKey(g)) || extraAges.has(String(teamKey(g)).split(' ')[0])) : [];
   await inChunks(eligible, 6, async (g) => { const r = await fetchGameReport(g); if (r) reports[g.gameId] = r; });
+
+  // FROZEN fallback positions — same per-game lock as settlement, so a manager's live
+  // points for an already-played game don't shift when a position is re-tagged later.
+  const { get: cardPos } = await loadFrozenPositions(seasonId, season, playedGames.map((g) => g.gameId), liveCardPos);
 
   const ids = squad.cards.map((c) => c.id);
   const captainId = squad.captainId;
@@ -2467,6 +2519,6 @@ module.exports = {
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, reconcileCards, computeRoundResults, validateRoundResults, roundProgress,
+  syncSeasonGames, reconcileCards, freezeGamePositions, computeRoundResults, validateRoundResults, roundProgress,
   ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,
 };

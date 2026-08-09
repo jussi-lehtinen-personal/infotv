@@ -58,8 +58,14 @@ function playerReason(d) {
 // player eligibility for a specific test (e.g. the U15 team included as individual
 // cards for a replay). Default: only PLAYER_AGES (U18+). Team scoring is unaffected.
 // Returns { results: { cardId: pts }, reasons: { cardId: reasonStr } }.
+// `cardPos` (defender-bonus fallback source) may be a plain name→position map OR a
+// FUNCTION (gameId) => map, so the caller can supply a per-game FROZEN snapshot (a
+// played game's position is locked → a later re-tag never rewrites its points). A map
+// or undefined behaves exactly as before (same value for every game) → the offline
+// validators are unaffected.
 function computeRoundPoints({ games, reports, extraAges, cardPos }) {
   reports = reports || {};
+  const posFor = typeof cardPos === "function" ? cardPos : () => cardPos;
   const eligible = (tk) => isPlayerEligible(tk) || !!(extraAges && extraAges.has(String(tk).split(" ")[0]));
   const results = {};
   const add = (id, p) => { results[id] = (results[id] || 0) + p; };
@@ -91,7 +97,7 @@ function computeRoundPoints({ games, reports, extraAges, cardPos }) {
     if (gk) { add("P:" + gk.name, gk.pts); pd("P:" + gk.name).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }
     // U12: defender bonus (position from the box-score roster) — a defenceman earns from
     // keeping goals against down even without scoring. No-op where positions are untagged.
-    for (const dp of defensePoints(r, ahmaSide, ga, cardPos)) { add("P:" + dp.name, dp.pts); pd("P:" + dp.name).def = (pd("P:" + dp.name).def || 0) + dp.pts; }
+    for (const dp of defensePoints(r, ahmaSide, ga, posFor(g.gameId))) { add("P:" + dp.name, dp.pts); pd("P:" + dp.name).def = (pd("P:" + dp.name).def || 0) + dp.pts; }
   }
 
   for (const id in results) results[id] = Math.round(results[id] * 10) / 10;

@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, stepSim, syncSeasonGames, reconcileCards } = require('../lib/ahmaliiga');
+const { getActiveSeason, stepSim, syncSeasonGames, reconcileCards, freezeGamePositions } = require('../lib/ahmaliiga');
 
 // POST /api/runAhmaliigaTick — advance the Ahmaliiga sim clock one day and settle
 // any round whose window has passed. Fired by a GitHub Actions cron (hourly), so
@@ -29,7 +29,10 @@ app.http('runAhmaliigaTick', {
       if (season.livePool) {
         const sync = await syncSeasonGames(season.rowKey).catch((e) => ({ error: String(e && e.message || e) }));
         const rec = await reconcileCards(season.rowKey).catch((e) => ({ error: String(e && e.message || e) }));
-        live = { sync, rec };
+        // Lock each played game's defender-bonus position so a later re-tag can't rewrite
+        // an already-played game's points (manager-visible points stay stable).
+        const froze = await freezeGamePositions(season.rowKey, season).catch((e) => ({ error: String(e && e.message || e) }));
+        live = { sync, rec, froze };
       }
       if (!season.autoStep) return { jsonBody: { ok: true, skipped: 'auto-off', live, simDate: season.simDate || '' } };
 
