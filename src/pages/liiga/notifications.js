@@ -126,7 +126,7 @@ export default function LiigaNotifications() {
       {!list.length ? (
         <Box sx={{ textAlign: "center", py: 5, color: "text.secondary" }}>
           <Box component={LuBell} sx={{ fontSize: 30, color: "text.disabled", display: "block", mx: "auto", mb: 1 }} />
-          <Typography variant="body2">Ei ilmoituksia vielä. Kun jakso ratkaistaan, näet täällä miten pärjäsit.</Typography>
+          <Typography variant="body2">Ei ilmoituksia vielä. Uudet ilmoitukset näkyvät täällä.</Typography>
         </Box>
       ) : (
       <ListCard>
