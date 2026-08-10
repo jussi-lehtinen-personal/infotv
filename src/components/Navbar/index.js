@@ -23,6 +23,7 @@ import {
   parseMatchDate,
 } from "../../hooks/useHeroMatches";
 import { getCachedUser, getMe } from "../../auth/authClient";
+import { getAhmaliigaNotifications } from "../../lib/ahmaliigaApi";
 
 // Small uppercase group label (PIKATOIMINNOT, SHOP, SEURAA MEITÄ, ...).
 const sectionHeadingSx = {
@@ -52,10 +53,21 @@ const globalStyles = (
 );
 
 const Index = () => {
+  const navigate = useNavigate();
   const [news, setNews] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [authUser, setAuthUser] = useState(getCachedUser);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
   const { matches: heroMatches, loading: heroLoading } = useHeroMatches();
+
+  // Bell badge = the ONE notifications inbox (same page the Ahmaliiga bell opens).
+  // Only fetched when signed in; empty/failed → no badge.
+  useEffect(() => {
+    if (!authUser) { setUnreadNotifs(0); return; }
+    getAhmaliigaNotifications()
+      .then((d) => setUnreadNotifs(((d && d.items) || []).length))
+      .catch(() => {});
+  }, [authUser]);
 
   // Optimistic from cache, then revalidate. getMe returns null if logged out
   // (token cleared on 401) and throws on transient errors → keep the cache.
@@ -108,7 +120,12 @@ const Index = () => {
           "@media (min-width:768px)": { padding: "calc(env(safe-area-inset-top) + 26px) 26px 28px 26px", gap: "18px" },
         }}
       >
-        <AppHeader onMenuClick={() => setDrawerOpen(true)} user={authUser} />
+        <AppHeader
+          onMenuClick={() => setDrawerOpen(true)}
+          onBellClick={() => navigate("/ahmaliiga/notifications")}
+          unreadCount={unreadNotifs}
+          user={authUser}
+        />
 
         <Box
           sx={{
