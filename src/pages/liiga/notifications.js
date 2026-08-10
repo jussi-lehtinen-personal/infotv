@@ -60,7 +60,7 @@ function PushToggle() {
         <IconCircle icon={on ? LuBellRing : LuBell} size={38} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 14.5, color: "text.primary" }}>Push-ilmoitukset</Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>Muistutukset, tulokset ja palkinnot puhelimeesi.</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>Ilmoitukset suoraan puhelimeesi.</Typography>
         </Box>
         {pushSupported() && <Switch checked={on} onChange={toggle} disabled={busy} />}
       </Box>
