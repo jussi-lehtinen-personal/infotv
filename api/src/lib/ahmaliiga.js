@@ -1374,6 +1374,18 @@ async function overrideCardPosition(seasonId, query, { position, kind } = {}) {
   return { ok: true, id: clean.rowKey, name: clean.name, kind: clean.kind, position: clean.position, posOverride: clean.posOverride };
 }
 
+// Admin: delete a card by id (e.g. a stale duplicate team card left over after a
+// team-key alias). Refuses if anyone owns it (safe) — before launch ownerCount is 0.
+// Also clears its price/points history partition.
+async function deleteCard(seasonId, cardId) {
+  const card = await getEntity(T.cards, seasonId, cardId);
+  if (!card) return { ok: false, error: 'Korttia ei löydy: ' + cardId };
+  if (Number(card.ownerCount) > 0) return { ok: false, error: `Kortilla on omistajia (${card.ownerCount}) — ei poisteta.` };
+  await deleteEntity(T.cards, seasonId, cardId);
+  await clearPartition(T.cardHistory, `${seasonId}|${cardId}`);
+  return { ok: true, deleted: cardId, name: card.name };
+}
+
 // Per-game FROZEN defender-bonus position resolver. On the LIVE beta a played game's
 // fallback position is LOCKED the first time the game is observed as played — so a
 // later Jopox re-tag never rewrites an already-played game's points (a manager's shown
@@ -2543,6 +2555,6 @@ module.exports = {
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,
   getNotifications, markNotificationsRead, deleteNotification, clearNotifications,
-  syncSeasonGames, reconcileCards, overrideCardPosition, freezeGamePositions, computeRoundResults, validateRoundResults, roundProgress,
+  syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, freezeGamePositions, computeRoundResults, validateRoundResults, roundProgress,
   ensureQrCode, generateVouchers, getMyVouchers, getVouchersForKiosk, redeemVoucher,
 };

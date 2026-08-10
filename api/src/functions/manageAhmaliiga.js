@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
 const { archiveSeason, listArchives, purgeSeason } = require('../lib/archive');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
@@ -124,6 +124,14 @@ app.http('manageAhmaliiga', {
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
         if (!body.name) return { status: 400, jsonBody: { error: 'name puuttuu.' } };
         const result = await overrideCardPosition(season.rowKey, body.name, { position: body.position, kind: body.kind });
+        return { status: result.ok ? 200 : 400, jsonBody: result };
+      }
+
+      if (action === 'deleteCard') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        if (!body.cardId) return { status: 400, jsonBody: { error: 'cardId puuttuu.' } };
+        const result = await deleteCard(season.rowKey, body.cardId);
         return { status: result.ok ? 200 : 400, jsonBody: result };
       }
 

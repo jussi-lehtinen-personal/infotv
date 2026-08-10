@@ -14,12 +14,25 @@ const isPlayerEligible = (tk) => PLAYER_AGES.has(String(tk).split(" ")[0]);
 // A team CARD = age (from level) + peliryhmä colour (from the Ahma side name).
 const COLOURS = ["musta", "valkoinen", "oranssi", "keltainen", "sininen", "punainen", "vihreä", "harmaa"];
 const ahmaName = (g) => (g.ahmaHome ? g.home : g.away) || "";
+
+// Team-key aliases: some Ahma teams are named INCONSISTENTLY across games so the
+// colour-from-name rule invents a spurious peliryhmä. E.g. the single U15 team is named
+// "Kiekko-Ahma" in most friendlies but "Kiekko-Ahma Valkoinen" in one → two cards for
+// one team. Collapse the stray key to the real one here so scoring + cards + rosters all
+// agree (teamKey is the ONE place every consumer goes through). Only add a mapping for an
+// age that genuinely fields a SINGLE team — U13 (Musta/Oranssi/Valkoinen) is a real split
+// and must NOT be aliased. Keyed on the FINAL "Age Colour" string.
+const TEAM_KEY_ALIASES = {
+  "U15 Valkoinen": "U15",
+};
+
 function teamKey(g) {
   const m = (g.level || "").match(/U\s*(\d+)/i);
   const age = m ? `U${m[1]}` : /nais/i.test(g.level || "") ? "Naiset" : "Edustus";
   const nm = ahmaName(g).toLocaleLowerCase("fi");
   const col = COLOURS.find((c) => nm.includes(c));
-  return age + (col ? ` ${col.charAt(0).toLocaleUpperCase("fi")}${col.slice(1)}` : "");
+  const key = age + (col ? ` ${col.charAt(0).toLocaleUpperCase("fi")}${col.slice(1)}` : "");
+  return TEAM_KEY_ALIASES[key] || key;
 }
 
 // Ahma goals-for / goals-against from the runtime game shape (homeGoals/awayGoals).
