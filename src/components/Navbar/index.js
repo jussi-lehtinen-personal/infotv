@@ -520,7 +520,7 @@ const HeroMatchCard = ({ match, loading = false, backgroundImage = "/hero_1.webp
       }}
     >
       <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.20) 30%, rgba(0,0,0,0.85) 100%)", zIndex: 1 }} />
-      <Box sx={{ position: "relative", zIndex: 2, height: "100%", padding: "14px 16px 30px 16px", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px" }}>
+      <Box sx={{ position: "relative", zIndex: 2, height: "100%", boxSizing: "border-box", padding: "14px 16px 30px 16px", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px" }}>
         <Box sx={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-bold)", letterSpacing: "var(--gz-ls-wide)", textTransform: "uppercase", color: "var(--color-primary)", mb: "4px" }}>
           {live && (
             <Box component="span" aria-hidden="true" sx={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--color-loss)", boxShadow: "0 0 0 0 rgba(239,68,68,0.6)", animation: "ahmaHeroLivePulse 1.6s ease-in-out infinite" }} />
