@@ -122,7 +122,7 @@ const Index = () => {
       >
         <AppHeader
           onMenuClick={() => setDrawerOpen(true)}
-          onBellClick={() => navigate("/ahmaliiga/notifications")}
+          onBellClick={() => navigate("/notifications")}
           unreadCount={unreadNotifs}
           user={authUser}
         />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, ButtonBase, Switch, Alert } from "@mui/material";
 import { LuMedal, LuStar, LuTrendingUp, LuGoal, LuArrowLeftRight, LuBell, LuBellRing, LuChevronRight, LuTrash2 } from "react-icons/lu";
-import { Screen, PageHead, Loading, ListCard, IconCircle, shortDate, PillButton } from "./_shared";
+import { Screen, DialogHeader, Loading, ListCard, IconCircle, shortDate, PillButton } from "./_shared";
 import { getAhmaliigaNotifications, deleteAhmaliigaNotification, clearAhmaliigaNotifications } from "../../lib/ahmaliigaApi";
 import { pushSupported, isIosNotInstalled, getPushState, enablePush, disablePush } from "../../lib/ahmaliigaPush";
 
@@ -103,12 +103,15 @@ export default function LiigaNotifications() {
     clearAhmaliigaNotifications().catch(() => {});
   };
 
-  if (items === undefined) return <Loading screen />;
   const list = items || [];
 
   return (
+    // Standalone page (its own /notifications route, outside the Ahmaliiga layout) —
+    // provide the app background + a back header here.
+    <Box sx={{ minHeight: "100dvh", bgcolor: "var(--color-bg)", color: "text.primary",
+          pt: "env(safe-area-inset-top)", pb: "calc(24px + env(safe-area-inset-bottom))" }}>
     <Screen>
-      <PageHead title="Ilmoitukset" right={list.length ? (
+      <DialogHeader onBack={() => nav(-1)} title="Ilmoitukset" right={list.length ? (
         <PillButton onClick={clearAll}>
           <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.6 }}>
             <Box component={LuTrash2} sx={{ fontSize: 14, display: "block" }} />
@@ -117,6 +120,7 @@ export default function LiigaNotifications() {
         </PillButton>
       ) : null} />
 
+      {items === undefined ? <Loading /> : (<>
       <PushToggle />
 
       {!list.length ? (
@@ -147,6 +151,8 @@ export default function LiigaNotifications() {
         })}
       </ListCard>
       )}
+      </>)}
     </Screen>
+    </Box>
   );
 }

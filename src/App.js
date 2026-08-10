@@ -136,9 +136,12 @@ function App() {
                 <Route path="kiosk" element={<LiigaKiosk />} />
                 <Route path="profile" element={<LiigaStub icon={LuUser} title="Profiili" desc="Fantasy-tilastosi: liittymispäivä, mestaruudet, paras ja keskimääräinen sijoitus, pelatut jaksot." />} />
                 <Route path="achievements" element={<LiigaStub icon={LuAward} title="Saavutukset" desc="Ansiomerkit: ensimmäinen voitto, jakson voittaja, 100 pistettä, 10 oikeaa veikkausta." />} />
-                <Route path="notifications" element={<LiigaNotifications />} />
             </Route>
             <Route path="/ahmaliiga/info" element={<LiigaPromo />} />
+
+            {/* Notifications inbox — ONE app-wide page (not gated behind Ahmaliiga).
+                Opened by both the home bell and the Ahmaliiga bell. */}
+            <Route path="/notifications" element={<LiigaNotifications />} />
             <Route path="/ahmaliiga/rules" element={<RequireEnvAdmin><Ahmaliiga /></RequireEnvAdmin>} />
 
             <Route path="/report" element={<Report />} />

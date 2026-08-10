@@ -113,7 +113,7 @@ export const AhmaliigaLayout = () => {
           <IconButton component={Link} to="/ahmaliiga/rewards" aria-label="Palkinnot" sx={topBtnSx}>
             <LuTrophy size={18} />
           </IconButton>
-          <IconButton component={Link} to="/ahmaliiga/notifications" aria-label="Ilmoitukset" sx={topBtnSx}>
+          <IconButton component={Link} to="/notifications" aria-label="Ilmoitukset" sx={topBtnSx}>
             <Badge badgeContent={unread} color="primary" overlap="circular"
                    sx={{ "& .MuiBadge-badge": { fontSize: 10, height: 16, minWidth: 16, fontWeight: 800 } }}>
               <LuBell size={18} />
