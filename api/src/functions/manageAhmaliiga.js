@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, getSquad, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
 const { archiveSeason, listArchives, purgeSeason } = require('../lib/archive');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
@@ -119,6 +119,17 @@ app.http('manageAhmaliiga', {
       // LIVE pool: reconcile the card pool from the Jopox rosters + synced games (add-only,
       // idempotent). No-op for a non-live season. Runs automatically each tick + before
       // settle; this is the manual "fill now" trigger.
+      if (action === 'listManagers') {
+        const mgrs = await listManagers();
+        const out = [];
+        for (const m of mgrs) {
+          const sq = await getSquad(m.userId);
+          out.push({ nick: m.nickname || '(nimetön)', cards: (sq && sq.cards && sq.cards.length) || 0, captain: !!(sq && sq.captainId) });
+        }
+        out.sort((a, b) => (b.cards - a.cards) || String(a.nick).localeCompare(String(b.nick)));
+        return { jsonBody: { count: out.length, built: out.filter((x) => x.cards > 0).length, managers: out } };
+      }
+
       if (action === 'overrideCard') {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
