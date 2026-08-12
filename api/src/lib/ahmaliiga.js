@@ -2286,14 +2286,38 @@ async function setAutoStep(seasonId, on) {
   return { autoStep: !!on, simDate: patch.simDate || season.simDate || '' };
 }
 
+// Interpret a start-time string as FINNISH wall-clock (Europe/Helsinki, DST-correct via
+// Intl) UNLESS it already carries an explicit zone (trailing Z or ±hh:mm). Azure runs in
+// UTC, so `new Date("2026-08-12T12:00")` would parse as 12:00 UTC = 15:00 Finnish — the
+// go-live bug where the gate opened 3 h late. Returns a Date (UTC instant).
+function parseFinnishStart(s) {
+  const str = String(s).trim();
+  if (/z$|[+-]\d{2}:?\d{2}$/i.test(str)) return new Date(str); // explicit zone → trust it
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return new Date(str); // unknown shape → best effort
+  const y = +m[1], mo = +m[2], d = +m[3], h = +m[4], mi = +m[5], se = +(m[6] || 0);
+  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Helsinki', hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const base = Date.UTC(y, mo - 1, d, h, mi, se);
+  let ts = base;
+  for (let i = 0; i < 2; i++) { // converge around DST transitions
+    const p = Object.fromEntries(dtf.formatToParts(new Date(ts)).map((x) => [x.type, +x.value]));
+    if (p.hour === 24) p.hour = 0; // some ICU builds render midnight as 24
+    const zoned = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    ts = base - (zoned - ts);
+  }
+  return new Date(ts);
+}
+
 // Set (or clear, pass null) the season's public START time — a real ISO timestamp shown
 // to players before the game opens. While now < startAt the dashboard shows a "not
 // started yet" info card (squad-building is open, but keep autoStep OFF so nothing locks
 // until you flip it at launch). Clearing startAt (null) removes the pre-start state.
+// Input is FINNISH local time (e.g. "2026-08-12T12:00") unless it carries a zone.
 async function setStart(seasonId, startAt) {
   const season = await getEntity(T.season, 'season', seasonId);
   if (!season) throw badRequest('Kausi puuttuu.');
-  const val = startAt == null || startAt === '' ? '' : new Date(startAt).toISOString();
+  const val = startAt == null || startAt === '' ? '' : parseFinnishStart(startAt).toISOString();
   await upsertEntity(T.season, { ...season, startAt: val });
   return { startAt: val || null };
 }
