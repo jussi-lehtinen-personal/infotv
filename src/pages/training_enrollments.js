@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
-  Box, Typography, Card, Stack, Chip, IconButton, CircularProgress, Collapse, Button,
+  Box, Typography, Card, Stack, IconButton, CircularProgress, Collapse, Button,
 } from "@mui/material";
 import { LuRefreshCw, LuChevronRight, LuUser, LuUserCog, LuBriefcase, LuHelpCircle } from "react-icons/lu";
 import { MuiHeader } from "../components/ui/MuiHeader";
@@ -83,8 +83,10 @@ function TeamRow({ t }) {
               )}
             </Typography>
             {t.defaultIn && (
-              <Chip label="Oletus IN" size="small"
-                sx={{ flexShrink: 0, height: 18, "& .MuiChip-label": { px: 0.75, py: 0, fontSize: 10, fontWeight: 700, lineHeight: 1 }, bgcolor: "rgba(251,191,36,0.16)", color: "#fcd34d" }} />
+              <Box component="span" sx={{ flexShrink: 0, fontSize: 10, fontWeight: 700, lineHeight: 1, px: 0.75, py: "3px",
+                    borderRadius: 999, bgcolor: "rgba(251,191,36,0.16)", color: "#fcd34d", whiteSpace: "nowrap" }}>
+                Oletus IN
+              </Box>
             )}
           </Box>
           <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.25 }}>
