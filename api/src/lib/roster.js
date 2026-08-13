@@ -67,11 +67,11 @@ const officialCategory = (role) => (/valmentaj/i.test(String(role || '')) ? 'coa
 // { players:Set, officials:Map<nameKey,'coach'|'staff'> } (empty on any failure —
 // caller degrades to "unknown" tagging, never throws the whole report).
 async function fetchRoster(subsiteId) {
-  if (!subsiteId) return { players: new Set(), officials: new Map() };
+  if (!subsiteId) return { players: new Set(), goalies: new Set(), officials: new Map() };
   const key = String(subsiteId);
   const c = cache.get(key);
   if (c && Date.now() - c.ts < TTL) return c.data;
-  const empty = { players: new Set(), officials: new Map() };
+  const empty = { players: new Set(), goalies: new Set(), officials: new Map() };
   try {
     const res = await fetch(`${BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
     if (!res.ok) return empty;
@@ -80,10 +80,16 @@ async function fetchRoster(subsiteId) {
     if (!m) return empty;
     const pageProps = JSON.parse(m[1]).props?.pageProps || {};
     const players = new Set();
+    const goalies = new Set();
     for (const group of pageProps.players || []) {
+      // The roster groups players by position; the group name (and the per-player
+      // position attribute) is "Maalivahti" for goalies. Confirmed on every team.
+      const goalGroup = /maalivahti/i.test(group.name || '');
       for (const p of group.players || []) {
         const k = nameKey(`${p.personLastname || ''} ${p.personFirstname || ''}`);
-        if (k) players.add(k);
+        if (!k) continue;
+        players.add(k);
+        if (goalGroup || /maalivahti/i.test(p.playerattributeitemtext || '')) goalies.add(k);
       }
     }
     const officials = new Map();
@@ -92,7 +98,7 @@ async function fetchRoster(subsiteId) {
       const k = nameKey(nm);
       if (k && !officials.has(k)) officials.set(k, officialCategory(o.role));
     }
-    const data = { players, officials };
+    const data = { players, goalies, officials };
     cache.set(key, { data, ts: Date.now() });
     return data;
   } catch {
@@ -101,14 +107,15 @@ async function fetchRoster(subsiteId) {
 }
 
 // Classify a person (by export name) against a fetched roster:
-// 'player' | 'coach' | 'staff' (huoltaja/muu toimihenkilö) | 'unknown'.
+// 'goalie' | 'player' (field) | 'coach' | 'staff' (huoltaja/muu) | 'unknown'.
 // The public roster lists coaches/officials reliably (name + role, only contact
 // info is gated) but PLAYERS can be hidden per-player from the public site. So an
-// unmatched enrolee is almost always a hidden player → tag 'player'. Guard: only
-// when the roster actually loaded (has data); an empty roster means the fetch
+// unmatched enrolee is almost always a hidden FIELD player → tag 'player'. Guard:
+// only when the roster actually loaded (has data); an empty roster means the fetch
 // failed and we can't tell, so leave 'unknown' rather than inflate the count.
 function tagRole(exportName, roster) {
   const k = nameKey(exportName);
+  if (roster.goalies && roster.goalies.has(k)) return 'goalie';
   if (roster.players.has(k)) return 'player';
   if (roster.officials.has(k)) return roster.officials.get(k);
   if (roster.players.size || roster.officials.size) return 'player';

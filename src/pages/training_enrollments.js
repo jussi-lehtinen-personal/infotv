@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Box, Typography, Card, Stack, IconButton, CircularProgress, Collapse, Button,
 } from "@mui/material";
-import { LuRefreshCw, LuChevronRight, LuUser, LuUserCog, LuBriefcase, LuHelpCircle } from "react-icons/lu";
+import { LuRefreshCw, LuChevronRight, LuUser, LuShield, LuUserCog, LuBriefcase, LuHelpCircle } from "react-icons/lu";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 import { getTrainingEnrollments } from "../auth/authClient";
@@ -17,13 +17,17 @@ import { getTrainingEnrollments } from "../auth/authClient";
 // instantly (with `stale`); when stale, the client fires a background refresh
 // and shows a "Päivitetään…" indicator, then swaps in the fresh data.
 
-// Solid role colours (filled chip, white text). Player = Ahma orange.
+// Role chip styling. Filled solid (white text) for everyone EXCEPT the goalie,
+// who is black with an orange border only (stands out from field players).
 const ROLE_META = {
-  player: { icon: LuUser, bg: "var(--color-primary)" },
-  coach: { icon: LuUserCog, bg: "#0d9488" },
-  staff: { icon: LuBriefcase, bg: "#2563eb" },
-  unknown: { icon: LuHelpCircle, bg: "#4b5563" },
+  player: { icon: LuUser, bg: "var(--color-primary)", fg: "#fff", iconFg: "#fff" },
+  goalie: { icon: LuShield, bg: "#000", fg: "#fff", iconFg: "var(--color-primary)", border: "1.5px solid var(--color-primary)" },
+  coach: { icon: LuUserCog, bg: "#0d9488", fg: "#fff", iconFg: "#fff" },
+  staff: { icon: LuBriefcase, bg: "#2563eb", fg: "#fff", iconFg: "#fff" },
+  unknown: { icon: LuHelpCircle, bg: "#4b5563", fg: "#fff", iconFg: "#fff" },
 };
+// Count string: "12" if only field players, "12 + 1" when goalies are included.
+const countValue = (fieldN, goalieN) => (goalieN ? `${fieldN} + ${goalieN}` : String(fieldN));
 
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 // "18.08.2026" + weekday "ti" -> "Ti 18.8"
@@ -89,7 +93,7 @@ function TeamRow({ t }) {
             {backgroundText(t)}
           </Typography>
         </Box>
-        <CountBlock value={t.playersIn} size={20} />
+        <CountBlock value={countValue(t.playersIn, t.goaliesIn)} size={20} />
         <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 18, transition: "transform .18s", transform: open ? "rotate(90deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>
@@ -98,9 +102,9 @@ function TeamRow({ t }) {
             const m = ROLE_META[p.role] || ROLE_META.unknown;
             return (
               <Box key={i} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 999,
-                    bgcolor: m.bg, maxWidth: "100%" }}>
-                <Box component={m.icon} sx={{ fontSize: 13, flexShrink: 0, color: "#fff" }} />
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    bgcolor: m.bg, border: m.border || "1.5px solid transparent", boxSizing: "border-box", maxWidth: "100%" }}>
+                <Box component={m.icon} sx={{ fontSize: 13, flexShrink: 0, color: m.iconFg }} />
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: m.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {p.name}
                 </Typography>
               </Box>
@@ -131,7 +135,7 @@ function EventCard({ ev, defaultOpen }) {
             {shortDate(ev)} - {ev.time}
           </Typography>
         </Box>
-        <CountBlock value={ev.playersIn} size={30} label="PELAAJAA" />
+        <CountBlock value={countValue(ev.playersIn, ev.goaliesIn)} size={30} label="PELAAJAA" />
         <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 20, transition: "transform .18s", transform: open ? "rotate(90deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>

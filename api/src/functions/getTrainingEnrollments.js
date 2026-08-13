@@ -59,8 +59,8 @@ async function shapeEvent(ev) {
     const inPeople = (g.people || []).filter((p) => p.status === 'IN');
     if (!inPeople.length) continue; // only teams with someone coming
     const roster = await fetchRoster(subsiteId);
-    // Players first, then unmatched, then coaches, then other staff; alpha within.
-    const RANK = { player: 0, unknown: 1, coach: 2, staff: 3 };
+    // Field players first, then goalies, then unmatched, then coaches/staff; alpha within.
+    const RANK = { player: 0, goalie: 1, unknown: 2, coach: 3, staff: 4 };
     const people = inPeople
       .map((p) => ({ name: p.name, role: tagRole(p.name, roster) }))
       .sort((a, b) => (RANK[a.role] - RANK[b.role]) || a.name.localeCompare(b.name, 'fi'));
@@ -73,6 +73,7 @@ async function shapeEvent(ev) {
       totalIn: people.length,
       totalMembers: (g.people || []).length,
       playersIn: count('player'),
+      goaliesIn: count('goalie'),
       coachesIn: count('coach'),
       staffIn: count('staff'),
       unknownIn: count('unknown'),
@@ -87,7 +88,7 @@ async function shapeEvent(ev) {
   const sum = (k) => teams.reduce((a, t) => a + t[k], 0);
   return {
     id: ev.id, name: ev.name, date: ev.date, time: ev.time, weekday: weekdayFi(ev.date),
-    totalIn: sum('totalIn'), playersIn: sum('playersIn'), coachesIn: sum('coachesIn'), staffIn: sum('staffIn'), unknownIn: sum('unknownIn'),
+    totalIn: sum('totalIn'), playersIn: sum('playersIn'), goaliesIn: sum('goaliesIn'), coachesIn: sum('coachesIn'), staffIn: sum('staffIn'), unknownIn: sum('unknownIn'),
     teams,
     ...(ev.error ? { error: ev.error } : {}),
   };
