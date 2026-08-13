@@ -118,10 +118,10 @@ function EventCard({ ev, defaultOpen }) {
       >
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 16, color: "text.primary" }}>
-            {shortDate(ev)} · klo {ev.time}
+            {ev.name}
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {ev.name}{ev.teams.length ? ` · ${ev.teams.length} joukkuetta` : ""}
+            {shortDate(ev)} - {ev.time}
           </Typography>
         </Box>
         <CountBlock value={ev.playersIn} size={30} />
