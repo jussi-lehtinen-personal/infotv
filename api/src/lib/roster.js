@@ -59,15 +59,19 @@ function nameKey(s) {
 const TTL = 6 * 60 * 60_000; // 6 h — rosters change rarely
 const cache = new Map(); // subsiteId -> { data, ts }
 
-// Fetch a team's roster and return name-key sets for classification.
-// { players:Set, officials:Set } (empty sets on any failure — caller degrades to
-// "unknown" tagging, never throws the whole report).
+// A Jopox official role string ("Vastuuvalmentaja" / "Valmentaja" / "Huoltaja" /
+// "Joukkueenjohtaja" …) → our two buckets: coaches vs everyone else (staff).
+const officialCategory = (role) => (/valmentaj/i.test(String(role || '')) ? 'coach' : 'staff');
+
+// Fetch a team's roster and return name-key lookups for classification.
+// { players:Set, officials:Map<nameKey,'coach'|'staff'> } (empty on any failure —
+// caller degrades to "unknown" tagging, never throws the whole report).
 async function fetchRoster(subsiteId) {
-  if (!subsiteId) return { players: new Set(), officials: new Set() };
+  if (!subsiteId) return { players: new Set(), officials: new Map() };
   const key = String(subsiteId);
   const c = cache.get(key);
   if (c && Date.now() - c.ts < TTL) return c.data;
-  const empty = { players: new Set(), officials: new Set() };
+  const empty = { players: new Set(), officials: new Map() };
   try {
     const res = await fetch(`${BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
     if (!res.ok) return empty;
@@ -82,11 +86,11 @@ async function fetchRoster(subsiteId) {
         if (k) players.add(k);
       }
     }
-    const officials = new Set();
+    const officials = new Map();
     for (const o of pageProps.officials || []) {
       const nm = o.personName || `${o.personFirstname || ''} ${o.personLastname || ''}`;
       const k = nameKey(nm);
-      if (k) officials.add(k);
+      if (k && !officials.has(k)) officials.set(k, officialCategory(o.role));
     }
     const data = { players, officials };
     cache.set(key, { data, ts: Date.now() });
@@ -96,11 +100,12 @@ async function fetchRoster(subsiteId) {
   }
 }
 
-// Classify a person (by export name) against a fetched roster.
+// Classify a person (by export name) against a fetched roster:
+// 'player' | 'coach' | 'staff' (huoltaja/muu toimihenkilö) | 'unknown'.
 function tagRole(exportName, roster) {
   const k = nameKey(exportName);
   if (roster.players.has(k)) return 'player';
-  if (roster.officials.has(k)) return 'official';
+  if (roster.officials.has(k)) return roster.officials.get(k);
   return 'unknown';
 }
 

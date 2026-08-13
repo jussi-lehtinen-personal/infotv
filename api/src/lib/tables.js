@@ -15,6 +15,7 @@ const TABLE_NAMES = [
   'AhmaliigaResults', 'AhmaliigaGames', 'AhmaliigaMessages', 'AhmaliigaVouchers',
   'AhmaliigaSquadLog', 'AhmaliigaRosters', 'AhmaliigaPushSubs', 'AhmaliigaNotifyLog',
   'AhmaliigaGameData', // generic per-game snapshot store (PK=season, RK=gameId); currently the frozen defender-bonus position `pos`, extensible with more per-game data later
+  'TrainingEnrollmentsCache', // durable last-good cache for the /coaching report (PK='cache', RK=key, gzipped-base64 payload) — survives cold starts
 ];
 const clients = {};
 let ensured = false;
