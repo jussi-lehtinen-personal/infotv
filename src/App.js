@@ -31,6 +31,7 @@ import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
 import Partners from "./pages/partners";
 import Report from "./pages/report";
+import TrainingEnrollments from "./pages/training_enrollments";
 import Stats from "./pages/stats";
 import Admin from "./pages/admin";
 import AdminUsers from "./pages/admin_users";
@@ -145,6 +146,7 @@ function App() {
             <Route path="/ahmaliiga/rules" element={<RequireEnvAdmin><Ahmaliiga /></RequireEnvAdmin>} />
 
             <Route path="/report" element={<Report />} />
+            <Route path="/coaching" element={<TrainingEnrollments />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/users" element={<AdminUsers />} />

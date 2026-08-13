@@ -302,6 +302,24 @@ export async function setUserRole({ userId, role, team, action }) {
   return data;
 }
 
+// Coaching-manager training-enrolment report (admin OR valmennuspaallikko).
+// getStats-style status shape. `opts.refresh` bypasses the server cache.
+export async function getTrainingEnrollments(opts = {}) {
+  const token = getToken();
+  if (!token) return { status: "unauthorized" };
+  const qs = new URLSearchParams();
+  if (opts.limit) qs.set("limit", String(opts.limit));
+  if (opts.patterns) qs.set("patterns", opts.patterns);
+  if (opts.refresh) qs.set("refresh", "1");
+  const q = qs.toString();
+  const res = await fetch("/api/getTrainingEnrollments" + (q ? `?${q}` : ""), { headers: { "X-Ahma-Auth": token } });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) return { status: "unauthorized" };
+  if (res.status === 403) return { status: "forbidden", youAre: data.youAre };
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return { status: "ok", data };
+}
+
 // Admin-only backup status (last backup, count, recent list). getStats-style.
 export async function getBackups() {
   const token = getToken();

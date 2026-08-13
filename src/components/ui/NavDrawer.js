@@ -16,6 +16,7 @@ import {
   LuUserCircle,
   LuCalendarClock,
   LuShieldCheck,
+  LuClipboardList,
   LuX,
 } from "react-icons/lu";
 import { getCachedUser, getMe } from "../../auth/authClient";
@@ -60,14 +61,23 @@ const NAV_SECTIONS = [
   ],
 ];
 
+// Coaching-manager access (for the /coaching enrolment report row): admins OR the
+// `valmennuspaallikko` role. Same rule as the hook useCoachManagerAccess.
+const coachAccess = (u) =>
+  !!(u && (u.isEnvAdmin || u.isAdmin || (Array.isArray(u.roles) && u.roles.some((r) => r.role === "valmennuspaallikko"))));
+
 export const NavDrawer = ({ open, onClose }) => {
-  // Admins get an extra "Admin" row. Seed from the cached user for an instant
-  // paint, then refresh via /api/me on open (self-heals if isAdmin changed).
+  // Admins get an extra "Admin" row; admins + coaching managers also get the
+  // enrolment-report row. Seed from the cached user for an instant paint, then
+  // refresh via /api/me on open (self-heals if roles changed).
   const [isAdmin, setIsAdmin] = useState(() => !!(getCachedUser() || {}).isAdmin);
+  const [canCoach, setCanCoach] = useState(() => coachAccess(getCachedUser()));
   useEffect(() => {
     if (!open) return;
-    setIsAdmin(!!(getCachedUser() || {}).isAdmin);
-    getMe().then((u) => setIsAdmin(!!(u && u.isAdmin))).catch(() => {});
+    const cached = getCachedUser();
+    setIsAdmin(!!(cached || {}).isAdmin);
+    setCanCoach(coachAccess(cached));
+    getMe().then((u) => { setIsAdmin(!!(u && u.isAdmin)); setCanCoach(coachAccess(u)); }).catch(() => {});
   }, [open]);
 
   // Close on Escape + lock body scroll while open.
@@ -137,6 +147,11 @@ export const NavDrawer = ({ open, onClose }) => {
               {section.map(renderRow)}
             </div>
           ))}
+          {canCoach && (
+            <div className="ui-drawer-section">
+              {renderRow({ to: "/coaching", label: "Jääilmoittautumiset", Icon: LuClipboardList })}
+            </div>
+          )}
           {isAdmin && (
             <div className="ui-drawer-section">
               {renderRow({ to: "/admin", label: "Admin", Icon: LuShieldCheck })}

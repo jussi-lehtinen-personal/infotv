@@ -9,7 +9,7 @@ const { getEntity } = require('./tables');
 // out from the UI (so new admins don't need an app-setting change).
 // Team-scoped roles carry a `team`; global roles don't. Keys are ASCII (no ä)
 // since they double as CSS-class suffixes / JSON.
-const ROLES = ['pelaaja', 'valmentaja', 'toimihenkilo', 'media', 'kioski', 'admin'];
+const ROLES = ['pelaaja', 'valmentaja', 'toimihenkilo', 'valmennuspaallikko', 'media', 'kioski', 'admin'];
 const TEAM_SCOPED = new Set(['pelaaja', 'valmentaja', 'toimihenkilo']);
 
 function envAdminIds() {
@@ -61,4 +61,14 @@ async function canRedeem(userId, user) {
   return hasRole(parseRoles(u), 'kioski');
 }
 
-module.exports = { ROLES, TEAM_SCOPED, envAdminIds, parseRoles, hasRole, coachTeams, isAdmin, canRedeem };
+// May this user see the coaching-manager tools (training enrolment report)?
+// Admins OR anyone with the club-wide `valmennuspaallikko` role. Gates a
+// privacy-sensitive surface (rosters of minors), so keep it admin-or-role only.
+async function canManageCoaching(userId, user) {
+  if (!userId) return false;
+  if (await isAdmin(userId, user)) return true;
+  const u = user !== undefined ? user : await getEntity('Users', userId, 'profile');
+  return hasRole(parseRoles(u), 'valmennuspaallikko');
+}
+
+module.exports = { ROLES, TEAM_SCOPED, envAdminIds, parseRoles, hasRole, coachTeams, isAdmin, canRedeem, canManageCoaching };

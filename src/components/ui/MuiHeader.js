@@ -4,7 +4,7 @@ import { LuArrowLeft } from "react-icons/lu";
 
 // Simple back + title/subtitle header for the MUI-ported content pages
 // (News/Supporters/Organisation/Partners). Keeps the dark theme via tokens.
-export const MuiHeader = ({ title, subtitle, onBack }) => (
+export const MuiHeader = ({ title, subtitle, onBack, right }) => (
   <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1.5, pt: "calc(env(safe-area-inset-top) + 10px)", pb: 1.5 }}>
     <IconButton onClick={onBack} aria-label="Takaisin" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}>
       <LuArrowLeft />
@@ -15,5 +15,6 @@ export const MuiHeader = ({ title, subtitle, onBack }) => (
       <Typography sx={{ fontFamily: "var(--font-family-display)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "var(--font-display-tracking)", fontSize: 22, lineHeight: 1.2, transform: "translateY(var(--font-display-shift))" }}>{title}</Typography>
       {subtitle && <Typography variant="body2" sx={{ color: "text.secondary" }}>{subtitle}</Typography>}
     </Box>
+    {right && <><Box sx={{ flex: 1 }} /><Box sx={{ flexShrink: 0 }}>{right}</Box></>}
   </Stack>
 );

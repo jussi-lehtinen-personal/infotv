@@ -35,3 +35,9 @@ export function useAdminAccess() {
 export function useHasAccount() {
   return useMeFlag((u) => u.hasPasskey || u.googleLinked || u.isEnvAdmin || u.isAdmin);
 }
+
+// True for admins OR anyone with the `valmennuspaallikko` role. Gates the
+// coaching-manager training-enrolment report (/coaching).
+export function useCoachManagerAccess() {
+  return useMeFlag((u) => u.isEnvAdmin || u.isAdmin || (Array.isArray(u.roles) && u.roles.some((r) => r.role === "valmennuspaallikko")));
+}
