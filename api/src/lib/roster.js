@@ -102,10 +102,16 @@ async function fetchRoster(subsiteId) {
 
 // Classify a person (by export name) against a fetched roster:
 // 'player' | 'coach' | 'staff' (huoltaja/muu toimihenkilö) | 'unknown'.
+// The public roster lists coaches/officials reliably (name + role, only contact
+// info is gated) but PLAYERS can be hidden per-player from the public site. So an
+// unmatched enrolee is almost always a hidden player → tag 'player'. Guard: only
+// when the roster actually loaded (has data); an empty roster means the fetch
+// failed and we can't tell, so leave 'unknown' rather than inflate the count.
 function tagRole(exportName, roster) {
   const k = nameKey(exportName);
   if (roster.players.has(k)) return 'player';
   if (roster.officials.has(k)) return roster.officials.get(k);
+  if (roster.players.size || roster.officials.size) return 'player';
   return 'unknown';
 }
 
