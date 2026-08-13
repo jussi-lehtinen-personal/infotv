@@ -82,7 +82,7 @@ function TeamRow({ t }) {
             {backgroundText(t)}
           </Typography>
         </Box>
-        <CountBlock value={`${t.playersIn}/${t.totalMembers}`} size={20} />
+        <CountBlock value={t.playersIn} size={20} />
         <Box component={LuChevronDown} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 18, transition: "transform .18s", transform: open ? "rotate(180deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>
