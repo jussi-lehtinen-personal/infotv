@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Box, Typography, Card, Stack, Chip, IconButton, CircularProgress, Collapse, Button,
 } from "@mui/material";
-import { LuRefreshCw, LuChevronDown, LuUser, LuUserCog, LuBriefcase, LuHelpCircle } from "react-icons/lu";
+import { LuRefreshCw, LuChevronRight, LuUser, LuUserCog, LuBriefcase, LuHelpCircle } from "react-icons/lu";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 import { getTrainingEnrollments } from "../auth/authClient";
@@ -75,7 +75,7 @@ function TeamRow({ t }) {
               {t.team}
             </Typography>
             {t.defaultIn && (
-              <Chip label="oletus IN" size="small"
+              <Chip label="Oletus IN" size="small"
                 sx={{ flexShrink: 0, height: 18, "& .MuiChip-label": { px: 0.75, py: 0, fontSize: 10, fontWeight: 700, lineHeight: 1 }, bgcolor: "rgba(251,191,36,0.16)", color: "#fcd34d" }} />
             )}
           </Box>
@@ -84,7 +84,7 @@ function TeamRow({ t }) {
           </Typography>
         </Box>
         <CountBlock value={t.playersIn} size={20} />
-        <Box component={LuChevronDown} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 18, transition: "transform .18s", transform: open ? "rotate(180deg)" : "none" }} />
+        <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 18, transition: "transform .18s", transform: open ? "rotate(90deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>
         <Box sx={{ px: 1.75, pb: 1.5, pt: 0.5, display: "flex", flexWrap: "wrap", gap: 0.75, boxSizing: "border-box" }}>
@@ -126,7 +126,7 @@ function EventCard({ ev, defaultOpen }) {
           </Typography>
         </Box>
         <CountBlock value={ev.playersIn} size={30} />
-        <Box component={LuChevronDown} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 20, transition: "transform .18s", transform: open ? "rotate(180deg)" : "none" }} />
+        <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 20, transition: "transform .18s", transform: open ? "rotate(90deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>
         {ev.error && (
