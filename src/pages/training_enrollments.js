@@ -47,10 +47,10 @@ function backgroundText(t) {
 
 // A stacked, centred count block (number over a label) so the number optically
 // centres with its label — and, in a flex row, with the chevron beside it.
-const CountBlock = ({ value, size }) => (
+const CountBlock = ({ value, size, label }) => (
   <Box sx={{ textAlign: "center", flexShrink: 0 }}>
     <Typography sx={{ fontWeight: 800, fontSize: size, lineHeight: 1, color: "primary.main", fontFamily: "var(--font-family-display)" }}>{value}</Typography>
-    <Typography variant="caption" sx={{ color: "text.disabled", letterSpacing: "0.04em", display: "block" }}>PELAAJAA</Typography>
+    {label && <Typography variant="caption" sx={{ color: "text.disabled", letterSpacing: "0.04em", display: "block" }}>{label}</Typography>}
   </Box>
 );
 
@@ -125,7 +125,7 @@ function EventCard({ ev, defaultOpen }) {
             {shortDate(ev)} - {ev.time}
           </Typography>
         </Box>
-        <CountBlock value={ev.playersIn} size={30} />
+        <CountBlock value={ev.playersIn} size={30} label="PELAAJAA" />
         <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 20, transition: "transform .18s", transform: open ? "rotate(90deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>
