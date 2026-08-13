@@ -32,10 +32,6 @@ function shortDate(ev) {
   const dm = m ? `${+m[1]}.${+m[2]}` : ev.date;
   return [cap(ev.weekday), dm].filter(Boolean).join(" ");
 }
-function clockFi(iso) {
-  try { return new Date(iso).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki" }); }
-  catch { return ""; }
-}
 // "U13 (2014)" -> { base: "U13", year: "(2014)" } so the year can be dimmed.
 function splitTeam(label) {
   const m = String(label || "").match(/^(.*?)\s*(\([^)]*\))\s*$/);
@@ -218,14 +214,12 @@ export default function TrainingEnrollments() {
               <Typography variant="caption" sx={{ color: "text.disabled", flex: 1, minWidth: 0 }}>
                 {data.events.length} tulevaa tapahtumaa
               </Typography>
-              {refreshing ? (
+              {refreshing && (
                 <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
                   <CircularProgress size={13} thickness={5} color="primary" />
                   <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>Päivitetään…</Typography>
                 </Stack>
-              ) : data.generatedAt ? (
-                <Typography variant="caption" sx={{ color: "text.disabled", flexShrink: 0 }}>Päivitetty {clockFi(data.generatedAt)}</Typography>
-              ) : null}
+              )}
             </Stack>
             <Stack spacing={1.5}>
               {data.events.map((ev, i) => <EventCard key={ev.id} ev={ev} defaultOpen={i === 0} />)}
