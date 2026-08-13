@@ -21,7 +21,7 @@ import { getTrainingEnrollments } from "../auth/authClient";
 // who is black with an orange border only (stands out from field players).
 const ROLE_META = {
   player: { icon: LuUser, bg: "var(--color-primary)", fg: "#fff", iconFg: "#fff" },
-  goalie: { icon: LuShield, bg: "#000", fg: "#fff", iconFg: "var(--color-primary)", border: "1.5px solid var(--color-primary)" },
+  goalie: { icon: LuShield, bg: "transparent", fg: "#fff", iconFg: "var(--color-primary)", border: "1.5px solid var(--color-primary)" },
   coach: { icon: LuUserCog, bg: "#0d9488", fg: "#fff", iconFg: "#fff" },
   staff: { icon: LuBriefcase, bg: "#2563eb", fg: "#fff", iconFg: "#fff" },
   unknown: { icon: LuHelpCircle, bg: "#4b5563", fg: "#fff", iconFg: "#fff" },
