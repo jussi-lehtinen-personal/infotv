@@ -36,6 +36,11 @@ function clockFi(iso) {
   try { return new Date(iso).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki" }); }
   catch { return ""; }
 }
+// "U13 (2014)" -> { base: "U13", year: "(2014)" } so the year can be dimmed.
+function splitTeam(label) {
+  const m = String(label || "").match(/^(.*?)\s*(\([^)]*\))\s*$/);
+  return m ? { base: m[1], year: m[2] } : { base: label || "", year: "" };
+}
 // The non-player line (never players): "IN: 2 valmentaja · 1 huoltaja".
 function backgroundText(t) {
   const parts = [];
@@ -72,7 +77,10 @@ function TeamRow({ t }) {
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
-              {t.team}
+              {splitTeam(t.team).base}
+              {splitTeam(t.team).year && (
+                <Box component="span" sx={{ ml: 0.5, fontWeight: 600, color: "text.disabled" }}>{splitTeam(t.team).year}</Box>
+              )}
             </Typography>
             {t.defaultIn && (
               <Chip label="Oletus IN" size="small"
