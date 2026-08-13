@@ -17,11 +17,12 @@ import { getTrainingEnrollments } from "../auth/authClient";
 // instantly (with `stale`); when stale, the client fires a background refresh
 // and shows a "Päivitetään…" indicator, then swaps in the fresh data.
 
+// Solid role colours (filled chip, white text). Player = Ahma orange.
 const ROLE_META = {
-  player: { icon: LuUser, fg: "var(--color-primary)", bg: "rgba(var(--color-primary-rgb),0.16)" },
-  coach: { icon: LuUserCog, fg: "#5eead4", bg: "rgba(45,212,191,0.16)" },
-  staff: { icon: LuBriefcase, fg: "#93c5fd", bg: "rgba(96,165,250,0.16)" },
-  unknown: { icon: LuHelpCircle, fg: "var(--color-accent)", bg: "var(--color-surface-divider)" },
+  player: { icon: LuUser, bg: "var(--color-primary)" },
+  coach: { icon: LuUserCog, bg: "#0d9488" },
+  staff: { icon: LuBriefcase, bg: "#2563eb" },
+  unknown: { icon: LuHelpCircle, bg: "#4b5563" },
 };
 
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -92,8 +93,8 @@ function TeamRow({ t }) {
             return (
               <Box key={i} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 999,
                     bgcolor: m.bg, maxWidth: "100%" }}>
-                <Box component={m.icon} sx={{ fontSize: 13, flexShrink: 0, color: m.fg }} />
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <Box component={m.icon} sx={{ fontSize: 13, flexShrink: 0, color: "#fff" }} />
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {p.name}
                 </Typography>
               </Box>
