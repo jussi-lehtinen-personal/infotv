@@ -33,6 +33,9 @@ const GRID = {
   alignItems: "center",
   columnGap: 1,
   px: 1.5,
+  // Rows set width:100%; without border-box the px padding overflows the card and
+  // clips the right-most (price) column. (box-sizing:content-box is the app default.)
+  boxSizing: "border-box",
 };
 // Stat columns (round/season/price) centre both the header and the value in the
 // same grid cell → their optical centres line up regardless of text width. The
