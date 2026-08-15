@@ -33,7 +33,18 @@ export const cardTeamKey = (c) => (c.kind === "team" ? String(c.id || "").replac
 // The set of teams the squad "owns" — used to filter events to your own cards.
 export const squadTeamKeys = (squadCards) => new Set((squadCards || []).map(cardTeamKey).filter(Boolean));
 
-// How many of the squad's cards had a game that's already been PLAYED this round.
+// A game counts as PLAYED only once it has an ACTUAL result — its kickoff passing is
+// not enough. tulospalvelu returns 0-0 for scheduled games (the server nulls those goals),
+// so a missing score means "not played yet". Without this a live day's not-yet-played
+// games would read "Pelattu" from midnight (day-granular simDate). Kept AND-ed with
+// !isUpcoming so a replay's stored results still reveal by the sim clock (no time-travel).
+export const gameHasResult = (g) => g && g.homeGoals != null && g.awayGoals != null;
+export const gamePlayed = (g, simDate) => !isUpcoming(g.date, simDate) && gameHasResult(g);
+
+// How many of the squad's cards had a game whose KICKOFF has passed this round. This
+// mirrors the backend rolling captain-lock (locked at the first kickoff, BEFORE any
+// result), so it stays kickoff-based (!isUpcoming) — NOT gamePlayed. Only the timeline's
+// "Pelattu" label uses gamePlayed.
 export function playedCardCount(squadCards, games, simDate) {
   const playedKeys = new Set((games || []).filter((g) => !isUpcoming(g.date, simDate)).map(gameTeamKey));
   return (squadCards || []).filter((c) => playedKeys.has(cardTeamKey(c))).length;
@@ -76,7 +87,7 @@ export function buildEvents(state, myKeys, opts) {
     // stay within the round window — a game after the end belongs to the next round
     .filter((g) => !endDay || String(g.date).slice(0, 10) <= endDay)
     .map((g) => ({
-      type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: !isUpcoming(g.date, simDate),
+      type: "game", date: g.date, gameId: g.gameId, title: gameTitle(g), played: gamePlayed(g, simDate),
       own: ownKeys ? ownKeys.has(gameTeamKey(g)) : true,
       // shape the box score page (/gamezone/game/:id) expects via router state
       game: { id: g.gameId, date: g.date, level: g.level, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId, ahmaHome: g.ahmaHome,
