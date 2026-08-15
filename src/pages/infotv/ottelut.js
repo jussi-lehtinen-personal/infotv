@@ -70,23 +70,32 @@ export default function InfoTvOttelut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monday, version]);
 
+  // All of the week's games (home + away) — used ONLY for the summary stats.
+  const allGames = useMemo(() => {
+    const wk = gamesForWeek(monday, true);
+    return [...wk].sort((a, b) => new Date(a.date) - new Date(b.date));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monday, version]);
+
   const weekRange = useMemo(() => {
     const mon = getMonday(new Date(baseDate));
     const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
     return moment(mon).format("D.M.") + " – " + moment(sun).format("D.M.");
   }, [baseDate]);
 
-  // Week summary (finished home games only).
+  // Week summary — ALL finished games (home + away), from Ahma's perspective.
   const summary = useMemo(() => {
-    let w = 0, l = 0, d = 0, gf = 0, ga = 0, played = 0;
-    for (const m of games) {
+    let w = 0, l = 0, d = 0, gf = 0, ga = 0, played = 0, nHome = 0, nAway = 0;
+    for (const m of allGames) {
+      if (m.ahmaHome) nHome++; else nAway++;
       const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
       if (!(Number(m.finished) > 0) || isNaN(hg) || isNaN(ag)) continue;
-      played++; gf += hg; ga += ag;
-      if (hg > ag) w++; else if (hg < ag) l++; else d++;
+      const af = m.ahmaHome ? hg : ag, aa = m.ahmaHome ? ag : hg; // Ahma for / against
+      played++; gf += af; ga += aa;
+      if (af > aa) w++; else if (af < aa) l++; else d++;
     }
-    return { n: games.length, played, w, l, d, gf, ga };
-  }, [games]);
+    return { n: nHome + nAway, nHome, nAway, played, w, l, d, gf, ga };
+  }, [allGames]);
 
   // Build 3 columns × 5 rows. Games fill column-by-column (col0 top→bottom,
   // then col1…) exactly like the CSS grid did; leftover slots get filler
@@ -128,9 +137,12 @@ export default function InfoTvOttelut() {
     const s = summary;
     let fk = 0;
     const used = new Set();
+    // Never two of the SAME "tilanne" card: variant-dedup PLUS group-dedup (record↔wins both
+    // show the week's wins; goals↔avg both show goals) so redundant stats can't stack.
+    const GROUP = { record: "res", wins: "res", goals: "gls", avg: "gls" };
     const makeFiller = (rem) => {
       const c = [];
-      const add = (variant, size, w, extra) => { if (!used.has(variant) && size >= 1 && size <= rem) c.push({ variant, size, w, extra }); };
+      const add = (variant, size, w, extra) => { if (!used.has(variant) && !used.has(GROUP[variant]) && size >= 1 && size <= rem) c.push({ variant, size, w, extra }); };
       if (s.n > 0) add("count", 1, 2);
       if (s.played > 0) { add("record", 1, 2.5); add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
@@ -144,6 +156,7 @@ export default function InfoTvOttelut() {
       let r = Math.random() * total, chosen = c[c.length - 1];
       for (const x of c) { r -= x.w; if (r <= 0) { chosen = x; break; } }
       used.add(chosen.variant);
+      if (GROUP[chosen.variant]) used.add(GROUP[chosen.variant]);
       return { type: "detail", variant: chosen.variant, size: chosen.size, key: `f${fk++}`, ...(chosen.extra || {}) };
     };
 
@@ -168,7 +181,7 @@ export default function InfoTvOttelut() {
     <InfoTvStage backdrop={false}>
       <HeroBackdrop calm />
       <style>{css}</style>
-      <Masthead title="KOTIOTTELUT" meta={weekRange} />
+      <Masthead title="KOTIOTTELUT TÄLLÄ VIIKOLLA" meta={weekRange} />
 
       {loading ? (
         <div className="ok-grid"><div className="ok-empty">Ladataan otteluita…</div></div>
@@ -249,7 +262,16 @@ function MatchCell({ m }) {
 function DetailCell({ it, s }) {
   switch (it.variant) {
     case "count":
-      return <BigStat title="Kotiottelut" val={s.n} sub="Tällä viikolla" />;
+      return (
+        <div className="ok-filler">
+          <div className="ok-filler-title">Ottelut</div>
+          <div className="ok-stats">
+            <Stat label="Koti" val={s.nHome} />
+            <span className="ok-statdiv" />
+            <Stat label="Vieras" val={s.nAway} />
+          </div>
+        </div>
+      );
     case "record":
       return (
         <div className="ok-filler">
@@ -288,8 +310,8 @@ function DetailCell({ it, s }) {
     case "app":
       return (
         <div className="ok-filler ok-center">
-          <div className="ok-big" style={{ color: ORANGE }}>gamezone.kiekko-ahma.fi</div>
-          <div className="ok-sub2">Lataa seuran sovellus</div>
+          <img className="ok-gz-logo" src="/ahma_gamezone_logo.webp" alt="Gamezone" />
+          <div className="ok-sub2" style={{ color: ORANGE }}>gamezone.kiekko-ahma.fi</div>
         </div>
       );
     case "social":
@@ -306,11 +328,11 @@ function DetailCell({ it, s }) {
           <div className="ok-filler-title">Ahmaliiga</div>
           <div className="ok-al-tall">
             <div className="ok-al-h">Pelaa fantasialiigaa!</div>
-            <div className="ok-al-url ok-al-url--c">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></div>
             <div className="ok-al-qrwrap">
               <img className="ok-al-wordmark" src="/infotv/ahmaliiga_wordmark.png" alt="Ahmaliiga" />
               <img className="ok-al-qr-big" src="/infotv/qr_ahmaliiga.png" alt="" />
             </div>
+            <div className="ok-al-url ok-al-url--c">gamezone.kiekko-ahma.fi<b>/ahmaliiga</b></div>
           </div>
         </div>
       );
@@ -409,11 +431,8 @@ const css = `
 .ok-logowrap { width:38px; height:38px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; padding:4px; box-sizing:border-box; }
 .ok-logo { max-width:100%; max-height:100%; object-fit:contain; }
 .ok-name { min-width:0; font-family:${FONT_BODY}; font-weight:800; font-size:26px; line-height:1.05; letter-spacing:0.01em; text-transform:uppercase; color:var(--gz-text-primary, #fff); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ok-name--lose { font-weight:500; }
 .ok-sub { font-weight:700; opacity:0.82; }
 .ok-score { font-family:${FONT_DISPLAY}; font-size:38px; line-height:1; letter-spacing:0.02em; color:#fff; min-width:32px; text-align:right; }
-.ok-score--win { font-size:44px; }
-.ok-score--lose { font-size:32px; color:rgba(255,255,255,0.85); }
 
 /* detail / filler modules */
 .ok-filler { display:flex; flex-direction:column; padding:13px 22px; border-radius:16px; overflow:hidden; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
@@ -421,12 +440,13 @@ const css = `
 .ok-center { align-items:center; justify-content:center; text-align:center; }
 .ok-big { font-family:${FONT_DISPLAY}; font-size:42px; line-height:1; letter-spacing:0.03em; color:#fff; white-space:nowrap; }
 .ok-sub2 { font-family:${FONT_BODY}; font-weight:600; font-size:20px; color:${STEEL}; margin-top:8px; }
+.ok-gz-logo { max-width:84%; max-height:56%; object-fit:contain; }
 
 /* summary stat row (GameZone jakso style: value + divider + value) */
 .ok-stats { flex:1; min-height:0; display:flex; align-items:center; justify-content:space-around; margin-top:2px; }
 .ok-stat { display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; padding:0 4px; min-width:0; }
-.ok-stat-val { font-family:${FONT_DISPLAY}; font-size:50px; line-height:1; letter-spacing:0.02em; color:#fff; white-space:nowrap; }
-.ok-stat-lbl { font-family:${FONT_BODY}; font-weight:700; font-size:16px; letter-spacing:0.07em; text-transform:uppercase; color:${STEEL}; }
+.ok-stat-val { font-family:${FONT_DISPLAY}; font-size:66px; line-height:1; letter-spacing:0.02em; color:#fff; white-space:nowrap; }
+.ok-stat-lbl { font-family:${FONT_BODY}; font-weight:700; font-size:20px; letter-spacing:0.07em; text-transform:uppercase; color:${STEEL}; }
 .ok-statdiv { width:1.5px; align-self:stretch; margin:12px 0; background:rgba(255,255,255,0.14); flex-shrink:0; }
 
 /* single big-number stat */
@@ -462,7 +482,7 @@ const css = `
 /* tall (3-slot): text on top, big QR below */
 .ok-al-tall { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; text-align:center; padding-top:8px; }
 .ok-al-qrwrap { flex:1; min-height:0; align-self:stretch; display:flex; align-items:center; justify-content:center; gap:42px; margin-top:14px; }
-.ok-al-wordmark { max-height:78%; max-width:44%; object-fit:contain; }
+.ok-al-wordmark { max-height:100%; max-width:52%; object-fit:contain; }
 .ok-al-qr-big { height:100%; aspect-ratio:1; max-width:100%; object-fit:contain; background:#fff; border-radius:12px; padding:10px; box-sizing:border-box; }
 
 /* partner logo(s) — one card stacks 1–3 logos */
