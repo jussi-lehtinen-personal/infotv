@@ -438,14 +438,11 @@ function Scorers({ list }) {
         {podium.map(({ p, rank }) => (
           <div className={"ok-scorer ok-scorer--" + rank} key={rank}>
             <div className="ok-scorer-card">
-              <div className="ok-scorer-badge">{rank}</div>
+              <div className="ok-scorer-badge">{p.number || rank}</div>
               <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(`${p.first || ""} ${p.last || ""}`)}</span>}</div>
               <div className="ok-scorer-foot">
-                <div className="ok-scorer-num">
-                  {p.number ? <>#{p.number}</> : null}
-                  {p.age ? <span className="ok-scorer-team">{p.number ? " · " : ""}{teamShort(p.age)}</span> : null}
-                </div>
                 <div className="ok-scorer-name"><span>{p.first}</span><span>{p.last}</span></div>
+                {p.age ? <div className="ok-scorer-team">{teamShort(p.age)}</div> : null}
                 <div className="ok-scorer-div" />
                 <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
               </div>
@@ -570,8 +567,8 @@ const css = `
 .ok-scorers { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:16px; }
 .ok-scorer { display:flex; flex-direction:column; max-height:100%; }
 .ok-scorer-card { position:relative; width:100%; max-height:100%; display:flex; flex-direction:column; border-radius:13px; overflow:hidden; background:rgba(10,10,12,0.92); border:1.5px solid rgba(249,115,22,0.4); box-shadow:0 8px 22px rgba(0,0,0,0.5); }
-.ok-scorer { width:25%; }
-.ok-scorer--1 { width:30%; }
+.ok-scorer { width:27%; }
+.ok-scorer--1 { width:32%; }
 .ok-scorer--1 .ok-scorer-card { border-color:${ORANGE}; box-shadow:0 0 26px rgba(249,115,22,0.3); }
 /* Rank badge: fixed size (never grows for #1) so it stays out of the player's face */
 .ok-scorer-badge { position:absolute; top:0; left:0; z-index:2; min-width:30px; height:30px; padding:0 7px; display:flex; align-items:center; justify-content:center; border-bottom-right-radius:11px; background:rgba(15,15,17,0.96); font-family:${FONT_DISPLAY}; font-size:20px; color:#fff; }
@@ -579,12 +576,10 @@ const css = `
 .ok-scorer-photo { width:100%; aspect-ratio:1/1; min-height:0; background:#fff; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:42px; color:#333; overflow:hidden; }
 .ok-scorer-photo img { width:100%; height:100%; object-fit:cover; object-position:center top; }
 .ok-scorer-foot { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:6px; padding:9px 8px 12px; }
-/* number + team: SAME size + font; only the colour differs (# orange, team steel) */
-.ok-scorer-num { font-family:${FONT_DISPLAY}; font-size:22px; line-height:1; color:${ORANGE}; white-space:nowrap; }
-.ok-scorer--1 .ok-scorer-num { font-size:25px; }
-.ok-scorer-team { font-size:1em; color:${STEEL}; }
 .ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:16px; line-height:1.1; text-transform:uppercase; text-align:center; color:#fff; max-width:100%; }
 .ok-scorer--1 .ok-scorer-name { font-size:18px; }
+.ok-scorer-team { font-family:${FONT_BODY}; font-weight:700; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color:${ORANGE}; }
+.ok-scorer--1 .ok-scorer-team { font-size:14px; }
 .ok-scorer-name span { display:block; overflow:hidden; text-overflow:ellipsis; }
 .ok-scorer-div { flex-shrink:0; width:34px; height:2px; border-radius:2px; background:${ORANGE}; }
 .ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:24px; line-height:1; color:#fff; }
