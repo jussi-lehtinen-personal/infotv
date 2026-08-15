@@ -127,7 +127,11 @@ export default function InfoTvOttelut() {
         const bump = (nm, gp, ap) => {
           if (!nm) return;
           const k = nameKey(nm);
-          const t = tally[k] || (tally[k] = { key: k, name: titleName(nm), pts: 0, goals: 0, assists: 0, age });
+          let t = tally[k];
+          if (!t) {
+            const w = String(nm).trim().split(/\s+/); // box score = "LASTNAME Firstname"
+            t = tally[k] = { key: k, first: titleName(w.slice(1).join(" ")), last: titleName(w[0] || ""), pts: 0, goals: 0, assists: 0, age };
+          }
           t.goals += gp; t.assists += ap; t.pts += gp + ap;
         };
         for (const goal of rep.goals) {
@@ -137,19 +141,19 @@ export default function InfoTvOttelut() {
         }
       }));
       const top = Object.values(tally).filter((t) => t.pts > 0)
-        .sort((a, b) => b.pts - a.pts || b.goals - a.goals || a.name.localeCompare(b.name, "fi")).slice(0, 3);
+        .sort((a, b) => b.pts - a.pts || b.goals - a.goals || (a.last || "").localeCompare(b.last || "", "fi")).slice(0, 3);
       if (top.length < 3) { if (!cancelled) setTopScorers([]); return; }
       // Photos: fetch each involved age's Jopox roster (cached), match by name.
       const ages = [...new Set(top.map((t) => t.age).filter(Boolean))];
-      const photo = {}, proper = {}, num = {};
+      const photo = {}, num = {}, fn = {}, ln = {};
       await Promise.all(ages.map(async (age) => {
         const sid = subsiteForAge(age); if (!sid) return;
         try {
           const r = await fetch(`/api/getTeamRoster?subsiteId=${sid}`).then((x) => (x.ok ? x.json() : null));
-          for (const p of (r && r.players) || []) { const k = nameKey(`${p.firstName} ${p.lastName}`); if (p.photo) photo[k] = p.photo; proper[k] = `${p.firstName} ${p.lastName}`.trim(); if (p.number) num[k] = p.number; }
+          for (const p of (r && r.players) || []) { const k = nameKey(`${p.firstName} ${p.lastName}`); if (p.photo) photo[k] = p.photo; fn[k] = p.firstName; ln[k] = p.lastName; if (p.number) num[k] = p.number; }
         } catch { /* ignore */ }
       }));
-      for (const t of top) { t.photo = photo[t.key] || null; if (proper[t.key]) t.name = proper[t.key]; t.number = num[t.key] || null; }
+      for (const t of top) { t.photo = photo[t.key] || null; t.number = num[t.key] || null; if (fn[t.key] || ln[t.key]) { t.first = fn[t.key] || t.first; t.last = ln[t.key] || t.last; } }
       if (!cancelled) setTopScorers(top);
     })();
     return () => { cancelled = true; };
@@ -435,13 +439,14 @@ function Scorers({ list }) {
           <div className={"ok-scorer ok-scorer--" + rank} key={rank}>
             <div className="ok-scorer-card">
               <div className="ok-scorer-badge">{rank}</div>
-              <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(p.name)}</span>}</div>
+              <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(`${p.first || ""} ${p.last || ""}`)}</span>}</div>
               <div className="ok-scorer-foot">
                 <div className="ok-scorer-num">
                   {p.number ? <>#{p.number}</> : null}
                   {p.age ? <span className="ok-scorer-team">{p.number ? " · " : ""}{teamShort(p.age)}</span> : null}
                 </div>
-                <div className="ok-scorer-name">{p.name}</div>
+                <div className="ok-scorer-name"><span>{p.first}</span><span>{p.last}</span></div>
+                <div className="ok-scorer-div" />
                 <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
               </div>
             </div>
@@ -562,25 +567,29 @@ const css = `
 .ok-bw-vs { flex-shrink:0; font-family:${FONT_BODY}; font-weight:700; font-size:24px; color:${STEEL}; }
 
 /* Pistenikkarit — three cards, #1 centre (bigger + elevated), rank badge top-left */
-.ok-scorers { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:14px; }
+.ok-scorers { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:16px; }
 .ok-scorer { display:flex; flex-direction:column; max-height:100%; }
 .ok-scorer-card { position:relative; width:100%; max-height:100%; display:flex; flex-direction:column; border-radius:13px; overflow:hidden; background:rgba(10,10,12,0.92); border:1.5px solid rgba(249,115,22,0.4); box-shadow:0 8px 22px rgba(0,0,0,0.5); }
-.ok-scorer { width:22%; }
-.ok-scorer--1 { width:27%; }
+.ok-scorer { width:25%; }
+.ok-scorer--1 { width:30%; }
 .ok-scorer--1 .ok-scorer-card { border-color:${ORANGE}; box-shadow:0 0 26px rgba(249,115,22,0.3); }
-.ok-scorer-badge { position:absolute; top:0; left:0; z-index:2; min-width:32px; height:32px; padding:0 7px; display:flex; align-items:center; justify-content:center; border-bottom-right-radius:12px; background:rgba(15,15,17,0.96); font-family:${FONT_DISPLAY}; font-size:22px; color:#fff; }
-.ok-scorer--1 .ok-scorer-badge { background:${ORANGE}; min-width:38px; height:38px; font-size:26px; }
-.ok-scorer-photo { width:100%; aspect-ratio:1/1; min-height:0; background:#fff; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:40px; color:#333; overflow:hidden; }
+/* Rank badge: fixed size (never grows for #1) so it stays out of the player's face */
+.ok-scorer-badge { position:absolute; top:0; left:0; z-index:2; min-width:30px; height:30px; padding:0 7px; display:flex; align-items:center; justify-content:center; border-bottom-right-radius:11px; background:rgba(15,15,17,0.96); font-family:${FONT_DISPLAY}; font-size:20px; color:#fff; }
+.ok-scorer--1 .ok-scorer-badge { background:${ORANGE}; }
+.ok-scorer-photo { width:100%; aspect-ratio:1/1; min-height:0; background:#fff; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:42px; color:#333; overflow:hidden; }
 .ok-scorer-photo img { width:100%; height:100%; object-fit:cover; object-position:center top; }
-.ok-scorer-foot { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 6px 8px; }
-.ok-scorer-num { font-family:${FONT_DISPLAY}; font-size:28px; line-height:1; color:${ORANGE}; white-space:nowrap; }
-.ok-scorer--1 .ok-scorer-num { font-size:34px; }
-.ok-scorer-team { font-family:${FONT_BODY}; font-weight:700; font-size:0.52em; letter-spacing:0.02em; color:${STEEL}; }
-.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:15px; line-height:1.05; text-transform:uppercase; text-align:center; color:#fff; max-width:100%; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.ok-scorer--1 .ok-scorer-name { font-size:16.5px; }
-.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:23px; line-height:1; color:#e8e8e8; }
-.ok-scorer-pts span { color:${STEEL}; padding:0 1px; }
+.ok-scorer-foot { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:6px; padding:9px 8px 12px; }
+/* number + team: SAME size + font; only the colour differs (# orange, team steel) */
+.ok-scorer-num { font-family:${FONT_DISPLAY}; font-size:22px; line-height:1; color:${ORANGE}; white-space:nowrap; }
+.ok-scorer--1 .ok-scorer-num { font-size:25px; }
+.ok-scorer-team { font-size:1em; color:${STEEL}; }
+.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:16px; line-height:1.1; text-transform:uppercase; text-align:center; color:#fff; max-width:100%; }
+.ok-scorer--1 .ok-scorer-name { font-size:18px; }
+.ok-scorer-name span { display:block; overflow:hidden; text-overflow:ellipsis; }
+.ok-scorer-div { flex-shrink:0; width:34px; height:2px; border-radius:2px; background:${ORANGE}; }
+.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:24px; line-height:1; color:#fff; }
 .ok-scorer--1 .ok-scorer-pts { font-size:28px; }
+.ok-scorer-pts span { color:${STEEL}; padding:0 1px; }
 
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
