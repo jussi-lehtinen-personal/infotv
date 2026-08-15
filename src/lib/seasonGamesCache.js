@@ -10,7 +10,7 @@ import { getMonday, processIncomingDataEvents } from "../Util";
 // overlay. In-memory + localStorage (instant paint) + subscribe/notify.
 // See memory: project_home_agenda.
 
-const VERSION = 1;
+const VERSION = 2; // v2: game rows now carry realId (Leijonat TV link) — invalidate old
 const LS_KEY = `ahma.seasonGames.v${VERSION}`;
 // Client revalidation window. The long 24 h cache lives in the worker only (to
 // avoid layered TTLs compounding); Azure + browser stay at 5 min. The client can
