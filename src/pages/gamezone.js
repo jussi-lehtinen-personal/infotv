@@ -872,16 +872,24 @@ function MatchRow({ match }) {
             {level}
           </Box>
         )}
-        {ltvUrl && (
-          <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Katso Leijonat TV:ssä"
-            sx={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", bgcolor: "#fff", overflow: "hidden", display: "inline-flex", alignItems: "center", justifyContent: "center", "&:hover": { bgcolor: "#f0f0f0" } }}>
-            <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ width: 22, height: 22, objectFit: "contain", display: "block" }} />
-          </Box>
-        )}
-        {rink && (
-          <Box sx={{ ml: "auto", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
-            <LuMapPin size={14} style={{ flexShrink: 0 }} />
-            <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{rink}</Box>
+        {(rink || ltvUrl) && (
+          <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+            {ltvUrl && (
+              <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Katso Leijonat TV:ssä"
+                sx={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", bgcolor: "#fff", overflow: "hidden", display: "inline-flex", alignItems: "center", justifyContent: "center", "&:hover": { bgcolor: "#f0f0f0" } }}>
+                <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ width: 22, height: 22, objectFit: "contain", display: "block" }} />
+              </Box>
+            )}
+            {/* Fixed-width location slot pinned to the edge — so the crest (just left of
+                it) lands at the SAME x on every row and the locations line up too. */}
+            <Box sx={{ width: 96, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
+              {rink && (
+                <>
+                  <LuMapPin size={14} style={{ flexShrink: 0 }} />
+                  <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{rink}</Box>
+                </>
+              )}
+            </Box>
           </Box>
         )}
       </Box>
