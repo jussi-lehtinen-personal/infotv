@@ -932,7 +932,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "17";
+const CACHE_VERSION = "18";
 
 /* ------------------------------ rate limiting ----------------------------- */
 // Coarse per-IP cap on ORIGIN-facing (uncached) work, so a flood of cache-MISSES

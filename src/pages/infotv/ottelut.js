@@ -431,11 +431,16 @@ function Scorers({ list }) {
       <div className="ok-filler-title">Pistenikkarit</div>
       <div className="ok-scorers">
         {podium.map(({ p, rank }) => (
-          <div className={"ok-scorer" + (rank === 1 ? " ok-scorer--1" : "")} key={rank}>
-            <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(p.name)}</span>}</div>
-            {p.number ? <div className="ok-scorer-num">{p.number}</div> : null}
-            <div className="ok-scorer-name">{p.name}</div>
-            <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
+          <div className={"ok-scorer ok-scorer--" + rank} key={rank}>
+            <div className="ok-scorer-card">
+              <div className="ok-scorer-badge">{rank}</div>
+              <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(p.name)}</span>}</div>
+              <div className="ok-scorer-foot">
+                {p.number ? <div className="ok-scorer-num">{p.number}</div> : null}
+                <div className="ok-scorer-name">{p.name}</div>
+                <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -552,19 +557,25 @@ const css = `
 .ok-bw-name--lose { font-weight:500; color:rgba(255,255,255,0.72); }
 .ok-bw-vs { flex-shrink:0; font-family:${FONT_BODY}; font-weight:700; font-size:24px; color:${STEEL}; }
 
-/* Pistenikkarit podium — 1st centre (bigger), 2nd left, 3rd right; roster-style card */
-.ok-scorers { flex:1; min-height:0; display:flex; align-items:flex-end; justify-content:space-around; gap:12px; padding-top:6px; }
-.ok-scorer { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; }
-.ok-scorer-photo { width:94px; height:106px; border-radius:13px; overflow:hidden; background:linear-gradient(160deg,#3a3a3a,#1b1b1b); border:1px solid rgba(255,255,255,0.14); display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:34px; color:#fff; box-sizing:border-box; }
-.ok-scorer--1 .ok-scorer-photo { width:122px; height:138px; border-color:${ORANGE}; }
+/* Pistenikkarit — three cards, #1 centre (bigger + elevated), rank badge top-left */
+.ok-scorers { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:16px; }
+.ok-scorer { display:flex; flex-direction:column; }
+.ok-scorer-card { position:relative; width:100%; display:flex; flex-direction:column; border-radius:14px; overflow:hidden; background:rgba(10,10,12,0.92); border:1.5px solid rgba(249,115,22,0.4); box-shadow:0 8px 22px rgba(0,0,0,0.5); }
+.ok-scorer { width:27%; }
+.ok-scorer--1 { width:33%; }
+.ok-scorer--1 .ok-scorer-card { border-color:${ORANGE}; box-shadow:0 0 30px rgba(249,115,22,0.32); transform:translateY(-12px); }
+.ok-scorer-badge { position:absolute; top:0; left:0; z-index:2; min-width:36px; height:36px; padding:0 8px; display:flex; align-items:center; justify-content:center; border-bottom-right-radius:13px; background:rgba(15,15,17,0.96); font-family:${FONT_DISPLAY}; font-size:24px; color:#fff; }
+.ok-scorer--1 .ok-scorer-badge { background:${ORANGE}; min-width:42px; height:42px; font-size:29px; }
+.ok-scorer-photo { width:100%; aspect-ratio:1/1; background:#fff; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:44px; color:#333; }
 .ok-scorer-photo img { width:100%; height:100%; object-fit:cover; object-position:center top; }
-.ok-scorer-num { font-family:${FONT_DISPLAY}; font-size:28px; line-height:1; color:${ORANGE}; margin-top:2px; }
-.ok-scorer--1 .ok-scorer-num { font-size:34px; }
-.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:17px; line-height:1.06; text-transform:uppercase; color:#fff; max-width:100%; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.ok-scorer--1 .ok-scorer-name { font-size:19px; }
-.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:28px; line-height:1; color:#fff; }
+.ok-scorer-foot { display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 8px 12px; }
+.ok-scorer-num { font-family:${FONT_DISPLAY}; font-size:34px; line-height:1; color:${ORANGE}; }
+.ok-scorer--1 .ok-scorer-num { font-size:42px; }
+.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:16px; line-height:1.08; text-transform:uppercase; text-align:center; color:#fff; max-width:100%; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ok-scorer--1 .ok-scorer-name { font-size:18px; }
+.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:27px; line-height:1; color:#e8e8e8; margin-top:2px; }
 .ok-scorer-pts span { color:${STEEL}; padding:0 1px; }
-.ok-scorer--1 .ok-scorer-pts { font-size:36px; }
+.ok-scorer--1 .ok-scorer-pts { font-size:33px; }
 
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
