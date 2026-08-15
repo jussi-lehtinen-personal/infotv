@@ -134,8 +134,8 @@ const BoxScore = () => {
         )}
         {ltvUrl && (
           <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" aria-label="Katso Leijonat TV:ssä"
-            sx={{ flexShrink: 0, height: 38, display: "inline-flex", alignItems: "center", px: 1, borderRadius: 2, bgcolor: "#fff", border: "1px solid rgba(255,255,255,0.14)", "&:hover": { bgcolor: "#f0f0f0" } }}>
-            <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ height: 22, display: "block" }} />
+            sx={{ ...topBtnSx, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ width: 26, height: 26, objectFit: "contain", display: "block" }} />
           </Box>
         )}
         {isAdmin && game && (
