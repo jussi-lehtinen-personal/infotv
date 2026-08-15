@@ -286,7 +286,7 @@ async function fetchExtGames(season) {
   return (Array.isArray(games) ? games : []).map(buildExtGame);
 }
 
-async function handleGetSeasonGames(url) {
+async function handleGetSeasonGames(url, env) {
   const seasonParam = url.searchParams.get("season");
   let seasons;
   if (seasonParam) {
@@ -305,6 +305,22 @@ async function handleGetSeasonGames(url) {
   }
   // date is "YYYY-MM-DD HH:mm" → lexical sort is chronological.
   const built = [...byId.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // Attach the tulospalvelu game id (realId) from KV where a box score has already been
+  // opened for the game (resolveRealId caches `gid2:<extId>` permanently). KV reads only —
+  // NO tulospalvelu calls — so the Ottelut list can build the Leijonat TV / tulospalvelu
+  // watch link without a per-game resolve. Games not yet viewed simply lack `realId`.
+  if (env && env.GAME_IDS) {
+    await Promise.all(
+      built.map(async (g) => {
+        try {
+          const rid = await env.GAME_IDS.get(`gid2:${g.id}`);
+          if (rid) g.realId = Number(rid);
+        } catch {
+          /* KV read failed — skip, no realId */
+        }
+      })
+    );
+  }
   // Stamp WHEN this snapshot was fetched from tulospalvelu. Frozen into the 24 h
   // Cache-API entry, so every client that gets the cached response sees the same
   // `fetchedAt` → the client can skip reprocessing/merging when it's unchanged.
@@ -1010,7 +1026,7 @@ export default {
       if (url.pathname === "/getGames")
         return await cachedJson(ctx, url, weekTtlSeconds(url), () => handleGetGames(url), env, ip, 5);
       if (url.pathname === "/getSeasonGames")
-        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url), env, ip, 2);
+        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url, env), env, ip, 2);
       if (url.pathname === "/getGameReport")
         return await handleGetGameReport(url, env, ctx, ip);
       if (url.pathname === "/getTeamSeries")

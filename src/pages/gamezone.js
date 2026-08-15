@@ -814,10 +814,13 @@ function MatchRow({ match }) {
   const homeNameStyle = (homeIsLoser && !isLive) ? { color: MUTED } : undefined;
   const awayNameStyle = (awayIsLoser && !isLive) ? { color: MUTED } : undefined;
 
-  const venueLabel = match.isHomeGame === true ? "Koti"
-                   : match.isHomeGame === false ? "Vieras"
-                   : null;
   const rink = match.rink || "";
+  // Leijonat TV watch link — needs the tulospalvelu game id (realId), which the worker
+  // attaches from KV only for games whose box score has already been opened. Absent →
+  // no crest (the row still opens the box score, which always has the link). Koti/Vieras
+  // label dropped to make room for the crest.
+  const springSeason = (d) => { const m = String(d || "").match(/(\d{4})-(\d{2})/); return m ? (Number(m[2]) >= 7 ? Number(m[1]) + 1 : Number(m[1])) : ""; };
+  const ltvUrl = match.realId ? `https://www.leijonat.tv/fi/game?ext-id=${match.realId}&season-id=${springSeason(match.date)}` : null;
 
   // Left indicator line only when there's something to show: live (orange) or
   // a finished result (green win / red loss / grey draw). Plain upcoming = none.
@@ -869,14 +872,20 @@ function MatchRow({ match }) {
             {level}
           </Box>
         )}
-        {(venueLabel || rink) && (
-          <Box sx={{ ml: "auto", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
-            <LuMapPin size={14} style={{ flexShrink: 0 }} />
-            <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-              {rink}
-              {rink && venueLabel && " • "}
-              {venueLabel}
-            </Box>
+        {(rink || ltvUrl) && (
+          <Box sx={{ ml: "auto", display: "inline-flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+            {rink && (
+              <Box sx={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
+                <LuMapPin size={14} style={{ flexShrink: 0 }} />
+                <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{rink}</Box>
+              </Box>
+            )}
+            {ltvUrl && (
+              <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Katso Leijonat TV:ssä"
+                sx={{ flexShrink: 0, display: "inline-flex", alignItems: "center", height: 22, px: "5px", borderRadius: "5px", bgcolor: "#fff", border: "1px solid rgba(255,255,255,0.18)" }}>
+                <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ height: 15, display: "block" }} />
+              </Box>
+            )}
           </Box>
         )}
       </Box>

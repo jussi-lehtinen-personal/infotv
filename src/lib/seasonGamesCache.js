@@ -93,7 +93,7 @@ function patchGame(extId, patch) {
   const g = (games || []).find((x) => String(x.id) === String(extId));
   if (!g) return;
   let changed = false;
-  for (const k of ["home_goals", "away_goals", "finished", "period"]) {
+  for (const k of ["home_goals", "away_goals", "finished", "period", "realId"]) {
     if (patch[k] != null && String(g[k]) !== String(patch[k])) {
       g[k] = patch[k];
       changed = true;
@@ -127,6 +127,7 @@ function overlayTick() {
           away_goals: rep.score.away,
           finished: rep.finishedType,
           period: rep.status,
+          realId: rep.realId, // so the Ottelut row's Leijonat TV link works for a live game
         });
       })
       .catch(() => {});
