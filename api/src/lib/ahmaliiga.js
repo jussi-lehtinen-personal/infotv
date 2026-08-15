@@ -1399,6 +1399,19 @@ async function buildCardPos(seasonId) {
   return map;
 }
 
+// Box-score player name → the actual card id. LIVE cards are Jopox-named (title case, e.g.
+// "Lehtinen Eetu") while box-score scorer names are tulospalvelu UPPERCASE-last ("LEHTINEN
+// Eetu"); both normalise to the same posName, so match on that. Falls back to "P:"+name so
+// a replay (cards built FROM box scores) keeps identity behaviour. Without this the live
+// pool scores 0 for every player (names never match the "P:"+name keys).
+async function cardIdResolver(seasonId) {
+  const byKey = {};
+  for (const c of await getCards(seasonId)) {
+    if (c.kind === 'player' || c.kind === 'goalie') byKey[posName(c.personName || c.name || String(c.rowKey).replace(/^P:/, ''))] = c.rowKey;
+  }
+  return (name) => byKey[posName(name)] || ('P:' + name);
+}
+
 // Manual card override (admin) — force a player card's position/kind against the Jopox
 // roster, e.g. a goalie Jopox lists in a field group. `posOverride` sticks (reconcile
 // prefers it), so a later reconcile never reverts it. Matches by name words (all present,
@@ -1489,13 +1502,14 @@ async function computeRoundResults(seasonId, round) {
   // no-op (uses liveCardPos everywhere) for non-live seasons.
   const playedIds = games.filter(hasResult).map((g) => g.gameId);
   const { get: cardPos } = await loadFrozenPositions(seasonId, season, playedIds, liveCardPos);
-  const { results, reasons } = computeRoundPoints({ games, reports, extraAges, cardPos });
+  const resolveId = await cardIdResolver(seasonId); // bridge Jopox card names ↔ box-score names
+  const { results, reasons } = computeRoundPoints({ games, reports, extraAges, cardPos, resolveId });
   // Per-game card points too, so settlement can attribute each game to the squad
   // frozen at ITS kickoff (rolling lock).
   const perGame = {};
   for (const g of games) {
     const rep = reports[g.gameId];
-    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges, cardPos }).results;
+    perGame[g.gameId] = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges, cardPos, resolveId }).results;
   }
   return { results, reasons, perGame, gameList: games, games: games.length, reportsFetched: Object.keys(reports).length, eligible: eligible.length };
 }
@@ -1603,7 +1617,16 @@ async function roundProgress(seasonId, round, userId) {
   const cardsList = await getCards(seasonId);
   const cardMap = {};
   const liveCardPos = {}; // name→tagged position (current)
-  for (const c of cardsList) { cardMap[c.rowKey] = c; if (c.kind === 'player' || c.kind === 'goalie') liveCardPos[posName(c.personName || c.name || '')] = c.position || 'field'; }
+  const idByName = {};    // posName → card id (bridge Jopox card names ↔ box-score names)
+  for (const c of cardsList) {
+    cardMap[c.rowKey] = c;
+    if (c.kind === 'player' || c.kind === 'goalie') {
+      const pk = posName(c.personName || c.name || String(c.rowKey).replace(/^P:/, ''));
+      liveCardPos[pk] = c.position || 'field';
+      idByName[pk] = c.rowKey;
+    }
+  }
+  const resolveId = (name) => idByName[posName(name)] || ('P:' + name);
   const games = await getRoundGames(seasonId, round);
   const isPlayed = (g) => hasResult(g) && kickedOff(g, simDate);
   const playedGames = games.filter(isPlayed);
@@ -1640,7 +1663,7 @@ async function roundProgress(seasonId, round, userId) {
   let livePoints = 0;
   for (const g of playedGames) {
     const rep = reports[g.gameId];
-    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges, cardPos });
+    const { results } = computeRoundPoints({ games: [g], reports: rep ? { [g.gameId]: rep } : {}, extraAges, cardPos, resolveId });
     const eff = effectiveSquad(g, lineups, ids, captainId);
     let gPts = 0;
     for (const id of eff.ids) {
@@ -1658,7 +1681,7 @@ async function roundProgress(seasonId, round, userId) {
   // the already-fetched reports (no new box-score fetches). Combined per card across the
   // played games ("Voitto 3–1 · Tappio 0–2"), so the live Tulokset list can mirror the
   // settled breakdown mid-round.
-  const { reasons: liveReasons } = computeRoundPoints({ games: playedGames, reports, extraAges, cardPos });
+  const { reasons: liveReasons } = computeRoundPoints({ games: playedGames, reports, extraAges, cardPos, resolveId });
   // Prediction bonus counts once its predicted game has been played.
   const pred = await getEntity(T.predictions, `${seasonId}|${round}`, userId);
   if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {

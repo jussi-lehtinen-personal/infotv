@@ -76,10 +76,15 @@ function playerReason(d) {
 // played game's position is locked → a later re-tag never rewrites its points). A map
 // or undefined behaves exactly as before (same value for every game) → the offline
 // validators are unaffected.
-function computeRoundPoints({ games, reports, extraAges, cardPos }) {
+function computeRoundPoints({ games, reports, extraAges, cardPos, resolveId }) {
   reports = reports || {};
   const posFor = typeof cardPos === "function" ? cardPos : () => cardPos;
   const eligible = (tk) => isPlayerEligible(tk) || !!(extraAges && extraAges.has(String(tk).split(" ")[0]));
+  // A box-score player name → its actual card id. Replay cards are built FROM box scores
+  // ("P:"+boxScoreName) so the default identity mapping matches; the LIVE pool builds cards
+  // from Jopox (title case) while box scores are UPPERCASE-last, so the caller passes a
+  // resolveId that bridges them (via posName). Offline validators pass none → unchanged.
+  const cid = (name) => (resolveId ? resolveId(name) : "P:" + name);
   const results = {};
   const add = (id, p) => { results[id] = (results[id] || 0) + p; };
   const teamRes = {};   // "T:"+tk -> [{gf,ga}]
@@ -103,14 +108,14 @@ function computeRoundPoints({ games, reports, extraAges, cardPos }) {
     for (const goal of r.goals || []) {
       if (goal.side !== ahmaSide) continue;
       const scorer = goal.scorer && goal.scorer.name;
-      if (scorer) { add("P:" + scorer, SCORING.player.goal); pd("P:" + scorer).goals += 1; }
-      for (const a of goal.assists || []) if (a) { add("P:" + a, SCORING.player.assist); pd("P:" + a).assists += 1; }
+      if (scorer) { const id = cid(scorer); add(id, SCORING.player.goal); pd(id).goals += 1; }
+      for (const a of goal.assists || []) if (a) { const id = cid(a); add(id, SCORING.player.assist); pd(id).assists += 1; }
     }
     const gk = goaliePoints(r, { ahmaSide, oppSide: g.ahmaHome ? "away" : "home", won: gf > ga });
-    if (gk) { add("P:" + gk.name, gk.pts); pd("P:" + gk.name).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }
+    if (gk) { const id = cid(gk.name); add(id, gk.pts); pd(id).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }
     // U12: defender bonus (position from the box-score roster) — a defenceman earns from
     // keeping goals against down even without scoring. No-op where positions are untagged.
-    for (const dp of defensePoints(r, ahmaSide, ga, posFor(g.gameId))) { add("P:" + dp.name, dp.pts); pd("P:" + dp.name).def = (pd("P:" + dp.name).def || 0) + dp.pts; }
+    for (const dp of defensePoints(r, ahmaSide, ga, posFor(g.gameId))) { const id = cid(dp.name); add(id, dp.pts); pd(id).def = (pd(id).def || 0) + dp.pts; }
   }
 
   for (const id in results) results[id] = Math.round(results[id] * 10) / 10;
