@@ -9,8 +9,18 @@ import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, ORANGE, S
 import { getMonday, splitTeamName } from "../../Util";
 import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 import { isLiveMatch } from "../../hooks/useHeroMatches";
+import { JOPOX_TEAMS } from "../../data/jopoxTeams";
 
 moment.locale("fi");
+
+// ── Pistenikkarit (top scorers) helpers ─────────────────────────────────────
+// nameKey normalises tulospalvelu ("LEHTINEN Eetu") ↔ Jopox roster ("Eetu Lehtinen")
+// names to a common key (lowercase, punctuation-stripped, word-sorted).
+const nameKey = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\s]/gu, "").split(/\s+/).filter(Boolean).sort().join(" ");
+const titleName = (s) => String(s || "").toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase()).trim();
+const ageOf = (level) => { const m = String(level || "").match(/U\s*(\d{1,2})/i); if (m) return "U" + m[1]; if (/nais/i.test(level || "")) return "Edustus naiset"; return "Edustus"; };
+const subsiteForAge = (age) => { const t = JOPOX_TEAMS.find((x) => x.name === age); return t ? t.subsiteId : null; };
+const initialsOf = (name) => String(name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
 const COLS = 3;
 const ROWS = 5;
@@ -97,6 +107,54 @@ export default function InfoTvOttelut() {
     return { n: nHome + nAway, nHome, nAway, played, w, l, d, gf, ga };
   }, [allGames]);
 
+  // Pistenikkarit: aggregate goals+assists per Ahma player across the week's played
+  // games (box scores, KV-cached) → top 3, with Jopox roster photos matched by name.
+  const [topScorers, setTopScorers] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    const played = allGames.filter((g) => Number(g.finished) > 0 && g.homeTeamId && g.awayTeamId);
+    if (!played.length) { setTopScorers([]); return; }
+    (async () => {
+      const tally = {};
+      await Promise.all(played.map(async (g) => {
+        const date = String(g.date || "").slice(0, 10);
+        const q = `date=${encodeURIComponent(date)}&home=${encodeURIComponent(g.homeTeamId)}&away=${encodeURIComponent(g.awayTeamId)}&extId=${encodeURIComponent(g.id)}`;
+        let rep; try { rep = await fetch(`/api/getGameReport?${q}`).then((r) => (r.ok ? r.json() : null)); } catch { return; }
+        if (!rep || !Array.isArray(rep.goals)) return;
+        const ahmaSide = g.ahmaHome ? "home" : "away";
+        const age = ageOf(g.level);
+        const bump = (nm, gp, ap) => {
+          if (!nm) return;
+          const k = nameKey(nm);
+          const t = tally[k] || (tally[k] = { key: k, name: titleName(nm), pts: 0, goals: 0, assists: 0, age });
+          t.goals += gp; t.assists += ap; t.pts += gp + ap;
+        };
+        for (const goal of rep.goals) {
+          if (goal.side !== ahmaSide) continue;
+          bump(goal.scorer && goal.scorer.name, 1, 0);
+          for (const a of goal.assists || []) bump(a, 0, 1);
+        }
+      }));
+      const top = Object.values(tally).filter((t) => t.pts > 0)
+        .sort((a, b) => b.pts - a.pts || b.goals - a.goals || a.name.localeCompare(b.name, "fi")).slice(0, 3);
+      if (top.length < 3) { if (!cancelled) setTopScorers([]); return; }
+      // Photos: fetch each involved age's Jopox roster (cached), match by name.
+      const ages = [...new Set(top.map((t) => t.age).filter(Boolean))];
+      const photo = {}, proper = {};
+      await Promise.all(ages.map(async (age) => {
+        const sid = subsiteForAge(age); if (!sid) return;
+        try {
+          const r = await fetch(`/api/getTeamRoster?subsiteId=${sid}`).then((x) => (x.ok ? x.json() : null));
+          for (const p of (r && r.players) || []) { const k = nameKey(`${p.firstName} ${p.lastName}`); if (p.photo) photo[k] = p.photo; proper[k] = `${p.firstName} ${p.lastName}`.trim(); }
+        } catch { /* ignore */ }
+      }));
+      for (const t of top) { t.photo = photo[t.key] || null; if (proper[t.key]) t.name = proper[t.key]; }
+      if (!cancelled) setTopScorers(top);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allGames]);
+
   // Build 3 columns × 5 rows. Games fill column-by-column (col0 top→bottom,
   // then col1…) exactly like the CSS grid did; leftover slots get filler
   // modules. Each game item carries the progress/day metadata the rail needs.
@@ -146,6 +204,7 @@ export default function InfoTvOttelut() {
       if (s.n > 0) add("count", 1, 2);
       if (s.played > 0) { add("record", 1, 2.5); add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
+      if (topScorers.length >= 3) add("scorers", 2, 3, { list: topScorers });
       add("follow", 1, 1);
       add("hashtag", 1, 1);
       add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
@@ -173,7 +232,7 @@ export default function InfoTvOttelut() {
       if (partnerSize > 0) ex.push({ type: "detail", variant: "partner", size: partnerSize, key: "partner", ps: partnerPicks.slice(0, partnerSize) });
     }
     return cols;
-  }, [games, partners, summary]);
+  }, [games, partners, summary, topScorers]);
 
   const loading = !isSeasonLoaded() && games.length === 0;
 
@@ -305,6 +364,8 @@ function DetailCell({ it, s }) {
       return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
     case "biggestWin":
       return <MiniMatch g={it.g} title="Suurin voitto" />;
+    case "scorers":
+      return <Scorers list={it.list} />;
     case "hashtag":
       return <div className="ok-filler ok-center"><div className="ok-big">#KIEKKOAHMA</div><div className="ok-sub2">Jaa somessa</div></div>;
     case "app":
@@ -356,6 +417,27 @@ function BigStat({ title, val, valColor, sub }) {
       <div className="ok-bigstat">
         <div className="ok-bigstat-val" style={valColor ? { color: valColor } : undefined}>{val}</div>
         {sub && <div className="ok-bigstat-sub">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Pistenikkarit podium — top scorer in the MIDDLE (bigger), 2nd left, 3rd right.
+function Scorers({ list }) {
+  const [a, b, c] = list; // 1st, 2nd, 3rd (already sorted)
+  const podium = [{ p: b, rank: 2 }, { p: a, rank: 1 }, { p: c, rank: 3 }].filter((x) => x.p);
+  return (
+    <div className="ok-filler">
+      <div className="ok-filler-title">Pistenikkarit</div>
+      <div className="ok-scorers">
+        {podium.map(({ p, rank }) => (
+          <div className={"ok-scorer" + (rank === 1 ? " ok-scorer--1" : "")} key={rank}>
+            <div className="ok-scorer-rank">{rank}.</div>
+            <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(p.name)}</span>}</div>
+            <div className="ok-scorer-name">{p.name}</div>
+            <div className="ok-scorer-pts">{p.pts}<span> p</span></div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -469,6 +551,20 @@ const css = `
 .ok-bw-name { min-width:0; font-family:${FONT_BODY}; font-weight:800; font-size:26px; line-height:1.05; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ok-bw-name--lose { font-weight:500; color:rgba(255,255,255,0.72); }
 .ok-bw-vs { flex-shrink:0; font-family:${FONT_BODY}; font-weight:700; font-size:24px; color:${STEEL}; }
+
+/* Pistenikkarit podium — 1st centre (bigger), 2nd left, 3rd right */
+.ok-scorers { flex:1; min-height:0; display:flex; align-items:flex-end; justify-content:space-around; gap:10px; padding-top:6px; }
+.ok-scorer { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; }
+.ok-scorer-rank { font-family:${FONT_DISPLAY}; font-size:22px; line-height:1; color:${STEEL}; }
+.ok-scorer--1 .ok-scorer-rank { font-size:28px; color:${ORANGE}; }
+.ok-scorer-photo { width:84px; height:84px; border-radius:50%; overflow:hidden; background:linear-gradient(160deg,#3a3a3a,#1b1b1b); border:2px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:32px; color:#fff; box-sizing:border-box; }
+.ok-scorer--1 .ok-scorer-photo { width:116px; height:116px; border-color:${ORANGE}; }
+.ok-scorer-photo img { width:100%; height:100%; object-fit:cover; object-position:center top; }
+.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:19px; line-height:1.08; text-transform:uppercase; color:#fff; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ok-scorer--1 .ok-scorer-name { font-size:22px; }
+.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:30px; line-height:1; color:${ORANGE}; }
+.ok-scorer-pts span { font-size:15px; color:${STEEL}; }
+.ok-scorer--1 .ok-scorer-pts { font-size:40px; }
 
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
