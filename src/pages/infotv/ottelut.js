@@ -140,15 +140,15 @@ export default function InfoTvOttelut() {
       if (top.length < 3) { if (!cancelled) setTopScorers([]); return; }
       // Photos: fetch each involved age's Jopox roster (cached), match by name.
       const ages = [...new Set(top.map((t) => t.age).filter(Boolean))];
-      const photo = {}, proper = {};
+      const photo = {}, proper = {}, num = {};
       await Promise.all(ages.map(async (age) => {
         const sid = subsiteForAge(age); if (!sid) return;
         try {
           const r = await fetch(`/api/getTeamRoster?subsiteId=${sid}`).then((x) => (x.ok ? x.json() : null));
-          for (const p of (r && r.players) || []) { const k = nameKey(`${p.firstName} ${p.lastName}`); if (p.photo) photo[k] = p.photo; proper[k] = `${p.firstName} ${p.lastName}`.trim(); }
+          for (const p of (r && r.players) || []) { const k = nameKey(`${p.firstName} ${p.lastName}`); if (p.photo) photo[k] = p.photo; proper[k] = `${p.firstName} ${p.lastName}`.trim(); if (p.number) num[k] = p.number; }
         } catch { /* ignore */ }
       }));
-      for (const t of top) { t.photo = photo[t.key] || null; if (proper[t.key]) t.name = proper[t.key]; }
+      for (const t of top) { t.photo = photo[t.key] || null; if (proper[t.key]) t.name = proper[t.key]; t.number = num[t.key] || null; }
       if (!cancelled) setTopScorers(top);
     })();
     return () => { cancelled = true; };
@@ -432,10 +432,10 @@ function Scorers({ list }) {
       <div className="ok-scorers">
         {podium.map(({ p, rank }) => (
           <div className={"ok-scorer" + (rank === 1 ? " ok-scorer--1" : "")} key={rank}>
-            <div className="ok-scorer-rank">{rank}.</div>
             <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(p.name)}</span>}</div>
+            {p.number ? <div className="ok-scorer-num">{p.number}</div> : null}
             <div className="ok-scorer-name">{p.name}</div>
-            <div className="ok-scorer-pts">{p.pts}<span> p</span></div>
+            <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
           </div>
         ))}
       </div>
@@ -552,19 +552,19 @@ const css = `
 .ok-bw-name--lose { font-weight:500; color:rgba(255,255,255,0.72); }
 .ok-bw-vs { flex-shrink:0; font-family:${FONT_BODY}; font-weight:700; font-size:24px; color:${STEEL}; }
 
-/* Pistenikkarit podium — 1st centre (bigger), 2nd left, 3rd right */
-.ok-scorers { flex:1; min-height:0; display:flex; align-items:flex-end; justify-content:space-around; gap:10px; padding-top:6px; }
-.ok-scorer { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; }
-.ok-scorer-rank { font-family:${FONT_DISPLAY}; font-size:22px; line-height:1; color:${STEEL}; }
-.ok-scorer--1 .ok-scorer-rank { font-size:28px; color:${ORANGE}; }
-.ok-scorer-photo { width:84px; height:84px; border-radius:50%; overflow:hidden; background:linear-gradient(160deg,#3a3a3a,#1b1b1b); border:2px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:32px; color:#fff; box-sizing:border-box; }
-.ok-scorer--1 .ok-scorer-photo { width:116px; height:116px; border-color:${ORANGE}; }
+/* Pistenikkarit podium — 1st centre (bigger), 2nd left, 3rd right; roster-style card */
+.ok-scorers { flex:1; min-height:0; display:flex; align-items:flex-end; justify-content:space-around; gap:12px; padding-top:6px; }
+.ok-scorer { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; }
+.ok-scorer-photo { width:94px; height:106px; border-radius:13px; overflow:hidden; background:linear-gradient(160deg,#3a3a3a,#1b1b1b); border:1px solid rgba(255,255,255,0.14); display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:34px; color:#fff; box-sizing:border-box; }
+.ok-scorer--1 .ok-scorer-photo { width:122px; height:138px; border-color:${ORANGE}; }
 .ok-scorer-photo img { width:100%; height:100%; object-fit:cover; object-position:center top; }
-.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:19px; line-height:1.08; text-transform:uppercase; color:#fff; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ok-scorer--1 .ok-scorer-name { font-size:22px; }
-.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:30px; line-height:1; color:${ORANGE}; }
-.ok-scorer-pts span { font-size:15px; color:${STEEL}; }
-.ok-scorer--1 .ok-scorer-pts { font-size:40px; }
+.ok-scorer-num { font-family:${FONT_DISPLAY}; font-size:28px; line-height:1; color:${ORANGE}; margin-top:2px; }
+.ok-scorer--1 .ok-scorer-num { font-size:34px; }
+.ok-scorer-name { font-family:${FONT_BODY}; font-weight:800; font-size:17px; line-height:1.06; text-transform:uppercase; color:#fff; max-width:100%; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ok-scorer--1 .ok-scorer-name { font-size:19px; }
+.ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:28px; line-height:1; color:#fff; }
+.ok-scorer-pts span { color:${STEEL}; padding:0 1px; }
+.ok-scorer--1 .ok-scorer-pts { font-size:36px; }
 
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }

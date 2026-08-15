@@ -910,7 +910,13 @@ const TTL_GAMES_FUTURE_S = 15 * 60;
 const TTL_GAMES_PAST_S = 6 * 60 * 60;
 const TTL_TEAMS_S = 60 * 60;
 const TTL_SEASON_S = 24 * 60 * 60; // 24 h — fixtures are set days ahead (referees); live scores come from getLive
+const TTL_SEASON_LIVE_S = 20 * 60; // ?season= feeds the hourly Ahmaliiga sync → needs TODAY's finished results (else a game that ends after the last compute stays finished=0 for 24h)
 const TTL_STATS_S = 10 * 60; // standings/scorers: current season refreshes every 10 min
+
+// The default (no season) getSeasonGames = the Ottelut week strip (live scores patched by
+// the client overlay) → long cache OK. A season-specific request is the Ahmaliiga sync,
+// which must see results as games finish through the day → short TTL.
+const seasonGamesTtl = (url) => (url.searchParams.get("season") ? TTL_SEASON_LIVE_S : TTL_SEASON_S);
 
 function weekTtlSeconds(url) {
   const now = url.searchParams.has("date") ? new Date(url.searchParams.get("date")) : new Date();
@@ -1026,7 +1032,7 @@ export default {
       if (url.pathname === "/getGames")
         return await cachedJson(ctx, url, weekTtlSeconds(url), () => handleGetGames(url), env, ip, 5);
       if (url.pathname === "/getSeasonGames")
-        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeasonGames(url, env), env, ip, 2);
+        return await cachedJson(ctx, url, seasonGamesTtl(url), () => handleGetSeasonGames(url, env), env, ip, 2);
       if (url.pathname === "/getGameReport")
         return await handleGetGameReport(url, env, ctx, ip);
       if (url.pathname === "/getTeamSeries")
