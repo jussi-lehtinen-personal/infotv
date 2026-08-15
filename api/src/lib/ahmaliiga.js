@@ -11,6 +11,40 @@ const { envAdminIds } = require('./admin');
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/rounds/cards +
 // seed loader + reads. Scoring/settlement land in M2.
 
+// ===== Time + "played" helpers =====
+// tulospalvelu game times ("YYYY-MM-DD HH:mm") are Europe/Helsinki WALL-CLOCK. Node on
+// Azure runs in UTC, so a bare `new Date("2026-08-15T17:30")` reads that wall-clock as
+// UTC → the kickoff instant lands 2–3 h early (the Helsinki offset). Parse it in the
+// Helsinki zone instead, honouring DST. Date-only strings → local midnight.
+function helsinkiOffsetMinutes(utcMs) {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Helsinki', hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const p = {};
+  for (const part of dtf.formatToParts(new Date(utcMs))) p[part.type] = part.value;
+  const h = p.hour === '24' ? 0 : Number(p.hour); // some engines emit "24" for midnight
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, h, +p.minute, +p.second);
+  return Math.round((asUTC - utcMs) / 60000); // e.g. 180 for +3h (summer), 120 winter
+}
+function helsinkiMs(dateStr) {
+  const m = String(dateStr || '').match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if (!m) return NaN;
+  const [, y, mo, d, hh = '0', mi = '0'] = m;
+  const guess = Date.UTC(+y, +mo - 1, +d, +hh, +mi); // wall-clock read as UTC …
+  return guess - helsinkiOffsetMinutes(guess) * 60000; // … corrected to the real instant
+}
+// A game has a RESULT to score/show ⟺ tulospalvelu returns actual goals. Scheduled games
+// come back 0-0 (finished 0), so goals-present is NOT the signal — sync nulls the goals
+// of unplayed games, so `homeGoals == null` reliably means "no result yet" again.
+const hasResult = (g) => g && g.homeGoals != null && g.awayGoals != null;
+// Has a game's kickoff moment passed? Sim (day-granular) → day ≤ simDate; live → Helsinki
+// kickoff ≤ now. Used for the rolling lineup lock (freeze at kickoff, before any result).
+function kickedOff(g, simDate) {
+  const day = String((g && g.date) || '').slice(0, 10);
+  return simDate ? (!!day && day <= simDate) : (helsinkiMs(g && g.date) <= Date.now());
+}
+
 const ECON = {
   budget: 120,
   squadSize: 5,
@@ -1005,10 +1039,7 @@ async function liveRoundCardPoints(seasonId, round) {
   const key = `${seasonId}|${round}|${simDate || 'wall'}`;
   if (_liveCardPts.key === key && Date.now() - _liveCardPts.at < 30000) return _liveCardPts.data;
   const { perGame, gameList } = await computeRoundResults(seasonId, round);
-  const isPlayed = (g) => {
-    const day = String(g.date || '').slice(0, 10);
-    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
-  };
+  const isPlayed = (g) => hasResult(g) && kickedOff(g, simDate);
   const played = gameList.filter(isPlayed);
   const pts = {};
   for (const g of played) { const pg = perGame[g.gameId] || {}; for (const [id, p] of Object.entries(pg)) pts[id] = (pts[id] || 0) + p; }
@@ -1092,10 +1123,7 @@ async function getLiveLeaderboard(seasonId, round) {
   if (_liveCache.key === key && Date.now() - _liveCache.at < 30000) return _liveCache.data;
 
   const { perGame, gameList } = await computeRoundResults(seasonId, round);
-  const isPlayed = (g) => {
-    const day = String(g.date || '').slice(0, 10);
-    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
-  };
+  const isPlayed = (g) => hasResult(g) && kickedOff(g, simDate);
   const playedGames = gameList.filter(isPlayed);
   const gameMap = {};
   for (const g of gameList) gameMap[g.gameId] = g;
@@ -1193,12 +1221,12 @@ const roundCaptainOf = (lineupsMap, round, fallback) => {
   return lock && lock.captainId ? lock.captainId : (fallback || null);
 };
 
-// Has a game kicked off? Sim (day-granular) → its day ≤ simDate; live → kickoff ≤ now.
+// Has a game kicked off? Sim (day-granular) → its day ≤ simDate; live → Helsinki kickoff
+// ≤ now. This is the ROLLING-LOCK clock (freeze the squad at kickoff, before any result),
+// so it stays time-based — not result-based.
 function gameStarted(game, season) {
   const simDate = season && season.simMode ? season.simDate : null;
-  const day = String(game.date || '').slice(0, 10);
-  if (simDate) return !!day && day <= simDate;
-  return new Date(String(game.date || '').replace(' ', 'T')).getTime() <= Date.now();
+  return kickedOff(game, simDate);
 }
 
 // One frozen snapshot per (manager, kickoff moment). Insert-once — never overwrite,
@@ -1310,14 +1338,22 @@ async function syncSeasonGames(seasonId) {
     const j = roundOfDay(day);
     if (j == null) { skipped++; continue; } // outside every round window
     const pk = `${seasonId}|${j}`;
-    (byPart[pk] = byPart[pk] || []).push({
+    // tulospalvelu returns 0-0 for SCHEDULED games (finished 0), so goals-present ≠ played.
+    // Only a completed game (finished 1/2/3 = regulation/OT/shootout) has a real score;
+    // for everything else store NO goals so every downstream `homeGoals == null` guard
+    // correctly reads "not played yet" (a future 0-0 must never score as a tie).
+    const fin = Number(g.finished) || 0;
+    const scored = fin > 0 && g.home_goals != null && g.away_goals != null;
+    const row = {
       partitionKey: pk, rowKey: String(g.id),
       home: g.home, away: g.away, ahmaHome: !!g.ahmaHome,
       homeLogo: g.home_logo || '', awayLogo: g.away_logo || '',
-      homeGoals: g.home_goals, awayGoals: g.away_goals,
+      finished: fin,
       date: g.date || '', level: g.level || '',
       homeTeamId: String(g.homeTeamId || ''), awayTeamId: String(g.awayTeamId || ''), levelId: String(g.levelId || ''),
-    });
+    };
+    if (scored) { row.homeGoals = g.home_goals; row.awayGoals = g.away_goals; }
+    (byPart[pk] = byPart[pk] || []).push(row);
   }
   for (const pk of Object.keys(byPart)) await upsertBatch(T.games, byPart[pk]);
   const upserted = Object.values(byPart).reduce((s, a) => s + a.length, 0);
@@ -1421,7 +1457,7 @@ async function freezeGamePositions(seasonId, season) {
   const played = [];
   for (const r of await getRounds(seasonId)) {
     for (const g of await getRoundGames(seasonId, Number(r.rowKey))) {
-      if (g.homeGoals != null && g.awayGoals != null) played.push(g.gameId);
+      if (hasResult(g)) played.push(g.gameId);
     }
   }
   const { frozen } = await loadFrozenPositions(seasonId, season, played, liveCardPos);
@@ -1440,7 +1476,7 @@ async function computeRoundResults(seasonId, round) {
   // FROZEN fallback positions: a played game's defender-bonus position is locked, so a
   // later re-tag never rewrites its points. `cardPos` is a (gameId)=>map resolver;
   // no-op (uses liveCardPos everywhere) for non-live seasons.
-  const playedIds = games.filter((g) => g.homeGoals != null && g.awayGoals != null).map((g) => g.gameId);
+  const playedIds = games.filter(hasResult).map((g) => g.gameId);
   const { get: cardPos } = await loadFrozenPositions(seasonId, season, playedIds, liveCardPos);
   const { results, reasons } = computeRoundPoints({ games, reports, extraAges, cardPos });
   // Per-game card points too, so settlement can attribute each game to the squad
@@ -1558,10 +1594,7 @@ async function roundProgress(seasonId, round, userId) {
   const liveCardPos = {}; // name→tagged position (current)
   for (const c of cardsList) { cardMap[c.rowKey] = c; if (c.kind === 'player' || c.kind === 'goalie') liveCardPos[posName(c.personName || c.name || '')] = c.position || 'field'; }
   const games = await getRoundGames(seasonId, round);
-  const isPlayed = (g) => {
-    const day = String(g.date || '').slice(0, 10);
-    return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now());
-  };
+  const isPlayed = (g) => hasResult(g) && kickedOff(g, simDate);
   const playedGames = games.filter(isPlayed);
   const playedTeamKeys = new Set(playedGames.map(teamKey));
 
@@ -1713,7 +1746,7 @@ async function getCardDetail(seasonId, cardId) {
   // live points). Real seasons fall back to wall-clock.
   const season = await getEntity(T.season, 'season', seasonId);
   const simDate = season && season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
-  const isPlayed = (g) => { const day = String(g.date || '').slice(0, 10); return simDate ? (!!day && day <= simDate) : (new Date(String(g.date || '').replace(' ', 'T')).getTime() <= Date.now()); };
+  const isPlayed = (g) => hasResult(g) && kickedOff(g, simDate);
   // Live points ON DEMAND (fresh, tick-independent); fall back to the tick-persisted
   // value if the box-score compute fails.
   let liveRound = null;
