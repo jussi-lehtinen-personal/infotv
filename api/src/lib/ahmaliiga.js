@@ -1227,11 +1227,16 @@ const roundCaptainOf = (lineupsMap, round, fallback) => {
   return lock && lock.captainId ? lock.captainId : (fallback || null);
 };
 
-// Has a game kicked off? Sim (day-granular) → its day ≤ simDate; live → Helsinki kickoff
-// ≤ now. This is the ROLLING-LOCK clock (freeze the squad at kickoff, before any result),
-// so it stays time-based — not result-based.
+// Has a game kicked off? This is the ROLLING-LOCK clock (freeze squad/captain at kickoff,
+// before any result), so it is time-based — not result-based.
+// REAL clock: the actual per-game Helsinki kickoff. The live season also carries simMode
+// with a day-granular simDate (used only for round bookkeeping/settlement); if we honoured
+// THAT here the captain/lineup would lock at MIDNIGHT of the game day, not at kickoff — the
+// bug where "kapteenia ei saa vaihtaa vaikka peli alkaa vasta illalla". A pure replay
+// (simMode WITHOUT realClock) still locks by sim day.
 function gameStarted(game, season) {
-  const simDate = season && season.simMode ? season.simDate : null;
+  const realClock = !!(season && (season.realClock === true || season.realClock === 'true'));
+  const simDate = (season && season.simMode && !realClock) ? season.simDate : null;
   return kickedOff(game, simDate);
 }
 

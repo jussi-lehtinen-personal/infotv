@@ -58,6 +58,9 @@ app.http('ahmaliigaState', {
           season: season.rowKey,
           name: season.name,
           simMode: !!season.simMode,
+          // realClock = the live season runs on real time; simMode's day-granular simDate is
+          // then only for round settlement, NOT for kickoff/lock checks (client mirrors this).
+          realClock: !!season.realClock,
           // fall back to the current round's start so the countdown works even
           // before the clock has been stepped for the first time
           simDate: season.simDate || (season.simMode && cur ? cur.startDate : null),

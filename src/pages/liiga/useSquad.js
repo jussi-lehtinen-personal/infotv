@@ -52,11 +52,12 @@ export function useSquad() {
         if (stateRes && stateRes.minTeams != null) setMinTeams(stateRes.minTeams);
         const sq = squadRes && squadRes.squad ? squadRes.squad : null;
         if (sq) { setIds((sq.cards || []).map((c) => c.id)); setCaptainId(sq.captainId); }
-        // Captain is frozen for the round once one of MY OWN cards has a PLAYED game — not
-        // just any round game. Uses the SIM clock in sim/replay (else historical games all
-        // read as played → locked forever). Matches the backend check.
+        // Captain is frozen for the round once one of MY OWN cards' games has KICKED OFF —
+        // not just any round game. Mirrors the backend gameStarted(): a pure replay uses the
+        // day-granular sim clock; the REAL-clock live season uses real per-game kickoff (null
+        // clock → wall-clock), so the captain doesn't lock at midnight of the game day.
         if (stateRes && stateRes.active) {
-          const clock = stateRes.simMode ? stateRes.simDate : null;
+          const clock = (stateRes.simMode && !stateRes.realClock) ? stateRes.simDate : null;
           const cardById = {};
           for (const c of cardsRes.cards || []) cardById[c.id] = c;
           const myCards = ((sq && sq.cards) || []).map((c) => cardById[c.id]).filter(Boolean);
