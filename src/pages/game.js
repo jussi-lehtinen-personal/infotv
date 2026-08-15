@@ -112,6 +112,12 @@ const BoxScore = () => {
     game && report && report.realId
       ? `https://tulospalvelu.leijonat.fi/game?season=${seasonOf(game.date)}&gameid=${report.realId}&lang=fi`
       : null;
+  // Leijonat TV watch link — same game, keyed by the tulospalvelu game id (their "ext-id")
+  // + the spring-year season. Shown next to the Tulospalvelu link.
+  const ltvUrl =
+    game && report && report.realId
+      ? `https://www.leijonat.tv/fi/game?ext-id=${report.realId}&season-id=${seasonOf(game.date)}`
+      : null;
 
   const topBtnSx = { width: 38, height: 38, borderRadius: 2.5, flexShrink: 0, bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", color: "var(--gz-text-secondary)", "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } };
 
@@ -125,6 +131,12 @@ const BoxScore = () => {
             sx={{ flexShrink: 0, px: 1.25, py: 0.75, borderRadius: 2, fontSize: 12.5, fontWeight: 700, textTransform: "none", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", "&, &:hover, &:focus, &:visited": { color: "var(--gz-text-secondary)" }, "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } }}>
             Tulospalvelu
           </Button>
+        )}
+        {ltvUrl && (
+          <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" aria-label="Katso Leijonat TV:ssä"
+            sx={{ flexShrink: 0, height: 38, display: "inline-flex", alignItems: "center", px: 1, borderRadius: 2, bgcolor: "#fff", border: "1px solid rgba(255,255,255,0.14)", "&:hover": { bgcolor: "#f0f0f0" } }}>
+            <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ height: 22, display: "block" }} />
+          </Box>
         )}
         {isAdmin && game && (
           <IconButton onClick={refresh} disabled={refreshing} aria-label="Päivitä pöytäkirja tulospalvelusta" sx={topBtnSx}>
