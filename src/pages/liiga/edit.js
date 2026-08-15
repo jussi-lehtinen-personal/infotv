@@ -424,6 +424,9 @@ export default function LiigaEdit() {
           <DialogContentText sx={{ color: "text.secondary" }}>
             {capConfirm && <><b>{capConfirm.name}</b> asetetaan kapteeniksi. Nykyinen kapteeni palaa tavalliseksi kortiksi (pisteet ×2 vain kapteenille).</>}
           </DialogContentText>
+          <DialogContentText sx={{ mt: 1.5, fontSize: 13, color: "text.disabled" }}>
+            Huom: kapteenin voi vaihtaa vain ennen jakson ensimmäistä omaa peliä. Kun jokin korttiesi peli on alkanut, kapteeni lukittuu jakson loppuun.
+          </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCapConfirm(null)} sx={{ color: "text.secondary" }}>Peruuta</Button>
