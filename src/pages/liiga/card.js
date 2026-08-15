@@ -303,7 +303,16 @@ export default function LiigaCard() {
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, "& > :last-child": { mb: 0 } }}>
           <InfoRow label="Hinta"><PricePill value={card.price} size={16} /></InfoRow>
-          <InfoRow label="Kauden pisteet"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{card.seasonPts} p</Typography></InfoRow>
+          <InfoRow label="Kauden pisteet">
+            <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.75 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>
+                {Math.round(((card.seasonPts || 0) + (liveRound ? liveRound.pts : 0)) * 10) / 10} p
+              </Typography>
+              {liveRound && liveRound.pts ? (
+                <Typography sx={{ fontSize: 11, fontWeight: 800, color: "var(--color-live)" }}>+{liveRound.pts} nyt</Typography>
+              ) : null}
+            </Box>
+          </InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
           <InfoRow label="Positio"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{roleLabel(card)}</Typography></InfoRow>
           {(card.trend === "up" || card.trend === "down") && (
