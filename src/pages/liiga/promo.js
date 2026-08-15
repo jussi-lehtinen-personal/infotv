@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Button, Stack } from "@mui/material";
-import { LuArrowLeft, LuUserPlus, LuUsers, LuTrophy, LuStar, LuCheck } from "react-icons/lu";
+import { LuArrowLeft, LuLogIn, LuUsers, LuTrophy, LuStar, LuCheck } from "react-icons/lu";
 import { SiWhatsapp } from "react-icons/si";
 import { getMe, getCachedUser } from "../../auth/authClient";
 import { getAhmaliigaState } from "../../lib/ahmaliigaApi";
@@ -98,8 +98,8 @@ export default function LiigaPromo() {
             <Typography sx={{ fontWeight: 800, fontSize: 15, color: "var(--color-live)" }}>Olet mukana — nähdään betassa! 🎉</Typography>
           </Stack>
         ) : (
-          <Button fullWidth variant="contained" onClick={() => nav("/account")} startIcon={<LuUserPlus size={18} />}
-            sx={{ mt: 2.5, py: 1.25, fontSize: 15 }}>Luo käyttäjä</Button>
+          <Button fullWidth variant="contained" onClick={() => nav("/account")} startIcon={<LuLogIn size={18} />}
+            sx={{ mt: 2.5, py: 1.25, fontSize: 15 }}>Kirjaudu sisään</Button>
         )}
       </Box>
 
