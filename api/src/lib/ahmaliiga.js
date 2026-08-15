@@ -34,6 +34,12 @@ function helsinkiMs(dateStr) {
   const guess = Date.UTC(+y, +mo - 1, +d, +hh, +mi); // wall-clock read as UTC …
   return guess - helsinkiOffsetMinutes(guess) * 60000; // … corrected to the real instant
 }
+// Today's date in Helsinki (YYYY-MM-DD). NOT `new Date().toISOString()` — that is the UTC
+// calendar day, which lags Helsinki by the offset for the first 2–3 h of every local day.
+// The league runs on Finnish calendar days, so round windows must be compared in this zone.
+function helsinkiToday() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Helsinki' }).format(new Date());
+}
 // A game has a RESULT to score/show ⟺ tulospalvelu returns actual goals. Scheduled games
 // come back 0-0 (finished 0), so goals-present is NOT the signal — sync nulls the goals
 // of unplayed games, so `homeGoals == null` reliably means "no result yet" again.
@@ -1742,10 +1748,11 @@ async function getCardDetail(seasonId, cardId) {
   // even before its first game) → append its live points as a current-round bar on the
   // card's per-round points, alongside the settled history. 0 until games are played.
   const curRound = rounds.find((j) => j.status !== 'settled');
-  // Sim clock — a game counts as PLAYED once its day has passed (matches the timeline /
-  // live points). Real seasons fall back to wall-clock.
+  // A game counts as PLAYED once it has a result and its kickoff has passed — sim seasons
+  // by day (simDate), real seasons by the per-game Helsinki clock (simDate null → kickedOff
+  // uses helsinkiMs), matching the timeline / live-points predicates.
   const season = await getEntity(T.season, 'season', seasonId);
-  const simDate = season && season.simMode ? season.simDate : new Date().toISOString().slice(0, 10);
+  const simDate = season && season.simMode ? season.simDate : null;
   const isPlayed = (g) => hasResult(g) && kickedOff(g, simDate);
   // Live points ON DEMAND (fresh, tick-independent); fall back to the tick-persisted
   // value if the box-score compute fails.
@@ -2450,9 +2457,10 @@ async function stepSim(seasonId, days = 1) {
   let sim;
   if (season.realClock) {
     // REAL clock (F2.5): each tick syncs the game clock to TODAY's real date (monotonic
-    // — never rewinds), so a round settles when its 2-week window actually ends. The
-    // 30-min cron only sets how often we check; settlement granularity stays a day.
-    const today = new Date().toISOString().slice(0, 10);
+    // — never rewinds), so a round settles when its window actually ends. The cron only
+    // sets how often we check; settlement granularity stays a day. Use the HELSINKI date
+    // (the league runs on Finnish calendar days) — the UTC date would flip 2–3 h late.
+    const today = helsinkiToday();
     const cur = valid ? season.simDate : firstUnsettled.startDate;
     sim = today > cur ? today : cur;
   } else {
@@ -2465,10 +2473,16 @@ async function stepSim(seasonId, days = 1) {
 
   // Settle each not-yet-settled round whose end has passed; stop at the first that
   // hasn't ended (rounds are ordered).
+  // REAL clock: a round's endDate is its LAST day (games on it belong to the round), and
+  // under the real clock those games aren't played until that evening — so settle only
+  // once the day is fully PAST (endDate < today), i.e. on the following day. The sim/replay
+  // clock jumps whole days with all results already stored, so its endDate-day settle
+  // (endDate <= sim) stays correct and is left unchanged (frozen backtest invariant).
+  const ended = season.realClock ? (j) => j.endDate && j.endDate < sim : (j) => j.endDate && j.endDate <= sim;
   const settled = [];
   for (const j of rounds) {
     if (j.status === 'settled') continue;
-    if (j.endDate && j.endDate <= sim) { await settleRound(seasonId, Number(j.rowKey)); settled.push(Number(j.rowKey)); }
+    if (ended(j)) { await settleRound(seasonId, Number(j.rowKey)); settled.push(Number(j.rowKey)); }
     else break;
   }
 
