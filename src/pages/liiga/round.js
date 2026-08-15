@@ -193,8 +193,7 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, mode, onMode }) {
                 own={mode === "kaikki" ? ev.own : undefined}
                 points={ev.type === "game" && ev.played && progress.perGame ? (progress.perGame[ev.game.id] || 0) : undefined}
                 onClick={ev.type !== "game" ? undefined
-                  : ev.played ? () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game } })
-                  : () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game, spoilerFree: true } })} />
+                  : () => nav(`/gamezone/game/${ev.game.id}`, { state: { game: ev.game } })} />
             </Box>
           </Box>
         );
