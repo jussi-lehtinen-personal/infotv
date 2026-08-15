@@ -134,7 +134,7 @@ const BoxScore = () => {
         )}
         {ltvUrl && (
           <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" aria-label="Katso Leijonat TV:ssä"
-            sx={{ ...topBtnSx, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            sx={{ ...topBtnSx, bgcolor: "#fff", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden", "&:hover": { bgcolor: "#f0f0f0" } }}>
             <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ width: 26, height: 26, objectFit: "contain", display: "block" }} />
           </Box>
         )}

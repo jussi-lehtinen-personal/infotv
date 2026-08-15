@@ -874,7 +874,7 @@ function MatchRow({ match }) {
         )}
         {ltvUrl && (
           <Box component="a" href={ltvUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Katso Leijonat TV:ssä"
-            sx={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)", overflow: "hidden", display: "inline-flex", alignItems: "center", justifyContent: "center", "&:hover": { bgcolor: "rgba(255,255,255,0.09)" } }}>
+            sx={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", bgcolor: "#fff", overflow: "hidden", display: "inline-flex", alignItems: "center", justifyContent: "center", "&:hover": { bgcolor: "#f0f0f0" } }}>
             <Box component="img" src="/leijonat_tv.png" alt="Leijonat TV" sx={{ width: 22, height: 22, objectFit: "contain", display: "block" }} />
           </Box>
         )}
