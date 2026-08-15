@@ -377,7 +377,7 @@ export default function LiigaEdit() {
           borderTop: "1px solid var(--color-surface-border)", borderTopLeftRadius: 20, borderTopRightRadius: 20,
           boxShadow: "0 -18px 40px rgba(0,0,0,0.5)" } } }}>
         {menuCard && (
-          <Box sx={{ p: 2, pb: 3, maxWidth: 640, mx: "auto", width: "100%" }}>
+          <Box sx={{ p: 2, pb: 3, maxWidth: 640, mx: "auto", width: "100%", boxSizing: "border-box" }}>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", px: 1, mb: 1.5, pb: 2, borderBottom: "1px solid var(--color-surface-divider)" }}>
               <CardAvatar card={menuCard} size={40} />
               <Box sx={{ flex: 1, minWidth: 0 }}>

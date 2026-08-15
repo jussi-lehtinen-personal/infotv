@@ -154,6 +154,11 @@ function installRevalidation() {
   });
   setInterval(revalidate, TTL); // catches "open for hours, never blurred"
   setInterval(overlayTick, OVERLAY_MS); // live / settled-result overlay
+  // Kick one overlay immediately so a live game's real score patches in on first
+  // paint instead of showing the schedule's 0-0 for up to OVERLAY_MS. Runs against
+  // whatever games are already hydrated (localStorage); the cold-start case is
+  // covered by the overlayTick() fired after the first season fetch loads games.
+  overlayTick();
 }
 
 export function subscribe(fn) {
@@ -216,6 +221,9 @@ export function fetchSeasonGames(opts = {}) {
       ts = Date.now();
       persist();
       notify();
+      // Cold start: the schedule just loaded with base (0-0) scores — patch any
+      // in-progress game's live score right away instead of waiting for the 30 s tick.
+      overlayTick();
       return games;
     })
     .finally(() => {
