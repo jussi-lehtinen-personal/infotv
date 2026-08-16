@@ -134,6 +134,29 @@ function overlayTick() {
   }
 }
 
+// Resolve the tulospalvelu game id (realId) for RECENT games that still lack it, so the
+// Ottelut row's Leijonat TV crest shows on EVERY game — not only ones already opened.
+// Most games arrive with realId pre-filled from the worker's KV enrichment; this fills the
+// gaps. Bounded to a ±3-week window + games missing realId; getGameReport is KV-permanent-
+// cached → ~one resolve per game ever (and it write-backs realId to KV for other clients).
+const REALID_WINDOW_MS = 21 * 24 * 60 * 60 * 1000;
+let realIdRunAt = 0;
+function resolveRealIds() {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+  if (Date.now() - realIdRunAt < 60_000) return; // throttle repeated triggers
+  realIdRunAt = Date.now();
+  const now = Date.now();
+  const need = (games || []).filter((g) => !g.realId && g.homeTeamId && g.awayTeamId &&
+    Math.abs(new Date(String(g.date).replace(" ", "T")).getTime() - now) < REALID_WINDOW_MS).slice(0, 20);
+  for (const g of need) {
+    const params = new URLSearchParams({ date: g.date, home: String(g.homeTeamId), away: String(g.awayTeamId), extId: String(g.id) });
+    fetch(`/api/getGameReport?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("report"))))
+      .then((rep) => { if (rep && rep.realId) patchGame(g.id, { realId: rep.realId }); })
+      .catch(() => {});
+  }
+}
+
 // Revalidation triggers (SWR): without these, the cache would only refetch on a
 // component mount — keeping the app open and scrolling would NEVER refresh. So
 // on the first subscriber we install focus / visibility / online listeners + a
@@ -151,10 +174,12 @@ function installRevalidation() {
     if (document.visibilityState === "visible") {
       revalidate();
       overlayTick();
+      resolveRealIds();
     }
   });
   setInterval(revalidate, TTL); // catches "open for hours, never blurred"
   setInterval(overlayTick, OVERLAY_MS); // live / settled-result overlay
+  resolveRealIds(); // fill missing Leijonat TV ids for hydrated games
   // Kick one overlay immediately so a live game's real score patches in on first
   // paint instead of showing the schedule's 0-0 for up to OVERLAY_MS. Runs against
   // whatever games are already hydrated (localStorage); the cold-start case is
@@ -225,6 +250,7 @@ export function fetchSeasonGames(opts = {}) {
       // Cold start: the schedule just loaded with base (0-0) scores — patch any
       // in-progress game's live score right away instead of waiting for the 30 s tick.
       overlayTick();
+      resolveRealIds(); // fill missing Leijonat TV ids for the freshly-loaded games
       return games;
     })
     .finally(() => {

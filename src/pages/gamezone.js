@@ -882,7 +882,7 @@ function MatchRow({ match }) {
             )}
             {/* Fixed-width location slot pinned to the edge — so the crest (just left of
                 it) lands at the SAME x on every row and the locations line up too. */}
-            <Box sx={{ width: 96, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
+            <Box sx={{ width: 96, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "flex-start", gap: "4px", fontSize: "var(--gz-fs-xs)", fontWeight: "var(--gz-fw-regular)", letterSpacing: "var(--gz-ls-wide)", color: "var(--gz-text-muted)", minWidth: 0 }}>
               {rink && (
                 <>
                   <LuMapPin size={14} style={{ flexShrink: 0 }} />
