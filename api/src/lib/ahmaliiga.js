@@ -591,14 +591,22 @@ async function listManagers() {
 }
 
 // Cumulative avg points/round for every card up to (incl.) `round` — drives the reband.
-async function cumForm(seasonId, round) {
+async function cumForm(seasonId, round, dressedThisRound) {
   const sums = {}, counts = {};
+  let lastRoundResults = {};
   for (let j = 0; j <= round; j++) {
     const r = await getResults(seasonId, j);
+    if (j === round) lastRoundResults = r;
     for (const [id, pts] of Object.entries(r)) { sums[id] = (sums[id] || 0) + pts; counts[id] = (counts[id] || 0) + 1; }
   }
+  // A card that DRESSED but scored 0 this round counts as a 0-point round (not "no game")
+  // so it ranks/prices by having taken the ice — else it has no form at all and is shielded
+  // from dropping, which let "play + blank" hold above "play + score a little".
+  if (dressedThisRound) for (const id of dressedThisRound) {
+    if (!(id in lastRoundResults)) { sums[id] = sums[id] || 0; counts[id] = (counts[id] || 0) + 1; }
+  }
   const form = {};
-  for (const id of Object.keys(sums)) form[id] = counts[id] ? sums[id] / counts[id] : null;
+  for (const id of Object.keys(counts)) form[id] = counts[id] ? (sums[id] || 0) / counts[id] : null;
   return { form, sums }; // form = avg/round (pricing), sums = season total pts
 }
 
@@ -854,11 +862,11 @@ async function settleRound(seasonId, round) {
   await recomputeSeasonScores(seasonId, rounds.length - 1);
 
   // reband for next round + snapshot this round's price/points/ownership
-  const { form, sums } = await cumForm(seasonId, round);
+  const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → still ranks
+  const { form, sums } = await cumForm(seasonId, round, dressed);
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
   const targetPrice = { ...priceT, ...priceP };
-  const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → may still drop
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
     const old = Number(c.price);
@@ -1078,18 +1086,20 @@ async function liveReband(seasonId, round) {
     const r = await getResults(seasonId, j);
     for (const [id, pts] of Object.entries(r)) { sums0[id] = (sums0[id] || 0) + pts; counts0[id] = (counts0[id] || 0) + 1; }
   }
-  // liveForm = cumulative avg/round INCLUDING this round for cards that have played it
+  const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → still ranks
+  // liveForm = cumulative avg/round INCLUDING this round. A DRESSED-but-blanked card counts
+  // this round as a 0-point round (so it ranks/drops), not "no form" (which would shield it).
   const form = {};
-  const ids = new Set([...Object.keys(sums0), ...Object.keys(liveRes)]);
+  const ids = new Set([...Object.keys(sums0), ...Object.keys(liveRes), ...dressed]);
   for (const id of ids) {
-    const played = Object.prototype.hasOwnProperty.call(liveRes, id);
-    const s = (sums0[id] || 0) + (played ? liveRes[id] : 0);
-    const c = (counts0[id] || 0) + (played ? 1 : 0);
+    const scored = Object.prototype.hasOwnProperty.call(liveRes, id);
+    const playedThis = scored || dressed.has(id);
+    const s = (sums0[id] || 0) + (scored ? liveRes[id] : 0);
+    const c = (counts0[id] || 0) + (playedThis ? 1 : 0);
     form[id] = c ? s / c : null;
   }
 
   const cards = await getCards(seasonId);
-  const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → may still drop
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
   const targetPrice = { ...priceT, ...priceP };
