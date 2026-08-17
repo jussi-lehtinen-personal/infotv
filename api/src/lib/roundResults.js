@@ -106,11 +106,24 @@ function computeRoundPoints({ games, reports, extraAges, cardPos, resolveId }) {
     const r = reports[g.gameId];
     if (!r) continue;
     const ahmaSide = g.ahmaHome ? "home" : "away";
-    // DEFENDER multiplier (SCORING.player.defenderMult): a goal/assist by a card tagged
-    // 'defender' (Jopox position, via cardPos) is worth more. LIVE-only — offline passes no
-    // cardPos → isDef is always false → scoring is byte-identical (validators unaffected).
-    const posMap = posFor(g.gameId) || {};
-    const isDef = (name) => posMap[posName(name)] === "defender";
+    // DEFENDER multiplier (SCORING.player.defenderMult): scale a defender's goal/assist.
+    // Position resolves box-score role FIRST (primary — the role the player ACTUALLY played
+    // this game), the card's Jopox position SECOND (secondary fallback). OP/VP = defender;
+    // an explicit forward/goalie role = not a defender; "KP" (kenttäpelaaja = position
+    // UNSPECIFIED) or no role = no box-score info → fall through to the card position.
+    // LIVE-only: gated on cardPos being passed (posMap truthy). The offline validators pass
+    // none → isDef is always false → scoring stays byte-identical (no fixture regeneration).
+    const posMap = posFor(g.gameId);
+    const roleBy = {};
+    if (posMap) { const side = r.rosters && r.rosters[ahmaSide]; for (const p of (side && side.players) || []) { const nm = posName(`${p.last || ""} ${p.first || ""}`); if (nm) roleBy[nm] = p.role || ""; } }
+    const isDef = (name) => {
+      if (!posMap) return false;
+      const key = posName(name);
+      const role = roleBy[key];
+      if (SCORING.defense.roles.includes(role)) return true;   // primary: box-score defender (OP/VP)
+      if (role && role !== "KP") return false;                 // primary: explicit forward/goalie role
+      return posMap[key] === "defender";                       // secondary: card (Jopox) position (KP/empty → here)
+    };
     const mult = (name) => (isDef(name) ? SCORING.player.defenderMult : 1);
     for (const goal of r.goals || []) {
       if (goal.side !== ahmaSide) continue;
