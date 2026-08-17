@@ -887,6 +887,12 @@ async function settleRound(seasonId, round) {
       : (!(c.rowKey in resJ) && !dressed.has(c.rowKey) && step < 0) ? old
       : old + step;
     return {
+      // Spread the existing card FIRST so settle preserves fields it doesn't rewrite —
+      // notably `position`/`posOverride` (Jopox defender tag): a Replace-upsert would else
+      // WIPE them (masked only by the hourly reconcile), breaking the defender multiplier's
+      // card-secondary fallback + defense bonus right after a manual settle. Same pattern as
+      // liveReband's `{ ...c, ... }`. The volatile fields below all override the spread.
+      ...c,
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
       band: bandNameOf(price, bands), price, ownerCount: ownerCount[c.rowKey] || 0,
