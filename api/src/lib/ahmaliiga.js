@@ -922,6 +922,28 @@ async function settleRound(seasonId, round) {
   return { round, managers: roundRows.length, nextRound, vouchers };
 }
 
+// Reset EVERY card's market price back to its seed, clearing all live/trend state.
+// Standings, points, owners and ownership are untouched — only the price ladder is
+// rewound to the seed anchor. Use before a clean resettle: settleRound anchors each
+// step on the CURRENT price (line ~886), so once earlier (buggy) rounds have moved a
+// card, a plain resettle can't fully undo it — it steps from the moved price. Rewinding
+// to seed first makes the following settleRound(0) a single clean value step from the
+// same 40/etc. anchor for every card, restoring a consistent order.
+async function resetPrices(seasonId) {
+  const cards = await getCards(seasonId);
+  let n = 0;
+  await inChunks(cards, 25, async (c) => {
+    const seedPrice = c.seedPrice != null ? Number(c.seedPrice) : Number(c.price);
+    const seedBand = c.seedBand || c.band;
+    await upsertEntity(T.cards, {
+      ...c, price: seedPrice, band: seedBand,
+      livePrice: seedPrice, liveTrend: '', trend: '',
+    });
+    n++;
+  });
+  return { reset: n };
+}
+
 // Greedy squad pick for bots (budget + slots + max players), matching backtest.
 function botSquad(cards, scoreFn) {
   const build = (order) => {
@@ -2693,7 +2715,7 @@ module.exports = {
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason, assertGameOpen,
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
+  loadResults, getResults, getResultsFull, settleRound, resetPrices, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
   getLeaderboard, getLiveLeaderboard, liveReband, liveRoundCardPoints, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,

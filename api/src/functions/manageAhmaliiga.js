@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, getSquad, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, resetPrices, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, getSquad, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
 const { archiveSeason, listArchives, purgeSeason } = require('../lib/archive');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
@@ -229,6 +229,16 @@ app.http('manageAhmaliiga', {
           confirm: body.confirm, clearGlobals: !!body.clearGlobals, force: !!body.force, isActive,
         });
         return { jsonBody: { ok: !result.error, ...result } };
+      }
+
+      // Rewind EVERY card's price to its seed (clears live/trend), without touching
+      // standings/points. Use before a clean resettle so each settle steps once from the
+      // same seed anchor instead of from an earlier (buggy) moved price.
+      if (action === 'resetPrices') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await resetPrices(season.rowKey);
+        return { jsonBody: { ok: true, ...result } };
       }
 
       if (action === 'settleRound' || action === 'settleAll') {

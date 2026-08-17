@@ -71,6 +71,24 @@ export default function LiigaAdmin() {
     } finally { setBusy(""); }
   };
 
+  // Rewind ALL card prices to seed, then replay the settled rounds cleanly. Unlike
+  // plain "Päivitä trendit" (which steps each settle from the CURRENT price and so can't
+  // undo an earlier buggy move), this makes every card take one value step from the same
+  // seed anchor → consistent price order. Standings/points unchanged.
+  const resetAndResettle = async () => {
+    const cur = s ? s.settled : 0;
+    if (!window.confirm(`NOLLAA kaikkien korttien hinnat seediin ja ratkaise jaksot 0…${Math.max(0, cur - 1)} uudelleen puhtaalta ankkurilta. Sarjataulukko/pisteet EIVÄT muutu — vain hinnat. Jatketaanko?`)) return;
+    setBusy("resetPrices"); setMsg(null);
+    try {
+      const r = await ahmaliigaAdmin("resetPrices", {});
+      for (let j = 0; j < cur; j++) await ahmaliigaAdmin("settleRound", { round: j });
+      setMsg({ type: "success", text: `Hinnat nollattu (${r.reset ?? "?"} korttia) + ratkaistu puhtaasti (jaksot 0…${Math.max(0, cur - 1)}) ✓` });
+      load();
+    } catch (e) {
+      setMsg({ type: "error", text: e.message });
+    } finally { setBusy(""); }
+  };
+
   // Seed a NEW season from a pasted live-seed JSON (tools/gen-live-seed.js output). Uses
   // the admin's own session (no token copying). The current active season goes inactive
   // but is RETAINED — verified safe (transition test). Seed is generated offline because
@@ -149,6 +167,8 @@ export default function LiigaAdmin() {
                   busy={busy === "enrichPhotos"} disabled={!s} onClick={() => run("enrichPhotos", "Kuvat haettu")} />
         <AdminBtn icon={LuRefreshCw} label="Päivitä trendit + kausipisteet"
                   busy={busy === "resettle"} disabled={!s} onClick={resettle} />
+        <AdminBtn icon={LuRotateCcw} label="Nollaa hinnat seediin + ratkaise puhtaasti"
+                  busy={busy === "resetPrices"} disabled={!s} onClick={resetAndResettle} />
         <AdminBtn icon={LuWallet} label="Korjaa budjettisaldot"
                   busy={busy === "recomputeBanks"} disabled={!s}
                   onClick={() => run("recomputeBanks", "Saldot korjattu")} />
