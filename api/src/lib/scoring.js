@@ -13,7 +13,17 @@ const SCORING = {
   // balance-sim.js) put win 5 + cleanSheet 3 + goalDiffCap 4 at a 68 team ceiling (≈ the
   // player's 70, not past it) → teams become captain-worthy without dominating.
   team: { win: 5, tie: 1, loss: 0, cleanSheet: 3, goalDiffPer: 0.5, goalDiffCap: 4 },
-  player: { goal: 3, assist: 2 },
+  // v2.3 (2026-08-17): DEFENDER goal/assist MULTIPLIER. Defencemen score far less than
+  // forwards (U12 analysis: forwards 59.7 vs defenders 28.4 p/card, 2.1×) so a defender's
+  // goal is a scarcer, more valuable event — reward it. `defenderMult` scales BOTH goal and
+  // assist points, but ONLY for a card whose Jopox position is 'defender' (via cardPos in
+  // computeRoundPoints). ⚠️ LIVE-ONLY: gated on cardPos, which the offline validators do
+  // NOT pass → a scorer is never boosted offline → results-<season>.json still reproduces
+  // byte-identically (like the cardPos defense fallback, this position logic is not in
+  // model.js). Reaches only teams whose Jopox roster is position-grouped (U15/U18 now;
+  // U20/Naiset once grouped). sim: tools/sim-defender.js — ×1.5 lifts defenders med 15→25
+  // at ~+6% pool inflation, top preserved (vs a scarcity map's +78% + flattened top).
+  player: { goal: 3, assist: 2, defenderMult: 1.5 },
   // v2.2 (2026-08-03): DEFENDER bonus — reward keeping goals against down, so defencemen
   // (who rarely score) are worth picking. U12 analysis: forwards 59.7 vs defenders 28.4
   // p/card (2.1×); every top scorer was a forward. Awarded per game to each rostered

@@ -5,7 +5,7 @@
 // precomputed file — see tools/validate-round-results.js. Card ids are deterministic:
 // team = "T:"+teamKey, player/goalie = "P:"+name (matching tools/gen-cards.js).
 
-const { SCORING, teamGamePoints, goaliePoints, defensePoints } = require("./scoring");
+const { SCORING, teamGamePoints, goaliePoints, defensePoints, posName } = require("./scoring");
 
 // Player (individual) cards: U18 and older (project_ahmaliiga_plan, 2026-07-13).
 const PLAYER_AGES = new Set(["Edustus", "Naiset", "U20", "U18"]);
@@ -60,6 +60,7 @@ function playerReason(d) {
   const parts = [];
   if (d.goals) parts.push(`${d.goals} maali${d.goals > 1 ? "a" : ""}`);
   if (d.assists) parts.push(`${d.assists} syöttö${d.assists > 1 ? "ä" : ""}`);
+  if (d.defBoost && (d.goals || d.assists)) parts.push(`puolustaja ×${SCORING.player.defenderMult}`);
   if (d.def) parts.push(`puolustus +${d.def}`);
   return parts.join(", ");
 }
@@ -105,11 +106,17 @@ function computeRoundPoints({ games, reports, extraAges, cardPos, resolveId }) {
     const r = reports[g.gameId];
     if (!r) continue;
     const ahmaSide = g.ahmaHome ? "home" : "away";
+    // DEFENDER multiplier (SCORING.player.defenderMult): a goal/assist by a card tagged
+    // 'defender' (Jopox position, via cardPos) is worth more. LIVE-only — offline passes no
+    // cardPos → isDef is always false → scoring is byte-identical (validators unaffected).
+    const posMap = posFor(g.gameId) || {};
+    const isDef = (name) => posMap[posName(name)] === "defender";
+    const mult = (name) => (isDef(name) ? SCORING.player.defenderMult : 1);
     for (const goal of r.goals || []) {
       if (goal.side !== ahmaSide) continue;
       const scorer = goal.scorer && goal.scorer.name;
-      if (scorer) { const id = cid(scorer); add(id, SCORING.player.goal); pd(id).goals += 1; }
-      for (const a of goal.assists || []) if (a) { const id = cid(a); add(id, SCORING.player.assist); pd(id).assists += 1; }
+      if (scorer) { const id = cid(scorer); const D = pd(id); add(id, SCORING.player.goal * mult(scorer)); D.goals += 1; if (isDef(scorer)) D.defBoost = true; }
+      for (const a of goal.assists || []) if (a) { const id = cid(a); const D = pd(id); add(id, SCORING.player.assist * mult(a)); D.assists += 1; if (isDef(a)) D.defBoost = true; }
     }
     const gk = goaliePoints(r, { ahmaSide, oppSide: g.ahmaHome ? "away" : "home", won: gf > ga });
     if (gk) { const id = cid(gk.name); add(id, gk.pts); pd(id).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }

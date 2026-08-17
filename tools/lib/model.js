@@ -13,7 +13,11 @@ const CFG = {
   // v2.2 (2026-08-03): team weight raised (win 3→5, cs 2→3, gdCap 2→4) — matches SCORING.team.
   team: { win: 5, tie: 1, loss: 0, cleanSheet: 3, goalDiffPer: 0.5, goalDiffCap: 4 },
   predict: { winner: 3, margin: 7, exact: 20 }, // v2.1 (2026-07-22): 3/5/8 → 3/7/20 (matches ECON.predict)
-  player: { goal: 3, assist: 2 },
+  // v2.3 (2026-08-17): defenderMult mirrors SCORING.player — LIVE-only (applied in
+  // computeRoundPoints via cardPos/Jopox position). buildPlayerCards does NOT use it
+  // (offline has no card positions), so this constant is inert here; kept only so
+  // validate-scoring's jsonEq(SCORING.player, CFG.player) stays green. See scoring.js.
+  player: { goal: 3, assist: 2, defenderMult: 1.5 },
   // v2.2 (2026-08-03): defender bonus (position OP/VP) — shutout +3, ≤2 conceded +1.
   // Matches SCORING.defense in api/src/lib/scoring.js. No-op where positions are untagged.
   defense: { cleanSheet: 3, lowGa: 1, lowGaMax: 2, roles: ["OP", "VP"] },
