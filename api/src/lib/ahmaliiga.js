@@ -1436,18 +1436,21 @@ async function dressedCardIds(seasonId, round) {
   const games = await getRoundGames(seasonId, round);
   const extraAges = extraAgesOf(season);
   const isElig = (g) => isPlayerEligible(teamKey(g)) || extraAges.has(String(teamKey(g)).split(' ')[0]);
-  const resolveId = await cardIdResolver(seasonId);
-  const cardIds = new Set((await getCards(seasonId)).map((c) => c.rowKey));
+  // Order-INDEPENDENT name key (sorted words): the roster gives first/last separately and the
+  // card name is "Last First", so a plain posName (no word sort) would miss the match.
+  const sk = (s) => posName(s).split(' ').filter(Boolean).sort().join(' ');
+  const byKey = {};
+  for (const c of await getCards(seasonId)) {
+    if (c.kind === 'player' || c.kind === 'goalie') { const k = sk(c.personName || c.name || String(c.rowKey).replace(/^P:/, '')); if (k) byKey[k] = c.rowKey; }
+  }
   const eligible = games.filter(isElig).filter(hasResult);
   await inChunks(eligible, 6, async (g) => {
     const rep = await fetchGameReport(g);
     const side = g.ahmaHome ? 'home' : 'away';
     const players = (rep && rep.rosters && rep.rosters[side] && rep.rosters[side].players) || [];
     for (const p of players) {
-      const nm = `${p.first || ''} ${p.last || ''}`.trim();
-      if (!nm) continue;
-      const id = resolveId(nm);
-      if (cardIds.has(id)) dressed.add(id);
+      const id = byKey[sk(`${p.first || ''} ${p.last || ''}`)];
+      if (id) dressed.add(id);
     }
   });
   return dressed;
