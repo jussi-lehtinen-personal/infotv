@@ -858,6 +858,7 @@ async function settleRound(seasonId, round) {
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
   const targetPrice = { ...priceT, ...priceP };
+  const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → may still drop
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
     const old = Number(c.price);
@@ -869,13 +870,13 @@ async function settleRound(seasonId, round) {
     // jump min→max in one settle (appreciation is a slow skill play).
     const target = targetPrice[c.rowKey];
     const step = Math.max(-ECON.priceStepCap, Math.min(ECON.priceStepCap, target - old));
-    // U9 (2026-08-03): a card that had NO game this round (not in resJ) doesn't DROP — you
-    // can't be marked down for a round you didn't play (its target fell only because other
-    // cards scored). A card that played and earned little still rebands normally. Fixes the
-    // open-beta "punished from nothing" complaint with zero market collateral (sim tools/
-    // sim-u9.js: 61→17 drops, price spread + volatility unchanged).
+    // A card that neither scored NOR dressed this round (genuinely no game) doesn't DROP —
+    // can't be marked down for a round you didn't play. But a card that DRESSED and blanked
+    // (in `dressed`, not in resJ) CAN drop — playing and producing nothing is a real result.
+    // Fixes the inversion where "play + score a little" priced below "play + blank" (both
+    // were shielded before because the guard only saw points, not who took the ice).
     const price = form[c.rowKey] == null ? old
-      : (!(c.rowKey in resJ) && step < 0) ? old
+      : (!(c.rowKey in resJ) && !dressed.has(c.rowKey) && step < 0) ? old
       : old + step;
     return {
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
@@ -1088,6 +1089,7 @@ async function liveReband(seasonId, round) {
   }
 
   const cards = await getCards(seasonId);
+  const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → may still drop
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
   const targetPrice = { ...priceT, ...priceP };
@@ -1098,11 +1100,11 @@ async function liveReband(seasonId, round) {
     const target = targetPrice[c.rowKey];
     // only cards with real form this round move; others sit at the settled price
     const step = Math.max(-cap, Math.min(cap, target - anchor));
-    // U9 (2026-08-03): mirror the settle guard — a card not played THIS round doesn't drop
-    // in the live preview either (else live shows a drop settlement then reverts).
+    // Don't drop a card that neither scored NOR dressed this round (genuinely no game). A
+    // card that DRESSED but blanked CAN drop — playing and doing nothing is a real result.
     const playedThis = Object.prototype.hasOwnProperty.call(liveRes, c.rowKey);
     const livePrice = form[c.rowKey] == null ? anchor
-      : (!playedThis && step < 0) ? anchor
+      : (!playedThis && !dressed.has(c.rowKey) && step < 0) ? anchor
       : anchor + step;
     const liveTrend = livePrice > anchor ? 'up' : livePrice < anchor ? 'down' : '';
     if (livePrice !== anchor) moved++;
@@ -1410,6 +1412,35 @@ async function cardIdResolver(seasonId) {
     if (c.kind === 'player' || c.kind === 'goalie') byKey[posName(c.personName || c.name || String(c.rowKey).replace(/^P:/, ''))] = c.rowKey;
   }
   return (name) => byKey[posName(name)] || ('P:' + name);
+}
+
+// Card ids of players who DRESSED in any of the round's games — from the box-score rosters
+// (getrosters), matched to cards by posName. Lets a card that PLAYED but scored 0 reband
+// DOWN, while a card that didn't dress (genuinely no game) is still shielded from a drop.
+// Fixes the perverse "play + blank → held, play + score → dropped below the blanks" inversion
+// of a flat-seeded pool. Live pool only (replay/sim → empty set → reband unchanged).
+async function dressedCardIds(seasonId, round) {
+  const dressed = new Set();
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season || !season.livePool) return dressed;
+  const games = await getRoundGames(seasonId, round);
+  const extraAges = extraAgesOf(season);
+  const isElig = (g) => isPlayerEligible(teamKey(g)) || extraAges.has(String(teamKey(g)).split(' ')[0]);
+  const resolveId = await cardIdResolver(seasonId);
+  const cardIds = new Set((await getCards(seasonId)).map((c) => c.rowKey));
+  const eligible = games.filter(isElig).filter(hasResult);
+  await inChunks(eligible, 6, async (g) => {
+    const rep = await fetchGameReport(g);
+    const side = g.ahmaHome ? 'home' : 'away';
+    const players = (rep && rep.rosters && rep.rosters[side] && rep.rosters[side].players) || [];
+    for (const p of players) {
+      const nm = `${p.first || ''} ${p.last || ''}`.trim();
+      if (!nm) continue;
+      const id = resolveId(nm);
+      if (cardIds.has(id)) dressed.add(id);
+    }
+  });
+  return dressed;
 }
 
 // Manual card override (admin) — force a player card's position/kind against the Jopox
