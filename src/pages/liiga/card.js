@@ -260,7 +260,9 @@ export default function LiigaCard() {
   const full = squad.ids.length >= 5;
   const buyable = squad.canAdd(c);
   // Why a buy is blocked (in priority order) → a short reason under a disabled button.
+  const tradeLocked = squad.isLocked(id); // game in progress / price not yet updated → no buy or sell
   const buyReason = owned || buyable ? null
+    : tradeLocked ? "Peli on käynnissä — kortin voi ostaa vasta kun sen hinta päivittyy pelin jälkeen"
     : full ? "Pakka on täynnä (5/5) — myy ensin kortti tai vaihda Oma joukkue -sivulla"
     : card.price > squad.bank ? "Budjetti ei riitä tähän korttiin"
     : (squad.mustPickTeam && card.kind !== "team") ? "Vapaat paikat vaativat joukkuekortin (vähintään 2 joukkuetta)"
@@ -273,7 +275,7 @@ export default function LiigaCard() {
   // rather than letting the server reject it.
   const captainLocked = owned && squad.captainId === id && squad.captainLocked;
   const CAPTAIN_LOCK_MSG = "Et voi myydä kapteenia jakson pelien alettua — voit vaihtaa kapteenin vain ennen jakson ensimmäistä peliä.";
-  const onSellClick = () => { setLocalError(""); if (captainLocked) { setLocalError(CAPTAIN_LOCK_MSG); return; } setConfirm({ type: "sell" }); };
+  const onSellClick = () => { setLocalError(""); if (tradeLocked) { setLocalError(squad.LOCK_MSG); return; } if (captainLocked) { setLocalError(CAPTAIN_LOCK_MSG); return; } setConfirm({ type: "sell" }); };
 
   return (
     <Screen>
@@ -337,7 +339,11 @@ export default function LiigaCard() {
                       color: "#f87171", borderColor: "rgba(248,113,113,0.5)", "&:hover": { borderColor: "#f87171", bgcolor: "rgba(248,113,113,0.08)" } }}>
                 Myy kortti — saat {card.price} c takaisin
               </Button>
-              {captainLocked && (
+              {tradeLocked ? (
+                <Typography variant="caption" sx={{ display: "block", textAlign: "center", mt: 0.85, color: "text.disabled" }}>
+                  🔒 Peli käynnissä — treidaus aukeaa kun hinta päivittyy pelin jälkeen
+                </Typography>
+              ) : captainLocked && (
                 <Typography variant="caption" sx={{ display: "block", textAlign: "center", mt: 0.85, color: "text.disabled" }}>
                   🔒 Kapteeni on lukittu tälle jaksolle
                 </Typography>

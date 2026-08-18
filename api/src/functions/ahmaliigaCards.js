@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getCards, getRounds, liveRoundCardPoints } = require('../lib/ahmaliiga');
+const { getActiveSeason, getCards, getRounds, getRoundGames, liveRoundCardPoints, lockGamesByTeam, isCardTradeLocked } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/cards?filter=team|player|goalie — the active season's card
 // pool (Korttimarkkina). Public. filter omitted/all = every card.
@@ -27,6 +27,11 @@ app.http('ahmaliigaCards', {
       // memoised 30 s). Fall back to the tick-persisted liveRoundPts if it fails.
       let livePts = null;
       if (roundLive) { try { livePts = (await liveRoundCardPoints(season.rowKey, Number(cur.rowKey))).pts; } catch { livePts = null; } }
+      // Per-card TRADE LOCK: a card whose team's current-round game has kicked off but isn't
+      // yet priced in is frozen for buy/sell (see isCardTradeLocked). Lets the client disable
+      // trading + show a lock instead of only erroring on save. Best-effort (never blocks the list).
+      let lockByTeam = {};
+      if (roundLive) { try { lockByTeam = lockGamesByTeam(season, await getRoundGames(season.rowKey, Number(cur.rowKey))); } catch { lockByTeam = {}; } }
       let cards = allCards;
       if (filter && filter !== 'all') cards = cards.filter((c) => c.kind === filter);
       const out = cards
@@ -40,6 +45,7 @@ app.http('ahmaliigaCards', {
           lastPts: roundLive ? (livePts ? Math.round((livePts[c.rowKey] || 0) * 10) / 10 : (Number(c.liveRoundPts) || 0)) : (c.lastPts || 0),
           seasonPts: c.seasonPts || 0, photo: c.photo || '',
           trend: c.liveTrend || c.trend || '',
+          tradeLocked: isCardTradeLocked(c, lockByTeam), // game in progress / not-yet-priced → no buy/sell
         }))
         .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, 'fi'));
       return { jsonBody: { season: season.rowKey, settled, roundLive, cards: out } };

@@ -460,6 +460,19 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
     throw badRequest('Kapteenia ei voi enää vaihtaa — jakson pelit ovat alkaneet.');
   }
 
+  // TRADE LOCK: a card whose OWN game has kicked off is frozen for BOTH buying and selling
+  // until the next reband prices that game in (isCardTradeLocked / pricedThrough). Closes a
+  // price-timing exploit in both directions: livePrice only moves at the hourly liveReband,
+  // so without the lock you could sell a card that just played BADLY before its drop lands,
+  // or buy one that played WELL before its rise lands — front-running a move you already know.
+  // The lock is BRIEF (kickoff → next reband), not the whole round: cards free again at the
+  // new price. Scoring was already safe via the soft freeze; this protects the ECONOMY.
+  const lockByTeam = lockGamesByTeam(season, roundGames);
+  const prevSquadIds = ((prev && prev.cards) || []).map((c) => c.id);
+  const locked = (id) => isCardTradeLocked(map[id], lockByTeam);
+  if (prevSquadIds.some((id) => !cardIds.includes(id) && locked(id))) throw badRequest('Peli on käynnissä — tätä korttia ei voi myydä ennen kuin sen hinta on päivittynyt pelin jälkeen.');
+  if (cardIds.some((id) => !prevSquadIds.includes(id) && locked(id))) throw badRequest('Peli on käynnissä — tätä korttia ei voi ostaa ennen kuin sen hinta on päivittynyt pelin jälkeen.');
+
   // Rolling lock: before applying this edit, freeze any game of the current round
   // that has ALREADY started, keeping the PRE-edit squad for it — so you can't swap
   // a card/captain for a game in progress and have it count. Not-yet-started games
@@ -1128,6 +1141,14 @@ async function liveReband(seasonId, round) {
   }
 
   const cards = await getCards(seasonId);
+  // Trade-lock release marker: `pricedThrough` = the latest PLAYED (result-in) game of the
+  // card's team that THIS reband has now priced into livePrice. saveSquad frees a card once
+  // its just-started game's date is ≤ pricedThrough — i.e. the price has caught up with the
+  // performance. (A card whose game kicked off but whose result isn't yet priced stays locked
+  // so no one can trade on a move they already know is coming.) Per team → applied per card.
+  const rgames = await getRoundGames(seasonId, round);
+  const pricedByTeam = {};
+  for (const g of rgames) { if (!hasResult(g)) continue; const tk = teamKey(g); const d = String(g.date); if (!pricedByTeam[tk] || d > pricedByTeam[tk]) pricedByTeam[tk] = d; }
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
   const targetPrice = { ...priceT, ...priceP };
@@ -1148,7 +1169,10 @@ async function liveReband(seasonId, round) {
     if (livePrice !== anchor) moved++;
     // this round's live points for the card (intrinsic, no captain 2×) → the market
     // list + card page can show the CURRENT round instead of only the last settled one.
-    return { ...c, livePrice, liveTrend, liveRoundPts: Math.round((liveRes[c.rowKey] || 0) * 10) / 10 };
+    // pricedThrough: the latest played game of THIS card's team now baked into livePrice →
+    // frees the card for trading once its kicked-off game is priced (see isCardTradeLocked).
+    const pricedThrough = pricedByTeam[cardTeamKeyOf(c)] || c.pricedThrough || '';
+    return { ...c, livePrice, liveTrend, liveRoundPts: Math.round((liveRes[c.rowKey] || 0) * 10) / 10, pricedThrough };
   });
   await upsertBatch(T.cards, batch);
   return { moved, played };
@@ -1278,6 +1302,38 @@ function gameStarted(game, season) {
   const realClock = !!(season && (season.realClock === true || season.realClock === 'true'));
   const simDate = (season && season.simMode && !realClock) ? season.simDate : null;
   return kickedOff(game, simDate);
+}
+
+// ===== TRADE LOCK (price-timing fairness) =====
+// A card is locked for BUYING/SELLING while one of its team's round games has KICKED OFF
+// (timezone-correct via gameStarted → helsinkiMs / sim clock) but that game's RESULT is not
+// yet priced into the card's livePrice. liveReband stamps `card.pricedThrough` = the latest
+// PLAYED game date it priced; a card frees once its kicked-off game's date ≤ pricedThrough —
+// i.e. the price has caught up with the on-ice performance and there's nothing left to
+// front-run. Centralised so saveSquad and any read agree on ONE definition.
+function cardTeamKeyOf(card) {
+  if (!card) return '';
+  if (card.kind === 'team') return card.teamKey || String(card.rowKey || card.id || '').replace(/^T:/, '');
+  return card.sub || card.teamKey || '';
+}
+// teamKey -> [{ date, finished }] for the round's games that have already kicked off.
+function lockGamesByTeam(season, roundGames) {
+  const byTeam = {};
+  for (const g of roundGames || []) {
+    if (!gameStarted(g, season)) continue;
+    const tk = teamKey(g);
+    (byTeam[tk] = byTeam[tk] || []).push({ date: String(g.date), finished: hasResult(g) });
+  }
+  return byTeam;
+}
+// Is this card frozen for trading right now? `byTeam` = lockGamesByTeam(...).
+function isCardTradeLocked(card, byTeam) {
+  const gs = byTeam[cardTeamKeyOf(card)];
+  if (!gs || !gs.length) return false;
+  const pt = String((card && card.pricedThrough) || '');
+  // locked if any kicked-off game is (a) still in progress, or (b) finished but not yet
+  // priced into this card (its date is beyond what the last reband stamped).
+  return gs.some((g) => !g.finished || g.date > pt);
 }
 
 // One frozen snapshot per (manager, kickoff moment). Insert-once — never overwrite,
@@ -2722,6 +2778,7 @@ module.exports = {
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, resetPrices, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
+  gameStarted, hasResult, cardTeamKeyOf, lockGamesByTeam, isCardTradeLocked,
   getLeaderboard, getLiveLeaderboard, liveReband, liveRoundCardPoints, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,

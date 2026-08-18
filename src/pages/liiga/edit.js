@@ -85,7 +85,7 @@ export default function LiigaEdit() {
   // the shared useSquad hook so the editor and the market/card-details buy-sell agree.
   const {
     all, settled, roundLive, budget, points, bank, transfers, transfersLeft,
-    ids, captainId, round, minTeams, captainLocked, error,
+    ids, captainId, round, minTeams, captainLocked, isLocked, error,
     squadValue, teamCount, teamsNeeded, mustPickTeam, captain, rest,
     persist, canAdd, canReplaceWith, cardPts,
   } = useSquad();
@@ -387,9 +387,11 @@ export default function LiigaEdit() {
               <Box sx={{ flexShrink: 0 }}><Coins value={menuCard.price} size={15} /></Box>
             </Stack>
             <Stack spacing={0.25}>
-              {/* The LOCKED captain card can't be swapped or sold — both would move the
-                  captaincy to another card, which the round lock forbids. */}
-              {captainLocked && menuCard.id === captainId ? (
+              {/* A card whose game is live (price not yet re-priced) is frozen for trading —
+                  neither swap nor sell until the next reband. Same idea as the captain lock. */}
+              {isLocked(menuCard.id) ? (
+                <SheetAction icon={LuInfo} label="Peli käynnissä — treidaus lukossa" sub="Kortin voi vaihtaa tai myydä kun sen hinta päivittyy pelin jälkeen" disabled />
+              ) : captainLocked && menuCard.id === captainId ? (
                 <SheetAction icon={LuCrown} label="Kapteeni lukittu" sub="Kapteenia ei voi vaihtaa tai myydä — jakson pelit ovat alkaneet" disabled />
               ) : (
                 <>
@@ -406,7 +408,7 @@ export default function LiigaEdit() {
               )}
               <SheetAction icon={LuInfo} label="Näytä tiedot" sub="Avaa kortin tiedot"
                 onClick={() => nav(`/ahmaliiga/card/${encodeURIComponent(menuCard.id)}`)} />
-              {!(captainLocked && menuCard.id === captainId) && (
+              {!(captainLocked && menuCard.id === captainId) && !isLocked(menuCard.id) && (
                 <SheetAction icon={LuTrash2} label="Myy kortti" sub="Saat kortin hinnan takaisin" danger
                   onClick={() => { const c = menuCard; setMenuCard(null); setRemoveConfirm(c); }} />
               )}

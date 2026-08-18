@@ -91,9 +91,18 @@ export function useSquad() {
   const captain = byId[captainId] || selected[0] || null;
   const rest = selected.filter((c) => c.id !== (captain && captain.id));
 
+  // A card is trade-locked while its game is in progress / not yet re-priced (server
+  // `tradeLocked`). It can't be bought or sold until the next reband applies the new price.
+  const isLocked = (id) => !!(byId[id] && byId[id].tradeLocked);
+  const LOCK_MSG = "Peli on käynnissä — tätä korttia ei voi ostaa/myydä ennen kuin sen hinta päivittyy pelin jälkeen.";
+
   // Every change persists immediately. Optimistic: update state, save, and on failure
   // revert + surface the server message (e.g. the transfer limit).
   const persist = async (nextIds, nextCap) => {
+    // Trade lock: block adding/removing a card whose game is live (matches the server guard)
+    // so the user sees why up front instead of an optimistic add that snaps back.
+    const changed = [...ids.filter((id) => !nextIds.includes(id)), ...nextIds.filter((id) => !ids.includes(id))];
+    if (changed.some(isLocked)) { setError(LOCK_MSG); return; }
     const prevIds = ids, prevCap = captainId, prevBank = bank;
     // optimistic bank: selling a removed card credits its current price, buying a new one
     // debits it. The server returns the authoritative bank + transfers.
@@ -115,13 +124,14 @@ export function useSquad() {
   // ≥ minTeams team cards). A player is pickable only while ≥minTeams stays reachable.
   const canReplaceWith = (c, replaceFor) => {
     if (!replaceFor) return false;
+    if (isLocked(c.id) || isLocked(replaceFor.id)) return false; // can't buy a live card nor sell a live one
     const afford = c.price <= bank + replaceFor.price;
     const teamsAfter = teamCount - (replaceFor.kind === "team" ? 1 : 0) + (c.kind === "team" ? 1 : 0);
     const teamOk = c.kind === "team" || ids.length < 5 || teamsAfter >= minTeams; // full squad must keep ≥ minTeams
     return afford && teamOk;
   };
   const canAdd = (c) =>
-    ids.length < 5 && !ids.includes(c.id) && c.price <= bank && (c.kind === "team" || !mustPickTeam);
+    ids.length < 5 && !ids.includes(c.id) && !isLocked(c.id) && c.price <= bank && (c.kind === "team" || !mustPickTeam);
 
   // This round's points for a card (null until loaded → shown as "—").
   const cardPts = (id) => (perCard ? (perCard[id] || 0) : null);
@@ -130,6 +140,6 @@ export function useSquad() {
     all, settled, roundLive, byId, budget, points, bank, transfers, transfersLeft,
     ids, captainId, perCard, round, minTeams, captainLocked, error, setError,
     selected, squadValue, teamCount, emptySlots, teamsNeeded, mustPickTeam, captain, rest,
-    persist, canAdd, canReplaceWith, cardPts,
+    persist, canAdd, canReplaceWith, cardPts, isLocked, LOCK_MSG,
   };
 }
