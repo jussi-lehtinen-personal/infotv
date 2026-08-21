@@ -149,4 +149,50 @@ async function fetchMemberSubGroups(subsiteId) {
     return map;
 }
 
-module.exports = { fetchMemberSubGroups };
+// Coach free-text info (PublicInfo → "Kokoontuminen klo…" etc.) per event. The PUBLIC
+// game-detail API (/api/events/{id}) returns an EMPTY description for games, but the
+// members area carries the SAME info trainings expose publicly, in `PublicInfo`. We read
+// ONLY PublicInfo (a public info blurb) — NEVER Persons/participant data (minors' names).
+const infoCache = new Map(); // subsiteId -> { map(eventId->text), ts }
+const htmlToText = (html) => {
+    if (!html) return null;
+    const t = String(html)
+        .replace(/<\s*br\s*\/?>/gi, "\n")
+        .replace(/<\/\s*(p|div|li)\s*>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+        .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    return t || null;
+};
+
+// Public: eventId -> free-text PublicInfo for a team's members events. {} on any failure
+// (feature is optional → the card simply shows no description, as before).
+async function fetchMemberEventInfo(subsiteId) {
+    const cached = infoCache.get(String(subsiteId));
+    if (cached && Date.now() - cached.ts < GROUPS_TTL) return cached.map;
+
+    let jar = await getSession();
+    let events;
+    try {
+        events = await loadEvents(subsiteId, jar);
+    } catch (e) {
+        jar = await getSession(true);
+        events = await loadEvents(subsiteId, jar);
+    }
+
+    const map = {};
+    for (const ev of events) {
+        if (ev.EventId == null) continue;
+        const text = htmlToText(ev.PublicInfo); // ONLY PublicInfo — no person data
+        if (text) map[ev.EventId] = text;
+    }
+    infoCache.set(String(subsiteId), { map, ts: Date.now() });
+    return map;
+}
+
+module.exports = { fetchMemberSubGroups, fetchMemberEventInfo };

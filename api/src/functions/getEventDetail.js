@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
+const { fetchMemberEventInfo } = require('../lib/jopox');
 
 // Single-event detail (free-text description) from the club site's PUBLIC API.
 // Two sources, matching the web team page:
@@ -60,21 +61,30 @@ app.http('getEventDetail', {
                 return { jsonBody: cached.data };
             }
 
-            const url = isGame
-                ? `${BASE}/api/events/${eventId}`
-                : `${BASE}/api/trainings/subsite/${subsiteId}/${eventId}`;
-            const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
-
-            let data;
-            if (res.status === 204) {
-                data = { eventId: Number(eventId), description: null };
-            } else if (!res.ok) {
-                throw new Error(`kiekko-ahma.fi -> HTTP ${res.status}`);
+            let description = null;
+            if (isGame) {
+                // The PUBLIC game-detail API (/api/events/{id}) returns an EMPTY description,
+                // so a game's coach info (kokoontumisaika etc.) comes from the members-area
+                // PublicInfo — the SAME text trainings expose publicly — matched by eventId.
+                if (subsiteId && /^\d+$/.test(subsiteId)) {
+                    try { const info = await fetchMemberEventInfo(subsiteId); description = info[eventId] || null; } catch { /* optional */ }
+                }
+                if (!description) {
+                    // Fallback: public game endpoint (usually empty, but cheap + no auth).
+                    try {
+                        const r = await fetch(`${BASE}/api/events/${eventId}`, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
+                        if (r.ok) { const j = await r.json().catch(() => ({})); description = htmlToText(j.description); }
+                    } catch { /* ignore */ }
+                }
             } else {
-                const j = await res.json().catch(() => ({}));
-                // trainings: publicinfo ; games: description
-                data = { eventId: Number(eventId), description: htmlToText(j.publicinfo || j.description) };
+                const r = await fetch(`${BASE}/api/trainings/subsite/${subsiteId}/${eventId}`, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
+                if (r.status !== 204) {
+                    if (!r.ok) throw new Error(`kiekko-ahma.fi -> HTTP ${r.status}`);
+                    const j = await r.json().catch(() => ({}));
+                    description = htmlToText(j.publicinfo || j.description);
+                }
             }
+            const data = { eventId: Number(eventId), description };
 
             cache.set(cacheKey, { data, ts: Date.now() });
             return { jsonBody: data };
