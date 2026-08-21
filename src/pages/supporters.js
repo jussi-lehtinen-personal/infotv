@@ -3,11 +3,19 @@ import { Box, Typography, Card, Stack } from "@mui/material";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 
-// Supporter-member list. Data is the static public/supporters.json (same light
-// model as /news). Tolerates either bare name strings or { name } objects.
+// Supporter-member list. PRIMARY source is the club's Jopox "Kannattajajäsenet" team
+// (subsiteId 10285) — the SAME roster mechanism as /joukkueet players (getTeamRoster).
+// It's empty until the club adds members there; the static public/supporters.json is kept
+// as a fallback/merge so nothing is lost during migration. Names are unioned + deduped.
+const SUPPORTERS_SUBSITE = 10285;
+
 const toName = (entry) => {
   if (typeof entry === "string") return entry.trim();
-  if (entry && typeof entry === "object" && typeof entry.name === "string") return entry.name.trim();
+  if (entry && typeof entry === "object") {
+    if (typeof entry.name === "string" && entry.name.trim()) return entry.name.trim();
+    const fl = `${entry.firstName || ""} ${entry.lastName || ""}`.trim(); // getTeamRoster player shape
+    if (fl) return fl;
+  }
   return "";
 };
 
@@ -22,13 +30,24 @@ const Supporters = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch("/supporters.json")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const cleaned = data.map(toName).filter(Boolean).sort((a, b) => a.localeCompare(b, "fi"));
-          setNames(cleaned);
-        }
+    // Jopox team roster (10285) is the going-forward source; supporters.json is the
+    // fallback/merge. Fetch both, union the names (case-insensitive dedupe), sort.
+    Promise.all([
+      fetch(`/api/getTeamRoster?subsiteId=${SUPPORTERS_SUBSITE}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/supporters.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+      .then(([roster, staticList]) => {
+        const jopox = roster
+          ? [...(Array.isArray(roster.players) ? roster.players : []), ...(Array.isArray(roster.officials) ? roster.officials : [])].map(toName)
+          : [];
+        const stat = Array.isArray(staticList) ? staticList.map(toName) : [];
+        const seen = new Set();
+        const cleaned = [...jopox, ...stat]
+          .filter(Boolean)
+          .filter((n) => { const k = n.toLocaleLowerCase("fi"); if (seen.has(k)) return false; seen.add(k); return true; })
+          .sort((a, b) => a.localeCompare(b, "fi"));
+        setNames(cleaned);
+        if (roster === null && !Array.isArray(staticList)) setError(true);
         setLoading(false);
       })
       .catch(() => {
