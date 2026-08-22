@@ -31,6 +31,30 @@ function officialPhoto(o) {
     return o.imageId ? `${IMAGEBANK}/${o.imageId}_big${o.imageExtension || '.jpg'}` : null;
 }
 
+// Every team page carries the club's whole team list in the same blob as the
+// roster. Exposed so a consumer does not have to parse this page itself just to
+// turn "the age group below ours" into a subsiteId.
+//
+// A static table would have been the obvious alternative and is the wrong one:
+// the club's age groups shift every season - there is no U12 and no U16 right
+// now - so a hardcoded list is wrong the moment a team is added or folded.
+// Read live, it simply follows.
+function clubTeams(pageProps) {
+    const teams = [];
+    for (const section of pageProps.siteData?.sections || []) {
+        for (const group of section.subsiteGroups || []) {
+            for (const site of group.subsites || []) {
+                const id = Number(site?.id);
+                const name = clean(site?.name);
+                if (Number.isInteger(id) && id > 0 && name) {
+                    teams.push({ subsiteId: id, name });
+                }
+            }
+        }
+    }
+    return teams;
+}
+
 function transform(pageProps, html) {
     // Team label from <title>: "Valkeakosken Kiekko-Ahma ry - U15 (2012)" -> "U15 (2012)"
     const titleM = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
@@ -78,6 +102,7 @@ function transform(pageProps, html) {
         description: clean(pageProps.description?.subsiteDescription) || null,
         players,
         officials,
+        clubTeams: clubTeams(pageProps),
     };
 }
 
