@@ -222,7 +222,10 @@ export const ListRow = ({ leading, title, titleRight, subtitle, trailing, onClic
       {trailing}
     </>
   );
-  const base = { display: "flex", alignItems: "center", gap: 1.5, width: "100%", px: 1.75, py: 1.25,
+  // boxSizing:border-box — the app has no global border-box (no CssBaseline), so
+  // width:100% + horizontal padding would otherwise overflow the ListCard by the
+  // padding and push the trailing value (points) past the card's right edge.
+  const base = { boxSizing: "border-box", display: "flex", alignItems: "center", gap: 1.5, width: "100%", px: 1.75, py: 1.25,
         borderBottom: divider ? "1px solid var(--color-surface-divider)" : 0,
         bgcolor: highlight ? "rgba(var(--color-primary-rgb),0.10)" : "transparent", ...sx };
   return onClick
