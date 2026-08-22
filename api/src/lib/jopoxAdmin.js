@@ -239,6 +239,29 @@ function todayKeyHelsinki() {
   return p.replace(/-/g, ''); // en-CA => YYYY-MM-DD
 }
 
+// GROUP-tagged ice: an event for a Jopox event-group (peliryhmä) — its enrolment Excel
+// still lists EVERY club member (whole teams default IN), so the raw count is nonsense for
+// a group event (e.g. Maalivahtijää showed ~83 because U18/U15/U14 default IN, though the
+// goalie group has 18). Fix: restrict the enrolment to the group's actual members. Map the
+// event NAME → group id; GetMembers (page-method) gives the member Names. Add a row here to
+// cover a new group ice type. Taitojää has NO group → not listed → no filter (whole teams).
+const EVENT_GROUP_BY_NAME = { kilpurijää: 9707, maalivahtijää: 9708 };
+const gmName = (s) => String(s || '').toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+const groupMembersCache = new Map(); // groupId -> { names:Set, at }
+async function fetchGroupMembers(session, groupId) {
+  const c = groupMembersCache.get(groupId);
+  if (c && Date.now() - c.at < 30 * 60_000) return c.names;
+  const r = await fetch(`${HALL}/Admin/Hockeypox2020/Groups/GroupMembers.aspx/GetMembers`, {
+    method: 'POST',
+    headers: { 'User-Agent': UA, 'Content-Type': 'application/json; charset=UTF-8', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', Cookie: session.cookie(), Origin: HALL, Referer: `${HALL}/Admin/HockeyPox2020/Groups/GroupMembers.aspx?gId=${groupId}` },
+    body: JSON.stringify({ group: groupId }),
+  });
+  const j = await r.json().catch(() => ({}));
+  const names = new Set((Array.isArray(j.d) ? j.d : []).map((m) => gmName(m.Name)).filter(Boolean));
+  groupMembersCache.set(groupId, { names, at: Date.now() });
+  return names;
+}
+
 // Fetch the nearest upcoming (or today's) events whose name matches one of
 // namePatterns, with their raw enrolment groups. Returns
 //   [{ id, date, time, name, groups }]  (ascending by date/time)
@@ -272,7 +295,15 @@ async function fetchUpcomingTrainings({ namePatterns, limit = 8, maxPages = 4 } 
   for (const ev of chosen) {
     try {
       const xlsx = await exportEventXlsx(session, pages[ev.page], ev.page, ev.idx);
-      events.push({ id: ev.id, date: ev.date, time: ev.time, name: ev.name, groups: parseEnrollments(xlsx) });
+      const groups = parseEnrollments(xlsx);
+      // Group ice (Kilpuri/Maalivahti): keep ONLY the group's members per team, so the count
+      // reflects the ~18 goalies rather than whole default-IN teams. Taitojää → no group → as-is.
+      const gId = EVENT_GROUP_BY_NAME[gmName(ev.name)];
+      if (gId) {
+        const members = await fetchGroupMembers(session, gId);
+        if (members.size) for (const g of groups) g.people = (g.people || []).filter((p) => members.has(gmName(p.name)));
+      }
+      events.push({ id: ev.id, date: ev.date, time: ev.time, name: ev.name, groups, groupId: gId || null });
     } catch (err) {
       events.push({ id: ev.id, date: ev.date, time: ev.time, name: ev.name, groups: [], error: String(err && err.message || err) });
     }
