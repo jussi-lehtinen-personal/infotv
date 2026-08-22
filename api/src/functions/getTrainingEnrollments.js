@@ -109,7 +109,7 @@ app.http('getTrainingEnrollments', {
       }
 
       const limit = Math.min(20, Math.max(1, parseInt(request.query?.get('limit'), 10) || 6));
-      const patternsRaw = (request.query?.get('patterns') || 'Taitojää').split(',').map((s) => s.trim()).filter(Boolean);
+      const patternsRaw = (request.query?.get('patterns') || 'Taitojää,Kilpurijää,Maalivahtijää').split(',').map((s) => s.trim()).filter(Boolean);
       const refresh = request.query?.get('refresh') === '1';
       const key = `${limit}|${patternsRaw.join(',').toLowerCase()}`;
 

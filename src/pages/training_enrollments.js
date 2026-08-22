@@ -163,7 +163,7 @@ export default function TrainingEnrollments() {
   // Force a blocking recompute on the server; swap in the fresh data.
   const refreshNow = useCallback(() => {
     setRefreshing(true);
-    getTrainingEnrollments({ refresh: true })
+    getTrainingEnrollments({ refresh: true, limit: 12 })
       .then((r) => { if (r.status === "ok") setState(r); })
       .catch(() => { /* keep showing the stale data */ })
       .finally(() => setRefreshing(false));
@@ -173,7 +173,7 @@ export default function TrainingEnrollments() {
   // if the server flagged it stale.
   useEffect(() => {
     let cancelled = false;
-    getTrainingEnrollments({})
+    getTrainingEnrollments({ limit: 12 })
       .then((r) => {
         if (cancelled) return;
         setState(r);
@@ -190,7 +190,7 @@ export default function TrainingEnrollments() {
     <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: 6 }}>
       <MuiHeader
         title="Jääilmoittautumiset"
-        subtitle="Taitojää · tulossa olevat"
+        subtitle="Taito-, kilpuri- ja maalivahtijäät · tulossa olevat"
         onBack={goBack}
         right={
           <IconButton onClick={refreshNow} disabled={refreshing || status === "loading"} aria-label="Päivitä" sx={{ color: "text.primary" }}>
@@ -227,7 +227,7 @@ export default function TrainingEnrollments() {
             </Stack>
             <Stack spacing={1.5}>
               {data.events.map((ev, i) => <EventCard key={ev.id} ev={ev} defaultOpen={i === 0} />)}
-              {data.events.length === 0 && <Box sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>Ei tulevia Taitojää-tapahtumia.</Box>}
+              {data.events.length === 0 && <Box sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>Ei tulevia jäätapahtumia.</Box>}
             </Stack>
             <Typography variant="caption" sx={{ color: "text.disabled", display: "block", mt: 2, lineHeight: 1.5 }}>
               Osa joukkueista on oletuksena IN — niiden luvut tarkentuvat lähempänä tapahtumaa. Pelaaja/valmentaja/huoltaja tunnistetaan seuran rosterista.
