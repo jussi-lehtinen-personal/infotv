@@ -98,12 +98,22 @@ const firstToken = (text) => {
 // ---------- Quick filters (Ahma-centric, matched by text) ----------
 // Only the ones matching ≥1 user in the fetched data are shown.
 
-// Matcher for an age group N. Matches a plain token ("U14") AND the second
-// number of a combined team ("Kiekko-Ahma U13/14" → U14, "U9/10" → U10).
-const ageFilter = (n) => {
-  const re = new RegExp(`\\bU${n}\\b|U\\d+/${n}\\b`, "i");
-  return (t) => re.test(t);
-};
+// The Ahma team age-groups named in a booking title. Anchor on a KA / Kiekko-Ahma / Ahma
+// marker and take the age (or combined range) DIRECTLY after it — so only Ahma's OWN team
+// counts, never the opponent's: "KA U15 - Sisu U16" → {15} (the U16 is Sisu, not preceded
+// by a KA marker); "KA U15 - KA U16" → {15,16}; "Kiekko-Ahma U14-15" / "U14 - 15" / "U13/14"
+// → both ages. Position-independent (a friendly can list Ahma second). Fallback: a title
+// with NO KA marker → take every U-age (can't tell which side is Ahma).
+const AGE_TAIL = String.raw`U?(\d{1,2})(?:\s*[-–/]\s*U?(\d{1,2}))?`; // U15, U14-15, U14 - U15, U13/14
+function ahmaAges(text) {
+  const ages = new Set();
+  let m, found = false;
+  const ka = new RegExp(String.raw`\b(?:KA|Kiekko-?Ahma|Ahma)\s+${AGE_TAIL}`, "gi");
+  while ((m = ka.exec(text))) { found = true; ages.add(+m[1]); if (m[2]) ages.add(+m[2]); }
+  if (!found) { const any = new RegExp(String.raw`\b${AGE_TAIL}`, "gi"); while ((m = any.exec(text))) { ages.add(+m[1]); if (m[2]) ages.add(+m[2]); } }
+  return ages;
+}
+const ageFilter = (n) => (t) => ahmaAges(String(t || "")).has(n);
 
 const QUICK_FILTERS = [
   { label: "LKK", match: (t) => /\bLKK\b/i.test(t) },
@@ -745,6 +755,10 @@ function css() {
       display:flex;
       flex-direction:column;
       overflow:hidden;
+      /* border-box so the .rp-side padding is INCLUDED in the shared calc() height —
+         without it (content-box is the app default) the padded left column ends up
+         24px taller than the right. */
+      box-sizing:border-box;
     }
     .rp-side{ padding:12px; }
 
