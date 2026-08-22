@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuUsers, LuChevronRight, LuDatabase, LuBarChart3 } from "react-icons/lu";
+import { LuUsers, LuChevronRight, LuDatabase, LuBarChart3, LuKeyRound } from "react-icons/lu";
 import { Box, Typography, Card, Stack, CircularProgress } from "@mui/material";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
@@ -93,6 +93,7 @@ const Admin = () => {
             <NavCard to="/admin/users" icon={<LuUsers />} title="Käyttäjät & roolit" sub="Merkitse käyttäjiä vastuuvalmentajiksi, toimittajiksi tai admineiksi" />
             <NavCard to="/stats" icon={<LuBarChart3 />} title="Tilastot" sub="Rekisteröityneet käyttäjät" />
             <NavCard to="/admin/backups" icon={<LuDatabase />} title="Varmuuskopiot" sub="Käyttäjä- ja asetusdatan varmuuskopioiden tila" />
+            <NavCard to="/admin/accounts" icon={<LuKeyRound />} title="M365-tunnukset" sub="Toimihenkilöt vs. kiekko-ahma.fi-tilit — puuttuvat, olemassa, stalet" />
           </Stack>
         )}
       </Box>

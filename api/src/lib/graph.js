@@ -126,6 +126,22 @@ async function patchEvent(mailbox, eventId, patch) {
   return graphFetch(`/users/${enc(mailbox)}/events/${enc(eventId)}`, { method: 'PATCH', body: patch });
 }
 
+// All directory users (app-only). Needs the Graph *application* permission
+// User.Read.All (or Directory.Read.All) granted + admin-consented on the app —
+// separate from the Calendars scope used above. Pages through @odata.nextLink.
+async function listUsers() {
+  const users = [];
+  let path = '/users?$select=displayName,userPrincipalName,mail,accountEnabled&$top=999';
+  let guard = 0;
+  while (path && guard++ < 40) {
+    const data = await graphFetch(path, { method: 'GET' });
+    for (const u of (data && data.value) || []) users.push(u);
+    const next = data && data['@odata.nextLink'];
+    path = next ? next.replace(GRAPH, '') : null;
+  }
+  return users;
+}
+
 // Build the singleValueExtendedProperties entry for a metadata object.
 function metaProperty(meta) {
   return { id: META_PROP_ID, value: JSON.stringify(meta || {}) };
@@ -142,6 +158,7 @@ function readMeta(ev) {
 module.exports = {
   graphConfigured,
   getToken,
+  listUsers,
   listCalendarView,
   createEvent,
   deleteEvent,

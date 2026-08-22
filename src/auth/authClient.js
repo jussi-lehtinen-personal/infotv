@@ -320,6 +320,19 @@ export async function getTrainingEnrollments(opts = {}) {
   return { status: "ok", data };
 }
 
+// Admin-only account audit: M365 accounts vs Jopox officials (missing/existing/stale).
+// getStats-style status shape. `opts.refresh` bypasses the server cache.
+export async function getAccountAudit(opts = {}) {
+  const token = getToken();
+  if (!token) return { status: "unauthorized" };
+  const res = await fetch("/api/accountAudit" + (opts.refresh ? "?refresh=1" : ""), { headers: { "X-Ahma-Auth": token } });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) return { status: "unauthorized" };
+  if (res.status === 403) return { status: "forbidden", youAre: data.youAre, error: data.error };
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return { status: "ok", data };
+}
+
 // Admin-only backup status (last backup, count, recent list). getStats-style.
 export async function getBackups() {
   const token = getToken();

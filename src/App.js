@@ -36,6 +36,7 @@ import Stats from "./pages/stats";
 import Admin from "./pages/admin";
 import AdminUsers from "./pages/admin_users";
 import AdminBackups from "./pages/admin_backups";
+import AdminAccounts from "./pages/admin_accounts";
 import InfoTvHub from "./pages/infotv";
 import InfoTvOttelut from "./pages/infotv/ottelut";
 import InfoTvJaavuorot from "./pages/infotv/jaavuorot";
@@ -151,6 +152,7 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/backups" element={<AdminBackups />} />
+            <Route path="/admin/accounts" element={<AdminAccounts />} />
 
             {/* InfoTV signage pages (lobby TV, 1920x1080, fullscreen no-scroll).
                 Self-contained set under src/pages/infotv, accessed by direct URI. */}
