@@ -18,8 +18,29 @@ moment.locale("fi");
 // Module-scope cache of each team's events (subsiteId -> { events, ts }), shared
 // across mounts so revisiting /feed paints instantly from cache and revalidates
 // in the background (stale-while-revalidate) instead of flashing a spinner.
+// ALSO persisted to localStorage → a full reload / cold app open paints the last-good
+// events immediately too (the in-memory Map alone is lost on reload, so the Jopox events
+// used to re-fetch from scratch → the "hetken lataus" flash; games already had this).
 const eventsCache = new Map();
 const EVENTS_TTL = 15 * 60_000; // match the server cache
+const EVENTS_LS_KEY = "ahma.feedEvents.v1";
+(function hydrateEventsCache() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(EVENTS_LS_KEY));
+    if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw)) {
+        if (v && Array.isArray(v.events) && typeof v.ts === "number") eventsCache.set(k, v);
+      }
+    }
+  } catch { /* ignore corrupt/absent */ }
+})();
+function persistEventsCache() {
+  try {
+    const obj = {};
+    for (const [k, v] of eventsCache.entries()) obj[k] = v;
+    localStorage.setItem(EVENTS_LS_KEY, JSON.stringify(obj));
+  } catch { /* quota / private mode */ }
+}
 
 // Per-event free-text description (eventId -> string|null), fetched lazily when
 // a card is expanded. null = known to have no description (don't refetch).
@@ -319,6 +340,7 @@ const Feed = () => {
           .then((d) => {
             const evs = d.events || [];
             eventsCache.set(key, { events: evs, ts: Date.now() });
+            persistEventsCache(); // keep the localStorage copy fresh for the next cold start
             return evs;
           })
           .catch(() => { anyError = true; return (cached && cached.events) || []; });
