@@ -67,16 +67,16 @@ const Status = ({ error, children }) => (
 function TeamRow({ t }) {
   const [open, setOpen] = useState(false);
   return (
-    <Box sx={{ borderTop: "1px solid var(--color-surface-divider)" }}>
+    <Box sx={{ borderTop: "1px solid var(--color-surface-divider)", ml: 1.5, borderLeft: "2px solid rgba(var(--color-primary-rgb),0.25)" }}>
       <Box
         role="button"
         onClick={() => setOpen((v) => !v)}
-        sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.75, py: 1.25, cursor: "pointer",
+        sx={{ display: "flex", alignItems: "center", gap: 1, pl: 1.5, pr: 1.75, py: 1, cursor: "pointer",
               boxSizing: "border-box", "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } }}
       >
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
               {splitTeam(t.team).base}
               {splitTeam(t.team).year && (
                 <Box component="span" sx={{ ml: 0.5, fontWeight: 600, color: "text.disabled" }}>{splitTeam(t.team).year}</Box>
@@ -124,15 +124,16 @@ function EventCard({ ev, defaultOpen }) {
       <Box
         role="button"
         onClick={() => setOpen((v) => !v)}
-        sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.75, cursor: "pointer",
-              boxSizing: "border-box", "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } }}
+        sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.75, cursor: "pointer", boxSizing: "border-box",
+              bgcolor: "rgba(var(--color-primary-rgb),0.08)", borderBottom: open ? "1px solid rgba(var(--color-primary-rgb),0.25)" : "none",
+              "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.13)" } }}
       >
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 16, color: "text.primary" }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary", fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", lineHeight: 1.1 }}>
             {ev.name}
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {shortDate(ev)} - {ev.time}
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
+            {shortDate(ev)} · klo {ev.time}
           </Typography>
         </Box>
         <CountBlock value={countValue(ev.playersIn, ev.goaliesIn)} size={30} label="PELAAJAA" />
