@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Box, Typography, Card, Stack, IconButton, CircularProgress, Collapse, Button,
 } from "@mui/material";
-import { LuRefreshCw, LuChevronRight, LuUser, LuShield, LuUserCog, LuBriefcase, LuHelpCircle } from "react-icons/lu";
+import { LuRefreshCw, LuChevronRight, LuUser, LuShield, LuUserCog, LuBriefcase, LuHelpCircle, LuShirt, LuSnowflake, LuTarget } from "react-icons/lu";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 import { getTrainingEnrollments } from "../auth/authClient";
@@ -28,6 +28,58 @@ const ROLE_META = {
 };
 // Count string: "12" if only field players, "12 + 1" when goalies are included.
 const countValue = (fieldN, goalieN) => (goalieN ? `${fieldN} + ${goalieN}` : String(fieldN));
+
+// Per-event-type icon. PLACEHOLDER Lucide glyphs — swap for the club's own icons
+// (skate / goalie mask / crossed sticks) when provided.
+function eventIcon(name) {
+  const n = String(name || "").toLowerCase();
+  if (n.includes("maalivahti")) return LuShield;   // goalie mask
+  if (n.includes("kilpuri")) return LuTarget;       // sticks / competitive
+  return LuSnowflake;                               // Taitojää (skate)
+}
+// Club-provided illustration per type (public/coaching/*.webp). Add maalivahti/kilpuri
+// filenames here as the assets land; until then those fall back to the placeholder glyph.
+const EVENT_IMG = (name) => {
+  const n = String(name || "").toLowerCase();
+  if (n.includes("taito")) return "/coaching/taitojaa.webp";
+  if (n.includes("maalivahti")) return "/coaching/maalivahti.webp";
+  if (n.includes("kilpuri")) return "/coaching/kilpuri.webp";
+  return null;
+};
+const EventGlyph = ({ name, size = 48 }) => {
+  const img = EVENT_IMG(name);
+  if (img) {
+    return (
+      <Box component="img" src={img} alt="" loading="lazy"
+        sx={{ width: size, height: size, borderRadius: "14px", flexShrink: 0, objectFit: "cover",
+              border: "1.5px solid var(--color-surface-border)" }} />
+    );
+  }
+  const Icon = eventIcon(name);
+  return (
+    <Box sx={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
+          border: "1.5px solid var(--color-surface-border)", bgcolor: "rgba(255,255,255,0.02)", color: "text.primary" }}>
+      <Box component={Icon} sx={{ fontSize: size * 0.5 }} />
+    </Box>
+  );
+};
+
+// A jersey badge with the team's age number ("U10 (2017)" → 10). No number (Edustus/
+// Naiset) → just the jersey.
+const ageNum = (team) => (String(team || "").match(/\d{1,2}/) || [""])[0];
+const JerseyBadge = ({ team }) => {
+  const num = ageNum(team);
+  return (
+    <Box sx={{ position: "relative", width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", color: "var(--color-primary)" }}>
+      <Box component={LuShirt} sx={{ fontSize: 30 }} />
+      {num && (
+        <Typography sx={{ position: "absolute", top: "54%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 10.5, fontWeight: 800, lineHeight: 1, color: "var(--color-primary)" }}>
+          {num}
+        </Typography>
+      )}
+    </Box>
+  );
+};
 
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 // "18.08.2026" + weekday "ti" -> "Ti 18.8"
@@ -67,16 +119,17 @@ const Status = ({ error, children }) => (
 function TeamRow({ t }) {
   const [open, setOpen] = useState(false);
   return (
-    <Box sx={{ borderTop: "1px solid var(--color-surface-divider)", ml: 1.5, borderLeft: "2px solid rgba(var(--color-primary-rgb),0.25)" }}>
+    <Box sx={{ "&:not(:first-of-type)": { borderTop: "1px solid var(--color-surface-divider)" } }}>
       <Box
         role="button"
         onClick={() => setOpen((v) => !v)}
-        sx={{ display: "flex", alignItems: "center", gap: 1, pl: 1.5, pr: 1.75, py: 1, cursor: "pointer",
+        sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 1.5, py: 1.1, cursor: "pointer",
               boxSizing: "border-box", "&:hover": { bgcolor: "rgba(255,255,255,0.03)" } }}
       >
+        <JerseyBadge team={t.team} />
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: 15, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
               {splitTeam(t.team).base}
               {splitTeam(t.team).year && (
                 <Box component="span" sx={{ ml: 0.5, fontWeight: 600, color: "text.disabled" }}>{splitTeam(t.team).year}</Box>
@@ -120,14 +173,17 @@ function TeamRow({ t }) {
 function EventCard({ ev, defaultOpen }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
-    <Card variant="outlined" sx={{ bgcolor: "background.paper", borderColor: "divider", overflow: "hidden", boxSizing: "border-box" }}>
+    <Card variant="outlined" sx={{ bgcolor: "background.paper", overflow: "hidden", boxSizing: "border-box",
+          borderColor: open ? "var(--color-primary)" : "divider", borderWidth: open ? 2 : 1, borderStyle: "solid",
+          transition: "border-color .15s ease" }}>
       <Box
         role="button"
         onClick={() => setOpen((v) => !v)}
-        sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.75, cursor: "pointer", boxSizing: "border-box",
-              bgcolor: "rgba(var(--color-primary-rgb),0.08)", borderBottom: open ? "1px solid rgba(var(--color-primary-rgb),0.25)" : "none",
-              "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.13)" } }}
+        sx={{ display: "flex", alignItems: "center", gap: 1.25, p: 1.75, cursor: "pointer", boxSizing: "border-box",
+              bgcolor: open ? "rgba(var(--color-primary-rgb),0.07)" : "transparent",
+              "&:hover": { bgcolor: open ? "rgba(var(--color-primary-rgb),0.11)" : "rgba(255,255,255,0.03)" } }}
       >
+        <EventGlyph name={ev.name} />
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary", fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", lineHeight: 1.1 }}>
             {ev.name}
@@ -137,20 +193,22 @@ function EventCard({ ev, defaultOpen }) {
           </Typography>
         </Box>
         <CountBlock value={countValue(ev.playersIn, ev.goaliesIn)} size={30} label="PELAAJAA" />
-        <Box component={LuChevronRight} sx={{ flexShrink: 0, color: "text.disabled", fontSize: 20, transition: "transform .18s", transform: open ? "rotate(90deg)" : "none" }} />
+        <Box component={LuChevronRight} sx={{ flexShrink: 0, color: open ? "var(--color-primary)" : "text.disabled", fontSize: 20, transition: "transform .18s", transform: open ? "rotate(-90deg)" : "none" }} />
       </Box>
       <Collapse in={open} unmountOnExit>
-        {ev.error && (
-          <Box sx={{ px: 1.75, pb: 1.5, borderTop: "1px solid var(--color-surface-divider)", pt: 1 }}>
-            <Typography variant="caption" sx={{ color: "var(--color-loss)" }}>Osallistujien haku epäonnistui.</Typography>
-          </Box>
-        )}
-        {ev.teams.map((t, i) => <TeamRow key={t.subsiteId || t.team || i} t={t} />)}
-        {ev.teams.length === 0 && !ev.error && (
-          <Box sx={{ px: 1.75, pb: 1.75, pt: 1, borderTop: "1px solid var(--color-surface-divider)" }}>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>Ei ilmoittautumisia vielä.</Typography>
-          </Box>
-        )}
+        <Box sx={{ p: 1.25, pt: 0.25 }}>
+          {ev.error && (
+            <Typography variant="caption" sx={{ color: "var(--color-loss)", display: "block", px: 0.5, py: 1 }}>Osallistujien haku epäonnistui.</Typography>
+          )}
+          {ev.teams.length > 0 && (
+            <Box sx={{ borderRadius: "var(--radius-item)", bgcolor: "rgba(255,255,255,0.03)", border: "1px solid var(--color-surface-divider)", overflow: "hidden" }}>
+              {ev.teams.map((t, i) => <TeamRow key={t.subsiteId || t.team || i} t={t} />)}
+            </Box>
+          )}
+          {ev.teams.length === 0 && !ev.error && (
+            <Typography variant="body2" sx={{ color: "text.secondary", px: 0.5, py: 1.25 }}>Ei ilmoittautumisia vielä.</Typography>
+          )}
+        </Box>
       </Collapse>
     </Card>
   );
