@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 
 // Finance/admin ice-time report. Unlisted page (not in any menu, no gamezone
 // bottom nav) — opened directly at /report.
@@ -267,6 +267,11 @@ const Report = () => {
         setLoading(false);
       });
   }, [from, to]);
+
+  // Auto-search the pre-selected (current) month on first load. Without this the range
+  // shows a month but no results until you change it — you had to click another month
+  // and back to trigger a fetch, which reads as a stuck/confusing view.
+  useEffect(() => { search(init.from, init.to); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sliding month window: current month in the middle, ±6 months each side.
   const monthOptions = useMemo(() => {
