@@ -157,6 +157,22 @@ export async function getMe() {
   return user;
 }
 
+// Mint a single-use authorisation code to hand this signed-in identity over to
+// another club app (e.g. valmennus). Requires a valid session. Returns the opaque
+// code; the caller redirects to `${redirect}#code=${code}`. See valmennus/AUTH.md.
+export async function issueAppCode(app, redirect) {
+  const token = getToken();
+  if (!token) throw new Error("Kirjautuminen vaaditaan.");
+  const res = await fetch("/api/issueAppCode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Ahma-Auth": token },
+    body: JSON.stringify({ app, redirect }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Virhe (${res.status})`);
+  return data.code;
+}
+
 export function logout() {
   clearToken();
   // Drop the Ahmaliiga session cache too, so a signed-out user doesn't keep seeing the

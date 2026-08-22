@@ -16,6 +16,7 @@ const TABLE_NAMES = [
   'AhmaliigaSquadLog', 'AhmaliigaRosters', 'AhmaliigaPushSubs', 'AhmaliigaNotifyLog',
   'AhmaliigaGameData', // generic per-game snapshot store (PK=season, RK=gameId); currently the frozen defender-bonus position `pos`, extensible with more per-game data later
   'TrainingEnrollmentsCache', // durable last-good cache for the /coaching report (PK='cache', RK=key, gzipped-base64 payload) — survives cold starts
+  'AppAuthCodes', // app-to-app sign-in handover codes (see valmennus/AUTH.md); single-use, 60s TTL. EXCLUDED from backup (short-lived credentials) — see backup.js.
 ];
 const clients = {};
 let ensured = false;

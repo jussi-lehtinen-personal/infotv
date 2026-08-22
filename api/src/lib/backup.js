@@ -29,14 +29,21 @@ async function container() {
 
 // ALL tables in the account, so a newly-added table is backed up automatically
 // (no need to maintain a hardcoded list). Falls back to the known set on error.
+// Tables deliberately kept OUT of the snapshot. AppAuthCodes holds short-lived
+// (60s) single-use authorisation codes — worthless within a minute, but the
+// backup lands in a GitHub artifact for 90 days, and short-lived credentials do
+// not belong in three-month storage. See valmennus/AUTH.md.
+const BACKUP_EXCLUDE = new Set(['AppAuthCodes']);
+
 async function allTableNames() {
   try {
     const svc = TableServiceClient.fromConnectionString(CONN, { allowInsecureConnection: true });
     const names = [];
     for await (const t of svc.listTables()) names.push(t.name);
-    return names.length ? names : TABLE_NAMES;
+    const all = names.length ? names : TABLE_NAMES;
+    return all.filter((n) => !BACKUP_EXCLUDE.has(n));
   } catch {
-    return TABLE_NAMES;
+    return TABLE_NAMES.filter((n) => !BACKUP_EXCLUDE.has(n));
   }
 }
 

@@ -31,6 +31,7 @@ import Settings from "./pages/settings";
 import Supporters from "./pages/supporters";
 import Partners from "./pages/partners";
 import Report from "./pages/report";
+import Authorize from "./pages/authorize";
 import TrainingEnrollments from "./pages/training_enrollments";
 import Stats from "./pages/stats";
 import Admin from "./pages/admin";
@@ -145,6 +146,10 @@ function App() {
                 Opened by both the home bell and the Ahmaliiga bell. */}
             <Route path="/notifications" element={<LiigaNotifications />} />
             <Route path="/ahmaliiga/rules" element={<RequireEnvAdmin><Ahmaliiga /></RequireEnvAdmin>} />
+
+            {/* Sign-in handover for other club apps (valmennus) — see valmennus/AUTH.md.
+                Standalone, no layout: mints a code for the signed-in user and redirects back. */}
+            <Route path="/authorize" element={<Authorize />} />
 
             <Route path="/report" element={<Report />} />
             <Route path="/coaching" element={<TrainingEnrollments />} />
