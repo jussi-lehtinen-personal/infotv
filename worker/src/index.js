@@ -938,18 +938,43 @@ const CACHE_VERSION = "18";
 // Coarse per-IP cap on ORIGIN-facing (uncached) work, so a flood of cache-MISSES
 // can't hammer tulospalvelu into an IP ban (which would break the whole app). Called
 // ONLY on a cache miss, so real users reading cached data never count against it.
-// KV-backed fixed window — approximate (KV isn't atomic → races undercount) but a
-// ceiling is all we need. `cost` weights the expensive endpoints (a getGameReport
-// district scan / includeAway getGames cost more than a single search). Fails OPEN
-// (no KV / no IP → allow) so it can only bound abuse, never break normal use.
+// Fixed window, approximate (increment isn't atomic → races undercount) but a ceiling
+// is all we need. `cost` weights the expensive endpoints (a getGameReport district
+// scan / includeAway getGames cost more than a single search). Fails OPEN (no IP /
+// error → allow) so it can only bound abuse, never break normal use.
+//
+// Counter lives in the CACHE API (caches.default), NOT Workers KV. The old KV-backed
+// version wrote to KV on EVERY cache miss; live-score polling (15 s TTL) produces far
+// more misses than the free-tier KV write budget (~1k/day), so it burned the quota
+// (→ 429s). The Cache API is un-metered and per-colo — and per-colo is exactly the
+// right scope, since the tulospalvelu-facing origin calls we're protecting happen
+// per-colo anyway. KV is now reserved for the permanent gid2:/rep: caches only.
 const RL_LIMIT = 120;    // cost units per IP per window
 const RL_WINDOW_S = 60;
+function rlKey(ip) {
+  const win = Math.floor(Date.now() / 1000 / RL_WINDOW_S);
+  return new Request(`https://ratelimit.internal/rl?ip=${encodeURIComponent(ip)}&w=${win}`);
+}
 async function rateLimitOK(env, ip, cost = 1) {
-  if (!env || !env.GAME_IDS || !ip) return true;
-  const key = `rl:${ip}:${Math.floor(Date.now() / 1000 / RL_WINDOW_S)}`;
-  const used = Number(await env.GAME_IDS.get(key)) || 0;
+  if (!ip) return true;
+  const cache = caches.default;
+  const key = rlKey(ip);
+  let used = 0;
+  try {
+    const hit = await cache.match(key);
+    if (hit) used = Number(await hit.text()) || 0;
+  } catch {
+    return true; // cache read failed → fail open
+  }
   if (used >= RL_LIMIT) return false;
-  await env.GAME_IDS.put(key, String(used + cost), { expirationTtl: RL_WINDOW_S * 2 });
+  const resp = new Response(String(used + cost), {
+    headers: { "cache-control": `max-age=${RL_WINDOW_S * 2}` },
+  });
+  try {
+    await cache.put(key, resp);
+  } catch {
+    /* counter write failed → still allow this request */
+  }
   return true;
 }
 function tooMany() {
