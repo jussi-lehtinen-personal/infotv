@@ -17,9 +17,14 @@ import {
   LuCalendarClock,
   LuShieldCheck,
   LuClipboardList,
+  LuDumbbell,
   LuX,
 } from "react-icons/lu";
 import { getCachedUser, getMe } from "../../auth/authClient";
+
+// External valmennus app (own Cloudflare Worker, no kiekko-ahma.fi hostname). It
+// signs coaches in via Gamezone's /authorize handover — see valmennus/AUTH.md.
+const VALMENNUS_URL = "https://ahma-valmennus.zapmies.workers.dev";
 
 // Full navigation, in display order. `external` rows open in a new tab.
 // Section 1 mirrors the bottom bar (BottomNav) exactly; the rest are grouped by
@@ -66,18 +71,25 @@ const NAV_SECTIONS = [
 const coachAccess = (u) =>
   !!(u && (u.isEnvAdmin || u.isAdmin || (Array.isArray(u.roles) && u.roles.some((r) => r.role === "valmennuspaallikko"))));
 
+// Valmennus-app access (the external coaching app): any coach — head or regular —
+// plus admins. Matches the valmennus gate (vastuuvalmentaja/valmentaja OR admin).
+const valmennusAccess = (u) =>
+  !!(u && (u.isEnvAdmin || u.isAdmin || (Array.isArray(u.roles) && u.roles.some((r) => r.role === "vastuuvalmentaja" || r.role === "valmentaja"))));
+
 export const NavDrawer = ({ open, onClose }) => {
   // Admins get an extra "Admin" row; admins + coaching managers also get the
   // enrolment-report row. Seed from the cached user for an instant paint, then
   // refresh via /api/me on open (self-heals if roles changed).
   const [isAdmin, setIsAdmin] = useState(() => !!(getCachedUser() || {}).isAdmin);
   const [canCoach, setCanCoach] = useState(() => coachAccess(getCachedUser()));
+  const [isCoach, setIsCoach] = useState(() => valmennusAccess(getCachedUser()));
   useEffect(() => {
     if (!open) return;
     const cached = getCachedUser();
     setIsAdmin(!!(cached || {}).isAdmin);
     setCanCoach(coachAccess(cached));
-    getMe().then((u) => { setIsAdmin(!!(u && u.isAdmin)); setCanCoach(coachAccess(u)); }).catch(() => {});
+    setIsCoach(valmennusAccess(cached));
+    getMe().then((u) => { setIsAdmin(!!(u && u.isAdmin)); setCanCoach(coachAccess(u)); setIsCoach(valmennusAccess(u)); }).catch(() => {});
   }, [open]);
 
   // Close on Escape + lock body scroll while open.
@@ -147,6 +159,11 @@ export const NavDrawer = ({ open, onClose }) => {
               {section.map(renderRow)}
             </div>
           ))}
+          {isCoach && (
+            <div className="ui-drawer-section">
+              {renderRow({ href: VALMENNUS_URL, label: "Valmennus", Icon: LuDumbbell, external: true })}
+            </div>
+          )}
           {canCoach && (
             <div className="ui-drawer-section">
               {renderRow({ to: "/coaching", label: "Jääilmoittautumiset", Icon: LuClipboardList })}
