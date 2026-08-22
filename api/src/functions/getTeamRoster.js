@@ -39,7 +39,16 @@ function transform(pageProps, html) {
     const players = [];
     for (const group of pageProps.players || []) {
         for (const p of group.players || []) {
+            // Stable Jopox person id, already present in the same blob we read the
+            // names from. Exposed because the coaching app (repo: valmennus) keys its
+            // players table on it under a UNIQUE index: it is the only field that
+            // survives a name spelling change or a shirt-number swap, and without it
+            // that app has to fall back on matching people by name.
+            // Guarded rather than passed through - Number('') and Number(null) are
+            // both 0, which would silently become a shared "person 0".
+            const personId = Number(p.personId);
             players.push({
+                personId: Number.isInteger(personId) && personId > 0 ? personId : null,
                 firstName: clean(p.personFirstname),
                 lastName: clean(p.personLastname),
                 number: clean(p.playerdataShirtnr || p.nummero) || null,
