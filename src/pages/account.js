@@ -40,12 +40,13 @@ const initials = (name) => {
 };
 
 // Role tags (see project_admin_roles). Team-scoped roles append the team.
-const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Vastuuvalmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
-const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
+const ROLE_LABELS = { pelaaja: "Pelaaja", vastuuvalmentaja: "Vastuuvalmentaja", valmentaja: "Valmentaja", toimihenkilo: "Toimihenkilö", media: "Media", admin: "Admin" };
+const TEAM_ROLES = new Set(["pelaaja", "vastuuvalmentaja", "valmentaja", "toimihenkilo"]);
 const roleTag = (r) => (TEAM_ROLES.has(r.role) ? `${ROLE_LABELS[r.role] || r.role} · ${r.team}` : ROLE_LABELS[r.role] || r.role);
 const ROLE_CHIP = {
   pelaaja: { bg: "rgba(167,139,250,0.20)", fg: "#c4b5fd" },
-  valmentaja: { bg: "rgba(var(--color-primary-rgb),0.18)", fg: "var(--color-primary)" },
+  vastuuvalmentaja: { bg: "rgba(var(--color-primary-rgb),0.18)", fg: "var(--color-primary)" },
+  valmentaja: { bg: "rgba(56,189,248,0.18)", fg: "#7dd3fc" },
   toimihenkilo: { bg: "rgba(45,212,191,0.18)", fg: "#5eead4" },
   media: { bg: "rgba(96,165,250,0.18)", fg: "#93c5fd" },
   admin: { bg: "rgba(74,222,128,0.18)", fg: "var(--color-live)" },

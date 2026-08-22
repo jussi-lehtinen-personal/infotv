@@ -15,13 +15,14 @@ import { JOPOX_TEAMS } from "../data/jopoxTeams";
 // team-scoped valmentaja, from the year-round Jopox team list). See memory:
 // project_admin_roles + reference_data_map (teams = Jopox, NOT tulospalvelu).
 
-const ROLE_LABELS = { pelaaja: "Pelaaja", valmentaja: "Vastuuvalmentaja", toimihenkilo: "Toimihenkilö", valmennuspaallikko: "Valmennuspäällikkö", media: "Media", kioski: "Kioski", admin: "Admin" };
-const ROLE_ORDER = ["pelaaja", "valmentaja", "toimihenkilo", "valmennuspaallikko", "media", "kioski", "admin"];
-const TEAM_ROLES = new Set(["pelaaja", "valmentaja", "toimihenkilo"]);
+const ROLE_LABELS = { pelaaja: "Pelaaja", vastuuvalmentaja: "Vastuuvalmentaja", valmentaja: "Valmentaja", toimihenkilo: "Toimihenkilö", valmennuspaallikko: "Valmennuspäällikkö", media: "Media", kioski: "Kioski", admin: "Admin" };
+const ROLE_ORDER = ["pelaaja", "vastuuvalmentaja", "valmentaja", "toimihenkilo", "valmennuspaallikko", "media", "kioski", "admin"];
+const TEAM_ROLES = new Set(["pelaaja", "vastuuvalmentaja", "valmentaja", "toimihenkilo"]);
 // Distinct per-role colours (role identity, not brand) so chips are scannable.
 const ROLE_CHIP = {
   pelaaja: { bg: "rgba(167,139,250,0.20)", fg: "#c4b5fd" },
-  valmentaja: { bg: "rgba(var(--color-primary-rgb),0.18)", fg: "var(--color-primary)" },
+  vastuuvalmentaja: { bg: "rgba(var(--color-primary-rgb),0.18)", fg: "var(--color-primary)" },
+  valmentaja: { bg: "rgba(56,189,248,0.18)", fg: "#7dd3fc" },
   toimihenkilo: { bg: "rgba(45,212,191,0.18)", fg: "#5eead4" },
   valmennuspaallikko: { bg: "rgba(244,114,182,0.18)", fg: "#f9a8d4" },
   media: { bg: "rgba(96,165,250,0.18)", fg: "#93c5fd" },

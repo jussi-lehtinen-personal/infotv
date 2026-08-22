@@ -7,8 +7,9 @@ const { graphConfigured } = require('../lib/graph');
 const m365 = require('../lib/reservationsM365');
 
 // POST /api/reservations/create — book a room for a chosen duration (15 min .. 3 h).
-// Only valmentaja/toimihenkilo (for their team) or an admin (any/blank team) may
-// book. Rooms are Microsoft 365 room-mailbox calendars (Graph); an overlapping
+// Only team staff — vastuuvalmentaja/valmentaja/toimihenkilo (for their team) —
+// or an admin (any/blank team) may book, via coachTeams. Rooms are Microsoft 365
+// room-mailbox calendars (Graph); an overlapping
 // time fails with 409. (Users/roles still come from the Users table.)
 app.http('reservationCreate', {
   methods: ['POST'],
@@ -25,7 +26,7 @@ app.http('reservationCreate', {
       const admin = await isAdmin(callerId, profile);
       const teams = coachTeams(roles);
       if (!admin && teams.length === 0) {
-        return { status: 403, jsonBody: { error: 'Vain vastuuvalmentajat ja toimihenkilöt voivat varata aikoja.' } };
+        return { status: 403, jsonBody: { error: 'Vain valmentajat ja toimihenkilöt voivat varata aikoja.' } };
       }
 
       const body = await request.json().catch(() => ({}));

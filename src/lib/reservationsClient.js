@@ -45,8 +45,10 @@ export async function fetchMyReservations() {
   return data.bookings || [];
 }
 
-// Teams the user may book for, from their valmentaja/toimihenkilo role entries.
+// Teams the user may book for, from their team-scoped staff role entries
+// (vastuuvalmentaja/valmentaja/toimihenkilo). Mirror of lib/admin.js STAFF_ROLES.
+const STAFF_ROLES = new Set(["vastuuvalmentaja", "valmentaja", "toimihenkilo"]);
 export const coachTeamsOf = (user) =>
   ((user && user.roles) || [])
-    .filter((r) => (r.role === "valmentaja" || r.role === "toimihenkilo") && r.team)
+    .filter((r) => STAFF_ROLES.has(r.role) && r.team)
     .map((r) => r.team);

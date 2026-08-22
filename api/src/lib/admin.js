@@ -2,15 +2,24 @@ const { getEntity } = require('./tables');
 
 // Role tagging for registered users. Roles live as a JSON array on the user's
 // profile row (Users PK=userId, RowKey='profile', column `roles`), e.g.
-//   [{ "role": "valmentaja", "team": "U13 Musta" }, { "role": "toimittaja" }]
-// `valmentaja` is TEAM-SCOPED (carries a `team` = tulospalvelu teamKey); the
+//   [{ "role": "vastuuvalmentaja", "team": "U13 Musta" }, { "role": "toimittaja" }]
+// Coaching roles are TEAM-SCOPED (carry a `team` = tulospalvelu teamKey); the
 // others are global. Master-admin bootstrap stays the ADMIN_USER_IDS env
 // allowlist; a data `admin` role is an additional grant existing admins can hand
 // out from the UI (so new admins don't need an app-setting change).
 // Team-scoped roles carry a `team`; global roles don't. Keys are ASCII (no ä)
 // since they double as CSS-class suffixes / JSON.
-const ROLES = ['pelaaja', 'valmentaja', 'toimihenkilo', 'valmennuspaallikko', 'media', 'kioski', 'admin'];
-const TEAM_SCOPED = new Set(['pelaaja', 'valmentaja', 'toimihenkilo']);
+//
+// Coaching hierarchy (2026-08-23): `vastuuvalmentaja` = head coach (was
+// `valmentaja` before the split — migrated by migrateRoles), `valmentaja` = a
+// regular/assistant coach. Both are offered the valmennus app (see
+// valmennus/AUTH.md "Who gets in"). `toimihenkilo` = non-coaching team staff
+// (managers, huoltajat) — deliberately NOT auto-migrated to valmentaja.
+const ROLES = ['pelaaja', 'vastuuvalmentaja', 'valmentaja', 'toimihenkilo', 'valmennuspaallikko', 'media', 'kioski', 'admin'];
+const TEAM_SCOPED = new Set(['pelaaja', 'vastuuvalmentaja', 'valmentaja', 'toimihenkilo']);
+// Team-scoped STAFF roles (book ice for their team; NOT `pelaaja`). Both coach
+// tiers plus non-coaching staff. Used by coachTeams / reservation gating.
+const STAFF_ROLES = new Set(['vastuuvalmentaja', 'valmentaja', 'toimihenkilo']);
 
 function envAdminIds() {
   return (process.env.ADMIN_USER_IDS || '')
@@ -35,10 +44,11 @@ function hasRole(roles, role) {
 }
 
 // Teams (tulospalvelu teamKeys) this user may book for: the `team` of every
-// valmentaja/toimihenkilo role entry. Empty = not attached to any team.
+// team-scoped STAFF role entry (both coach tiers + toimihenkilo). Empty = not
+// attached to any team.
 function coachTeams(roles) {
   return roles
-    .filter((r) => (r.role === 'valmentaja' || r.role === 'toimihenkilo') && r.team)
+    .filter((r) => STAFF_ROLES.has(r.role) && r.team)
     .map((r) => r.team);
 }
 
@@ -71,4 +81,4 @@ async function canManageCoaching(userId, user) {
   return hasRole(parseRoles(u), 'valmennuspaallikko');
 }
 
-module.exports = { ROLES, TEAM_SCOPED, envAdminIds, parseRoles, hasRole, coachTeams, isAdmin, canRedeem, canManageCoaching };
+module.exports = { ROLES, TEAM_SCOPED, STAFF_ROLES, envAdminIds, parseRoles, hasRole, coachTeams, isAdmin, canRedeem, canManageCoaching };
