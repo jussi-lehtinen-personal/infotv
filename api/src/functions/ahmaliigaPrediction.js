@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getRounds, activeRoundNo, getRoundGames, getPrediction, savePrediction, predictionBonus, assertGameOpen } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, getRoundGames, getPrediction, savePrediction, predictionBonus, assertGameOpen, gameStarted, hasResult } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/prediction — the current round's Ahma games (results hidden
 // until the round is settled) + the manager's own prediction (+ earned bonus once
@@ -22,20 +22,15 @@ app.http('ahmaliigaPrediction', {
       const cur = rounds.find((j) => Number(j.rowKey) === round);
       const settled = !!(cur && cur.status === 'settled');
 
-      // A game locks once it has been played. In a replay the clock is the END of the
-      // sim day (23:59 → any game that day counts as played); live it's the wall clock.
-      const clockMs = season.simMode && season.simDate
-        ? new Date(season.simDate + 'T23:59:59').getTime()
-        : Date.now();
-      const isLocked = (g) => {
-        const k = new Date(String(g && g.date || '').replace(' ', 'T')).getTime();
-        return Number.isFinite(k) && k < clockMs;
-      };
-      // A game is PLAYED once it has kicked off AND has a final result. Its score (which
-      // is public anyway) + the prediction bonus are then revealed immediately, without
-      // waiting for the whole 2-week round to settle.
-      const hasResult = (g) => g && g.homeGoals != null && g.awayGoals != null && g.homeGoals !== '' && g.awayGoals !== '';
-      const isPlayed = (g) => isLocked(g) && hasResult(g);
+      // Prediction locks at KICKOFF. Use the canonical gameStarted() — it is realClock +
+      // timezone aware (REAL clock → per-game Helsinki kickoff via helsinkiMs; replay/sim →
+      // day-granular vs simDate). The old local check used season.simDate's END-OF-DAY even
+      // under the REAL clock (simMode stays true), so EVERY game today read as played, and
+      // parsed the Helsinki game time as UTC. gameStarted fixes both.
+      const isLocked = (g) => gameStarted(g, season);
+      // A game is PLAYED once it has kicked off AND has a final result → reveal its score
+      // (public anyway) + the prediction bonus immediately, without waiting for settle.
+      const isPlayed = (g) => gameStarted(g, season) && hasResult(g);
 
       const games = await getRoundGames(season.rowKey, round);
 
