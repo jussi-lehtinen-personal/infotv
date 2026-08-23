@@ -1532,8 +1532,19 @@ async function dressedCardIds(seasonId, round) {
     const rep = await fetchGameReport(g);
     const side = g.ahmaHome ? 'home' : 'away';
     const players = (rep && rep.rosters && rep.rosters[side] && rep.rosters[side].players) || [];
+    // A GOALIE counts as "dressed" only if he ACTUALLY PLAYED — i.e. appears in the MV
+    // summary (goalies.keepers), not merely for being on the lineup sheet (role "MV"). A
+    // backup goalie who dressed but never took the ice had NO chance to score, so charging
+    // him a 0-point round (which drags his form avg → price down) is wrong. Field players
+    // stay as-is: on the lineup = played shifts = a real 0 counts. keepers.name is
+    // box-score "LAST First"; sk() is word-order-independent so it matches the roster's
+    // separate first/last. (Live-only fn → offline validators unaffected.)
+    const gkSide = ((rep && rep.goalies) || []).find((x) => x.side === side);
+    const playedGk = new Set(((gkSide && gkSide.keepers) || []).map((k) => sk(k.name)));
     for (const p of players) {
-      const id = byKey[sk(`${p.first || ''} ${p.last || ''}`)];
+      const key = sk(`${p.first || ''} ${p.last || ''}`);
+      if ((p.role || '').toUpperCase() === 'MV' && !playedGk.has(key)) continue; // dressed backup GK, never played
+      const id = byKey[key];
       if (id) dressed.add(id);
     }
   });
