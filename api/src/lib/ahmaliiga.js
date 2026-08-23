@@ -69,6 +69,7 @@ const ECON = {
   playerBand: [75, 60, 45, 35, 25, 15, 10],
   playerSkew: 2.0, // >1 = few players in the top tiers, long cheap tail
   priceStepCap: 15, // v2 (2026-07-19): 10→15, faster "stock-market" price moves (weekly rounds also reband 2× as often)
+  absentDecay: 5, // coins a player/goalie card bleeds per jakso it plays NO game while its team did play (injured/quit → settle toward the ⌊10⌋ filler tier over a few rounds; see settleRound)
   predict: { winner: 3, margin: 7, exact: 20 }, // v2.1 (2026-07-22): 3/5/8 → 3/7/20 from first-test data. Exact was rare (~12%) but underpaid; steeper gradient makes margin/exact the skill payoff (read the table) while a correct winner still rewards. ~13% of points for a perfect predictor, far under the 26% "dominates" case.
 };
 
@@ -880,9 +881,20 @@ async function settleRound(seasonId, round) {
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
   const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
   const targetPrice = { ...priceT, ...priceP };
+  // Absent-jakso decay: age-groups that actually PLAYED a game this round. A player/goalie
+  // whose group played but who didn't take the ice himself bleeds ECON.absentDecay toward the
+  // floor (injured / quit → they don't sit at a high price forever). Player ages field a single
+  // team, so an age-group match == the player's own team having played. Only on the FIRST
+  // settlement (not a re-settle) so it can't compound, and only for cards with prior form (a
+  // never-played new entrant holds its seed).
+  const playedGroups = new Set((games || []).filter(hasResult).map((g) => groupOf(teamKey(g))));
+  const playerFloor = ECON.playerBand[ECON.playerBand.length - 1];
   await upsertBatch(T.cards, cards.map((c) => {
     const bands = c.kind === 'team' ? ECON.band : ECON.playerBand;
     const old = Number(c.price);
+    const isPlayer = c.kind === 'player' || c.kind === 'goalie';
+    const absent = !wasSettled && isPlayer && form[c.rowKey] != null
+      && !(c.rowKey in resJ) && !dressed.has(c.rowKey) && playedGroups.has(groupOf(c.sub || c.age || ''));
     // A card that hasn't played yet (no form — its team had no game / the player hasn't
     // scored) KEEPS its current price. Don't drift it toward the mid tier just because
     // OTHER cards played this round — that dropped e.g. an overridden star (Olander 60)
@@ -896,7 +908,8 @@ async function settleRound(seasonId, round) {
     // (in `dressed`, not in resJ) CAN drop — playing and producing nothing is a real result.
     // Fixes the inversion where "play + score a little" priced below "play + blank" (both
     // were shielded before because the guard only saw points, not who took the ice).
-    const price = form[c.rowKey] == null ? old
+    const price = absent ? Math.max(playerFloor, old - ECON.absentDecay) // played no game while his team did → decay toward floor
+      : form[c.rowKey] == null ? old
       : (!(c.rowKey in resJ) && !dressed.has(c.rowKey) && step < 0) ? old
       : old + step;
     return {
@@ -1983,7 +1996,13 @@ async function getCardDetail(seasonId, cardId) {
       // the in-round move.
       id: card.rowKey, kind: card.kind, name: card.name, sub: card.sub || '', position: card.position || '', band: card.band,
       price: card.livePrice != null ? card.livePrice : card.price,
-      trend: card.liveTrend || card.trend || '', photo: card.photo || '',
+      // Settled anchor (round-start price) + this jakso's live move, exposed SEPARATELY so
+      // the card can show "Jaksossa: ±X" honestly — `price` above collapses live/settled.
+      settledPrice: Number(card.price) || 0, liveTrend: card.liveTrend || '',
+      // While a round is LIVE the arrow reflects THIS jakso's move (empty = flat, no arrow);
+      // only a finished season falls back to the last settled round's direction. Fixes a
+      // non-mover showing a stale ↑/↓ carried over from the previous jakso's settle.
+      trend: curRound ? (card.liveTrend || '') : (card.trend || ''), photo: card.photo || '',
       lastPts: card.lastPts || 0, seasonPts: card.seasonPts || 0,
     },
     managerCount, ownerCount,

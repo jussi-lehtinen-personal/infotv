@@ -224,7 +224,9 @@ export default function LiigaHome() {
   const round = state && state.active && !seasonOver && !notStarted ? state.currentRound : null;
   const prev = state && state.active ? state.prevRound : null;
   const unclaimed = rewards ? (rewards.vouchers || []).filter((v) => v.status === "issued").length : 0;
-  const simDate = state && state.simMode ? state.simDate : null;
+  // realClock → real wall-clock (simDate is day-granular, for replays only): keeps the
+  // countdown live-ticking and the timeline's "Jakso päättyy" from flipping a day early.
+  const simDate = state && state.simMode && !state.realClock ? state.simDate : null;
   const pct = round ? progressPct(round.startDate, round.endDate, simDate) : 0;
 
   return (

@@ -51,7 +51,7 @@ app.http('ahmaliigaRoundProgress', {
           startDate: roundRow ? roundRow.startDate : null,
           endDate: roundRow ? roundRow.endDate : null,
           isCurrent: round === curNo && !(roundRow && roundRow.status === 'settled'),
-          simMode, simDate, daysLeft, games,
+          simMode, realClock: !!season.realClock, simDate, daysLeft, games,
         },
       };
     } catch (err) {

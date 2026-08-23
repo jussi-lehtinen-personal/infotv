@@ -317,6 +317,19 @@ export default function LiigaCard() {
           </InfoRow>
           <InfoRow label="Omistus"><Typography sx={{ fontWeight: 800, fontSize: 18, color: "text.primary" }}>{data.ownerPct} %</Typography></InfoRow>
           <InfoRow label="Positio"><Typography sx={{ fontWeight: 700, color: "text.primary" }}>{roleLabel(card)}</Typography></InfoRow>
+          {/* This jakso's price move = live price − settled anchor. Shown only while a round
+              is live; ±0 when the card hasn't moved (e.g. hasn't played yet this jakso). */}
+          {liveRound && (() => {
+            const d = Math.round(((Number(card.price) || 0) - (Number(card.settledPrice) || 0)) * 10) / 10;
+            return (
+              <InfoRow label="Jaksossa">
+                <Typography sx={{ fontWeight: 800, fontSize: 15,
+                      color: d > 0 ? "var(--color-live)" : d < 0 ? "#f87171" : "text.disabled" }}>
+                  {d > 0 ? `+${d}` : d < 0 ? `${d}` : "±0"} c
+                </Typography>
+              </InfoRow>
+            );
+          })()}
           {(card.trend === "up" || card.trend === "down") && (
             <InfoRow label="Suunta"><TrendTag trend={card.trend} sx={{ fontSize: 15 }} /></InfoRow>
           )}

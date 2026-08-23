@@ -119,8 +119,10 @@ function TimelineTab({ progress, summary, myKeys, isCurrent, mode, onMode }) {
   if (!progress || !progress.games) {
     return <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">Ei tapahtumia.</Typography></Box>;
   }
-  const simDate = progress.simMode ? progress.simDate : null;
-  const stateForEvents = { games: progress.games, currentRound: { endDate: progress.endDate }, simMode: progress.simMode, simDate: progress.simDate };
+  // realClock → real wall-clock (simDate is day-granular replay only); pass realClock through
+  // so buildEvents' own gate keeps the round-end "Päättyy" from flipping a day early.
+  const simDate = progress.simMode && !progress.realClock ? progress.simDate : null;
+  const stateForEvents = { games: progress.games, currentRound: { endDate: progress.endDate }, simMode: progress.simMode, realClock: progress.realClock, simDate: progress.simDate };
   // Your games drive the progress summary; the list toggles yours ↔ the whole round.
   const myEvents = buildEvents(stateForEvents, myKeys, { includePast: true });
   const events = mode === "kaikki" ? buildEvents(stateForEvents, null, { includePast: true, ownKeys: myKeys }) : myEvents;

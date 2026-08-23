@@ -79,7 +79,10 @@ export function relTime(dateStr, simDate) {
 export function buildEvents(state, myKeys, opts) {
   const includePast = !!(opts && opts.includePast);
   const ownKeys = opts && opts.ownKeys; // when showing ALL games (myKeys=null), tag which are yours
-  const simDate = state && state.simMode ? state.simDate : null;
+  // realClock seasons run on the real wall-clock — the day-granular simDate is only for
+  // replays. Under realClock, pass null so the timeline uses real time (else the round-end
+  // "23:59" event, compared day-granular, flips to "Päättyi" from midnight — a day early).
+  const simDate = state && state.simMode && !state.realClock ? state.simDate : null;
   const round = state && state.currentRound;
   const endDay = round && round.endDate;
   let games = (state && state.games ? state.games : [])

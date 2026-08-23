@@ -44,7 +44,10 @@ app.http('ahmaliigaCards', {
           // round is live, else the last settled round's points.
           lastPts: roundLive ? (livePts ? Math.round((livePts[c.rowKey] || 0) * 10) / 10 : (Number(c.liveRoundPts) || 0)) : (c.lastPts || 0),
           seasonPts: c.seasonPts || 0, photo: c.photo || '',
-          trend: c.liveTrend || c.trend || '',
+          // Live round → THIS jakso's move (empty = flat, no arrow). Only a finished season
+          // falls back to the last settled round's direction, so a non-mover doesn't show a
+          // stale ↑/↓ carried over from the previous jakso.
+          trend: roundLive ? (c.liveTrend || '') : (c.trend || ''),
           tradeLocked: isCardTradeLocked(c, lockByTeam), // game in progress / not-yet-priced → no buy/sell
         }))
         .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, 'fi'));
