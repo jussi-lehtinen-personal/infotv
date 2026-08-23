@@ -10,6 +10,13 @@ const fetch = require("node-fetch");
 // See memory: reference_jopox_kiekkoahma.
 
 const TTL = 6 * 60 * 60_000; // 6 h – rosters change rarely
+
+// Floor for ?refresh=1. The cache is what stops this endpoint hammering
+// kiekko-ahma.fi, so the bypass keeps a minimum interval rather than removing
+// the protection: a correction made in Jopox shows up within a minute, and a
+// caller looping on refresh still only reaches the club site once a minute.
+const REFRESH_MIN = 60_000; // 1 min
+
 const cache = new Map(); // subsiteId -> { data, timestamp }
 
 const BASE = 'https://www.kiekko-ahma.fi';
@@ -118,9 +125,17 @@ app.http('getTeamRoster', {
                 return { status: 400, jsonBody: { error: 'subsiteId (numeric) required' } };
             }
 
+            // ?refresh=1 shortens the cache to REFRESH_MIN instead of ignoring
+            // it. Six hours is right for a page that rarely changes, but it is
+            // a long time to wait when someone has just fixed a shirt number
+            // and wants to see it - which is a real workflow, not a debugging
+            // aid: the roster here is what other applications read.
+            const refresh = request.query?.get('refresh') === '1';
+            const maxAge = refresh ? REFRESH_MIN : TTL;
+
             const cached = cache.get(subsiteId);
-            if (cached && (Date.now() - cached.timestamp) < TTL) {
-                context.log('Roster cache hit for subsite: ' + subsiteId);
+            if (cached && (Date.now() - cached.timestamp) < maxAge) {
+                context.log(`Roster cache hit for subsite: ${subsiteId}${refresh ? ' (refresh requested, still within 1 min)' : ''}`);
                 return { jsonBody: cached.data };
             }
 
