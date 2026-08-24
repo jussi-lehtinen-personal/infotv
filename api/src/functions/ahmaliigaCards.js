@@ -32,6 +32,12 @@ app.http('ahmaliigaCards', {
       // trading + show a lock instead of only erroring on save. Best-effort (never blocks the list).
       let lockByTeam = {};
       if (roundLive) { try { lockByTeam = lockGamesByTeam(season, await getRoundGames(season.rowKey, Number(cur.rowKey))); } catch { lockByTeam = {}; } }
+      // "Are we showing the LIVE round's moves, or the last settled jakso's result?"
+      // A live round shows this jakso's trend (flat = no arrow) ONLY once its rebands have
+      // actually moved a price; until then (e.g. right after a settle, before the next
+      // jakso's first game) show the just-settled jakso's direction — else every card looks
+      // flat the moment a round settles (liveTrend is reset to '' at settlement).
+      const liveMoved = roundLive && allCards.some((c) => c.livePrice != null && Number(c.livePrice) !== Number(c.price));
       let cards = allCards;
       if (filter && filter !== 'all') cards = cards.filter((c) => c.kind === filter);
       const out = cards
@@ -44,10 +50,10 @@ app.http('ahmaliigaCards', {
           // round is live, else the last settled round's points.
           lastPts: roundLive ? (livePts ? Math.round((livePts[c.rowKey] || 0) * 10) / 10 : (Number(c.liveRoundPts) || 0)) : (c.lastPts || 0),
           seasonPts: c.seasonPts || 0, photo: c.photo || '',
-          // Live round → THIS jakso's move (empty = flat, no arrow). Only a finished season
-          // falls back to the last settled round's direction, so a non-mover doesn't show a
-          // stale ↑/↓ carried over from the previous jakso.
-          trend: roundLive ? (c.liveTrend || '') : (c.trend || ''),
+          // Live-and-moving → THIS jakso's move (empty = flat, no arrow); otherwise the last
+          // settled jakso's direction. So a mid-round non-mover shows no stale arrow, but a
+          // freshly-settled market still shows who went up/down.
+          trend: liveMoved ? (c.liveTrend || '') : (c.trend || ''),
           tradeLocked: isCardTradeLocked(c, lockByTeam), // game in progress / not-yet-priced → no buy/sell
         }))
         .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, 'fi'));

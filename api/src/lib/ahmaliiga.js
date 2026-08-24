@@ -1928,6 +1928,11 @@ async function getCardDetail(seasonId, cardId) {
   // even before its first game) → append its live points as a current-round bar on the
   // card's per-round points, alongside the settled history. 0 until games are played.
   const curRound = rounds.find((j) => j.status !== 'settled');
+  // Whether the live round has actually moved any price yet (vs sitting at the settled
+  // anchor) — decides if the trend arrow shows this jakso's live move or the last settled
+  // jakso's direction (see the card return). Right after a settle nothing has moved → show
+  // the settled trend, so the market isn't all-flat.
+  const liveMoved = !!curRound && cards.some((c) => c.livePrice != null && Number(c.livePrice) !== Number(c.price));
   // A game counts as PLAYED once it has a result and its kickoff has passed — sim seasons
   // by day (simDate), real seasons by the per-game Helsinki clock (simDate null → kickedOff
   // uses helsinkiMs), matching the timeline / live-points predicates.
@@ -1999,10 +2004,10 @@ async function getCardDetail(seasonId, cardId) {
       // Settled anchor (round-start price) + this jakso's live move, exposed SEPARATELY so
       // the card can show "Jaksossa: ±X" honestly — `price` above collapses live/settled.
       settledPrice: Number(card.price) || 0, liveTrend: card.liveTrend || '',
-      // While a round is LIVE the arrow reflects THIS jakso's move (empty = flat, no arrow);
-      // only a finished season falls back to the last settled round's direction. Fixes a
-      // non-mover showing a stale ↑/↓ carried over from the previous jakso's settle.
-      trend: curRound ? (card.liveTrend || '') : (card.trend || ''), photo: card.photo || '',
+      // Show THIS jakso's live move (empty = flat, no arrow) only once the live round has
+      // actually moved a price; otherwise the last settled jakso's direction. Fixes both a
+      // mid-round non-mover showing a stale ↑/↓ AND a freshly-settled market looking all-flat.
+      trend: liveMoved ? (card.liveTrend || '') : (card.trend || ''), photo: card.photo || '',
       lastPts: card.lastPts || 0, seasonPts: card.seasonPts || 0,
     },
     managerCount, ownerCount,
