@@ -28,3 +28,4 @@ yarn-error.log*
 .jopox_cookie*
 worker/.dev.vars
 tools/data/
+bash.exe.stackdump
