@@ -462,7 +462,7 @@ const chipStyle = (fontSize, letterSpacing, radius) => ({
 function TeamName({ main, sub, align }) {
   return (
     <div style={{ minWidth: 0, textAlign: align }}>
-      <div style={{ fontSize: "46px", color: WHITE, letterSpacing: "0.5px", lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ fontSize: "42px", color: WHITE, letterSpacing: "0.5px", lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {main}
       </div>
       {sub && (
@@ -631,7 +631,10 @@ function AdGameRow({ match, teamsMap, onClick }) {
   }
   ahmaSub = ahmaSub.toUpperCase();
   const { main: awayMain, sub: awaySub } = splitTeamName(match.away);
-  const level = (match.level || "").toUpperCase();
+  // Level chip = just the series; drop the "Harj.," friendly prefix. Keep the raw
+  // level only if stripping would leave nothing (a bare friendly).
+  const rawLevel = (match.level || "").toUpperCase();
+  const level = rawLevel.replace(/^\s*HARJ\.?,?\s*/i, "").replace(/^\s*HARJOITUSOTTELU[T]?,?\s*/i, "") || rawLevel;
 
   return (
     <div
@@ -680,17 +683,17 @@ function AdGameRow({ match, teamsMap, onClick }) {
           flex: 1,
           minWidth: 0,
           display: "grid",
-          gridTemplateColumns: "200px 88px 52px 88px 1fr auto",
-          columnGap: "16px",
+          gridTemplateColumns: "166px 82px 46px 82px 1fr auto",
+          columnGap: "12px",
           alignItems: "center",
-          padding: "0 26px",
+          padding: "0 24px",
         }}
       >
         {/* Home name — right-aligned, hugging the crest */}
         <TeamName main="AHMA" sub={ahmaSub} align="right" />
 
         {/* Home crest — transparent official Ahma head, on the dark card */}
-        <img src={AHMA_CREST} alt="" style={{ width: "88px", height: "88px", objectFit: "contain" }} />
+        <img src={AHMA_CREST} alt="" style={{ width: "82px", height: "82px", objectFit: "contain" }} />
 
         {/* vs */}
         <div
@@ -707,14 +710,14 @@ function AdGameRow({ match, teamsMap, onClick }) {
         </div>
 
         {/* Opponent crest (white tile hides white-bg logos) */}
-        <TeamLogo src={match.away_logo} size={88} style={{ boxSizing: "border-box" }} />
+        <TeamLogo src={match.away_logo} size={82} style={{ boxSizing: "border-box" }} />
 
         {/* Opponent name — left-aligned, hugging the crest (truncates if long) */}
         <TeamName main={awayMain} sub={awaySub} align="left" />
 
         {/* Level chip — far right */}
         {level && (
-          <div style={chipStyle("29px", "1px", "6px")}>
+          <div style={{ ...chipStyle("26px", "1px", "6px"), padding: "8px 14px 5px" }}>
             {level}
           </div>
         )}
