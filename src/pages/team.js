@@ -50,7 +50,7 @@ const Grid2 = ({ children }) => (
 
 const PlayerCard = ({ p }) => (
   <Card variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.07)" }}>
-    <Avatar variant="rounded" src={p.photo ? logoProxy(p.photo) : undefined} sx={portraitAvatarSx(56, 72)}><LuShirt /></Avatar>
+    <Avatar variant="rounded" src={p.photo ? logoProxy(p.photo, true) : undefined} sx={portraitAvatarSx(56, 72)}><LuShirt /></Avatar>
     <Box sx={{ minWidth: 0 }}>
       <Typography sx={{ fontWeight: 800, color: "primary.main", fontSize: 20, lineHeight: 1.1 }}>{p.number != null ? p.number : ""}</Typography>
       <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.25 }}>{p.firstName}</Typography>
@@ -63,7 +63,7 @@ const PlayerCard = ({ p }) => (
 const ContactRow = ({ o }) => (
   <Card variant="outlined" sx={{ p: 1.5, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.08)" }}>
     <Stack direction="row" spacing={1.5} alignItems="center">
-      <Avatar variant="rounded" src={o.photo ? logoProxy(o.photo) : undefined} sx={portraitAvatarSx(54, 68)}><LuUsers /></Avatar>
+      <Avatar variant="rounded" src={o.photo ? logoProxy(o.photo, true) : undefined} sx={portraitAvatarSx(54, 68)}><LuUsers /></Avatar>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography variant="caption" sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
         <Typography variant="subtitle1">{o.name}</Typography>
@@ -522,7 +522,7 @@ const Team = () => {
                   <SectionTitle>Toimihenkilöt ({officials.length})</SectionTitle>
                   {officials.map((o, i) => (
                     <Card key={i} variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.25, bgcolor: "#1a1a1a", borderColor: "rgba(255,255,255,0.07)" }}>
-                      <Avatar variant="rounded" src={o.photo ? logoProxy(o.photo) : undefined} sx={portraitAvatarSx(56, 72)}><LuUsers /></Avatar>
+                      <Avatar variant="rounded" src={o.photo ? logoProxy(o.photo, true) : undefined} sx={portraitAvatarSx(56, 72)}><LuUsers /></Avatar>
                       <Box>
                         <Typography variant="subtitle1">{o.name}</Typography>
                         <Typography variant="caption" sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: ".06em" }}>{o.role}</Typography>
