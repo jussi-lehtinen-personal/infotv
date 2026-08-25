@@ -48,9 +48,9 @@ export const logoProxy = (url, photo = false) => {
   if (!url) return url;
   const file = String(url).split("/").pop().split("?")[0];
   if (!file) return url; // no image filename -> leave as-is
-  // &v busts the browser cache when the keying algorithm changes (logo URLs keep
-  // the same tp=1 otherwise). Bump on a meaningful keying change.
-  return "/api/getImage/" + file + "?uri=" + url + (photo ? "&tp=2" : "&tp=1") + "&v=2";
+  // &v busts the browser cache when the keying algorithm changes (same tp URL
+  // otherwise). Per-mode so a photo-only change doesn't force every logo to refetch.
+  return "/api/getImage/" + file + "?uri=" + url + (photo ? "&tp=2&v=3" : "&tp=1&v=2");
 };
 
 export const processIncomingDataEvents = (events) => {

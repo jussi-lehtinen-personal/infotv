@@ -99,11 +99,54 @@ async function keyLogo(buffer, { hard = 236 } = {}) {
   } catch { return null; }
 }
 
+// Grid distance from the background (multi-source BFS from every bg pixel). O(N).
+function distFromBackground(p, w, h) {
+  const N = w * h;
+  const dist = new Int32Array(N).fill(0x7fffffff);
+  const q = [];
+  for (let i = 0; i < N; i++) if (p[i] < 0.5) { dist[i] = 0; q.push(i); }
+  let head = 0;
+  while (head < q.length) {
+    const i = q[head++]; const x = i % w, y = (i / w) | 0; const d1 = dist[i] + 1;
+    if (x > 0 && dist[i - 1] > d1) { dist[i - 1] = d1; q.push(i - 1); }
+    if (x < w - 1 && dist[i + 1] > d1) { dist[i + 1] = d1; q.push(i + 1); }
+    if (y > 0 && dist[i - w] > d1) { dist[i - w] = d1; q.push(i - w); }
+    if (y < h - 1 && dist[i + w] > d1) { dist[i + w] = d1; q.push(i + w); }
+  }
+  return dist;
+}
+
+// Interior near-white blobs that stay SHALLOW (never reach farther than D from the
+// background) are background seen through thin hair → remove them (set p=0). Blobs
+// that reach DEEP (white jersey ads/logos, surrounded by a wide subject) are kept.
+function removeShallowWhite(data, w, h, p, whiteLvl, D) {
+  const N = w * h;
+  const minc = (i) => Math.min(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
+  const dist = distFromBackground(p, w, h);
+  const lab = new Uint8Array(N);
+  for (let s = 0; s < N; s++) {
+    if (lab[s] || p[s] < 0.5 || minc(s) < whiteLvl) continue;
+    const comp = [s]; lab[s] = 1; let maxD = dist[s]; let head = 0;
+    while (head < comp.length) {
+      const i = comp[head++]; const x = i % w, y = (i / w) | 0;
+      const nb = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+      for (const [nx, ny] of nb) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx;
+        if (lab[j] || p[j] < 0.5 || minc(j) < whiteLvl) continue;
+        lab[j] = 1; comp.push(j); if (dist[j] > maxD) maxD = dist[j];
+      }
+    }
+    if (maxD < D) for (const i of comp) p[i] = 0;
+  }
+}
+
 // PHOTO mode (tp=2): people on a white studio bg. Classical known-background matting
-// (no ML): flood-fill → guided filter (soft, hair-following alpha) → whiteness-gate
-// ONLY the background-connected pixels (so interior white/jersey stays) → foreground
-// unmix (removes the light fringe) → crop.
-async function keyPhoto(buffer, { hard = 236, r = 2, eps = 2e-4 } = {}) {
+// (no ML): flood-fill → remove shallow interior white (bg through hair; keeps deep
+// jersey ads) → guided filter (soft, hair-following alpha) → whiteness-gate ONLY the
+// background-connected pixels (so interior white/jersey stays) → foreground unmix
+// (removes the light fringe) → crop.
+async function keyPhoto(buffer, { hard = 236, r = 2, eps = 2e-4, distClean = 35 } = {}) {
   if (!Jimp) return null;
   try {
     const img = await Jimp.read(buffer);
@@ -111,6 +154,7 @@ async function keyPhoto(buffer, { hard = 236, r = 2, eps = 2e-4 } = {}) {
     const N = w * h;
     const minc = (i) => Math.min(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
     const p = floodBackground(data, w, h, hard);
+    if (distClean > 0) removeShallowWhite(data, w, h, p, 232, distClean);
     const I = new Float64Array(N);
     for (let i = 0; i < N; i++) I[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) / 255;
     const q = guidedFilter(I, p, w, h, r, eps);
