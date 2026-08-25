@@ -43,7 +43,9 @@ const logoProxy = (url) => {
   if (!url) return url;
   const file = String(url).split("/").pop().split("?")[0];
   if (!file) return url; // no image filename -> leave as-is
-  return "/api/getImage/" + file + "?uri=" + url;
+  // tp=1 → the proxy keys the white background out + crops (server-side, cached),
+  // so crests render transparent everywhere with no client processing / flash.
+  return "/api/getImage/" + file + "?uri=" + url + "&tp=1";
 };
 
 export const processIncomingDataEvents = (events) => {
