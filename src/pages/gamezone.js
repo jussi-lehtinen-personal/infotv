@@ -13,6 +13,7 @@ import {
 } from "../Util";
 import { isGameForAnyFavourite } from "../lib/teamMatch";
 import { ToggleButton } from "../components/ui/Buttons";
+import { KeyedLogo } from "../components/ui/KeyedLogo";
 import { Spinner } from "../components/ui/Spinner";
 import { TopProgressBar } from "../components/ui/TopProgressBar";
 import { useWeekData } from "../hooks/useWeekData";
@@ -103,16 +104,11 @@ const weekArrowSx = {
   "& svg": { width: 22, height: 22 },
 };
 
-const teamLogoSx = {
-  width: 38,
-  height: 38,
-  borderRadius: "8px",
+// Plain img style for KeyedLogo (transparent crest on the dark card — the white
+// background is keyed out, so a drop-shadow gives depth instead of a tile).
+const teamLogoStyle = {
   flexShrink: 0,
-  background: "white",
-  objectFit: "contain",
-  padding: "3px",
-  boxShadow: "0 4px 10px rgba(0,0,0,0.35)",
-  "@media (max-width:380px)": { width: 32, height: 32 },
+  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
 };
 
 const teamNameSx = {
@@ -896,12 +892,12 @@ function MatchRow({ match }) {
 
       <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", gridTemplateRows: "auto auto auto", columnGap: "18px", rowGap: "10px", alignItems: "center" }}>
         <Box sx={{ gridColumn: 1, gridRow: 1, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-          <Box component="img" src={match.home_logo} alt="" sx={teamLogoSx} />
+          <KeyedLogo src={match.home_logo} size={38} style={teamLogoStyle} />
           <Box component="span" sx={{ ...teamNameSx, ...(homeNameStyle || {}) }}>{match.home}</Box>
         </Box>
         <Box sx={{ gridColumn: 1, gridRow: 2, height: "1px", background: "rgba(255,255,255,0.08)" }} />
         <Box sx={{ gridColumn: 1, gridRow: 3, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-          <Box component="img" src={match.away_logo} alt="" sx={teamLogoSx} />
+          <KeyedLogo src={match.away_logo} size={38} style={teamLogoStyle} />
           <Box component="span" sx={{ ...teamNameSx, ...(awayNameStyle || {}) }}>{match.away}</Box>
         </Box>
         <Box sx={{ gridColumn: 2, gridRow: "1 / 4", width: "2px", background: "var(--gz-result-color, rgba(255,255,255,0.22))", alignSelf: "stretch", borderRadius: "1px", my: "-4px" }} />

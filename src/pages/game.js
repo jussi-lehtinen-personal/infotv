@@ -5,6 +5,7 @@ import moment from "moment";
 import "moment/locale/fi";
 import { Box, Typography, IconButton, Button, CircularProgress } from "@mui/material";
 import { SwipeableTabs } from "../components/ui/SwipeableTabs";
+import { KeyedLogo } from "../components/ui/KeyedLogo";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
@@ -27,7 +28,10 @@ const toSecs = (t) => {
 
 // ---- shared sx ----
 const surfaceCardSx = { borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)" };
-const logoSx = (size, pad) => ({ width: size, height: size, boxSizing: "border-box", borderRadius: 1.75, bgcolor: "#fff", objectFit: "contain", p: pad, boxShadow: "0 4px 12px rgba(0,0,0,0.35)", flexShrink: 0 });
+// Transparent-crest style for KeyedLogo (white background keyed out → drop-shadow
+// for depth instead of a white tile). `flat` drops the shadow for dense lists.
+const logoStyle = { flexShrink: 0, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" };
+const logoStyleFlat = { flexShrink: 0 };
 const sectionTitleSx = { fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-primary)", mb: 1, pl: 0.25 };
 const Center = ({ text }) => (
   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5, py: 5 }}>
@@ -198,7 +202,7 @@ const GameHeader = ({ game, report, spoilerFree }) => {
       {game.level && <Typography sx={{ fontSize: 12, fontWeight: 800, color: "var(--color-primary)", textTransform: "uppercase", letterSpacing: ".04em", mt: 0.375 }}>{game.level.trim()}</Typography>}
       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.75, mt: 1.25 }}>
         <Box sx={teamSx}>
-          <Box component="img" src={game.home_logo} alt="" sx={logoSx(60, "6px")} />
+          <KeyedLogo src={game.home_logo} size={60} style={logoStyle} />
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)", lineHeight: 1.2 }}>{splitTeamName(game.home || "").main}</Typography>
         </Box>
         <Box sx={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5, pt: 0.5, px: 0.75 }}>
@@ -210,7 +214,7 @@ const GameHeader = ({ game, report, spoilerFree }) => {
           <Typography sx={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em", lineHeight: 1.2, color: started && !finished ? "var(--color-live)" : "var(--gz-text-tertiary)" }}>{status}</Typography>
         </Box>
         <Box sx={teamSx}>
-          <Box component="img" src={game.away_logo} alt="" sx={logoSx(60, "6px")} />
+          <KeyedLogo src={game.away_logo} size={60} style={logoStyle} />
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)", lineHeight: 1.2 }}>{splitTeamName(game.away || "").main}</Typography>
         </Box>
       </Box>
@@ -371,7 +375,7 @@ const Goalies = ({ report, game }) => {
             const pct = shots > 0 ? (total / shots) * 100 : null;
             return (
               <Box key={`${i}-${j}`} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 0.25, py: 0.5 }}>
-                <Box component="img" src={logo || ""} alt="" sx={logoSx(34, "3px")} />
+                <KeyedLogo src={logo || ""} size={34} style={logoStyle} />
                 <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
                   <Typography sx={{ fontSize: 13, fontWeight: 700, color: "var(--gz-text-primary)" }}>{goalieName(k.name)}</Typography>
                   <Typography sx={{ fontSize: 12, fontWeight: 700, color: "var(--gz-text-secondary)", fontVariantNumeric: "tabular-nums", mt: "1px" }}>{breakdown ? `${breakdown} = ${total}` : `${total}`} torjuntaa</Typography>
@@ -422,7 +426,7 @@ const WinningShots = ({ shots, game }) => {
       <Box sx={{ display: "flex", flexDirection: "column" }}>
         {rows.map((w, i) => (
           <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.25, px: 0.75, py: "7px", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.05)", ...(w.winner && { bgcolor: "rgba(var(--color-primary-rgb),0.10)", borderRadius: "var(--radius-small)", borderBottomColor: "transparent" }) }}>
-            <Box component="img" src={w.side === "home" ? game.home_logo : game.away_logo} alt="" sx={{ ...logoSx(24, "2px"), boxShadow: "none" }} />
+            <KeyedLogo src={w.side === "home" ? game.home_logo : game.away_logo} size={24} style={logoStyleFlat} />
             {w.jersey ? <Box component="span" sx={{ flexShrink: 0, fontWeight: 800, color: "var(--gz-text-tertiary)", fontVariantNumeric: "tabular-nums" }}>{w.jersey}</Box> : null}
             <Box component="span" sx={{ flex: "1 1 auto", minWidth: 0, color: "var(--gz-text-primary)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rosterName(w.last, w.first)}</Box>
             <Box component="span" sx={{ flexShrink: 0, minWidth: 34, textAlign: "right", fontSize: 13, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: w.scored ? "var(--color-primary)" : "var(--gz-text-tertiary)" }}>{w.scored ? w.tally : "–"}</Box>
@@ -572,7 +576,7 @@ const RosterTeam = ({ side, logo, name, first }) => {
   return (
     <Box sx={first ? {} : { mt: 2.75, pt: 2.75, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.375, mb: 1.5 }}>
-        <Box component="img" src={logo} alt="" sx={logoSx(36, "3px")} />
+        <KeyedLogo src={logo} size={36} style={logoStyle} />
         <Typography sx={{ fontSize: 18, fontWeight: 800, color: "var(--gz-text-primary)" }}>{splitTeamName(name || "").main}</Typography>
       </Box>
       {players.length > 0 && (
