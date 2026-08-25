@@ -11,7 +11,7 @@ import { themeCSS, COLOR_PRIMARY } from "../theme";
 import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
 import { NavButton, SelectorButton, PrimaryButton } from "../components/ui/Buttons";
-import { TeamLogo } from "../components/ui/TeamLogo";
+import { KeyedLogo } from "../components/ui/KeyedLogo";
 
 import "@fontsource/bebas-neue";
 import "moment/locale/fi";
@@ -556,7 +556,7 @@ function GameAdCanvas({ match, background }) {
               gap: "12px",
             }}
           >
-            <TeamLogo src={match.home_logo} size={140} />
+            <KeyedLogo src={match.home_logo} size={140} style={{ filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.5))" }} />
             <div style={{ textAlign: "center", lineHeight: 1.05 }}>
               <div
                 style={{
@@ -613,7 +613,7 @@ function GameAdCanvas({ match, background }) {
               gap: "12px",
             }}
           >
-            <TeamLogo src={match.away_logo} size={140} />
+            <KeyedLogo src={match.away_logo} size={140} style={{ filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.5))" }} />
             <div style={{ textAlign: "center", lineHeight: 1.05 }}>
               <div
                 style={{
