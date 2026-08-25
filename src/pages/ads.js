@@ -8,10 +8,12 @@ import {
   getMonday,
   splitTeamName,
 } from "../Util";
-import { themeCSS, COLOR_PRIMARY, COLOR_PRIMARY_DIM } from "../theme";
+import { Box, IconButton, Typography } from "@mui/material";
+import { LuArrowLeft, LuChevronLeft, LuChevronRight, LuCalendar } from "react-icons/lu";
+import { themeCSS, COLOR_PRIMARY } from "../theme";
+import { useGoBack } from "../hooks/useGoBack";
 import { Surface } from "../components/ui/Surface";
-import { PageHeader } from "../components/ui/PageHeader";
-import { NavButton, SelectorButton, PrimaryButton } from "../components/ui/Buttons";
+import { SelectorButton, PrimaryButton } from "../components/ui/Buttons";
 import { TeamLogo } from "../components/ui/TeamLogo";
 
 import "@fontsource/bebas-neue";
@@ -19,6 +21,7 @@ import "moment/locale/fi";
 
 var moment = require("moment");
 moment.locale("fi");
+
 
 /* ============================= */
 /*         SWIPE HOOK            */
@@ -147,10 +150,13 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 /*           PAGE                */
 /* ============================= */
 
-const AD_SIZE = 1024;
+const AD_SIZE = 1080;
+
+// Shared sx for the top-bar icon buttons (back / week nav / calendar).
+const navBtnSx = { color: "text.secondary", "&:hover": { color: "primary.main" } };
 
 const BACKGROUNDS = [
-  "/ahma_logo.png",
+  null, // flat dark (concept look)
   "/background.jpg",
   "/background3.jpg",
   "/background6.jpg",
@@ -160,6 +166,7 @@ const Ads = () => {
   const exportRef = useRef(null);
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
+  const goBack = useGoBack("/");
   const { timestamp } = useParams();
 
   const [matches, setMatches] = useState([]);
@@ -256,13 +263,12 @@ const Ads = () => {
     [navigate, effectiveTimestamp]
   );
 
-  // Week navigation
+  // Week navigation — always anchor to Monday so the week runs Mon–Sun
   const getWeekUrl = useCallback(
     (offsetWeeks) => {
-      const base = timestamp ? new Date(timestamp) : new Date();
-      const target = new Date(base);
-      target.setDate(target.getDate() + offsetWeeks * 7);
-      return "/ads/" + moment(target).format("YYYY-MM-DD");
+      const monday = getMonday(timestamp ? new Date(timestamp) : new Date());
+      monday.setDate(monday.getDate() + offsetWeeks * 7);
+      return "/ads/" + moment(monday).format("YYYY-MM-DD");
     },
     [timestamp]
   );
@@ -278,6 +284,22 @@ const Ads = () => {
 
   const { ref: swipeRef, handlers: swipeHandlers } = useSwipe(goNext, goPrev);
 
+  // Calendar day-picker — jump straight to the week containing the chosen day
+  const dateInputRef = useRef(null);
+  const openDatePicker = useCallback(() => {
+    const el = dateInputRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === "function") el.showPicker();
+    else el.click();
+  }, []);
+  const onPickDate = useCallback(
+    (e) => {
+      const v = e.target.value;
+      if (v) navigate(`/ads/${v}`);
+    },
+    [navigate]
+  );
+
   // Week range label
   const weekRange = useMemo(() => {
     const base = timestamp ? new Date(timestamp) : new Date();
@@ -287,40 +309,52 @@ const Ads = () => {
     return moment(mon).format("D.M") + " – " + moment(sun).format("D.M");
   }, [timestamp]);
 
-  const isCurrentWeek = useMemo(() => {
-    const selectedMon = getMonday(timestamp ? new Date(timestamp) : new Date());
-    const currentMon  = getMonday(new Date());
-    return moment(selectedMon).isSame(moment(currentMon), "day");
-  }, [timestamp]);
-
   // Download as PNG
   // exportRef points to the full-resolution element (no transform on it).
   const { downloading, downloadPng } = useExportPng(exportRef);
 
 
   return (
-    <div ref={swipeRef} {...swipeHandlers} style={{ touchAction: "pan-y" }}>
+    <div ref={swipeRef} {...swipeHandlers} style={{ touchAction: "pan-y", color: "var(--color-secondary)" }}>
       <style>{css}</style>
 
+      {/* GameZone top bar — back · title + centred week nav · calendar day-picker */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 1, pt: "calc(env(safe-area-inset-top) + 10px)", pb: 1.25, color: "text.primary" }}>
+        <IconButton onClick={goBack} aria-label="Takaisin" sx={navBtnSx}>
+          <LuArrowLeft />
+        </IconButton>
+
+        {/* Centre: ‹  OTTELUMAINOS / week  › */}
+        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
+          <IconButton onClick={goPrev} aria-label="Edellinen viikko" sx={navBtnSx}>
+            <LuChevronLeft />
+          </IconButton>
+          <Box sx={{ textAlign: "center", minWidth: 150 }}>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "var(--font-display-tracking)", fontSize: 20, lineHeight: 1.15 }}>
+              Ottelumainos
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.1 }}>{weekRange}</Typography>
+          </Box>
+          <IconButton onClick={goNext} aria-label="Seuraava viikko" sx={navBtnSx}>
+            <LuChevronRight />
+          </IconButton>
+        </Box>
+
+        {/* Right: pick a day directly */}
+        <IconButton onClick={openDatePicker} aria-label="Valitse päivä" sx={navBtnSx}>
+          <LuCalendar />
+        </IconButton>
+        <input
+          ref={dateInputRef}
+          type="date"
+          onChange={onPickDate}
+          style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </Box>
+
       <div className="ads-root">
-        {/* Header */}
-        <Surface className="ads-page-header">
-          <PageHeader
-            title="KOTIOTTELUT"
-            subtitle={weekRange}
-            left={<NavButton onClick={goPrev} icon="&#xE5CB;" ariaLabel="Edellinen viikko" />}
-            right={<NavButton onClick={goNext} icon="&#xE5CC;" ariaLabel="Seuraava viikko" />}
-          />
-          {matches.length > 0 && (
-            <div className="ads-game-btns">
-              {matches.map((_, i) => (
-                <SelectorButton key={i} onClick={() => onGameClick(i)}>
-                  {i + 1}
-                </SelectorButton>
-              ))}
-            </div>
-          )}
-        </Surface>
 
         {/*
           Display wrapper: scales the 1024px-wide canvas to fit the screen.
@@ -341,7 +375,7 @@ const Ads = () => {
               }}
             >
               <div ref={exportRef} style={{ width: `${AD_SIZE}px` }}>
-                <AdContent matches={matches} weekRange={weekRange} isCurrentWeek={isCurrentWeek} teamsMap={teamsMap} onGameClick={onGameClick} background={activeBackground} />
+                <AdContent matches={matches} teamsMap={teamsMap} onGameClick={onGameClick} background={activeBackground} timestamp={timestamp} />
               </div>
             </div>
           </div>
@@ -349,6 +383,18 @@ const Ads = () => {
 
         {/* Controls */}
         <Surface className="ads-controls">
+          {matches.length > 0 && (
+            <div className="ads-field-row">
+              <label className="ads-label">Yksittäin</label>
+              <div className="ads-game-btns">
+                {matches.map((_, i) => (
+                  <SelectorButton key={i} onClick={() => onGameClick(i)}>
+                    {i + 1}
+                  </SelectorButton>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="ads-field-row">
             <label className="ads-label">Tausta</label>
             <div className="ads-bg-btns">
@@ -389,12 +435,62 @@ export default Ads;
 /*         AD CANVAS             */
 /* ============================= */
 
-const ORANGE = COLOR_PRIMARY;
-const ORANGE_DIM = COLOR_PRIMARY_DIM;
+// Design tokens for the concept (Kiekko-Ahma Brand Core).
+const ORANGE = COLOR_PRIMARY; // Ahma Orange #F06E1E (the app's brand primary)
+const CANVAS_BG = "#15171B"; // Ink base
+const WHITE = "#FFFFFF";
+const CARD_BG = "linear-gradient(180deg, #272B31 0%, #1E2126 52%, #181B1F 100%)";
+const CARD_HILITE = "inset 0 2px 0 rgba(255,168,96,0.30)"; // warm top sheen
+const STEEL = "#C3C3C3";
+const FOOTER_TEXT = "#9AA0A8";
+// Warm horizontal beam (transparent → light → transparent). Used for the footer
+// underline and the first-card top streak (which brightens the mid stop).
+const GLOW_LINE = "linear-gradient(90deg, rgba(240,110,30,0) 0%, #FFC08A 52%, rgba(240,110,30,0) 100%)";
+const STREAK_LINE = "linear-gradient(90deg, rgba(240,110,30,0) 0%, #FFD9B4 50%, rgba(240,110,30,0) 100%)";
+const CARD_H = 146; // square date tab (tab width === card height)
+const AHMA_CREST = "/infotv/ahma_head.png"; // transparent official crest (bear head)
+const RAAPAISU = "/ottelumainos_raapaisu.png"; // brand claw-scratch texture
 
-function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, background }) {
-  const titleLine1 = isCurrentWeek ? "TÄLLÄ VIIKOLLA" : weekRange;
+// Shared orange "chip" style (KOTIOTTELUT eyebrow + per-row level tag).
+const chipStyle = (fontSize, letterSpacing, radius) => ({
+  background: ORANGE, color: CANVAS_BG, fontSize, letterSpacing,
+  padding: "9px 17px 6px", lineHeight: 1, borderRadius: radius, whiteSpace: "nowrap",
+});
 
+// A team's name + orange sub-label, used for both sides (align "right"|"left").
+function TeamName({ main, sub, align }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, textAlign: align, [align === "right" ? "paddingRight" : "paddingLeft"]: "18px" }}>
+      <div style={{ fontSize: "46px", color: WHITE, letterSpacing: "0.5px", lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {main}
+      </div>
+      {sub && (
+        <div style={{ fontSize: "28px", color: ORANGE, letterSpacing: "2px", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Format a two-date span, Finnish-style: "30.8." | "29.–30.8." | "29.8.–2.9."
+function formatDayRange(first, last) {
+  const mf = moment(first), ml = moment(last);
+  const sD = mf.format("D"), sM = mf.format("M");
+  const eD = ml.format("D"), eM = ml.format("M");
+  if (sD === eD && sM === eM) return `${eD}.${eM}.`;
+  if (sM === eM) return `${sD}.–${eD}.${eM}.`;
+  return `${sD}.${sM}.–${eD}.${eM}.`;
+}
+
+function AdContent({ matches, teamsMap, onGameClick, background, timestamp }) {
+  // Header shows the whole week Mon–Sun (always ends Sunday), not the game span.
+  const dateRange = useMemo(() => {
+    const mon = getMonday(timestamp ? new Date(timestamp) : new Date());
+    const sun = new Date(mon);
+    sun.setDate(sun.getDate() + 6);
+    return formatDayRange(mon, sun);
+  }, [timestamp]);
 
   return (
     <div
@@ -405,35 +501,23 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, b
         display: "flex",
         flexDirection: "column",
         position: "relative",
-        background: "#0d0d0d",
+        background: CANVAS_BG,
+        overflow: "hidden",
       }}
     >
-      {/* Stadium background image */}
+      {/* Warm corner glow (top-left) */}
+      <div style={{ position: "absolute", top: -120, left: -180, width: 760, height: 560, background: `linear-gradient(135deg, #2E2317 0%, ${CANVAS_BG} 78%)`, pointerEvents: "none" }} />
+      {/* Default "raapaisu" — the brand claw-scratch texture (top-right corner) */}
       <img
-        data-export-bg="1"
-        decoding="sync"
-        src={background}
+        src={RAAPAISU}
         alt=""
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center 40%",
-          opacity: 0.15,
-        }}
+        decoding="sync"
+        style={{ position: "absolute", top: 70, right: -170, height: 640, opacity: 0.14, transform: "rotate(14deg)", pointerEvents: "none", zIndex: 0 }}
       />
-      {/* Darkening vignette over photo */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse at 50% 0%, rgba(60,20,0,0.5) 0%, transparent 65%)," +
-            "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.80) 100%)",
-        }}
-      />
+      {/* Optional faint photo the user can pick */}
+      {background && (
+        <img data-export-bg="1" decoding="sync" src={background} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", opacity: 0.1, pointerEvents: "none" }} />
+      )}
 
       {/* ── HEADER ── */}
       <div
@@ -441,64 +525,61 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, b
           position: "relative",
           zIndex: 1,
           display: "flex",
-          alignItems: "center",
-          padding: "24px 36px 20px 28px",
-          gap: "20px",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          padding: "56px 56px 30px 56px",
+          gap: "24px",
           flexShrink: 0,
         }}
       >
-        {/* Club mascot logo */}
-        <img
-          src="/ahma_logo.png"
-          alt=""
-          style={{ height: "190px", width: "190px", objectFit: "contain", flexShrink: 0 }}
-        />
-
-        {/* Title */}
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div
-            style={{
-              fontSize: "88px",
-              color: ORANGE,
-              letterSpacing: "4px",
-              lineHeight: 0.95,
-              textShadow: `0 4px 20px rgba(0,0,0,0.7), 0 0 40px ${ORANGE_DIM}`,
-            }}
-          >
-            KOTIOTTELUT
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          {/* KOTIOTTELUT chip */}
+          <div style={{ display: "flex" }}>
+            <div style={{ ...chipStyle("30px", "8px", "5px"), padding: "9px 20px 5px" }}>
+              KOTIOTTELUT
+            </div>
           </div>
+          {/* Big date range */}
           <div
             style={{
-              fontSize: "46px",
-              color: "rgba(255,255,255,0.90)",
-              letterSpacing: "4px",
-              lineHeight: 1,
-              textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+              fontSize: "132px",
+              color: "#F4F4F4",
+              letterSpacing: "2px",
+              lineHeight: 0.86,
             }}
           >
-            {titleLine1}
+            {dateRange}
+          </div>
+          {/* Venue */}
+          <div
+            style={{
+              fontSize: "44px",
+              color: STEEL,
+              letterSpacing: "6px",
+              lineHeight: 1,
+            }}
+          >
+            WAREENA · VALKEAKOSKI
           </div>
         </div>
+
+        {/* Official Kiekko-Ahma club crest (transparent asset), on dark */}
+        <img src={AHMA_CREST} alt="" style={{ height: "150px", width: "150px", objectFit: "contain", flexShrink: 0 }} />
       </div>
 
-      {/* Orange header separator */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          height: "4px",
-          background: `linear-gradient(to right, ${ORANGE}, #cc4400)`,
-          flexShrink: 0,
-        }}
-      />
-
       {/* ── GAME ROWS ── */}
-      <div style={{ position: "relative", zIndex: 1, padding: "4px 0" }}>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: "12px", padding: "6px 48px 4px" }}>
+        {/* Warm highlight ON the FIRST card's top edge — glow centred on the streak */}
+        {matches.length > 0 && (
+          <>
+            <div style={{ position: "absolute", top: -34, left: "60%", right: "0%", height: 80, background: "radial-gradient(ellipse at center, rgba(255,186,110,0.5) 0%, rgba(240,110,30,0.14) 40%, rgba(240,110,30,0) 72%)", pointerEvents: "none", zIndex: 3 }} />
+            <div style={{ position: "absolute", top: 6, left: "62%", right: "2%", height: 2, background: STREAK_LINE, pointerEvents: "none", zIndex: 4 }} />
+          </>
+        )}
         {matches.map((m, i) => (
           <AdGameRow
             key={i}
             match={m}
-            showDivider={i < matches.length - 1}
             teamsMap={teamsMap}
             onClick={onGameClick ? () => onGameClick(i) : undefined}
           />
@@ -510,198 +591,129 @@ function AdContent({ matches, weekRange, isCurrentWeek, teamsMap, onGameClick, b
         style={{
           position: "relative",
           zIndex: 1,
-          height: "64px",
-          borderTop: `2px solid ${ORANGE_DIM}`,
+          padding: "28px 56px 42px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "space-between",
           flexShrink: 0,
-          fontSize: "30px",
-          color: "rgba(255,255,255,0.80)",
-          letterSpacing: "5px",
-          textShadow: "0 2px 6px rgba(0,0,0,0.8)",
         }}
       >
-        WWW.KIEKKO-AHMA.FI
+        <div style={{ fontSize: "37px", color: FOOTER_TEXT, letterSpacing: "7px" }}>
+          WWW.KIEKKO-AHMA.FI
+        </div>
+        <div style={{ fontSize: "48px", color: ORANGE, lineHeight: 1 }}>/</div>
+        <div style={{ fontSize: "44px", color: ORANGE, letterSpacing: "4px" }}>
+          TULE KANNUSTAMAAN!
+        </div>
+        {/* Glowing underline */}
+        <div style={{ position: "absolute", left: 56, right: 56, bottom: 22, height: 2, background: GLOW_LINE, pointerEvents: "none" }} />
       </div>
     </div>
   );
 }
 
-function AdGameRow({ match, showDivider, teamsMap, onClick }) {
-  const timeStr = moment(match.date).format("HH:mm");
-  const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
+function AdGameRow({ match, teamsMap, onClick }) {
+  const md = moment(match.date);
+  const timeStr = md.format("HH:mm");
+  const dayStr = md.format("dd D.M").toUpperCase();
   const lookupKey = `${match.levelId}|${match.statGroupId}`;
-  const ahmaName = teamsMap?.get(lookupKey) ?? match.home;
+  // Ahma team designation (every team must show one). Primary source = the mapped
+  // teamKey from getTeams (e.g. "U15", "U13 MUSTA", "Edustus"). Fallbacks for when
+  // the map isn't loaded: the feed-name suffix ("…Oranssi"→"Oranssi"), the age from
+  // the level/league ("U16"), or "Edustus" for the II-divisioona (men's) team.
+  let ahmaSub = teamsMap?.get(lookupKey) || splitTeamName(match.home).sub || "";
+  if (!ahmaSub) {
+    const hay = `${match.level || ""} ${match.league || ""}`;
+    const age = hay.match(/U\d{1,2}/i);
+    if (age) ahmaSub = age[0];
+    else if (/divisioona|edustus/i.test(hay)) ahmaSub = "Edustus";
+  }
+  ahmaSub = ahmaSub.toUpperCase();
   const { main: awayMain, sub: awaySub } = splitTeamName(match.away);
+  const level = (match.level || "").toUpperCase();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div
+      onClick={onClick}
+      style={{
+        position: "relative",
+        display: "flex",
+        alignItems: "stretch",
+        height: `${CARD_H}px`,
+        borderRadius: "8px",
+        overflow: "hidden",
+        background: CARD_BG,
+        boxShadow: CARD_HILITE,
+        cursor: onClick ? "pointer" : undefined,
+      }}
+    >
+      {/* Faint orange right-edge border, fading downward */}
+      <div style={{ position: "absolute", top: 0, right: 0, width: 2, height: "100%", background: "linear-gradient(180deg, rgba(255,150,72,0.42) 0%, rgba(255,150,72,0.14) 42%, rgba(255,150,72,0) 100%)", pointerEvents: "none", zIndex: 2 }} />
+
+      {/* Square orange date tab */}
       <div
-        onClick={onClick}
         style={{
-          display: "grid",
-          // date+time | sep | home name | home logo | VS | away logo | away name
-          gridTemplateColumns: "148px 4px 1fr 90px auto 90px 1fr",
+          width: `${CARD_H}px`,
+          flexShrink: 0,
+          alignSelf: "stretch",
+          background: ORANGE,
+          display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          minHeight: "88px",
-          padding: "12px 28px 12px 20px",
-          gap: "0",
-          cursor: onClick ? "pointer" : undefined,
+          justifyContent: "center",
+          gap: "6px",
         }}
       >
-        {/* Date + time */}
-        <div style={{ textAlign: "center", paddingRight: "16px" }}>
-          <div
-            style={{
-              fontSize: "33px",
-              color: "#ffffff",
-              letterSpacing: "1px",
-              lineHeight: 1.1,
-              textShadow: "0 2px 6px rgba(0,0,0,0.7)",
-            }}
-          >
-            {dayStr}
-          </div>
-          <div
-            style={{
-              fontSize: "48px",
-              color: ORANGE,
-              letterSpacing: "1px",
-              lineHeight: 1,
-              textShadow: "0 2px 8px rgba(0,0,0,0.7)",
-            }}
-          >
-            {timeStr}
-          </div>
+        <div style={{ fontSize: "30px", color: WHITE, letterSpacing: "1px", lineHeight: 1 }}>
+          {dayStr}
         </div>
-
-        {/* Orange vertical separator */}
-        <div
-          style={{
-            width: "4px",
-            height: "70%",
-            background: ORANGE,
-            borderRadius: "2px",
-          }}
-        />
-
-        {/* Home team name — right-aligned, flush against home logo */}
-        <div
-          style={{
-            paddingLeft: "20px",
-            paddingRight: "20px",
-            textAlign: "right",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "48px",
-              color: "#ffffff",
-              letterSpacing: "2px",
-              lineHeight: 1.05,
-              textShadow: "0 2px 10px rgba(0,0,0,0.8)",
-            }}
-          >
-            KIEKKO-AHMA
-          </div>
-          {ahmaName !== match.home && (
-            <div
-              style={{
-                fontSize: "33px",
-                color: ORANGE,
-                letterSpacing: "2px",
-                lineHeight: 1.1,
-                textShadow: "0 2px 6px rgba(0,0,0,0.7)",
-              }}
-            >
-              {ahmaName}
-            </div>
-          )}
-        </div>
-
-        {/* Home logo */}
-        <TeamLogo
-          src={match.home_logo}
-          size={90}
-          style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.6)", flexShrink: 0 }}
-        />
-
-        {/* VS */}
-        <div
-          style={{
-            fontSize: "38px",
-            color: "rgba(255,255,255,0.80)",
-            letterSpacing: "4px",
-            padding: "0 18px",
-            textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-            flexShrink: 0,
-          }}
-        >
-          VS
-        </div>
-
-        {/* Away logo */}
-        <TeamLogo
-          src={match.away_logo}
-          size={90}
-          style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.6)", flexShrink: 0 }}
-        />
-
-        {/* Away team name — left-aligned, flush against away logo */}
-        <div
-          style={{
-            paddingLeft: "20px",
-            paddingRight: "20px",
-            textAlign: "left",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "48px",
-              color: "#ffffff",
-              letterSpacing: "2px",
-              lineHeight: 1.05,
-              textShadow: "0 2px 10px rgba(0,0,0,0.8)",
-            }}
-          >
-            {awayMain}
-          </div>
-          {awaySub && (
-            <div
-              style={{
-                fontSize: "33px",
-                color: ORANGE,
-                letterSpacing: "2px",
-                lineHeight: 1.1,
-                textShadow: "0 2px 6px rgba(0,0,0,0.7)",
-              }}
-            >
-              {awaySub}
-            </div>
-          )}
+        <div style={{ fontSize: "56px", color: WHITE, letterSpacing: "1px", lineHeight: 1 }}>
+          {timeStr}
         </div>
       </div>
 
-      {/* Row divider */}
-      {showDivider && (
+      {/* Body — AHMA + crest · vs · crest + opponent name (fills) + chip */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", padding: "0 26px" }}>
+        {/* Home name — right-aligned, hugging the crest (symmetric with away) */}
+        <TeamName main="AHMA" sub={ahmaSub} align="right" />
+
+        {/* Home crest — transparent official Ahma head, on the dark card */}
+        <img src={AHMA_CREST} alt="" style={{ width: "88px", height: "88px", objectFit: "contain", flexShrink: 0 }} />
+
+        {/* vs */}
         <div
           style={{
-            height: "2px",
-            margin: "0 32px",
-            background: ORANGE_DIM,
+            fontFamily: "'Barlow', sans-serif",
+            fontStyle: "italic",
+            fontWeight: 600,
+            fontSize: "30px",
+            color: "rgba(255,255,255,0.42)",
+            padding: "0 14px",
             flexShrink: 0,
           }}
-        />
-      )}
+        >
+          vs
+        </div>
+
+        {/* Opponent crest (white tile hides white-bg logos) */}
+        <TeamLogo src={match.away_logo} size={88} style={{ flexShrink: 0 }} />
+
+        {/* Opponent name — left-aligned, hugging the crest */}
+        <TeamName main={awayMain} sub={awaySub} align="left" />
+
+        {/* Level chip — far right */}
+        {level && (
+          <div
+            style={{
+              ...chipStyle("29px", "1px", "6px"),
+              flexShrink: 0,
+              marginLeft: "16px",
+            }}
+          >
+            {level}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -729,14 +741,6 @@ html, body, #root {
 
   background: var(--bg-gradient);
   font-family: var(--font-family-base);
-}
-
-/* ads-page-header — ui-surface antaa bg/border/radius/shadow */
-.ads-page-header {
-  width: 100%;
-  max-width: 600px;
-  padding: 14px 20px;
-  text-align: center;
 }
 
 .ads-display-wrap {
