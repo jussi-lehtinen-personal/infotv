@@ -635,8 +635,8 @@ function AdContent({ matches, teamsMap, onGameClick, background, timestamp }) {
           </div>
         </div>
 
-        {/* Official Kiekko-Ahma club crest (transparent asset), on dark */}
-        <img src={AHMA_CREST} alt="" style={{ height: "150px", width: "150px", objectFit: "contain", flexShrink: 0 }} />
+        {/* Official Kiekko-Ahma club crest — same KeyedLogo path (content-cropped) */}
+        <KeyedLogo src={AHMA_CREST} size={150} style={{ flexShrink: 0 }} />
       </div>
 
       {/* ── GAME ROWS ── */}
