@@ -4,7 +4,7 @@ import moment from "moment";
 import "moment/locale/fi";
 
 import InfoTvStage, { HeroBackdrop, Lockup, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
-import { splitTeamName, logoProxy } from "../../Util";
+import { splitTeamName } from "../../Util";
 import { KeyedLogo } from "../../components/ui/KeyedLogo";
 import { fetchSeasonGames, peekSeasonGames, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 
@@ -55,7 +55,8 @@ export default function InfoTvKotipeli() {
             </div>
             <div className="kp-vs">VS</div>
             <div className="kp-team">
-              <KeyedLogo className="kp-logo" src={logoProxy(match.away_logo)} />
+              {/* away_logo is already /api/getImage-proxied by seasonGamesCache */}
+              <KeyedLogo className="kp-logo" src={match.away_logo} />
               <div className="kp-name">{away.main}</div>
             </div>
           </div>
