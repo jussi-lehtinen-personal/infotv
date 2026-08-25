@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography, ButtonBase } from "@mui/material";
 import { LuCalendarDays, LuTrophy, LuChevronRight } from "react-icons/lu";
 import { IconCircle, shortDate } from "./_shared";
+import { logoProxy } from "../../Util";
 
 // Upcoming-events model for the dashboard "Seuraavat tapahtumat" + the round
 // timeline. Built from /state (currentRound + its games). The relative time is the
@@ -94,7 +95,7 @@ export function buildEvents(state, myKeys, opts) {
       own: ownKeys ? ownKeys.has(gameTeamKey(g)) : true,
       // shape the box score page (/gamezone/game/:id) expects via router state
       game: { id: g.gameId, date: g.date, level: g.level, homeTeamId: g.homeTeamId, awayTeamId: g.awayTeamId, ahmaHome: g.ahmaHome,
-        home: g.home, away: g.away, home_logo: g.homeLogo, away_logo: g.awayLogo, home_goals: g.homeGoals, away_goals: g.awayGoals },
+        home: g.home, away: g.away, home_logo: logoProxy(g.homeLogo), away_logo: logoProxy(g.awayLogo), home_goals: g.homeGoals, away_goals: g.awayGoals },
     }))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (!includePast) games = games.filter((e) => !e.played);
