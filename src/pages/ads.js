@@ -763,8 +763,8 @@ function AdGameRow({ match, teamsMap, onClick }) {
         {/* Home name — right-aligned, hugging the crest */}
         <TeamName main="AHMA" sub={ahmaSub} align="right" />
 
-        {/* Home crest — transparent official Ahma head; anchored toward the vs */}
-        <KeyedLogo src={AHMA_CREST} size={82} objectPosition="right center" />
+        {/* Home crest — transparent official Ahma head (content-cropped, centred) */}
+        <KeyedLogo src={AHMA_CREST} size={82} />
 
         {/* vs */}
         <div
@@ -780,8 +780,8 @@ function AdGameRow({ match, teamsMap, onClick }) {
           vs
         </div>
 
-        {/* Opponent crest — white background keyed out; anchored toward the vs */}
-        <KeyedLogo src={match.away_logo} size={82} objectPosition="left center" />
+        {/* Opponent crest — white background keyed out (content-cropped, centred) */}
+        <KeyedLogo src={match.away_logo} size={82} />
 
         {/* Opponent name — left-aligned, hugging the crest (truncates if long) */}
         <TeamName main={awayMain} sub={awaySub} align="left" />
