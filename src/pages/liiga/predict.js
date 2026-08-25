@@ -3,6 +3,7 @@ import { Box, Typography, Stack, Button, Select, MenuItem, Alert } from "@mui/ma
 import { LuGoal, LuTrophy, LuTarget, LuStar, LuLock, LuCheck, LuPencil, LuCrosshair } from "react-icons/lu";
 import { Screen, PageHead, EmptyState, Loading, CardAvatar, shortDate, IconCircle } from "./_shared";
 import { getAhmaliigaPrediction, saveAhmaliigaPrediction } from "../../lib/ahmaliigaApi";
+import { logoProxy } from "../../Util";
 
 // Veikkaa ottelu — bonus tiers, a match dropdown + match card, and two score
 // dropdowns. Bonus settles from the historical result.
@@ -105,11 +106,11 @@ const scoreSelectSx = {
   py: 1.75, pl: "30px", pr: "30px !important", minHeight: "unset",
 };
 
-// White circular logo tile; crest/badge fallback.
+// Transparent crest (white bg keyed out server-side via logoProxy tp=1); badge fallback.
 const TeamLogo = ({ name, logo, ahma, size }) =>
   logo ? (
-    <Box component="img" src={logo} alt="" sx={{ width: size, height: size, flexShrink: 0, objectFit: "contain",
-          background: "#fff", borderRadius: "50%", p: `${Math.round(size * 0.12)}px`, boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
+    <Box component="img" src={logoProxy(logo)} alt="" sx={{ width: size, height: size, flexShrink: 0, objectFit: "contain",
+          filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.4))" }} />
   ) : ahma ? (
     <CardAvatar card={{ kind: "team", name }} size={size} />
   ) : (

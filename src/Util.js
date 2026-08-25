@@ -39,12 +39,13 @@ function simplifyLevel(level) {
 // many teamIds, so a teamId key fragmented the browser/SW/function caches and
 // made identical logos on later weeks refetch (and sometimes drop). Keying by the
 // image makes a logo load once and reuse everywhere.
-const logoProxy = (url) => {
+// tp=1 → the proxy keys the white background out + crops (server-side, cached),
+// so crests render transparent everywhere with no client processing / flash.
+// Exported for callers whose logos aren't pre-proxied (e.g. Ahmaliiga raw URLs).
+export const logoProxy = (url) => {
   if (!url) return url;
   const file = String(url).split("/").pop().split("?")[0];
   if (!file) return url; // no image filename -> leave as-is
-  // tp=1 → the proxy keys the white background out + crops (server-side, cached),
-  // so crests render transparent everywhere with no client processing / flash.
   return "/api/getImage/" + file + "?uri=" + url + "&tp=1";
 };
 

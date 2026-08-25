@@ -6,7 +6,7 @@ import { SiWhatsapp } from "react-icons/si";
 import PushPrompt from "./PushPrompt";
 import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
-import { splitTeamName } from "../../Util";
+import { splitTeamName, logoProxy } from "../../Util";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers, clearAhmaliigaCache, peekCached } from "../../lib/ahmaliigaApi";
 
 // Ahmaliiga Dashboard — two round cards (the running round: countdown + progress;
@@ -97,7 +97,7 @@ const TeamCol = ({ logo, name }) => {
   const { main, sub } = splitTeamName(name || "");
   return (
     <Box sx={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.6 }}>
-      <Box component="img" src={logo} alt="" sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: "#fff", objectFit: "contain", p: "4px", flexShrink: 0 }} />
+      <Box component="img" src={logoProxy(logo)} alt="" sx={{ width: 40, height: 40, objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.4))" }} />
       <Box sx={{ minWidth: 0, width: "100%", textAlign: "center" }}>
         <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 800, color: "text.primary" }}>{main}</Typography>
         {sub && <Typography noWrap sx={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "text.disabled" }}>{sub}</Typography>}

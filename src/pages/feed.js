@@ -175,7 +175,7 @@ const EventRow = ({ e, expanded, onToggle }) => {
       <Box component="button" type="button" onClick={onToggle} aria-expanded={expanded}
         sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", p: "11px 14px", bgcolor: "transparent", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
         {isGame && oppLogo ? (
-          <Box component="img" src={oppLogo} alt="" sx={{ width: 38, height: 38, flexShrink: 0, boxSizing: "border-box", borderRadius: 1, bgcolor: "#fff", objectFit: "contain", p: "3px", boxShadow: "0 4px 10px rgba(0,0,0,0.35)" }} />
+          <Box component="img" src={oppLogo} alt="" sx={{ width: 38, height: 38, flexShrink: 0, objectFit: "contain", filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }} />
         ) : (
           <Box sx={{ width: 38, height: 38, flexShrink: 0, borderRadius: 1.25, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: isGame ? "rgba(var(--color-primary-rgb),0.15)" : "var(--color-surface-divider)", color: isGame ? "primary.main" : "text.secondary" }}>
             {isGame ? <LuTrophy size={20} /> : isReservation ? <LuDoorClosed size={20} /> : <LuCalendarDays size={20} />}
