@@ -19,16 +19,26 @@ const TTL = 24 * 60 * 60_000; // 24 h
 const PROXY_URL = process.env.TP_PROXY_URL || "https://gamezone.zapmies.workers.dev";
 const PROXY_KEY = process.env.TP_PROXY_KEY; // optional shared secret
 
-// Flood-fill the near-white background to transparent from the borders inward
-// (interior white — team text, teeth — is preserved because the fill stops at the
-// logo's opaque edge), then crop to the content bounding box so the logo fills its
-// frame. Returns a transparent PNG buffer, or null to fall back to the original.
-async function keyWhiteTransparent(buffer, threshold = 232) {
+// Remove a solid (near-)white background and return a transparent, content-cropped
+// PNG. Works for flat logos AND people photos (studio white bg). Pipeline:
+//   1) flood-fill the near-white background inward from the borders (interior white —
+//      team text, teeth — is preserved because the fill stops at the opaque edge),
+//   2) soft fringe: light edge pixels touching the cleared bg fade by how white they are,
+//   3) erode 1px: drop the outermost ring so no light halo survives (esp. around hair),
+//   4) feather: 1px alpha blur for a smooth, anti-aliased edge,
+//   5) crop to the content bounding box.
+// Returns a PNG buffer, or null to fall back to the original.
+async function keyWhiteTransparent(buffer, { hard = 236, soft = 208 } = {}) {
   if (!Jimp) return null;
   try {
     const img = await Jimp.read(buffer);
     const { data, width: w, height: h } = img.bitmap;
-    const near = (p) => data[p * 4] >= threshold && data[p * 4 + 1] >= threshold && data[p * 4 + 2] >= threshold;
+    const A = (p) => p * 4 + 3;
+    const minc = (p) => Math.min(data[p * 4], data[p * 4 + 1], data[p * 4 + 2]);
+    const alphaSnapshot = () => { const a = new Uint8Array(w * h); for (let p = 0; p < w * h; p++) a[p] = data[A(p)]; return a; };
+    const clear = (a, x, y) => x >= 0 && y >= 0 && x < w && y < h && a[y * w + x] === 0;
+
+    // 1) flood-fill definite background (min channel >= hard) from the borders
     const seen = new Uint8Array(w * h);
     const st = [];
     const push = (x, y) => {
@@ -36,7 +46,7 @@ async function keyWhiteTransparent(buffer, threshold = 232) {
       const p = y * w + x;
       if (seen[p]) return;
       seen[p] = 1;
-      if (near(p)) { data[p * 4 + 3] = 0; st.push(p); }
+      if (minc(p) >= hard) { data[A(p)] = 0; st.push(p); }
     };
     for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
     for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
@@ -45,18 +55,41 @@ async function keyWhiteTransparent(buffer, threshold = 232) {
       const x = p % w, y = (p / w) | 0;
       push(x - 1, y); push(x + 1, y); push(x, y - 1); push(x, y + 1);
     }
-    let minX = w, minY = h, maxX = -1, maxY = -1;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (data[(y * w + x) * 4 + 3] > 16) {
-          if (x < minX) minX = x; if (x > maxX) maxX = x;
-          if (y < minY) minY = y; if (y > maxY) maxY = y;
+
+    // 2) soft fringe on light edge pixels adjacent to the cleared background
+    {
+      const a = alphaSnapshot();
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const p = y * w + x; if (a[p] === 0) continue;
+        if (clear(a, x - 1, y) || clear(a, x + 1, y) || clear(a, x, y - 1) || clear(a, x, y + 1)) {
+          const m = minc(p); if (m > soft) data[A(p)] = Math.round(255 * (255 - m) / (255 - soft));
         }
       }
     }
-    if (maxX >= minX && (maxX - minX + 1 < w || maxY - minY + 1 < h)) {
-      img.crop(minX, minY, maxX - minX + 1, maxY - minY + 1);
+
+    // 3) erode 1px — kill the remaining ~1px light halo ring
+    {
+      const a = alphaSnapshot();
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const p = y * w + x; if (a[p] === 0) continue;
+        if (clear(a, x - 1, y) || clear(a, x + 1, y) || clear(a, x, y - 1) || clear(a, x, y + 1)) data[A(p)] = 0;
+      }
     }
+
+    // 4) feather — 1px separable box blur of the alpha channel
+    {
+      const a = alphaSnapshot();
+      const t = new Float32Array(w * h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let s = 0, n = 0; for (let d = -1; d <= 1; d++) { const xx = x + d; if (xx < 0 || xx >= w) continue; s += a[y * w + xx]; n++; } t[y * w + x] = s / n; }
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let s = 0, n = 0; for (let d = -1; d <= 1; d++) { const yy = y + d; if (yy < 0 || yy >= h) continue; s += t[yy * w + x]; n++; } data[A(y * w + x)] = Math.round(s / n); }
+    }
+
+    // 5) crop to the content bounding box
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (data[A(y * w + x)] > 16) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    }
+    if (maxX >= minX && (maxX - minX + 1 < w || maxY - minY + 1 < h)) img.crop(minX, minY, maxX - minX + 1, maxY - minY + 1);
     return await img.getBufferAsync(Jimp.MIME_PNG);
   } catch {
     return null; // decode/encode failed → caller serves the original
