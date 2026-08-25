@@ -4,7 +4,8 @@ import moment from "moment";
 import "moment/locale/fi";
 
 import InfoTvStage, { HeroBackdrop, Lockup, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
-import { splitTeamName } from "../../Util";
+import { splitTeamName, logoProxy } from "../../Util";
+import { KeyedLogo } from "../../components/ui/KeyedLogo";
 import { fetchSeasonGames, peekSeasonGames, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 
 moment.locale("fi");
@@ -49,12 +50,12 @@ export default function InfoTvKotipeli() {
 
           <div className="kp-teams">
             <div className="kp-team">
-              <div className="kp-logo"><img src={match.home_logo} alt="" /></div>
+              <KeyedLogo className="kp-logo" src="/infotv/ahma_head.png" />
               <div className="kp-name">Kiekko-Ahma</div>
             </div>
             <div className="kp-vs">VS</div>
             <div className="kp-team">
-              <div className="kp-logo"><img src={match.away_logo} alt="" /></div>
+              <KeyedLogo className="kp-logo" src={logoProxy(match.away_logo)} />
               <div className="kp-name">{away.main}</div>
             </div>
           </div>
@@ -86,8 +87,7 @@ const css = `
 
 .kp-teams { display:flex; align-items:flex-start; justify-content:center; gap:172px; margin:6px 0; }
 .kp-team { display:flex; flex-direction:column; align-items:center; gap:22px; }
-.kp-logo { width:232px; height:232px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; padding:34px; box-sizing:border-box; box-shadow:0 12px 44px rgba(0,0,0,0.6); }
-.kp-logo img { max-width:100%; max-height:100%; object-fit:contain; }
+.kp-logo { width:236px; height:236px; object-fit:contain; filter:drop-shadow(0 10px 30px rgba(0,0,0,0.55)); }
 .kp-name { font-family:${FONT_DISPLAY}; font-size:60px; line-height:1; letter-spacing:0.045em; color:#fff; }
 .kp-vs { font-family:${FONT_DISPLAY}; font-size:112px; line-height:1; letter-spacing:0.05em; color:${ORANGE}; margin-top:58px; }
 
