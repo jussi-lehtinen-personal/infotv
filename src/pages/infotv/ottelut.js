@@ -7,6 +7,7 @@ import "moment/locale/fi";
 
 import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
 import { getMonday, splitTeamName } from "../../Util";
+import { KeyedLogo } from "../../components/ui/KeyedLogo";
 import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
 import { isLiveMatch } from "../../hooks/useHeroMatches";
 import { JOPOX_TEAMS } from "../../data/jopoxTeams";
@@ -305,12 +306,12 @@ function MatchCell({ m }) {
       <div className="ok-when-div" />
       <div className="ok-teams">
         <div className="ok-team">
-          <div className="ok-logowrap"><img className="ok-logo" src={m.home_logo} alt="" /></div>
+          <KeyedLogo className="ok-logo" src={m.home_logo} />
           <span className={"ok-name" + (homeLose ? " ok-name--lose" : "")}>{home.main}{home.sub && <span className="ok-sub"> {home.sub}</span>}</span>
           <span className={scoreCls(homeWin, homeLose)} style={live ? { color: LIVE } : undefined}>{show ? m.home_goals : ""}</span>
         </div>
         <div className="ok-team">
-          <div className="ok-logowrap"><img className="ok-logo" src={m.away_logo} alt="" /></div>
+          <KeyedLogo className="ok-logo" src={m.away_logo} />
           <span className={"ok-name" + (awayLose ? " ok-name--lose" : "")}>{away.main}{away.sub && <span className="ok-sub"> {away.sub}</span>}</span>
           <span className={scoreCls(awayWin, awayLose)} style={live ? { color: LIVE } : undefined}>{show ? m.away_goals : ""}</span>
         </div>
@@ -521,8 +522,7 @@ const css = `
 
 .ok-teams { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:9px; }
 .ok-team { display:grid; grid-template-columns:38px 1fr auto; align-items:center; gap:13px; }
-.ok-logowrap { width:38px; height:38px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; padding:4px; box-sizing:border-box; }
-.ok-logo { max-width:100%; max-height:100%; object-fit:contain; }
+.ok-logo { width:38px; height:38px; object-fit:contain; flex-shrink:0; }
 .ok-name { min-width:0; font-family:${FONT_BODY}; font-weight:800; font-size:26px; line-height:1.05; letter-spacing:0.01em; text-transform:uppercase; color:var(--gz-text-primary, #fff); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ok-sub { font-weight:700; opacity:0.82; }
 .ok-score { font-family:${FONT_DISPLAY}; font-size:38px; line-height:1; letter-spacing:0.02em; color:#fff; min-width:32px; text-align:right; }
