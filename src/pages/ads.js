@@ -457,10 +457,11 @@ const chipStyle = (fontSize, letterSpacing, radius) => ({
   padding: "9px 17px 6px", lineHeight: 1, borderRadius: radius, whiteSpace: "nowrap",
 });
 
-// A team's name + orange sub-label, used for both sides (align "right"|"left").
+// A team's name + orange sub-label — a grid cell (align "right"|"left"). Fixed
+// column widths (see AdGameRow grid) keep every row's crests/vs/names aligned.
 function TeamName({ main, sub, align }) {
   return (
-    <div style={{ flex: 1, minWidth: 0, textAlign: align, [align === "right" ? "paddingRight" : "paddingLeft"]: "18px" }}>
+    <div style={{ minWidth: 0, textAlign: align }}>
       <div style={{ fontSize: "46px", color: WHITE, letterSpacing: "0.5px", lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {main}
       </div>
@@ -672,13 +673,24 @@ function AdGameRow({ match, teamsMap, onClick }) {
         </div>
       </div>
 
-      {/* Body — AHMA + crest · vs · crest + opponent name (fills) + chip */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", padding: "0 26px" }}>
-        {/* Home name — right-aligned, hugging the crest (symmetric with away) */}
+      {/* Body — FIXED-column grid so crests/vs/names line up across every row:
+          home name | home crest | vs | away crest | away name (fills) | chip */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "grid",
+          gridTemplateColumns: "200px 88px 52px 88px 1fr auto",
+          columnGap: "16px",
+          alignItems: "center",
+          padding: "0 26px",
+        }}
+      >
+        {/* Home name — right-aligned, hugging the crest */}
         <TeamName main="AHMA" sub={ahmaSub} align="right" />
 
         {/* Home crest — transparent official Ahma head, on the dark card */}
-        <img src={AHMA_CREST} alt="" style={{ width: "88px", height: "88px", objectFit: "contain", flexShrink: 0 }} />
+        <img src={AHMA_CREST} alt="" style={{ width: "88px", height: "88px", objectFit: "contain" }} />
 
         {/* vs */}
         <div
@@ -688,28 +700,21 @@ function AdGameRow({ match, teamsMap, onClick }) {
             fontWeight: 600,
             fontSize: "30px",
             color: "rgba(255,255,255,0.42)",
-            padding: "0 14px",
-            flexShrink: 0,
+            textAlign: "center",
           }}
         >
           vs
         </div>
 
         {/* Opponent crest (white tile hides white-bg logos) */}
-        <TeamLogo src={match.away_logo} size={88} style={{ flexShrink: 0 }} />
+        <TeamLogo src={match.away_logo} size={88} style={{ boxSizing: "border-box" }} />
 
-        {/* Opponent name — left-aligned, hugging the crest */}
+        {/* Opponent name — left-aligned, hugging the crest (truncates if long) */}
         <TeamName main={awayMain} sub={awaySub} align="left" />
 
         {/* Level chip — far right */}
         {level && (
-          <div
-            style={{
-              ...chipStyle("29px", "1px", "6px"),
-              flexShrink: 0,
-              marginLeft: "16px",
-            }}
-          >
+          <div style={chipStyle("29px", "1px", "6px")}>
             {level}
           </div>
         )}
