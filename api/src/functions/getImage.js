@@ -83,10 +83,17 @@ app.http("getImage", {
       return { body: cached.buffer, headers: cached.headers };
     }
 
-    const workerUrl = `${PROXY_URL}/getImage?uri=${encodeURIComponent(uri)}`;
-    const response = await fetch(workerUrl, {
-      headers: PROXY_KEY ? { "x-proxy-key": PROXY_KEY } : {},
-    });
+    // Whitelist the image hosts we serve (avoid an open SSRF proxy).
+    const host = (() => { try { return new URL(uri).hostname.toLowerCase(); } catch { return ""; } })();
+    const isTulospalvelu = /(^|\.)tulospalvelu\.leijonat\.fi$/.test(host);
+    const isJopox = /(^|\.)jopox\.fi$/.test(host);
+    if (!isTulospalvelu && !isJopox) return { status: 400, body: "Host not allowed" };
+
+    // tulospalvelu's WAF blocks our Azure egress → fetch via the Cloudflare Worker.
+    // jopox (player photos) is directly reachable, so fetch it straight.
+    const response = isTulospalvelu
+      ? await fetch(`${PROXY_URL}/getImage?uri=${encodeURIComponent(uri)}`, { headers: PROXY_KEY ? { "x-proxy-key": PROXY_KEY } : {} })
+      : await fetch(uri);
     const contentType = response.headers.get("content-type") || "";
 
     // Don't cache/serve an error (e.g. a JSON error or HTML block page) as an image.
