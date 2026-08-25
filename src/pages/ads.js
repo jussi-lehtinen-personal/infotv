@@ -486,15 +486,34 @@ function keyWhiteBg(img, threshold = 232) {
       push(x - 1, y); push(x + 1, y); push(x, y - 1); push(x, y + 1);
     }
     ctx.putImageData(d, 0, 0);
-    return c.toDataURL("image/png");
+    // Crop to the content bounding box (alpha > 16) so each logo fills its box —
+    // removes the varying built-in transparent/white padding baked into the image.
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (px[(y * w + x) * 4 + 3] > 16) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < minX) return c.toDataURL("image/png"); // fully transparent
+    const cw = maxX - minX + 1, ch = maxY - minY + 1;
+    if (cw === w && ch === h) return c.toDataURL("image/png"); // nothing to crop
+    const cc = document.createElement("canvas");
+    cc.width = cw; cc.height = ch;
+    cc.getContext("2d").drawImage(c, minX, minY, cw, ch, 0, 0, cw, ch);
+    return cc.toDataURL("image/png");
   } catch {
     return null; // tainted canvas (raw cross-origin URL in dev) → keep original
   }
 }
 
-// Opponent crest with its white background keyed out (prod: same-origin via the
-// /api/getImage proxy → keying works; dev raw cross-origin → falls back to src).
-function KeyedLogo({ src, size, style }) {
+// A crest: white background keyed out + content-cropped so it fills its box, then
+// anchored toward the "vs" (objectPosition) so the vs-side edge lands at the same
+// spot on every row. Prod logos are same-origin via /api/getImage → keying works;
+// a raw cross-origin URL (dev) taints the canvas → we keep the original src.
+function KeyedLogo({ src, size, objectPosition = "center", style }) {
   const [out, setOut] = useState(src);
   useEffect(() => {
     setOut(src);
@@ -506,7 +525,7 @@ function KeyedLogo({ src, size, style }) {
     img.src = src;
     return () => { cancelled = true; };
   }, [src]);
-  return <img src={out} alt="" style={{ width: size, height: size, objectFit: "contain", ...style }} />;
+  return <img src={out} alt="" style={{ width: size, height: size, objectFit: "contain", objectPosition, ...style }} />;
 }
 
 // A team's name + orange sub-label — a grid cell (align "right"|"left"). Fixed
@@ -744,8 +763,8 @@ function AdGameRow({ match, teamsMap, onClick }) {
         {/* Home name — right-aligned, hugging the crest */}
         <TeamName main="AHMA" sub={ahmaSub} align="right" />
 
-        {/* Home crest — transparent official Ahma head, on the dark card */}
-        <img src={AHMA_CREST} alt="" style={{ width: "82px", height: "82px", objectFit: "contain" }} />
+        {/* Home crest — transparent official Ahma head; anchored toward the vs */}
+        <KeyedLogo src={AHMA_CREST} size={82} objectPosition="right center" />
 
         {/* vs */}
         <div
@@ -761,8 +780,8 @@ function AdGameRow({ match, teamsMap, onClick }) {
           vs
         </div>
 
-        {/* Opponent crest — white background keyed out, sits on the dark card */}
-        <KeyedLogo src={match.away_logo} size={82} />
+        {/* Opponent crest — white background keyed out; anchored toward the vs */}
+        <KeyedLogo src={match.away_logo} size={82} objectPosition="left center" />
 
         {/* Opponent name — left-aligned, hugging the crest (truncates if long) */}
         <TeamName main={awayMain} sub={awaySub} align="left" />
