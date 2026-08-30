@@ -55,10 +55,17 @@ const fmtHours = (minutes) => {
 };
 
 const fmtDuration = (minutes) => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
+  // Round to whole minutes for DISPLAY only — shared-ice shares can be fractional
+  // (e.g. 55/2 = 27.5); the stored value stays exact so the totals don't drift.
+  const t = Math.round(minutes);
+  const h = Math.floor(t / 60);
+  const m = t % 60;
   return `${h}:${pad(m)}`;
 };
+
+// Finnish-formatted number (decimal comma, ≤1 decimal) for CSV minute columns —
+// a shared-ice net share can be fractional (27,5) so String() would emit a dot.
+const numFi = (n) => Number(n || 0).toLocaleString("fi-FI", { maximumFractionDigits: 1 });
 
 // Normalize for matching: lowercase + drop ALL punctuation and spaces, so
 // "Kiekko-Ahma", "Kiekko Ahma" and "KiekkoAhma" all become "kiekkoahma".
@@ -164,7 +171,7 @@ function expandRow(r) {
       id: `${r.id}#u${p.age}`,
       text: p.label,
       rawMinutes: raw, // full slot (KESTO column + Kesto total)
-      netMinutes: Math.round(netFull / n),
+      netMinutes: netFull / n, // exact share (may be fractional, e.g. 55/2 = 27.5) so totals don't drift
       cut,
       isShared: true,
     }));
@@ -192,14 +199,19 @@ const userKey = (r) => r.text || UNNAMED;
 // Netto total — no double counting), then hours are summed per bucket. Canonical
 // order mirrors the club's list; unknown buckets fall to the end alphabetically.
 const BUCKET_ORDER = ["LKK", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "U20", "ED NAISET", "ED MIEHET", "SEURA"];
+// Club-organised ice (camps / skills ice / goalie ice) bills to the CLUB cost centre,
+// not a team — even though the title still starts "Kiekko-Ahma". Detected by keyword and
+// routed to SEURA BEFORE any team/age bucket. Extend this list as new session types appear.
+const SEURA_RE = /leiri|taito|maalivahti|\bmv\b/i;
 function teamBucket(text) {
   const t = String(text || "");
+  if (SEURA_RE.test(t)) return "SEURA"; // leirit / taitojäät / MV-jäät → seuran kustannuskohde
   if (/\bLKK\b/i.test(t)) return "LKK";
   if (/nais/i.test(t)) return "ED NAISET";
   if (/edustus|miehet|\bED\b/i.test(t)) return "ED MIEHET";
   const ages = ahmaAges(t);
   if (ages.size >= 1) return "U" + Math.min(...ages);
-  if (isAhma(t)) return "SEURA"; // Kiekko-Ahma club ice with no age → shared/seura
+  if (isAhma(t)) return "SEURA"; // Kiekko-Ahma club ice with no age → seura
   return t.trim() || UNNAMED;
 }
 
@@ -446,9 +458,9 @@ const Report = () => {
         dayPart(r.start),
         timePart(r.start),
         timePart(r.end),
-        String(r.rawMinutes || 0),
+        numFi(r.rawMinutes || 0),
         fmtHours(r.rawMinutes || 0),
-        String(r.netMinutes || 0),
+        numFi(r.netMinutes || 0),
         fmtHours(r.netMinutes || 0),
         r.isGame ? "Peli" : "Harjoitus",
         r.isShared ? "kyllä" : "",
