@@ -163,13 +163,14 @@ function expandRow(r) {
       ...r,
       id: `${r.id}#u${p.age}`,
       text: p.label,
-      rawMinutes: raw,
+      rawMinutes: raw, // full slot, shown per-row in the KESTO column
+      rawShare: Math.round(raw / n), // this team's share of the booked ice (summary totals)
       netMinutes: Math.round(netFull / n),
       cut,
       isShared: true,
     }));
   }
-  return [{ ...r, rawMinutes: raw, netMinutes: netFull, cut, isShared: false }];
+  return [{ ...r, rawMinutes: raw, rawShare: raw, netMinutes: netFull, cut, isShared: false }];
 }
 
 const QUICK_FILTERS = [
@@ -408,13 +409,15 @@ const Report = () => {
   );
 
   const summary = useMemo(() => {
-    let minutes = 0;
+    let booked = 0; // gross booked ice attributable to the selection (shared shares recombine)
+    let net = 0; // billable ice — resurfacing + shared split applied
     let games = 0;
     for (const r of filtered) {
-      minutes += r.netMinutes || 0; // net (billable) ice — resurfacing/shared applied
+      booked += r.rawShare || 0;
+      net += r.netMinutes || 0;
       if (r.isGame) games += 1;
     }
-    return { count: filtered.length, minutes, games, practices: filtered.length - games };
+    return { count: filtered.length, booked, net, games, practices: filtered.length - games };
   }, [filtered]);
 
   const exportCsv = () => {
@@ -634,9 +637,13 @@ const Report = () => {
                     <span className="rp-stat-num">{summary.count}</span>
                     <span className="rp-stat-lbl">vuoroa</span>
                   </div>
-                  <div className="rp-stat">
-                    <span className="rp-stat-num">{fmtHours(summary.minutes)}</span>
-                    <span className="rp-stat-lbl">tuntia</span>
+                  <div className="rp-stat rp-stat--kesto">
+                    <span className="rp-stat-num rp-kesto">{fmtHours(summary.booked)}</span>
+                    <span className="rp-stat-lbl">kesto (h)</span>
+                  </div>
+                  <div className="rp-stat rp-stat--netto">
+                    <span className="rp-stat-num rp-netto">{fmtHours(summary.net)}</span>
+                    <span className="rp-stat-lbl">netto (h)</span>
                   </div>
                   <div className="rp-stat">
                     <span className="rp-stat-num rp-game">{summary.games}</span>
@@ -1073,6 +1080,13 @@ function css() {
     }
     .rp-stat-num{ font-size:22px; font-weight:800; color: var(--color-secondary); line-height:1.1; }
     .rp-stat-num.rp-game{ color: var(--color-info); }
+    /* Kesto (gross) vs Netto (billable) — colour-coded so the two hour figures
+       can't be confused. Netto matches the table's orange net column. */
+    .rp-stat--kesto{ border-color: rgba(255,255,255,0.22); }
+    .rp-stat-num.rp-kesto{ color: var(--color-secondary); }
+    .rp-stat--netto{ border-color: rgba(var(--color-primary-rgb),0.55); background: rgba(var(--color-primary-rgb),0.10); }
+    .rp-stat-num.rp-netto{ color: var(--color-primary); }
+    .rp-stat--netto .rp-stat-lbl{ color: var(--color-primary); }
     .rp-stat-lbl{ font-size:11px; font-weight:700; letter-spacing:0.3px; color: var(--color-accent); text-transform:uppercase; }
 
     /* Table */
