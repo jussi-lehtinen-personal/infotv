@@ -21,7 +21,7 @@ const nameKey = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\s]/gu, "")
 const titleName = (s) => String(s || "").toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase()).trim();
 const ageOf = (level) => { const m = String(level || "").match(/U\s*(\d{1,2})/i); if (m) return "U" + m[1]; if (/nais/i.test(level || "")) return "Edustus naiset"; return "Edustus"; };
 const subsiteForAge = (age) => { const t = JOPOX_TEAMS.find((x) => x.name === age); return t ? t.subsiteId : null; };
-const teamShort = (age) => (age === "Edustus naiset" ? "Naiset" : age || "");
+const teamShort = (age) => (age === "Edustus naiset" ? "Naiset" : age === "Leijona-Kiekkokoulu" ? "LKK" : age || "");
 const initialsOf = (name) => String(name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
 const COLS = 3;
@@ -172,26 +172,29 @@ export default function InfoTvOttelut() {
       // registered under (call-ups play up/down an age group), so we don't restrict
       // the search to the game's age: scan involved ages first, then any REMAINING
       // team until every top scorer is matched (rosters are server-cached → cheap).
-      const photo = {}, num = {}, fn = {}, ln = {};
-      const scanRoster = async (sid) => {
+      const photo = {}, num = {}, fn = {}, ln = {}, team = {};
+      const scanRoster = async (jt) => {
         try {
-          const r = await fetch(`/api/getTeamRoster?subsiteId=${sid}`).then((x) => (x.ok ? x.json() : null));
+          const r = await fetch(`/api/getTeamRoster?subsiteId=${jt.subsiteId}`).then((x) => (x.ok ? x.json() : null));
           for (const p of (r && r.players) || []) {
             const k = nameKey(`${p.firstName} ${p.lastName}`);
             if (p.photo && !photo[k]) photo[k] = p.photo;
             if (!fn[k]) fn[k] = p.firstName;
             if (!ln[k]) ln[k] = p.lastName;
             if (p.number && !num[k]) num[k] = p.number;
+            if (!team[k]) team[k] = jt.name; // the player's real Jopox team (first match wins)
           }
         } catch { /* ignore */ }
       };
-      const involved = [...new Set(top.map((t) => subsiteForAge(t.age)).filter(Boolean))];
-      await Promise.all(involved.map(scanRoster));
-      if (top.some((t) => !photo[t.key])) { // call-up not in the game's age roster → widen the search
-        const rest = JOPOX_TEAMS.map((x) => x.subsiteId).filter((sid) => !involved.includes(sid));
-        await Promise.all(rest.map(scanRoster));
+      const involvedIds = new Set(top.map((t) => subsiteForAge(t.age)).filter(Boolean));
+      await Promise.all(JOPOX_TEAMS.filter((jt) => involvedIds.has(jt.subsiteId)).map(scanRoster));
+      if (top.some((t) => !photo[t.key] || !team[t.key])) { // call-up not in the game's age roster → widen the search
+        await Promise.all(JOPOX_TEAMS.filter((jt) => !involvedIds.has(jt.subsiteId)).map(scanRoster));
       }
-      for (const t of top) { t.photo = photo[t.key] || null; t.number = num[t.key] || null; if (fn[t.key] || ln[t.key]) { t.first = fn[t.key] || t.first; t.last = ln[t.key] || t.last; } }
+      // Show the player's actual Jopox team (t.team), not the game's level — a U20
+      // scoring in a U18 game should read "U20". Falls back to the game age if the
+      // player isn't found in any roster.
+      for (const t of top) { t.photo = photo[t.key] || null; t.number = num[t.key] || null; t.team = team[t.key] || t.age; if (fn[t.key] || ln[t.key]) { t.first = fn[t.key] || t.first; t.last = ln[t.key] || t.last; } }
       if (!cancelled) setTopScorers(top);
     })();
     return () => { cancelled = true; };
@@ -480,7 +483,7 @@ function Scorers({ list, range }) {
               <div className="ok-scorer-photo">{p.photo ? <img src={p.photo} alt="" /> : <span>{initialsOf(`${p.first || ""} ${p.last || ""}`)}</span>}</div>
               <div className="ok-scorer-foot">
                 <div className="ok-scorer-name"><span>{p.first}</span><span>{p.last}</span></div>
-                {p.age ? <div className="ok-scorer-team">{teamShort(p.age)}</div> : null}
+                {(p.team || p.age) ? <div className="ok-scorer-team">{teamShort(p.team || p.age)}</div> : null}
                 <div className="ok-scorer-div" />
                 <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
               </div>
