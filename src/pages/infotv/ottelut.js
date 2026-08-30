@@ -124,6 +124,14 @@ export default function InfoTvOttelut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseDate, version]);
 
+  // Human-readable label for the 7-day scorer window (e.g. "24.8. – 30.8.") so the
+  // podium makes clear it's last week's tally, not the season's.
+  const scorerRange = useMemo(() => {
+    const end = moment(baseDate);
+    const start = moment(baseDate).subtract(6, "days");
+    return start.format("D.M.") + " – " + end.format("D.M.");
+  }, [baseDate]);
+
   // Aggregate goals+assists per Ahma player across the window's played games
   // (box scores, KV-cached) → top 3, with Jopox roster photos matched by name.
   const [topScorers, setTopScorers] = useState([]);
@@ -159,16 +167,30 @@ export default function InfoTvOttelut() {
       const top = Object.values(tally).filter((t) => t.pts > 0)
         .sort((a, b) => b.pts - a.pts || b.goals - a.goals || (a.last || "").localeCompare(b.last || "", "fi")).slice(0, 3);
       if (top.length < 3) { if (!cancelled) setTopScorers([]); return; }
-      // Photos: fetch each involved age's Jopox roster (cached), match by name.
-      const ages = [...new Set(top.map((t) => t.age).filter(Boolean))];
+      // Photos: match each top scorer to a Jopox roster photo BY NAME. A player can
+      // score in a game whose level maps to a different age than the team they're
+      // registered under (call-ups play up/down an age group), so we don't restrict
+      // the search to the game's age: scan involved ages first, then any REMAINING
+      // team until every top scorer is matched (rosters are server-cached → cheap).
       const photo = {}, num = {}, fn = {}, ln = {};
-      await Promise.all(ages.map(async (age) => {
-        const sid = subsiteForAge(age); if (!sid) return;
+      const scanRoster = async (sid) => {
         try {
           const r = await fetch(`/api/getTeamRoster?subsiteId=${sid}`).then((x) => (x.ok ? x.json() : null));
-          for (const p of (r && r.players) || []) { const k = nameKey(`${p.firstName} ${p.lastName}`); if (p.photo) photo[k] = p.photo; fn[k] = p.firstName; ln[k] = p.lastName; if (p.number) num[k] = p.number; }
+          for (const p of (r && r.players) || []) {
+            const k = nameKey(`${p.firstName} ${p.lastName}`);
+            if (p.photo && !photo[k]) photo[k] = p.photo;
+            if (!fn[k]) fn[k] = p.firstName;
+            if (!ln[k]) ln[k] = p.lastName;
+            if (p.number && !num[k]) num[k] = p.number;
+          }
         } catch { /* ignore */ }
-      }));
+      };
+      const involved = [...new Set(top.map((t) => subsiteForAge(t.age)).filter(Boolean))];
+      await Promise.all(involved.map(scanRoster));
+      if (top.some((t) => !photo[t.key])) { // call-up not in the game's age roster → widen the search
+        const rest = JOPOX_TEAMS.map((x) => x.subsiteId).filter((sid) => !involved.includes(sid));
+        await Promise.all(rest.map(scanRoster));
+      }
       for (const t of top) { t.photo = photo[t.key] || null; t.number = num[t.key] || null; if (fn[t.key] || ln[t.key]) { t.first = fn[t.key] || t.first; t.last = ln[t.key] || t.last; } }
       if (!cancelled) setTopScorers(top);
     })();
@@ -225,7 +247,7 @@ export default function InfoTvOttelut() {
       if (s.n > 0) add("count", 1, 2);
       if (s.played > 0) { add("record", 1, 2.5); add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
-      if (topScorers.length >= 3) add("scorers", 2, 3, { list: topScorers });
+      if (topScorers.length >= 3) add("scorers", 2, 3, { list: topScorers, range: scorerRange });
       add("follow", 1, 1);
       add("hashtag", 1, 1);
       add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
@@ -253,7 +275,7 @@ export default function InfoTvOttelut() {
       if (partnerSize > 0) ex.push({ type: "detail", variant: "partner", size: partnerSize, key: "partner", ps: partnerPicks.slice(0, partnerSize) });
     }
     return cols;
-  }, [games, partners, summary, topScorers]);
+  }, [games, partners, summary, topScorers, scorerRange]);
 
   const loading = !isSeasonLoaded() && games.length === 0;
 
@@ -386,7 +408,7 @@ function DetailCell({ it, s }) {
     case "biggestWin":
       return <MiniMatch g={it.g} title="Suurin voitto" />;
     case "scorers":
-      return <Scorers list={it.list} />;
+      return <Scorers list={it.list} range={it.range} />;
     case "hashtag":
       return <div className="ok-filler ok-center"><div className="ok-big">#KIEKKOAHMA</div><div className="ok-sub2">Jaa somessa</div></div>;
     case "app":
@@ -444,12 +466,12 @@ function BigStat({ title, val, valColor, sub }) {
 }
 
 // Pistenikkarit podium — top scorer in the MIDDLE (bigger), 2nd left, 3rd right.
-function Scorers({ list }) {
+function Scorers({ list, range }) {
   const [a, b, c] = list; // 1st, 2nd, 3rd (already sorted)
   const podium = [{ p: b, rank: 2 }, { p: a, rank: 1 }, { p: c, rank: 3 }].filter((x) => x.p);
   return (
     <div className="ok-filler">
-      <div className="ok-filler-title">Pistenikkarit</div>
+      <div className="ok-filler-title">Pistenikkarit{range ? <span className="ok-filler-title-sub">{range}</span> : null}</div>
       <div className="ok-scorers">
         {podium.map(({ p, rank }) => (
           <div className={"ok-scorer ok-scorer--" + rank} key={rank}>
@@ -545,6 +567,7 @@ const css = `
 /* detail / filler modules */
 .ok-filler { display:flex; flex-direction:column; padding:13px 22px; border-radius:16px; overflow:hidden; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-filler-title { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:800; font-size:18px; letter-spacing:0.14em; text-transform:uppercase; color:${ORANGE}; }
+.ok-filler-title-sub { margin-left:8px; font-weight:700; font-size:14px; letter-spacing:0.04em; text-transform:none; color:${STEEL}; }
 .ok-center { align-items:center; justify-content:center; text-align:center; }
 .ok-big { font-family:${FONT_DISPLAY}; font-size:42px; line-height:1; letter-spacing:0.03em; color:#fff; white-space:nowrap; }
 .ok-sub2 { font-family:${FONT_BODY}; font-weight:600; font-size:20px; color:${STEEL}; margin-top:8px; }
