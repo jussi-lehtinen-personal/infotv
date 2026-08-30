@@ -187,6 +187,9 @@ const QUICK_FILTERS = [
   })),
   { label: "Naiset", match: (t) => /naiset/i.test(t) },
   { label: "Edustus", match: (t) => /edustus|miehet|\bED\b/i.test(t) },
+  // Club-organised ice (camps / skills / goalie) — exactly what the SEURA text-export
+  // bucket collects, so the chip and the export always agree. (teamBucket is hoisted.)
+  { label: "Seura", match: (t) => teamBucket(t) === "SEURA" },
 ];
 
 // Fallback identity/label for a reservation with no text. Used as the group/user
