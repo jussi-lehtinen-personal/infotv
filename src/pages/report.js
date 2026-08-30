@@ -115,6 +115,63 @@ function ahmaAges(text) {
 }
 const ageFilter = (n) => (t) => ahmaAges(String(t || "")).has(n);
 
+// --- Shared ice (yhteisjää) + ice-resurfacing (jäänajo) ----------------------
+// tilamisu books SHARED practice ice under one combined title ("Kiekko-Ahma
+// U9-10"). For per-team reporting each such shift is split into one row per age
+// with the ice-time divided equally (U9-10 1:20 → U9 0:40 + U10 0:40): a single
+// physical shift shows as two team rows, and the split is visible as the NET
+// column being half the (full) KESTO column. Needs the KA/Ahma marker + a two-age
+// range so "KA U15 - Sisu U16" (opponent) or a lone "KA U18" never split.
+const SHARED_RE = new RegExp(
+  String.raw`\b(KA|Kiekko-?Ahma|Ahma)\s+U?(\d{1,2})\s*[-–/]\s*U?(\d{1,2})`,
+  "i"
+);
+function sharedAgeParts(text) {
+  const s = String(text || "");
+  const m = SHARED_RE.exec(s);
+  if (!m) return null;
+  const club = m[1];
+  // Replace the whole "<club> U9-10" span with "<club> U9" (resp. U10) so each
+  // split row merges under its real per-team user.
+  return [+m[2], +m[3]].map((age) => ({
+    age,
+    label: s.slice(0, m.index) + `${club} U${age}` + s.slice(m.index + m[0].length),
+  }));
+}
+
+// Ice-resurfacing (jäänajo) deducted from GAME slots only — a long game reserves
+// ice it doesn't skate on. Rule (from the club): >120 min → −45, exactly 120 → −30.
+const resurfaceCut = (isGame, rawMinutes) => {
+  if (!isGame) return 0;
+  if (rawMinutes > 120) return 45;
+  if (rawMinutes === 120) return 30;
+  return 0;
+};
+
+// Expand a raw reservation into one or more report ROWS, each carrying:
+//   rawMinutes – the full booked length (KESTO column, unchanged)
+//   netMinutes – billable ice = raw − resurfacing, divided across shared teams
+// A shared-ice shift yields one row per team; everything else yields a single row.
+function expandRow(r) {
+  const raw = r.durationMinutes || 0;
+  const cut = resurfaceCut(r.isGame, raw);
+  const netFull = Math.max(0, raw - cut);
+  const parts = sharedAgeParts(r.text);
+  if (parts) {
+    const n = parts.length;
+    return parts.map((p) => ({
+      ...r,
+      id: `${r.id}#u${p.age}`,
+      text: p.label,
+      rawMinutes: raw,
+      netMinutes: Math.round(netFull / n),
+      cut,
+      isShared: true,
+    }));
+  }
+  return [{ ...r, rawMinutes: raw, netMinutes: netFull, cut, isShared: false }];
+}
+
 const QUICK_FILTERS = [
   { label: "LKK", match: (t) => /\bLKK\b/i.test(t) },
   ...[9, 10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => ({
@@ -146,18 +203,23 @@ const Report = () => {
   // Explicit expand/collapse choices per group (overrides the selection-based default).
   const [expandOverride, setExpandOverride] = useState(() => new Map());
 
-  // Unique users + their slot counts/hours from the fetched data.
+  // Report rows: shared-ice shifts split per team, games net of resurfacing.
+  // Everything below (users, filters, summary, table) works off these, not the
+  // raw `items`, so per-team hours are correct and shared shifts aren't double-counted.
+  const rows = useMemo(() => items.flatMap(expandRow), [items]);
+
+  // Unique users + their slot counts/net hours from the (expanded) rows.
   const users = useMemo(() => {
     const map = new Map();
-    for (const r of items) {
+    for (const r of rows) {
       const key = userKey(r);
       if (!map.has(key)) map.set(key, { text: key, count: 0, minutes: 0 });
       const u = map.get(key);
       u.count += 1;
-      u.minutes += r.durationMinutes || 0;
+      u.minutes += r.netMinutes || 0;
     }
     return Array.from(map.values()).sort((a, b) => a.text.localeCompare(b.text, "fi"));
-  }, [items]);
+  }, [rows]);
 
   // Users shown in the list, narrowed by the free-text filter.
   const visibleUsers = useMemo(() => {
@@ -341,35 +403,37 @@ const Report = () => {
   const toggleQuick = (qf) => toggleMany(quickMatches.get(qf.label) || []);
 
   const filtered = useMemo(
-    () => items.filter((r) => selected.has(userKey(r))),
-    [items, selected]
+    () => rows.filter((r) => selected.has(userKey(r))),
+    [rows, selected]
   );
 
   const summary = useMemo(() => {
     let minutes = 0;
     let games = 0;
     for (const r of filtered) {
-      minutes += r.durationMinutes || 0;
+      minutes += r.netMinutes || 0; // net (billable) ice — resurfacing/shared applied
       if (r.isGame) games += 1;
     }
     return { count: filtered.length, minutes, games, practices: filtered.length - games };
   }, [filtered]);
 
   const exportCsv = () => {
-    const rows = [
-      ["Päivä", "Alku", "Loppu", "Kesto (min)", "Tunnit", "Tyyppi", "Käyttäjä"],
+    const csvRows = [
+      ["Päivä", "Alku", "Loppu", "Kesto (min)", "Netto (min)", "Netto (h)", "Tyyppi", "Yhteisjää", "Käyttäjä"],
       ...filtered.map((r) => [
         dayPart(r.start),
         timePart(r.start),
         timePart(r.end),
-        String(r.durationMinutes || 0),
-        fmtHours(r.durationMinutes || 0),
+        String(r.rawMinutes || 0),
+        String(r.netMinutes || 0),
+        fmtHours(r.netMinutes || 0),
         r.isGame ? "Peli" : "Harjoitus",
+        r.isShared ? "kyllä" : "",
         userKey(r),
       ]),
     ];
     const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
-    const csv = "﻿" + rows.map((row) => row.map(esc).join(";")).join("\r\n");
+    const csv = "﻿" + csvRows.map((row) => row.map(esc).join(";")).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -591,18 +655,32 @@ const Report = () => {
                         <th>Päivä</th>
                         <th>Klo</th>
                         <th>Kesto</th>
+                        <th>Netto</th>
                         <th>Tyyppi</th>
                         <th>Käyttäjä</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((r) => (
+                      {filtered.map((r) => {
+                        // Why does net differ from the booked length? Shared ice split
+                        // and/or a game's resurfacing deduction — spell it out on hover.
+                        const notes = [];
+                        if (r.isShared) notes.push("yhteisjää jaettu");
+                        if (r.cut) notes.push(`jäänajo −0:${pad(r.cut)}`);
+                        const netCut = r.netMinutes !== r.rawMinutes;
+                        return (
                         <tr key={r.id} className={r.isGame ? "rp-row-game" : ""}>
                           <td className="rp-nowrap">{weekdayLabel(r.start)}</td>
                           <td className="rp-nowrap">
                             {timePart(r.start)}–{timePart(r.end)}
                           </td>
-                          <td className="rp-nowrap">{fmtDuration(r.durationMinutes || 0)}</td>
+                          <td className="rp-nowrap">{fmtDuration(r.rawMinutes || 0)}</td>
+                          <td className="rp-nowrap" title={notes.join(" · ")}>
+                            <span className={netCut ? "rp-net rp-net--cut" : "rp-net"}>
+                              {fmtDuration(r.netMinutes || 0)}
+                            </span>
+                            {r.isShared && <span className="rp-tag">jaettu</span>}
+                          </td>
                           <td>
                             <span className={`rp-badge ${r.isGame ? "rp-badge--game" : ""}`}>
                               {r.isGame ? "Peli" : "Harjoitus"}
@@ -610,7 +688,8 @@ const Report = () => {
                           </td>
                           <td>{userKey(r)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1033,6 +1112,24 @@ function css() {
       color: var(--color-accent);
     }
     .rp-badge--game{ background: var(--color-info); color:#0b1220; }
+
+    /* Net (billable) ice column: dimmed vs Kesto when reduced by resurfacing or a
+       shared-ice split, so a quick glance down the column shows what was deducted. */
+    .rp-net{ font-weight:700; }
+    .rp-net--cut{ color: var(--color-primary); }
+    .rp-tag{
+      display:inline-block;
+      margin-left:6px;
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:0.3px;
+      text-transform:uppercase;
+      padding:1px 6px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.10);
+      color: var(--color-accent);
+      vertical-align:middle;
+    }
 
     @media (max-width: 760px){
       .rp-grid{ grid-template-columns: 1fr; }
