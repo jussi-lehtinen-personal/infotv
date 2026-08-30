@@ -180,6 +180,9 @@ function expandRow(r) {
 }
 
 const QUICK_FILTERS = [
+  // Umbrella: every booking that lands in an Ahma bucket (all teams + LKK + Seura) —
+  // i.e. all Kiekko-Ahma events, excluding outside renters (their bucket = own name).
+  { label: "Kaikki Ahma", match: (t) => BUCKET_ORDER.includes(teamBucket(t)) },
   { label: "LKK", match: (t) => /\bLKK\b/i.test(t) },
   ...[9, 10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => ({
     label: `U${n}`,
