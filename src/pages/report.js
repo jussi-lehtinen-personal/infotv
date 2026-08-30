@@ -424,12 +424,13 @@ const Report = () => {
 
   const exportCsv = () => {
     const csvRows = [
-      ["Päivä", "Alku", "Loppu", "Kesto (min)", "Netto (min)", "Netto (h)", "Tyyppi", "Yhteisjää", "Käyttäjä"],
+      ["Päivä", "Alku", "Loppu", "Kesto (min)", "Kesto (h)", "Netto (min)", "Netto (h)", "Tyyppi", "Yhteisjää", "Käyttäjä"],
       ...filtered.map((r) => [
         dayPart(r.start),
         timePart(r.start),
         timePart(r.end),
         String(r.rawMinutes || 0),
+        fmtHours(r.rawMinutes || 0),
         String(r.netMinutes || 0),
         fmtHours(r.netMinutes || 0),
         r.isGame ? "Peli" : "Harjoitus",
