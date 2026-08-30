@@ -8,7 +8,7 @@ import "moment/locale/fi";
 import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
 import { getMonday, splitTeamName } from "../../Util";
 import { KeyedLogo } from "../../components/ui/KeyedLogo";
-import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe } from "../../lib/seasonGamesCache";
+import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe, peekSeasonGames } from "../../lib/seasonGamesCache";
 import { isLiveMatch } from "../../hooks/useHeroMatches";
 import { JOPOX_TEAMS } from "../../data/jopoxTeams";
 
@@ -109,12 +109,27 @@ export default function InfoTvOttelut() {
     return { n: nHome + nAway, nHome, nAway, played, w, l, d, gf, ga };
   }, [allGames]);
 
-  // Pistenikkarit: aggregate goals+assists per Ahma player across the week's played
-  // games (box scores, KV-cached) → top 3, with Jopox roster photos matched by name.
+  // Pistenikkarit uses a ROLLING 7-day window, not the Mon–Sun calendar week the
+  // match rail shows. Otherwise the podium blanks every Monday (new week has no
+  // games yet) and Sunday's scorers vanish overnight — a rolling window keeps the
+  // last week's top scorers on screen continuously. Window = (baseDate−7d, baseDate];
+  // on the live TV baseDate is "now", so it's the last 7×24 h up to this moment.
+  const scorerGames = useMemo(() => {
+    const end = baseDate.getTime();
+    const start = end - 7 * 24 * 60 * 60 * 1000;
+    return peekSeasonGames().filter((g) => {
+      const t = new Date(String(g.date || "").replace(" ", "T")).getTime();
+      return !isNaN(t) && t > start && t <= end && Number(g.finished) > 0 && g.homeTeamId && g.awayTeamId;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseDate, version]);
+
+  // Aggregate goals+assists per Ahma player across the window's played games
+  // (box scores, KV-cached) → top 3, with Jopox roster photos matched by name.
   const [topScorers, setTopScorers] = useState([]);
   useEffect(() => {
     let cancelled = false;
-    const played = allGames.filter((g) => Number(g.finished) > 0 && g.homeTeamId && g.awayTeamId);
+    const played = scorerGames;
     if (!played.length) { setTopScorers([]); return; }
     (async () => {
       const tally = {};
@@ -159,7 +174,7 @@ export default function InfoTvOttelut() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGames]);
+  }, [scorerGames]);
 
   // Build 3 columns × 5 rows. Games fill column-by-column (col0 top→bottom,
   // then col1…) exactly like the CSS grid did; leftover slots get filler
