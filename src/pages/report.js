@@ -187,6 +187,22 @@ const QUICK_FILTERS = [
 const UNNAMED = "(nimetön)";
 const userKey = (r) => r.text || UNNAMED;
 
+// Text report (the treasurer's "jäävuorotunnit joukkueittain" email): one line per
+// TEAM. Each row is assigned to exactly ONE bucket (so bucket sums reconcile to the
+// Netto total — no double counting), then hours are summed per bucket. Canonical
+// order mirrors the club's list; unknown buckets fall to the end alphabetically.
+const BUCKET_ORDER = ["LKK", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "U20", "ED NAISET", "ED MIEHET", "SEURA"];
+function teamBucket(text) {
+  const t = String(text || "");
+  if (/\bLKK\b/i.test(t)) return "LKK";
+  if (/nais/i.test(t)) return "ED NAISET";
+  if (/edustus|miehet|\bED\b/i.test(t)) return "ED MIEHET";
+  const ages = ahmaAges(t);
+  if (ages.size >= 1) return "U" + Math.min(...ages);
+  if (isAhma(t)) return "SEURA"; // Kiekko-Ahma club ice with no age → shared/seura
+  return t.trim() || UNNAMED;
+}
+
 const Report = () => {
   const init = defaultRange();
   const currentYear = new Date().getFullYear();
@@ -196,6 +212,7 @@ const Report = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [copied, setCopied] = useState(false); // "Kopioitu!" flash on the text-copy button
   // Selected users (text values). Empty Set before the first search.
   const [selected, setSelected] = useState(() => new Set());
   // Free-text filter for the user list (e.g. "Kiekko-Ahma").
@@ -440,15 +457,48 @@ const Report = () => {
     ];
     const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
     const csv = "﻿" + csvRows.map((row) => row.map(esc).join(";")).join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    download(csv, "csv", "text/csv;charset=utf-8;");
+  };
+
+  // Trigger a browser download of `content` as jaavuorot_<from>_<to>.<ext>.
+  const download = (content, ext, mime) => {
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `jaavuorot_${from}_${to}.csv`;
+    a.download = `jaavuorot_${from}_${to}.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // Treasurer's "jäävuorotunnit joukkueittain" plain-text report: one line per
+  // team, NET hours (billable — shared split + resurfacing applied). Each selected
+  // row lands in exactly one bucket so the lines sum to the Netto total.
+  const buildTextReport = () => {
+    const byBucket = new Map();
+    for (const r of filtered) {
+      const b = teamBucket(userKey(r));
+      byBucket.set(b, (byBucket.get(b) || 0) + (r.netMinutes || 0));
+    }
+    const rank = (b) => { const i = BUCKET_ORDER.indexOf(b); return i === -1 ? 999 : i; };
+    const lines = [...byBucket.entries()]
+      .sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0], "fi"))
+      .map(([b, min]) => `${b}: ${fmtHours(min)}`);
+    return `Jäävuorotunnit joukkueittain (${from} – ${to}):\n\n${lines.join("\n")}`;
+  };
+
+  const exportText = () => download(buildTextReport(), "txt", "text/plain;charset=utf-8;");
+
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(buildTextReport());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked (insecure context / permissions) — user can still use Tallenna tekstinä */
+    }
   };
 
   return (
@@ -482,6 +532,16 @@ const Report = () => {
                 <button className="rp-btn" onClick={exportCsv}>
                   Vie CSV
                 </button>
+              )}
+              {selected.size > 0 && (
+                <>
+                  <button className="rp-btn" onClick={exportText}>
+                    Tallenna tekstinä
+                  </button>
+                  <button className="rp-btn" onClick={copyText}>
+                    {copied ? "Kopioitu!" : "Kopioi teksti"}
+                  </button>
+                </>
               )}
             </div>
           </div>
