@@ -163,14 +163,13 @@ function expandRow(r) {
       ...r,
       id: `${r.id}#u${p.age}`,
       text: p.label,
-      rawMinutes: raw, // full slot, shown per-row in the KESTO column
-      rawShare: Math.round(raw / n), // this team's share of the booked ice (summary totals)
+      rawMinutes: raw, // full slot (KESTO column + Kesto total)
       netMinutes: Math.round(netFull / n),
       cut,
       isShared: true,
     }));
   }
-  return [{ ...r, rawMinutes: raw, rawShare: raw, netMinutes: netFull, cut, isShared: false }];
+  return [{ ...r, rawMinutes: raw, netMinutes: netFull, cut, isShared: false }];
 }
 
 const QUICK_FILTERS = [
@@ -409,11 +408,14 @@ const Report = () => {
   );
 
   const summary = useMemo(() => {
-    let booked = 0; // gross booked ice attributable to the selection (shared shares recombine)
-    let net = 0; // billable ice — resurfacing + shared split applied
+    // Kesto/Netto totals = the plain column sums (KESTO = full booked length,
+    // NETTO = net after shared-split + resurfacing), so the header matches the
+    // table exactly and the split/deduction is visible in the totals too.
+    let booked = 0;
+    let net = 0;
     let games = 0;
     for (const r of filtered) {
-      booked += r.rawShare || 0;
+      booked += r.rawMinutes || 0;
       net += r.netMinutes || 0;
       if (r.isGame) games += 1;
     }
