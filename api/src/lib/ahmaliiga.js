@@ -221,6 +221,7 @@ async function seedSeason(seed) {
     // `u15Flat` = a single flat seed price for U15 player cards (reconcileCards prices new
     // U15 entrants at this too). All default off.
     includeFriendlies: !!seed.includeFriendlies,
+    includeAll: !!seed.includeAll, // keep BOTH series + friendlies (overrides the split)
     livePool: !!seed.livePool, // tick syncs games + reconciles the roster pool each run
     startAt: String(seed.startAt || ''),
     u15Flat: seed.u15Flat != null ? Number(seed.u15Flat) : null,
@@ -1433,6 +1434,9 @@ async function syncSeasonGames(seasonId) {
   // the men's Edustus games) are NOT "harjoitus" → excluded, so only the pre-season friendlies
   // score. The real season leaves the flag off → the inverse: friendlies dropped, series kept.
   const keepFriendlies = !!(season && (season.includeFriendlies === true || season.includeFriendlies === 'true'));
+  // `includeAll` overrides the friendly/series split → keep EVERY game (series + friendlies +
+  // playoffs all score). Used by the real season when both are wanted.
+  const keepAll = !!(season && (season.includeAll === true || season.includeAll === 'true'));
   // A GENERATED/live season (roundGen) keeps UPCOMING (unplayed) games too — the schedule
   // + team-card pool need the whole fixture list ("start date + any later game in tulos-
   // palvelu"). The round windows bound the range, and scoring (computeRoundPoints) skips a
@@ -1442,8 +1446,8 @@ async function syncSeasonGames(seasonId) {
     // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or the
     // U9-U10 Leijonaliiga no-score format. `== 1` DROPPED every OT/shootout game before.
     const isFriendly = FRIENDLY_RE.test(g.league || '') || FRIENDLY_RE.test(g.level || '');
-    // beta = friendly-ONLY (drop every non-harjoitus game); real season = series-only (drop friendlies).
-    if (keepFriendlies ? !isFriendly : isFriendly) return false;
+    // keepAll = keep everything; else beta = friendly-ONLY, real season = series-only (drop friendlies).
+    if (!keepAll && (keepFriendlies ? !isFriendly : isFriendly)) return false;
     if (storeUnplayed) return true;
     return Number(g.finished) > 0 && g.home_goals != null && g.away_goals != null;
   });
@@ -1455,7 +1459,7 @@ async function syncSeasonGames(seasonId) {
   // the seeded round count is a hard cap. Friendlies past the last round (e.g. Sept pre-
   // season games after the ~3-week August window) fall outside every window → roundOfDay
   // returns null below → they're skipped. This is the "cut before the junior series" bound.
-  if (season && season.roundGen && !keepFriendlies && games.length) {
+  if (season && season.roundGen && (!keepFriendlies || keepAll) && games.length) {
     const maxDay = games.reduce((m, g) => { const d = String(g.date || '').slice(0, 10); return d > m ? d : m; }, '');
     if (maxDay) rounds = await ensureRoundsCover(seasonId, maxDay);
   }
