@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Stack, ButtonBase, CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from "@mui/material";
-import { LuPlay, LuFastForward, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy, LuUsers, LuRocket } from "react-icons/lu";
+import { LuPlay, LuFastForward, LuRotateCcw, LuImage, LuRefreshCw, LuTrash2, LuWallet, LuClock, LuCalendarDays, LuZap, LuDownload, LuShieldCheck, LuTrophy, LuUsers, LuRocket, LuArchive } from "react-icons/lu";
 import { Screen, PageHead, Loading } from "./_shared";
 import { ahmaliigaAdmin } from "../../lib/ahmaliigaApi";
 
@@ -191,6 +191,11 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuShieldCheck} label="Validoi tulokset (live vs. esilaskettu)"
                   busy={busy === "validateResults"} disabled={!s}
                   onClick={() => run("validateResults", "Tulokset validoitu")} />
+        {/* Safe backup of the whole active season to a gzip blob (archive-to-file). Take
+            this BEFORE a hard reset / re-seed to keep the old season for history. */}
+        <AdminBtn icon={LuArchive} label="Arkistoi kausi (varmuuskopio)"
+                  busy={busy === "archiveSeason"} disabled={!s}
+                  onClick={() => run("archiveSeason", "Kausi arkistoitu", "Arkistoidaanko nykyinen kausi? Turvallinen varmuuskopio (gzip-blob) — ei muuta live-dataa. Ota tämä ennen kovaa resettiä.", {}, "archiveSeason")} />
         <AdminBtn icon={LuRotateCcw} label="Nollaa kausi (jakso 0, tyhjennä pisteet)" danger
                   busy={busy === "resetSim"} disabled={!s}
                   onClick={() => run("resetSim", "Kausi nollattu", "Nollataanko kausi jaksoon 0? Pisteet, hinnat ja veikkaukset resetoidaan. Pakat ja tulokset säilyvät.")} />
