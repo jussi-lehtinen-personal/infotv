@@ -39,7 +39,7 @@ export default function AhmaliigaBetaPromo() {
 
   const cd = countdown(state.startAt);
   return (
-    <Box component={Link} to="/ahmaliiga" aria-label="Ahmaliiga esikausibeta — siirry"
+    <Box component={Link} to="/ahmaliiga" aria-label="Ahmaliiga — kausi alkaa, siirry"
       sx={{ display: "flex", alignItems: "center", gap: 1.75, textDecoration: "none",
             borderRadius: "var(--radius-card)", overflow: "hidden", position: "relative", p: 2, color: "#fff",
             // Dark glass card with a SUBTLE orange tint + accent border (matches the app).
@@ -53,11 +53,11 @@ export default function AhmaliigaBetaPromo() {
       {/* Texts + button on the RIGHT. */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "primary.main" }}>
-          Ahmaliiga · pre-season beta
+          Ahmaliiga · kausi 2026–27
         </Typography>
         <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
               fontSize: "clamp(22px,6.2vw,30px)", lineHeight: 1.02, mt: 0.4 }}>
-          Pre-season alkaa pian
+          Kausi alkaa tällä viikolla!
         </Typography>
 
         <Typography sx={{ fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, mt: 0.6, opacity: 0.95 }}>
