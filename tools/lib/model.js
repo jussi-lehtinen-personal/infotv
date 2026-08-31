@@ -17,7 +17,7 @@ const CFG = {
   // computeRoundPoints via cardPos/Jopox position). buildPlayerCards does NOT use it
   // (offline has no card positions), so this constant is inert here; kept only so
   // validate-scoring's jsonEq(SCORING.player, CFG.player) stays green. See scoring.js.
-  player: { goal: 3, assist: 2, defenderMult: 1.5 },
+  player: { goal: 3, assist: 2, defenderMult: 1 }, // ×1.5 removed 2026-08-31 → RX pricing (mirror of SCORING.player)
   // v2.2 (2026-08-03): defender bonus (position OP/VP) — shutout +3, ≤2 conceded +1.
   // Matches SCORING.defense in api/src/lib/scoring.js. No-op where positions are untagged.
   defense: { cleanSheet: 3, lowGa: 1, lowGaMax: 2, roles: ["OP", "VP"] },

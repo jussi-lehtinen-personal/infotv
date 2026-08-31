@@ -128,8 +128,11 @@ function computeRoundPoints({ games, reports, extraAges, cardPos, resolveId }) {
     for (const goal of r.goals || []) {
       if (goal.side !== ahmaSide) continue;
       const scorer = goal.scorer && goal.scorer.name;
-      if (scorer) { const id = cid(scorer); const D = pd(id); add(id, SCORING.player.goal * mult(scorer)); D.goals += 1; if (isDef(scorer)) D.defBoost = true; }
-      for (const a of goal.assists || []) if (a) { const id = cid(a); const D = pd(id); add(id, SCORING.player.assist * mult(a)); D.assists += 1; if (isDef(a)) D.defBoost = true; }
+      // defBoost drives the "puolustaja ×N" reason line — only flag it when the multiplier
+      // actually boosts (defenderMult ≠ 1). With the ×1.5 removed (=1) it's a no-op → no reason.
+      const boosts = SCORING.player.defenderMult !== 1;
+      if (scorer) { const id = cid(scorer); const D = pd(id); add(id, SCORING.player.goal * mult(scorer)); D.goals += 1; if (boosts && isDef(scorer)) D.defBoost = true; }
+      for (const a of goal.assists || []) if (a) { const id = cid(a); const D = pd(id); add(id, SCORING.player.assist * mult(a)); D.assists += 1; if (boosts && isDef(a)) D.defBoost = true; }
     }
     const gk = goaliePoints(r, { ahmaSide, oppSide: g.ahmaHome ? "away" : "home", won: gf > ga });
     if (gk) { const id = cid(gk.name); add(id, gk.pts); pd(id).gk = { pct: gk.pct, won: gk.won, cs: gk.cs, shots: gk.shots }; }

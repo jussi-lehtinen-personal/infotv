@@ -3,7 +3,7 @@ const { getEntity, upsertEntity, insertEntity, deleteEntity, listByPartition, li
 const { avatarUrl } = require('./blob');
 const { workerGet } = require('./worker');
 const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResults');
-const { posName } = require('./scoring');
+const { posName, SCORING } = require('./scoring');
 const { sendPush } = require('./push');
 const { envAdminIds } = require('./admin');
 
@@ -635,15 +635,28 @@ async function cumForm(seasonId, round, dressedThisRound) {
 // long tail" shape falls out of the form distribution (no skew). No form → mid. Callers
 // apply priceStepCap so a card still climbs to the ceiling only gradually. IDENTICAL
 // math to gen-cards assignBands. `skew` is accepted for compatibility but unused.
-function bandPricesFrom(pool, form, prices, skew = 1) {
+// `defenderIds` (optional): the RX defender-pricing model. A card in the set is priced
+// WITHIN its position class — vs the best DEFENDER's form anchored to the 2nd tier (60 for
+// players) — instead of vs the whole pool's max (a top forward, which craters defenders).
+// It takes the HIGHER of the class price and the plain global price, so a defender who
+// genuinely OUT-scores the forwards on absolute merit can still climb to the ceiling (no
+// hard cap). Everyone else (forwards, KP, goalies, teams) is priced globally, exactly as
+// before. Omit the set (teams call, or a non-live season) → pure global, byte-identical.
+function bandPricesFrom(pool, form, prices, skew = 1, defenderIds = null) {
   const vals = pool.map((c) => form[c.rowKey]).filter((v) => v != null);
   const max = vals.length ? Math.max(...vals) : 0;
   const mid = prices[Math.floor(prices.length / 2)];
   const snap = (target) => { let best = prices[0]; for (const t of prices) if (Math.abs(t - target) < Math.abs(best - target)) best = t; return best; };
+  const isDef = (c) => !!(defenderIds && defenderIds.has(c.rowKey));
+  const defVals = pool.filter(isDef).map((c) => form[c.rowKey]).filter((v) => v != null);
+  const maxDef = defVals.length ? Math.max(...defVals) : 0;
+  const anchor = prices.length > 1 ? prices[1] : prices[0]; // defender class anchor = 2nd tier (60)
   const out = {};
   for (const c of pool) {
     const v = form[c.rowKey];
-    out[c.rowKey] = v == null ? mid : (max > 0 ? snap((v / max) * prices[0]) : mid);
+    if (v == null) { out[c.rowKey] = mid; continue; }
+    const global = max > 0 ? snap((v / max) * prices[0]) : mid;
+    out[c.rowKey] = (isDef(c) && maxDef > 0) ? Math.max(snap((v / maxDef) * anchor), global) : global;
   }
   return out;
 }
@@ -877,9 +890,10 @@ async function settleRound(seasonId, round) {
 
   // reband for next round + snapshot this round's price/points/ownership
   const dressed = await dressedCardIds(seasonId, round); // played (in lineup) but 0 pts → still ranks
+  const defenderIds = await defenderCardIds(seasonId, round); // RX: price defenders within their class
   const { form, sums } = await cumForm(seasonId, round, dressed);
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
-  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
+  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew, defenderIds);
   const targetPrice = { ...priceT, ...priceP };
   // Absent-jakso decay: age-groups that actually PLAYED a game this round. A player/goalie
   // whose group played but who didn't take the ice himself bleeds ECON.absentDecay toward the
@@ -1162,8 +1176,9 @@ async function liveReband(seasonId, round) {
   const rgames = await getRoundGames(seasonId, round);
   const pricedByTeam = {};
   for (const g of rgames) { if (!hasResult(g)) continue; const tk = teamKey(g); const d = String(g.date); if (!pricedByTeam[tk] || d > pricedByTeam[tk]) pricedByTeam[tk] = d; }
+  const defenderIds = await defenderCardIds(seasonId, round); // RX: price defenders within their class
   const priceT = bandPricesFrom(cards.filter((c) => c.kind === 'team'), form, ECON.band);
-  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew);
+  const priceP = bandPricesFrom(cards.filter((c) => c.kind !== 'team'), form, ECON.playerBand, ECON.playerSkew, defenderIds);
   const targetPrice = { ...priceT, ...priceP };
   const cap = ECON.priceStepCap;
   let moved = 0;
@@ -1562,6 +1577,48 @@ async function dressedCardIds(seasonId, round) {
     }
   });
   return dressed;
+}
+
+// Which player/goalie CARDS are DEFENDERS, for the RX pricing model — resolved the SAME way
+// as the (removed) defender scoring: box-score role is GROUND TRUTH (OP/VP → defender, an
+// explicit forward/goalie role → not), and the card's Jopox position is the FALLBACK when the
+// role is KP/empty. Aggregated across every played game 0..uptoRound; a card is a defender by
+// PLURALITY of its appearances (stable vs a one-off mis-role). LIVE-only: a non-live season
+// (replay/sim/test) has no lineups/roles → returns empty → bandPricesFrom prices everyone
+// globally (byte-identical to the old model, so offline validators are unaffected).
+async function defenderCardIds(seasonId, uptoRound) {
+  const out = new Set();
+  const season = await getEntity(T.season, 'season', seasonId);
+  if (!season || !season.livePool) return out;
+  const sk = (s) => posName(s).split(' ').filter(Boolean).sort().join(' ');
+  const cardBy = {}, posBy = {};
+  for (const c of await getCards(seasonId)) {
+    if (c.kind === 'player' || c.kind === 'goalie') { const k = sk(c.personName || c.name || String(c.rowKey).replace(/^[PG]:/, '')); if (k) { cardBy[k] = c.rowKey; posBy[k] = (c.posOverride || c.position || ''); } }
+  }
+  const extraAges = extraAgesOf(season);
+  const isElig = (g) => isPlayerEligible(teamKey(g)) || extraAges.has(String(teamKey(g)).split(' ')[0]);
+  const tally = {}; // cardId -> { def, other }
+  for (let j = 0; j <= uptoRound; j++) {
+    const games = (await getRoundGames(seasonId, j)).filter(isElig).filter(hasResult);
+    await inChunks(games, 6, async (g) => {
+      const rep = await fetchGameReport(g);
+      const side = g.ahmaHome ? 'home' : 'away';
+      const players = (rep && rep.rosters && rep.rosters[side] && rep.rosters[side].players) || [];
+      for (const p of players) {
+        const key = sk(`${p.first || ''} ${p.last || ''}`);
+        const id = cardBy[key]; if (!id) continue;
+        const role = (p.role || '').toUpperCase();
+        let def;
+        if (SCORING.defense.roles.includes(role)) def = true;   // ground truth: box-score OP/VP
+        else if (role && role !== 'KP') def = false;            // ground truth: explicit forward/goalie
+        else def = posBy[key] === 'defender';                   // fallback: card (Jopox) position
+        const t = tally[id] || (tally[id] = { def: 0, other: 0 });
+        if (def) t.def++; else t.other++;
+      }
+    });
+  }
+  for (const [id, t] of Object.entries(tally)) if (t.def > 0 && t.def >= t.other) out.add(id);
+  return out;
 }
 
 // Manual card override (admin) — force a player card's position/kind against the Jopox
