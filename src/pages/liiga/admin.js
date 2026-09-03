@@ -172,6 +172,12 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuWallet} label="Korjaa budjettisaldot"
                   busy={busy === "recomputeBanks"} disabled={!s}
                   onClick={() => run("recomputeBanks", "Saldot korjattu")} />
+        {/* One-time credit after the 2026-09-03 "free until kickoff" fix — refunds any
+            transfer a manager burned before the rule was corrected. Cards/captain/prices/
+            scores untouched, only the transfer counter. */}
+        <AdminBtn icon={LuRotateCcw} label="Palauta kaikkien vaihdot (0/5)"
+                  busy={busy === "resetTransfers"} disabled={!s}
+                  onClick={() => run("resetTransfers", "Vaihdot palautettu", "Nollataanko KAIKKIEN pelaajien tämän jakson käytetyt vaihdot (takaisin 0/5)? Kortit, kapteeni, hinnat ja pisteet EIVÄT muutu.", {}, "resetTransfers")} />
         <AdminBtn icon={LuDownload} label="Synkkaa pelit (worker + ID:t)"
                   busy={busy === "syncGames"} disabled={!s}
                   onClick={() => run("syncGames", "Pelit synkattu")} />

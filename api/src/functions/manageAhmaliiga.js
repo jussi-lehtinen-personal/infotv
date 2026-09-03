@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { envAdminIds } = require('../lib/admin');
-const { seedSeason, settleRound, resetPrices, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, getSquad, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
+const { seedSeason, settleRound, resetPrices, resetTransfers, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos, getActiveSeason, getRounds, activeRoundNo, syncSeasonGames, reconcileCards, overrideCardPosition, deleteCard, validateRoundResults, generateVouchers, listManagers, getSquad, refundPenalty, pruneRounds } = require('../lib/ahmaliiga');
 const { archiveSeason, listArchives, purgeSeason } = require('../lib/archive');
 
 // POST /api/manageAhmaliiga — Ahmaliiga admin ops. Gated to the ADMIN_USER_IDS
@@ -238,6 +238,15 @@ app.http('manageAhmaliiga', {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
         const result = await resetPrices(season.rowKey);
+        return { jsonBody: { ok: true, ...result } };
+      }
+
+      // One-time credit: zero every manager's transfersUsedThisRound. Does NOT touch
+      // cards, captain, prices, scores or predictions — just the transfer counter.
+      if (action === 'resetTransfers') {
+        const season = await getActiveSeason();
+        if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };
+        const result = await resetTransfers(season.rowKey);
         return { jsonBody: { ok: true, ...result } };
       }
 

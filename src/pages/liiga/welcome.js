@@ -90,17 +90,17 @@ export default function LiigaWelcome() {
         ))}
       </Stack>
 
-      {/* First-round-free note — building/editing is free until you carry a full squad
-          into the next round (server: transfers only count once startComplete). */}
+      {/* First-round-free note — building/editing is free until one of your held cards'
+          games actually kicks off (server: transfers only count once roundStarted). */}
       <Box sx={{ mb: 2.5, p: 1.75, borderRadius: "var(--radius-item)", display: "flex", alignItems: "flex-start", gap: 1.25,
             bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}>
         <Box component="span" sx={{ fontSize: 18, lineHeight: 1.2, flexShrink: 0 }}>💡</Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.3 }}>Ensimmäinen jakso on vapaa</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 14, color: "text.primary", lineHeight: 1.3 }}>Muokkaa vapaasti ennen pelien alkua</Typography>
           <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.45, mt: 0.3 }}>
-            Kokoa ja muokkaa pakkaasi rajattomasti — ostot ja vaihdot ovat ilmaisia. Siirtorajat
-            (5 ilmaista vaihtoa / jakso, sen jälkeen −5 p) alkavat vasta seuraavasta jaksosta.
-            Muista saada pakka valmiiksi ennen kuin korttiesi pelit alkavat — peli lukitsee kortin sen alkaessa.
+            Kokoa ja muokkaa pakkaasi rajattomasti — ostot ja vaihdot ovat ilmaisia niin kauan kuin
+            yksikään pakkasi kortin peli ei ole vielä alkanut. Sen jälkeen siirtorajat (5 ilmaista
+            vaihtoa / jakso, sen jälkeen −5 p) astuvat voimaan. Peli lukitsee kortin sen alkaessa.
           </Typography>
         </Box>
       </Box>

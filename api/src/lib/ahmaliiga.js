@@ -395,7 +395,6 @@ function parseSquad(row) {
     bank: row.bank != null ? Number(row.bank) : null,
     roundStart: (() => { try { return JSON.parse(row.roundStart || 'null'); } catch { return null; } })(),
     transfersUsedThisRound: row.transfersUsedThisRound || 0,
-    everComplete: !!row.everComplete, // sticky: has this squad ever been complete → transfers count
     updatedAt: row.updatedAt,
   };
 }
@@ -506,24 +505,26 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
   // CUMULATIVELY across the round (each add vs the previous save), so re-picking the
   // same slot twice costs two transfers — you can't dodge it by editing the same
   // slot. transfersPerRound are free; extras are ALLOWED but cost TRANSFER_PENALTY
-  // points each at settlement. The first build (round started without a complete
-  // squad) is free. The round-start snapshot rolls when the round advances.
+  // points each at settlement. The round-start snapshot rolls when the round advances.
+  //
+  // FREE UNTIL KICKOFF (2026-09-03, user-requested): edits cost NOTHING while
+  // `roundStarted` is false — i.e. until one of the cards you currently hold has a
+  // game that has actually kicked off (same `roundStarted` signal the captain lock
+  // above uses). This matches the captain/trade-lock philosophy (free exploration
+  // pre-kickoff, real economy after) and fixes a launch-week complaint: assembling
+  // your first squad, then tweaking a pick before ANY game had started, was silently
+  // burning one of the 5 free transfers (the previous rule counted every add once the
+  // squad had EVER been complete, even seconds after finishing it, round untouched).
+  // roundStarted is irreversible for a manager once true (their held card's game stays
+  // "started"), so this can't be gamed by juggling cards back below 5.
   const roundStart = prev && prev.roundNo === curRound
     ? (Array.isArray(prev.roundStart) ? prev.roundStart : (prev.cards || []).map((c) => c.id))
     : prev ? (prev.cards || []).map((c) => c.id)
     : [];
-  const startComplete = roundStart.length === squadSize;
   const prevIds = prev && prev.roundNo === curRound ? (prev.cards || []).map((c) => c.id) : roundStart;
   const prevUsed = prev && prev.roundNo === curRound ? (Number(prev.transfersUsedThisRound) || 0) : 0;
   const addsNow = cardIds.filter((id) => !prevIds.includes(id)).length; // cards brought in since the last save
-  // Assembling your FIRST complete squad is free (adds while incomplete don't count).
-  // Once the squad has EVER been complete, every card brought in is a transfer — 5 free
-  // per round, then a penalty — even later the SAME round. (Was gated on the round START
-  // being complete, so a manager who (re)built a complete squad mid-round got the WHOLE
-  // round free → read as "the limit doesn't work" after a couple of swaps.) `everComplete`
-  // is sticky so you can't dodge a transfer by removing-then-re-adding across two saves.
-  const everComplete = !!(prev && prev.everComplete) || startComplete;
-  const transfersUsed = everComplete ? prevUsed + addsNow : prevUsed;
+  const transfersUsed = roundStarted ? prevUsed + addsNow : prevUsed;
 
   await ensureManager(userId, nickname);
   const row = {
@@ -531,7 +532,6 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
     seasonId: season.rowKey, roundNo: curRound,
     cards: JSON.stringify(squadCards), captainId, bank,
     roundStart: JSON.stringify(roundStart),
-    everComplete: everComplete || cardIds.length === squadSize,
     transfersUsedThisRound: transfersUsed, updatedAt: new Date().toISOString(),
   };
   await upsertEntity(T.squads, row);
@@ -551,7 +551,7 @@ async function saveSquad(userId, cardIds, captainId, nickname) {
       added: JSON.stringify(added), removed: JSON.stringify(removed),
       cards: JSON.stringify(cardIds), captainId: captainId || '',
       addsNow, transfersUsedThisRound: transfersUsed, penaltyNow, bank,
-      startComplete,
+      roundStarted,
     });
   } catch (e) { /* audit log is best-effort */ }
 
@@ -989,6 +989,22 @@ async function resetPrices(seasonId) {
     n++;
   });
   return { reset: n };
+}
+
+// Zero every manager's transfersUsedThisRound for the active season — a one-time credit,
+// NOT a squad/round rewind (their cards, captain, roundStart snapshot, prices, scores,
+// predictions all stay untouched). Built 2026-09-03 to refund the whole league after a
+// launch-week fix to WHEN transfers start counting (see saveSquad): tweaking a squad before
+// any game had kicked off was wrongly burning one of the 5 free transfers under the old
+// rule. Global squads query mirrors resetSim's "RowKey eq 'current'" scan, scoped to this
+// season via the row's own seasonId (squads aren't partitioned by season).
+async function resetTransfers(seasonId) {
+  const squads = (await listEntities(T.squads, "RowKey eq 'current'")).filter((s) => s.seasonId === seasonId);
+  let n = 0;
+  for (const s of squads) {
+    if (Number(s.transfersUsedThisRound) > 0) { await upsertEntity(T.squads, { ...s, transfersUsedThisRound: 0 }); n++; }
+  }
+  return { reset: n, checked: squads.length };
 }
 
 // Greedy squad pick for bots (budget + slots + max players), matching backtest.
@@ -2873,7 +2889,7 @@ module.exports = {
   getActiveSeason, getCards, getRounds, currentRoundNo, activeRoundNo, seedSeason, assertGameOpen,
   buildRoundWindows, ensureRoundsCover,
   getManager, joinManager, getSquad, saveSquad,
-  loadResults, getResults, getResultsFull, settleRound, resetPrices, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
+  loadResults, getResults, getResultsFull, settleRound, resetPrices, resetTransfers, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
   gameStarted, hasResult, cardTeamKeyOf, lockGamesByTeam, isCardTradeLocked,
   getLeaderboard, getLiveLeaderboard, liveReband, liveRoundCardPoints, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
