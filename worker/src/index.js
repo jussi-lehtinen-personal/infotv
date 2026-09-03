@@ -804,8 +804,16 @@ async function handleGetTeamSeries(url, env) {
     list.filter((g) => ageKeyFromLevel(g.level) === age && !/harjoitus/i.test(g.level || ""));
 
   let games = forAge(await fetchExtGames(usedSeason).catch(() => []));
-  // Not started this season for this age → show the previous season (flagged).
-  if (!seasonParam && !games.some((g) => Number(g.finished) > 0)) {
+  // Fall back to the previous season only when tulospalvelu has NO fixtures at all
+  // for this age this season — not merely "nothing finished yet". A brand-new season
+  // (days old) has real SCHEDULED games with finished=0; the old check treated "zero
+  // finished sarja games" as "season not started", which made EVERY team's Ottelut/
+  // Sarja/Pisteet/MV tab show the previous season's COMPLETED data for the first
+  // couple of weeks of every new season (until someone's first game finished) —
+  // hiding the actual current-season schedule right when it matters most (launch
+  // week). games.length still falls back correctly when the age genuinely has
+  // nothing published yet (e.g. a series that starts later in the season).
+  if (!seasonParam && !games.length) {
     const prev = forAge(await fetchExtGames(current - 1).catch(() => []));
     if (prev.some((g) => Number(g.finished) > 0)) { usedSeason = current - 1; games = prev; fallback = true; }
   }
