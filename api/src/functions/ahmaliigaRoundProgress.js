@@ -36,7 +36,10 @@ app.http('ahmaliigaRoundProgress', {
       const games = shapeGamesForClient(await getRoundGames(season.rowKey, round));
       const simMode = !!season.simMode;
       const simDate = season.simDate || (simMode && roundRow ? roundRow.startDate : null);
-      const clockMs = simMode && simDate
+      // Same `!realClock` gate as ahmaliigaState's daysLeft (see the note there): a
+      // realClock season's simDate can lag reality, and this daysLeft is what the
+      // timeline header shows, so only a true replay may use the sim clock.
+      const clockMs = simMode && !season.realClock && simDate
         ? new Date(simDate + 'T00:00:00').getTime()
         : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
       const daysLeft = roundRow && roundRow.endDate

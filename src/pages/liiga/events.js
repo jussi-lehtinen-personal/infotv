@@ -6,8 +6,8 @@ import { logoProxy } from "../../Util";
 
 // Upcoming-events model for the dashboard "Seuraavat tapahtumat" + the round
 // timeline. Built from /state (currentRound + its games). The relative time is the
-// headline info: DAYS to the event, and HOURS when it's under a day (live only —
-// the sim clock is day-granular, so a replay shows days + Tänään/Huomenna).
+// headline info: CALENDAR days to the event, and hours/minutes once it's today
+// (the sim clock is day-granular, so a replay shows days + Tänään/Huomenna).
 
 const parseDT = (s) => new Date(String(s || "").replace(" ", "T"));
 const dayOf = (s) => String(s || "").slice(0, 10);
@@ -64,11 +64,20 @@ export function relTime(dateStr, simDate) {
     if (d === 1) return "Huomenna";
     return `${d} päivän päästä`;
   }
-  const ms = parseDT(dateStr) - new Date();
+  const target = parseDT(dateStr);
+  const now = new Date();
+  const ms = target - now;
   if (!(ms > 0)) return "Nyt";
-  const days = Math.floor(ms / 86400000);
+  // CALENDAR days apart — NOT elapsed ms / 86400000. A game 47 h away is the day
+  // AFTER tomorrow, but floor(47/24) === 1 labelled it "Huomenna" (bit us on launch
+  // day 2026-09-03: Saturday 5.9. games read "Huomenna" on Thursday, and every
+  // further game was a day short). Same startOfDay approach as NewsCard's
+  // formatNewsDate; Math.round absorbs DST-shifted 23/25 h days.
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(target) - startOfDay(now)) / 86400000);
   if (days >= 2) return `${days} päivän päästä`;
   if (days === 1) return "Huomenna";
+  // Same calendar day → keep hour/minute precision.
   const hours = Math.floor(ms / 3600000);
   if (hours >= 1) return `${hours} tunnin päästä`;
   return `${Math.max(1, Math.floor(ms / 60000))} min päästä`;

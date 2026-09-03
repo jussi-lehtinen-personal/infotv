@@ -23,8 +23,13 @@ app.http('ahmaliigaState', {
 
       // Days left in the current round — computed ONCE here (single source of truth)
       // so the dashboard + timeline can never disagree. Clock = the sim date in a
-      // replay, else the wall clock; both measured at day start.
-      const clockMs = season.simMode && season.simDate
+      // REPLAY, else the wall clock; both measured at day start.
+      // ⚠️ `!realClock` matters: a realClock season still carries a simDate (the cron
+      // nudges it toward today), so trusting it here made "X pv jäljellä" wrong
+      // whenever that date lagged — e.g. right after the 2026-09-03 re-seed it sat at
+      // the round start and the timeline claimed 13 days left instead of 10. Same gate
+      // the clients already use (events.js / home.js / round.js / useSquad.js).
+      const clockMs = season.simMode && !season.realClock && season.simDate
         ? new Date(season.simDate + 'T00:00:00').getTime()
         : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
       const daysLeft = cur && cur.endDate
