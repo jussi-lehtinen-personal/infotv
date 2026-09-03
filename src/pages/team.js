@@ -556,11 +556,15 @@ const Team = () => {
                 const cell = tables[`${idx}|${TAB_KEYS[tTab]}`];
                 const label = (s, i) => resolvedSids[i]?.subSerieName || s.subSerieName || s.label;
                 // Matches tab: the selected series' games from the shared 24h list,
-                // scoped by the series' date range, newest first.
+                // scoped by the series' date range, EARLIEST first (the series' own
+                // chronological order, not newest-first like a news feed).
+                // ⚠️ `g.level` here is already through Util.js's simplifyLevel/replaceAll
+                // ("Harjoitusottelut"→"Harj.") — match the abbreviation too, else friendlies
+                // leak into the sarja list once ageKey (fixed above) stops excluding them.
                 const matchGames = (seasonGames || [])
-                  .filter((g) => gameAgeKey(g) === age && !/harjoitus/i.test(g.level || "")
+                  .filter((g) => gameAgeKey(g) === age && !/harjoitus|^harj\.?/i.test(g.level || "")
                     && String(g.date).slice(0, 10) >= sel.from && String(g.date).slice(0, 10) <= sel.to)
-                  .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+                  .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
                 return (
                   <>
                     {info.fallback && (

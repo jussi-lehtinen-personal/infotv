@@ -8,7 +8,12 @@ function ageKey(text) {
   const m = s.match(/U\s*(\d+)/i);
   if (m) return `U${m[1]}`;
   if (/nais/i.test(s)) return "naiset";
-  if (/divisioona|suomi-sarja|mestis|miehet|edustus/i.test(s)) return "edustus";
+  // Every consumer of the shared season-games list gets levels AFTER Util.js's
+  // simplifyLevel/replaceAll abbreviations ("Divisioona"→"Div", "Suomi-sarja"→"SS") —
+  // match both the raw and abbreviated forms, else e.g. "II-Div" (was "II-divisioona")
+  // matches nothing and every Edustus (miehet) sarja game silently drops out of
+  // favourites/feed/Ottelut (bit us 2026-09-03: the team page showed zero Edustus games).
+  if (/divisioona|\bdiv\b|suomi-sarja|\bss\b|mestis|miehet|edustus/i.test(s)) return "edustus";
   return null;
 }
 
