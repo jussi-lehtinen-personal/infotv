@@ -298,7 +298,13 @@ async function handleGetSeasonGames(url, env) {
     seasons = [cur, cur - 1];
   }
 
-  const perSeason = await Promise.all(seasons.map((s) => fetchExtGames(s).catch(() => [])));
+  // The CURRENT season must succeed — swallowing its failure would cache a "complete"
+  // fixture list that is silently missing this season entirely (same error-as-data trap
+  // as the series tables). The extra older season is best-effort: it only backfills the
+  // week strip's scroll-back, so losing it degrades gracefully.
+  const perSeason = await Promise.all(
+    seasons.map((s, i) => fetchExtGames(s).catch((e) => { if (i === 0) throw e; return []; }))
+  );
   const byId = new Map();
   for (const games of perSeason) {
     for (const g of games) if (!byId.has(g.id)) byId.set(g.id, g);
@@ -694,8 +700,16 @@ function statFilters(sortedBy, extra) {
   };
 }
 
+// ⚠️ These three deliberately do NOT swallow upstream errors. They used to
+// `.catch(() => null)` → an empty table → which `cachedJson` then stored as if it were
+// real data, so ONE transient tulospalvelu 429/5xx froze a blank standings/scorers/MV
+// table for the whole TTL (24 h before the TTL fix). Observed 2026-09-06: getplayers
+// answered 429 and the U15 pistepörssi served an empty/partial list that looked like
+// "the wrong series". Letting the error propagate means the route returns 500, the
+// result is NOT cached, the client shows "Taulukkoa ei saatu haettua", and the next
+// request self-heals. Per-IP `rateLimitOK` still bounds retry pressure on origin.
 async function fetchStandings(season, subSerieId) {
-  const d = await tpGet("serie/helpers/getstandings", { season, subSerieId }).catch(() => null);
+  const d = await tpGet("serie/helpers/getstandings", { season, subSerieId });
   const teams = (d && Array.isArray(d.Teams) ? d.Teams : []).map((t) => ({
     rank: t.Ranking,
     team: t.TeamAbbrv,
@@ -714,7 +728,7 @@ async function fetchStandings(season, subSerieId) {
 async function fetchScorers(season, subSerieId) {
   const d = await tpGet("helpers/getplayers", {
     season, subSerieId, teamid: 0, type: 0, nop: 1000, ...statFilters("PlayerPoints"),
-  }).catch(() => null);
+  });
   const P = d && Array.isArray(d.Players) ? d.Players : [];
   // Keep the whole series' top 75 + every Ahma player (they may rank lower) so
   // the payload stays lean without dropping "our" players.
@@ -729,7 +743,7 @@ async function fetchGoalies(season, subSerieId, levelId) {
   const d = await tpGet("helpers/getgoalkeepers", {
     season, subSerieId, teamid: 0, type: 0, nop: 1000, gamesratio: 0, levelid: levelId,
     ...statFilters("GoalieSavesPerc", { "filters[PlayerName]": "" }),
-  }).catch(() => null);
+  });
   const P = d && Array.isArray(d.Players) ? d.Players : [];
   return P.map((p) => ({
     rank: p.Ranking, first: p.FirstName, last: p.LastName,
@@ -803,7 +817,10 @@ async function handleGetTeamSeries(url, env) {
   const forAge = (list) =>
     list.filter((g) => ageKeyFromLevel(g.level) === age && !/harjoitus/i.test(g.level || ""));
 
-  let games = forAge(await fetchExtGames(usedSeason).catch(() => []));
+  // NOT swallowed: an upstream failure here would look like "this age has no fixtures"
+  // and trip the previous-season fallback below → the team page would quietly show LAST
+  // season's series/standings as if current. Fail loudly instead.
+  let games = forAge(await fetchExtGames(usedSeason));
   // Fall back to the previous season only when tulospalvelu has NO fixtures at all
   // for this age this season — not merely "nothing finished yet". A brand-new season
   // (days old) has real SCHEDULED games with finished=0; the old check treated "zero
