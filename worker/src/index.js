@@ -917,7 +917,13 @@ const TTL_GAMES_CURRENT_S = 15;
 const TTL_GAMES_FUTURE_S = 15 * 60;
 const TTL_GAMES_PAST_S = 6 * 60 * 60;
 const TTL_TEAMS_S = 60 * 60;
-const TTL_SEASON_S = 24 * 60 * 60; // 24 h — fixtures are set days ahead (referees); live scores come from getLive
+// 3 h — was 24 h, but a newly PUBLISHED series schedule then stayed invisible for a
+// whole day (2026-09-06: U18's just-published fixtures were missing from the team page
+// while /getTeamSeries, on the 10-min TTL, already listed the series). Fixtures are set
+// days ahead but they appear/move during the season, so a day of staleness is too much.
+// Not lower: this handler does one KV realId read PER GAME (~620), so the read count
+// scales with 1/TTL — 3 h keeps it ~5k/day/colo, well inside the free tier.
+const TTL_SEASON_S = 3 * 60 * 60;
 const TTL_SEASON_LIVE_S = 20 * 60; // ?season= feeds the hourly Ahmaliiga sync → needs TODAY's finished results (else a game that ends after the last compute stays finished=0 for 24h)
 const TTL_STATS_S = 10 * 60; // standings/scorers: current season refreshes every 10 min
 
@@ -940,7 +946,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "18";
+const CACHE_VERSION = "19";
 
 /* ------------------------------ rate limiting ----------------------------- */
 // Coarse per-IP cap on ORIGIN-facing (uncached) work, so a flood of cache-MISSES
@@ -1071,7 +1077,7 @@ export default {
       if (url.pathname === "/getTeamSeries")
         return await cachedJson(ctx, url, TTL_STATS_S, () => handleGetTeamSeries(url, env), env, ip, 3);
       if (url.pathname === "/getSeriesTable")
-        return await cachedJson(ctx, url, TTL_SEASON_S, () => handleGetSeriesTable(url, env), env, ip, 2);
+        return await cachedJson(ctx, url, TTL_STATS_S, () => handleGetSeriesTable(url, env), env, ip, 2);
       return json({ error: "not found", paths: ["/getTeams", "/getGames", "/getSeasonGames", "/getGameReport", "/getTeamSeries", "/getSeriesTable", "/getImage"] }, 404);
     } catch (e) {
       return json({ error: String((e && e.message) || e) }, 500);
