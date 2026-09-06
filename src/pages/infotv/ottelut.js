@@ -124,6 +124,15 @@ export default function InfoTvOttelut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseDate, version]);
 
+  // Stable identity for the window's game SET. The aggregation effect below must re-run
+  // when a new finished game enters (or an old one leaves) the window — NOT every time the
+  // shared season cache notifies. `version` bumps on every notify (the live overlay patches
+  // scores every 30 s), which rebuilt `scorerGames` as a new array with identical contents
+  // and re-fetched every box score + Jopox roster again. Keying on the ids is enough: the
+  // filter already requires `finished > 0`, so a game appears here only once it's final, and
+  // a final game's report never changes.
+  const scorerKey = useMemo(() => scorerGames.map((g) => g.id).join(","), [scorerGames]);
+
   // Human-readable label for the 7-day scorer window (e.g. "24.8. – 30.8.") so the
   // podium makes clear it's last week's tally, not the season's.
   const scorerRange = useMemo(() => {
@@ -198,8 +207,10 @@ export default function InfoTvOttelut() {
       if (!cancelled) setTopScorers(top);
     })();
     return () => { cancelled = true; };
+    // scorerKey (not scorerGames) — see its definition: the array identity changes on every
+    // cache notify, the key only when the set of finished games actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scorerGames]);
+  }, [scorerKey]);
 
   // Build 3 columns × 5 rows. Games fill column-by-column (col0 top→bottom,
   // then col1…) exactly like the CSS grid did; leftover slots get filler

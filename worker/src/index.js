@@ -964,6 +964,7 @@ function weekTtlSeconds(url) {
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
 const CACHE_VERSION = "19";
+const NEGATIVE_TTL_S = 60; // how long a FAILED compute is remembered (see cachedJson)
 
 /* ------------------------------ rate limiting ----------------------------- */
 // Coarse per-IP cap on ORIGIN-facing (uncached) work, so a flood of cache-MISSES
@@ -1024,10 +1025,23 @@ async function cachedJson(ctx, url, ttlSeconds, compute, env, ip, cost) {
   if (hit) return hit;
   if (!(await rateLimitOK(env, ip, cost))) return tooMany(); // only on a MISS → cache hits are free
 
-  const data = await compute();
-  const resp = json(data);
-  resp.headers.set("cache-control", `public, max-age=${ttlSeconds}`);
-  const put = cache.put(key, resp.clone());
+  let resp;
+  let ttl = ttlSeconds;
+  try {
+    resp = json(await compute());
+  } catch (e) {
+    // NEGATIVE CACHE. An upstream failure is remembered, but only for a minute — never
+    // under the success TTL, which is how one transient tulospalvelu 429 used to freeze a
+    // blank table for hours. Long enough that a burst of viewers can't turn one outage into
+    // a retry storm against origin (the per-IP limiter only bounds a single client), short
+    // enough that the next minute self-heals. The error still surfaces to the caller as a
+    // non-2xx, so the client shows its error state instead of an empty-looking table.
+    resp = json({ error: String((e && e.message) || e) }, 502);
+    ttl = NEGATIVE_TTL_S;
+  }
+  resp.headers.set("cache-control", `public, max-age=${ttl}`);
+  // .catch: not every status is storable in the Cache API — a refusal must not fail the request.
+  const put = cache.put(key, resp.clone()).catch(() => {});
   if (ctx && ctx.waitUntil) ctx.waitUntil(put);
   else await put;
   return resp;
