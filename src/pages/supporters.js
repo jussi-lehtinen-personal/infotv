@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Card } from "@mui/material";
+import { Box, Typography, Card, Button } from "@mui/material";
+import { LuHeart } from "react-icons/lu";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
+
+// Faded rink photo behind the whole page. One element carries BOTH the image and the
+// darkening gradient (gradient first = on top), so the text keeps its contrast without a
+// second overlay node. Fixed so it doesn't slide around as the list scrolls.
+// Portrait source (841×1870) → sized for phones; webp keeps it at ~156 kB.
+const HERO = "/kannattajat_hero.webp";
+const JOIN_URL = "https://www.kiekko-ahma.fi/lomakkeet/9377/kannattajajasen";
 
 // Supporter-member list. SINGLE source: /api/getSupporters — the club's Jopox sign-up form
 // "Kannattajajäsen", fee-paid entries only. The earlier union with the Jopox team roster
@@ -53,43 +61,68 @@ const Supporters = () => {
   const subtitle = loading ? null : count > 0 ? `${count} ${count === 1 ? "kannattaja" : "kannattajaa"}` : null;
 
   return (
-    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
-      <MuiHeader title="Kannattajat" subtitle={subtitle} onBack={goBack} />
+    <Box sx={{ position: "relative", minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+      <Box
+        aria-hidden
+        sx={{
+          position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
+          // Darkest at the bottom, where the name list sits; lighter up top so the arena
+          // actually reads behind the heading and the CTA.
+          backgroundImage: `linear-gradient(180deg, rgba(17,17,17,0.55) 0%, rgba(17,17,17,0.74) 45%, rgba(17,17,17,0.92) 100%), url(${HERO})`,
+          backgroundSize: "cover", backgroundPosition: "center",
+        }}
+      />
+      {/* Content sits above the backdrop; without the stacking context the fixed layer
+          would paint over the list. */}
+      <Box sx={{ position: "relative", zIndex: 1 }}>
+        <MuiHeader title="Kannattajat" subtitle={subtitle} onBack={goBack} />
 
-      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, display: "flex", flexDirection: "column", gap: 1.75 }}>
-        <Typography sx={{ textAlign: "center", fontSize: 14, color: "var(--color-accent)" }}>
-          Kiitos, että tuette Kiekko-Ahmaa kannattajajäsenenä. 🧡
-        </Typography>
+        <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, display: "flex", flexDirection: "column", gap: 1.75 }}>
+          <Typography sx={{ textAlign: "center", fontSize: 14, color: "var(--color-accent)" }}>
+            Kiitos, että tuette Kiekko-Ahmaa. 🧡
+          </Typography>
 
-        {loading && <Status>Ladataan…</Status>}
-        {error && <Status error>Listan lataus epäonnistui.</Status>}
-        {!loading && !error && count === 0 && <Status>Ei kannattajajäseniä vielä.</Status>}
+          {/* Primary action up front: the point of the page is that people can join. */}
+          <Button
+            variant="contained"
+            size="large"
+            href={JOIN_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            startIcon={<LuHeart size={18} style={{ display: "block" }} />}
+            sx={{ alignSelf: "stretch", py: 1.25, borderRadius: "var(--radius-item)" }}
+          >
+            Liity kannattajajäseneksi
+          </Button>
 
-        {/* Plain rows, no bullet: the dot never shared a centre line with the name (it rode
-            above it), and a name list reads fine without one. Each cell is a single text
-            node, so there's nothing left to misalign. */}
-        {!loading && !error && count > 0 && (
-          <Card variant="outlined" sx={{ px: 1.5, py: 1, bgcolor: "background.paper", borderColor: "divider", display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, columnGap: 2.5 }}>
-            {names.map((name, i) => (
-              <Typography
-                key={`${name}-${i}`}
-                sx={{ fontWeight: 600, lineHeight: 1.5, py: 0.85, px: 0.5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-              >
-                {name}
-              </Typography>
-            ))}
-          </Card>
-        )}
+          {loading && <Status>Ladataan…</Status>}
+          {error && <Status error>Listan lataus epäonnistui.</Status>}
+          {!loading && !error && count === 0 && <Status>Ei kannattajajäseniä vielä.</Status>}
 
-        <Box
-          component="a"
-          href="https://www.kiekko-ahma.fi/lomakkeet/9377/kannattajajasen"
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.25, textAlign: "center", color: "primary.main", textDecoration: "none", py: 0.75, "&:hover": { textDecoration: "underline" } }}
-        >
-          <Typography sx={{ fontWeight: 700, letterSpacing: ".02em" }}>Haluatko mukaan?</Typography>
-          <Typography sx={{ fontWeight: 700, letterSpacing: ".02em" }}>Liity kannattajajäseneksi</Typography>
+          {/* Plain rows, no bullet: the dot never shared a centre line with the name (it
+              rode above it), and a name list reads fine without one. Each cell is a single
+              text node, so there's nothing left to misalign. Translucent surface so the
+              rink photo still reads through. */}
+          {!loading && !error && count > 0 && (
+            <Card
+              variant="outlined"
+              sx={{
+                px: 1.5, py: 1, display: "grid", columnGap: 2.5,
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                bgcolor: "var(--color-surface)", borderColor: "var(--color-surface-border)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              {names.map((name, i) => (
+                <Typography
+                  key={`${name}-${i}`}
+                  sx={{ fontWeight: 600, lineHeight: 1.5, py: 0.85, px: 0.5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                >
+                  {name}
+                </Typography>
+              ))}
+            </Card>
+          )}
         </Box>
       </Box>
     </Box>
