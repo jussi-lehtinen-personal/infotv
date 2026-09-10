@@ -3,10 +3,13 @@ import { Box, Typography, Card, Stack } from "@mui/material";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 
-// Supporter-member list. PRIMARY source is the club's Jopox "Kannattajajäsenet" team
-// (subsiteId 10285) — the SAME roster mechanism as /joukkueet players (getTeamRoster).
-// It's empty until the club adds members there; the static public/supporters.json is kept
-// as a fallback/merge so nothing is lost during migration. Names are unioned + deduped.
+// Supporter-member list, unioned from three sources (case-insensitive dedupe, sorted):
+//  1. /api/getSupporters — the club's Jopox sign-up form "Kannattajajäsen", fee-paid
+//     entries only. This is the PRIMARY source: it's where people actually sign up.
+//  2. Jopox "Kannattajajäsenet" team roster (subsiteId 10285) — the same mechanism as
+//     /joukkueet players. Kept because Jopox can move form replies into that register;
+//     empty today, so it contributes nothing until someone is added there.
+//  3. public/supporters.json — the static pre-migration list, so nothing is lost.
 const SUPPORTERS_SUBSITE = 10285;
 
 const toName = (entry) => {
@@ -30,24 +33,26 @@ const Supporters = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Jopox team roster (10285) is the going-forward source; supporters.json is the
-    // fallback/merge. Fetch both, union the names (case-insensitive dedupe), sort.
+    // Fetch all three sources, union the names (case-insensitive dedupe), sort.
     Promise.all([
+      fetch("/api/getSupporters").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch(`/api/getTeamRoster?subsiteId=${SUPPORTERS_SUBSITE}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/supporters.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
-      .then(([roster, staticList]) => {
+      .then(([form, roster, staticList]) => {
+        const signups = form && Array.isArray(form.supporters) ? form.supporters.map(toName) : [];
         const jopox = roster
           ? [...(Array.isArray(roster.players) ? roster.players : []), ...(Array.isArray(roster.officials) ? roster.officials : [])].map(toName)
           : [];
         const stat = Array.isArray(staticList) ? staticList.map(toName) : [];
         const seen = new Set();
-        const cleaned = [...jopox, ...stat]
+        const cleaned = [...signups, ...jopox, ...stat]
           .filter(Boolean)
           .filter((n) => { const k = n.toLocaleLowerCase("fi"); if (seen.has(k)) return false; seen.add(k); return true; })
           .sort((a, b) => a.localeCompare(b, "fi"));
         setNames(cleaned);
-        if (roster === null && !Array.isArray(staticList)) setError(true);
+        // Only a total wash-out is an error — any one source succeeding is enough.
+        if (form === null && roster === null && !Array.isArray(staticList)) setError(true);
         setLoading(false);
       })
       .catch(() => {

@@ -311,4 +311,57 @@ async function fetchUpcomingTrainings({ namePatterns, limit = 8, maxPages = 4 } 
   return events;
 }
 
-module.exports = { auth, getEventsPage, exportEventXlsx, parseEnrollments, unzip, fetchUpcomingTrainings, todayKeyHelsinki };
+/* ------------------------------- Jopox FORMS ------------------------------- */
+// The forms admin (hallinta3 "Lomakkeet") is a Vue app calling JSON endpoints under
+// /Admin/Hockeypox2020/Forms/ — GetForms, GetFormWithReplies/{id}, SaveForm, … The
+// replies are NOT exposed publicly (the public /api/forms/subsite/{id} returns only
+// metadata + an answer COUNT), so reading them needs this admin session.
+const FORMS_PATH = '/Admin/Hockeypox2020/Forms';
+
+// Public sign-up form "Kannattajajäsen" (kiekko-ahma.fi/lomakkeet/9377/kannattajajasen).
+const SUPPORTERS_FORM_ID = 9377;
+// reply.invoiceStatus === 5 means the membership fee has been PAID (club confirmed).
+// Anything else is unpaid/pending and is left out of the public list.
+const INVOICE_PAID = 5;
+
+async function fetchFormWithReplies(session, formId) {
+  const r = await fetch(`${HALL}${FORMS_PATH}/GetFormWithReplies/${formId}`, {
+    headers: { 'User-Agent': UA, Cookie: session.cookie(), Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  });
+  if (!r.ok) throw new Error(`Jopox GetFormWithReplies(${formId}) -> HTTP ${r.status}`);
+  return r.json();
+}
+
+// Supporter members from the sign-up form.
+// ⚠️ PRIVACY: the form also collects birth date, phone, email and street address. This
+// deliberately resolves ONLY the "Etunimi"/"Sukunimi" field ids and reads just those two
+// values — no other field ever leaves this function. Keep it that way: the supporters
+// page publishes these names, and nothing else is ours to publish.
+// Returns [{ firstName, lastName }] for paid, non-removed replies, sorted by last name.
+async function fetchSupporterNames({ formId = SUPPORTERS_FORM_ID } = {}) {
+  const session = await auth();
+  const data = await fetchFormWithReplies(session, formId);
+  const fields = (data && data.form && data.form.fields) || [];
+  const idOf = (label) => {
+    const f = fields.find((x) => String(x.label || x.title || x.name || '').trim().toLowerCase() === label);
+    return f ? f.id : null;
+  };
+  const firstId = idOf('etunimi');
+  const lastId = idOf('sukunimi');
+  if (!firstId || !lastId) throw new Error('Jopox form: Etunimi/Sukunimi fields not found');
+
+  const out = [];
+  for (const reply of (data && data.replies) || []) {
+    if (reply.removed) continue;
+    if (Number(reply.invoiceStatus) !== INVOICE_PAID) continue;
+    const byId = {};
+    for (const f of reply.fields || []) byId[f.id] = f.value;
+    const firstName = String(byId[firstId] || '').trim();
+    const lastName = String(byId[lastId] || '').trim();
+    if (firstName || lastName) out.push({ firstName, lastName });
+  }
+  out.sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'fi'));
+  return out;
+}
+
+module.exports = { auth, getEventsPage, exportEventXlsx, parseEnrollments, unzip, fetchUpcomingTrainings, todayKeyHelsinki, fetchSupporterNames, SUPPORTERS_FORM_ID };
