@@ -1,22 +1,20 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Card, Stack } from "@mui/material";
+import { Box, Typography, Card } from "@mui/material";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { useGoBack } from "../hooks/useGoBack";
 
-// Supporter-member list, unioned from three sources (case-insensitive dedupe, sorted):
-//  1. /api/getSupporters — the club's Jopox sign-up form "Kannattajajäsen", fee-paid
-//     entries only. This is the PRIMARY source: it's where people actually sign up.
-//  2. Jopox "Kannattajajäsenet" team roster (subsiteId 10285) — the same mechanism as
-//     /joukkueet players. Kept because Jopox can move form replies into that register;
-//     empty today, so it contributes nothing until someone is added there.
-//  3. public/supporters.json — the static pre-migration list, so nothing is lost.
-const SUPPORTERS_SUBSITE = 10285;
+// Supporter-member list. SINGLE source: /api/getSupporters — the club's Jopox sign-up form
+// "Kannattajajäsen", fee-paid entries only. The earlier union with the Jopox team roster
+// (subsite 10285) and the static public/supporters.json was dropped: the roster is empty
+// (Jopox's "move reply to register" doesn't reach the public player list) and the static
+// file still held a placeholder row, which showed up on the live page as "Etunimi Sukunimi".
+// One source = what's on the page is exactly who has signed up and paid.
 
 const toName = (entry) => {
   if (typeof entry === "string") return entry.trim();
   if (entry && typeof entry === "object") {
     if (typeof entry.name === "string" && entry.name.trim()) return entry.name.trim();
-    const fl = `${entry.firstName || ""} ${entry.lastName || ""}`.trim(); // getTeamRoster player shape
+    const fl = `${entry.firstName || ""} ${entry.lastName || ""}`.trim(); // /api/getSupporters shape
     if (fl) return fl;
   }
   return "";
@@ -33,26 +31,16 @@ const Supporters = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Fetch all three sources, union the names (case-insensitive dedupe), sort.
-    Promise.all([
-      fetch("/api/getSupporters").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/getTeamRoster?subsiteId=${SUPPORTERS_SUBSITE}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch("/supporters.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ])
-      .then(([form, roster, staticList]) => {
-        const signups = form && Array.isArray(form.supporters) ? form.supporters.map(toName) : [];
-        const jopox = roster
-          ? [...(Array.isArray(roster.players) ? roster.players : []), ...(Array.isArray(roster.officials) ? roster.officials : [])].map(toName)
-          : [];
-        const stat = Array.isArray(staticList) ? staticList.map(toName) : [];
+    fetch("/api/getSupporters")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+      .then((data) => {
         const seen = new Set();
-        const cleaned = [...signups, ...jopox, ...stat]
+        const cleaned = (Array.isArray(data.supporters) ? data.supporters : [])
+          .map(toName)
           .filter(Boolean)
           .filter((n) => { const k = n.toLocaleLowerCase("fi"); if (seen.has(k)) return false; seen.add(k); return true; })
           .sort((a, b) => a.localeCompare(b, "fi"));
         setNames(cleaned);
-        // Only a total wash-out is an error — any one source succeeding is enough.
-        if (form === null && roster === null && !Array.isArray(staticList)) setError(true);
         setLoading(false);
       })
       .catch(() => {
@@ -77,13 +65,18 @@ const Supporters = () => {
         {error && <Status error>Listan lataus epäonnistui.</Status>}
         {!loading && !error && count === 0 && <Status>Ei kannattajajäseniä vielä.</Status>}
 
+        {/* Plain rows, no bullet: the dot never shared a centre line with the name (it rode
+            above it), and a name list reads fine without one. Each cell is a single text
+            node, so there's nothing left to misalign. */}
         {!loading && !error && count > 0 && (
-          <Card variant="outlined" sx={{ p: 2, bgcolor: "background.paper", borderColor: "divider", display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, columnGap: 2.25, rowGap: 0.5 }}>
+          <Card variant="outlined" sx={{ px: 1.5, py: 1, bgcolor: "background.paper", borderColor: "divider", display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, columnGap: 2.5 }}>
             {names.map((name, i) => (
-              <Stack key={`${name}-${i}`} direction="row" alignItems="center" spacing={1.25} sx={{ py: 1, px: 0.75, minWidth: 0 }}>
-                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 }} />
-                <Typography sx={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</Typography>
-              </Stack>
+              <Typography
+                key={`${name}-${i}`}
+                sx={{ fontWeight: 600, lineHeight: 1.5, py: 0.85, px: 0.5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+              >
+                {name}
+              </Typography>
             ))}
           </Card>
         )}
