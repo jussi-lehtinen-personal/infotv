@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, STEEL, ORANGE } from "./InfoTvFrame";
+import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, STEEL } from "./InfoTvFrame";
 
 // Kannattajajäsenet signage — the hall-screen twin of the GameZone /supporters page.
 // Same single source (/api/getSupporters = the Jopox sign-up form, fee-paid entries), same
@@ -64,8 +64,6 @@ export default function InfoTvKannattajat() {
       <Masthead title="KANNATTAJAT" />
 
       <div className="ks-content">
-        <div className="ks-thanks">Kiitos, että tuette Kiekko-Ahmaa. 🧡</div>
-
         {names === null && <div className="ks-msg">Ladataan…</div>}
         {names !== null && error && <div className="ks-msg">Kannattajia ei saatu haettua.</div>}
         {names && !error && (
@@ -77,6 +75,9 @@ export default function InfoTvKannattajat() {
               </div>
             )
         )}
+
+        {/* Thanks last: the names are the content, the thank-you is the sign-off. */}
+        <div className="ks-thanks">Kiitos, että tuette Kiekko-Ahmaa. 🧡</div>
       </div>
     </InfoTvStage>
   );
@@ -84,15 +85,12 @@ export default function InfoTvKannattajat() {
 
 const css = `
 .ks-content { position:absolute; top:130px; bottom:44px; left:44px; right:44px; display:flex; flex-direction:column; gap:28px; overflow:hidden; }
-/* padding-left matches the grid's accent border + inset, so the line starts on the same
-   vertical as the names instead of floating centred above a left-aligned list. */
-.ks-thanks { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:600; font-size:34px; color:${STEEL}; padding-left:40px; }
+.ks-thanks { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:600; font-size:34px; color:${STEEL}; text-align:center; }
 .ks-msg { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:52px; letter-spacing:0.06em; color:${STEEL}; }
 
 /* align-content:center keeps a short list optically centred instead of hugging the top;
    overflow:hidden is the landscape invariant's backstop. */
-.ks-grid { flex:1; min-height:0; display:grid; align-content:center; column-gap:56px; row-gap:6px; overflow:hidden;
-           border-left:4px solid ${ORANGE}; padding-left:36px; }
+.ks-grid { flex:1; min-height:0; display:grid; align-content:center; column-gap:56px; row-gap:6px; overflow:hidden; }
 .ks-name { font-family:${FONT_BODY}; font-weight:700; color:#fff; line-height:1.55;
            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 `;
