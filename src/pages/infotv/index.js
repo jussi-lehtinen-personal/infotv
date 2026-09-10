@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuSwords, LuCalendarDays, LuTrophy, LuMegaphone, LuMedal, LuHeartHandshake } from "react-icons/lu";
+import { LuSwords, LuCalendarDays, LuTrophy, LuMegaphone, LuMedal, LuHeartHandshake, LuHeart } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import InfoTvStage, { HeroBackdrop, Lockup, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
@@ -16,6 +16,7 @@ const PAGES = [
   { to: "/infotv/ahmaliiga", Icon: LuMegaphone, title: "Ahmaliiga", desc: "Fantasialiigan mainos" },
   { to: "/infotv/tilastot", Icon: LuMedal, title: "Ahmaliiga-tilastot", desc: "Kauden kärki" },
   { to: "/infotv/kumppanit", Icon: LuHeartHandshake, title: "Yhteistyökumppanit", desc: "Meidän kumppanit" },
+  { to: "/infotv/kannattajat", Icon: LuHeart, title: "Kannattajat", desc: "Kannattajajäsenet" },
 ];
 
 const TESTS = [

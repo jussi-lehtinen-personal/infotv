@@ -58,10 +58,11 @@ const Supporters = () => {
   }, []);
 
   const count = names.length;
-  const subtitle = loading ? null : count > 0 ? `${count} ${count === 1 ? "kannattaja" : "kannattajaa"}` : null;
 
+  // boxSizing below: the app defaults to content-box, so `minHeight: 100dvh` plus the
+  // bottom-nav padding added up to 100dvh + 80px and this short page scrolled by exactly that.
   return (
-    <Box sx={{ position: "relative", minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
+    <Box sx={{ position: "relative", minHeight: "100dvh", boxSizing: "border-box", bgcolor: "background.default", color: "text.primary", pb: "var(--ui-bottom-nav-clearance, 80px)" }}>
       <Box
         aria-hidden
         sx={{
@@ -75,7 +76,7 @@ const Supporters = () => {
       {/* Content sits above the backdrop; without the stacking context the fixed layer
           would paint over the list. */}
       <Box sx={{ position: "relative", zIndex: 1 }}>
-        <MuiHeader title="Kannattajat" subtitle={subtitle} onBack={goBack} />
+        <MuiHeader title="Kannattajat" onBack={goBack} />
 
         <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, display: "flex", flexDirection: "column", gap: 1.75 }}>
           <Typography sx={{ textAlign: "center", fontSize: 14, color: "var(--color-accent)" }}>

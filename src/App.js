@@ -45,6 +45,7 @@ import InfoTvKotipeli from "./pages/infotv/kotipeli";
 import InfoTvAhmaliiga from "./pages/infotv/ahmaliiga";
 import InfoTvTilastot from "./pages/infotv/tilastot";
 import InfoTvKumppanit from "./pages/infotv/kumppanit";
+import InfoTvKannattajat from "./pages/infotv/kannattajat";
 import FacilityReservations from "./pages/facility_reservations";
 import Ahmaliiga from "./pages/ahmaliiga";
 import { AhmaliigaLayout, RequireEnvAdmin } from "./components/AhmaliigaLayout";
@@ -168,6 +169,7 @@ function App() {
             <Route path="/infotv/ahmaliiga" element={<InfoTvAhmaliiga />} />
             <Route path="/infotv/tilastot" element={<InfoTvTilastot />} />
             <Route path="/infotv/kumppanit" element={<InfoTvKumppanit />} />
+            <Route path="/infotv/kannattajat" element={<InfoTvKannattajat />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"
