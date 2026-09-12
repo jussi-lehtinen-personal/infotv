@@ -109,6 +109,7 @@ const GameAds = () => {
   const [bgAspect, setBgAspect] = useState(null); // w/h of the loaded photo
   const [layout, setLayout] = useState("v"); // see LAYOUTS near the bottom of this file
   const [scale, setScale] = useState(1);
+  const [headerH, setHeaderH] = useState(null); // feeds --ga-header on wide screens
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
   const [editLevel, setEditLevel] = useState("");
@@ -147,16 +148,39 @@ const GameAds = () => {
     return { main: parts.main, sub: parts.sub ?? "" };
   }, []);
 
-  // Scale canvas width to fit wrapper
+  // Scale the 1080 canvas down to whatever width the wrapper actually got. Observed rather
+  // than listening for window resize: on wide screens the wrapper's width comes from a CSS
+  // variable the layout sets after mount, and a window-only listener left the preview
+  // rendering at a stale scale — wider than its own frame.
+  // Deliberately NOT a ResizeObserver on the wrapper: setting the scale changes that very
+  // element's height, so observing it makes it retrigger itself ("ResizeObserver loop
+  // completed with undelivered notifications"). Window resize covers the user resizing, and
+  // the headerH dependency covers the one other thing that moves the wrapper's width — the
+  // header measurement below feeding the wide-screen CSS.
   useEffect(() => {
     const update = () => {
-      if (wrapperRef.current) {
-        setScale(wrapperRef.current.offsetWidth / CANVAS_SIZE);
-      }
+      if (wrapperRef.current) setScale(wrapperRef.current.offsetWidth / CANVAS_SIZE);
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
+  }, [headerH]);
+
+  // Publish the page header's real height so the wide-screen CSS can size the ad against
+  // it. The game picker wraps to a second row once the week has enough games, so a
+  // hard-coded reserve is always wrong one way or the other: too big wastes most of a short
+  // viewport, too small pushes the bottom of the ad behind the BottomNav.
+  useEffect(() => {
+    const el = document.querySelector(".ga-page-header");
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    // Height only: the grid's tracks are content-sized, so the header's WIDTH depends on the
+    // canvas track, which depends on this very value. Reacting to the width would make the
+    // measurement chase itself. The height changes only if the game picker rewraps.
+    const apply = () => setHeaderH((prev) => (prev === el.offsetHeight ? prev : el.offsetHeight));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   // Fetch teams once — build levelId|statGroupId → teamKey lookup
@@ -316,7 +340,7 @@ const handleCustomBgFile = useCallback((e) => {
   return (
     <div>
       <style>{css}</style>
-      <div className="ga-root">
+      <div className="ga-root" style={headerH ? { "--ga-header": `${headerH}px` } : undefined}>
 
         {/* Header */}
         <Surface className="ga-page-header">
@@ -1290,6 +1314,59 @@ html, body, #root {
   flex-direction: column;
   gap: 10px;
   padding: 16px 20px;
+}
+
+/* Wide screens: canvas on the left, editor beside it, so a nudge and its result are both
+   in view. Grid rather than a wrapper div, so the same three blocks re-flow into either
+   shape with no DOM change and the phone layout stays exactly as it was.
+   The preview scales itself off .ga-display-wrap's measured width, so the canvas simply
+   gets bigger here — nothing to keep in sync. */
+@media (min-width: 1000px) {
+  .ga-root {
+    /* The ad is square, so one number sets both its width and its height, and the SAME
+       value drives the grid column so the canvas fills its track exactly and lines up with
+       the header above it. Take the smaller of what the row has spare and what is left of
+       the viewport height once the header (measured — see --ga-header), the top padding,
+       the gap and the BottomNav are out. 40px = 16 padding + 16 gap + a little slack. */
+    --ga-header: 150px; /* replaced by the measured value on mount */
+    --ga-canvas: min(
+      calc(100vw - 540px),
+      calc(100dvh - var(--ga-header) - var(--ui-bottom-nav-clearance, 80px) - 40px)
+    );
+
+    display: grid;
+    grid-template-columns: minmax(0, var(--ga-canvas)) minmax(360px, 480px);
+    /* Title + game picker stay on top across the full width; canvas and editor sit side
+       by side underneath. */
+    grid-template-areas:
+      "header header"
+      "canvas controls";
+    grid-template-rows: auto 1fr;
+    align-content: start;
+    /* Tracks are content-sized, so centre them instead of stretching to the window: that
+       is what puts the header's two ends on the canvas and the editor. */
+    justify-content: center;
+    gap: 16px;
+  }
+  .ga-page-header { grid-area: header; max-width: none; }
+  .ga-controls {
+    grid-area: controls;
+    max-width: none;
+    align-self: start;
+    /* Square canvas, so its width is also its height — matching it makes the two panes one
+       symmetrical block. min-height, not height: on a short window the canvas shrinks below
+       what the fields need, and a fixed height there put the download button behind a
+       scrollbar. Better to lose the symmetry in that one case than to hide the CTA. */
+    min-height: var(--ga-canvas);
+  }
+  /* Soaks up the leftover height so the gap lands above the download button instead of
+     below it, and the button sits on the canvas's bottom edge. */
+  .ga-controls .ga-separator { margin-top: auto; }
+  .ga-display-wrap {
+    grid-area: canvas;
+    align-self: start;
+    max-width: none; /* the track already limits it */
+  }
 }
 
 .ga-field-row {
