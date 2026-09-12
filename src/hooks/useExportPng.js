@@ -6,9 +6,16 @@ import { toPng } from "html-to-image";
  *
  * @param {React.RefObject} exportRef  - ref attached to the DOM node to capture
  * @param {string} [filename]          - downloaded file name (default: "kiekko-ahma-pelimainos.png")
+ * @param {object} [options]
+ * @param {number} [options.pixelRatio] - force an exact output scale (1 = node's CSS size).
+ *   Omit to keep html-to-image's default, which follows the screen's devicePixelRatio and
+ *   therefore exports a different size on every machine.
+ * @param {string[]} [options.fonts]   - font shorthands ("400 166px 'Bebas Neue'") that must
+ *   be loaded before capture, or the export silently falls back to a different typeface.
  */
-export function useExportPng(exportRef, filename = "kiekko-ahma-pelimainos.png") {
+export function useExportPng(exportRef, filename = "kiekko-ahma-pelimainos.png", options = {}) {
   const [downloading, setDownloading] = useState(false);
+  const { pixelRatio, fonts } = options;
 
   const downloadPng = useCallback(async () => {
     if (!exportRef.current || downloading) return;
@@ -20,6 +27,15 @@ export function useExportPng(exportRef, filename = "kiekko-ahma-pelimainos.png")
       /AppleWebKit/i.test(navigator.userAgent) && !/EdgA|EdgiOS/i.test(navigator.userAgent);
 
     try {
+      // Webfonts first. document.fonts.check() is false until EVERY matching subset has
+      // loaded, so a cold export can capture the fallback face; load() forces the issue.
+      if (fonts?.length && document.fonts) {
+        try {
+          await Promise.all(fonts.map((f) => document.fonts.load(f)));
+          await document.fonts.ready;
+        } catch {}
+      }
+
       // Wait for every <img> inside the canvas to be fully decoded by the browser
       // before any toPng call starts. html-to-image fetches images concurrently
       // with cache-busted URLs; if a slow request loses the race both slots can
@@ -64,10 +80,11 @@ export function useExportPng(exportRef, filename = "kiekko-ahma-pelimainos.png")
         await new Promise((r) => requestAnimationFrame(() => r(null)));
       }
 
+      const opts = { cacheBust: true, ...(pixelRatio ? { pixelRatio } : null) };
       // Warmup call — loads all resources into html-to-image's internal cache
-      await toPng(node, { cacheBust: true });
+      await toPng(node, opts);
       // Real export
-      const dataUrl = await toPng(node, { cacheBust: true });
+      const dataUrl = await toPng(node, opts);
 
       // Convert dataURL → Blob → File
       const blob = await (await fetch(dataUrl)).blob();
@@ -97,7 +114,7 @@ export function useExportPng(exportRef, filename = "kiekko-ahma-pelimainos.png")
     } finally {
       setDownloading(false);
     }
-  }, [exportRef, downloading, filename]);
+  }, [exportRef, downloading, filename, pixelRatio, fonts]);
 
   return { downloading, downloadPng };
 }
