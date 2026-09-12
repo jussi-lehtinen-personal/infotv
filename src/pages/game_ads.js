@@ -46,6 +46,14 @@ const EXPORT_FONTS = [`400 166px ${FONT_DISPLAY}`];
 const texture = (a) => `repeating-linear-gradient(45deg, rgba(255,255,255,${a}) 0 1px, transparent 1px 8px),
      repeating-linear-gradient(-45deg, rgba(255,255,255,${a}) 0 1px, transparent 1px 8px)`;
 
+// Lighting vocabulary borrowed from the weekly listing ad (ads.js) so the two ads read as
+// one family: a warm sheen on every top edge, and beams that fade out at both ends instead
+// of stopping dead. Deliberately restrained — these sit under type that has to stay sharp.
+const CARD_HILITE = "inset 0 2px 0 rgba(255,168,96,0.30)";
+const GLOW_LINE = "linear-gradient(90deg, rgba(240,110,30,0) 0%, #FFC08A 52%, rgba(240,110,30,0) 100%)";
+const STREAK_LINE = "linear-gradient(90deg, rgba(255,214,180,0) 0%, rgba(255,217,180,0.85) 50%, rgba(255,214,180,0) 100%)";
+const CORNER_GLOW = "radial-gradient(60% 100% at 18% 0%, rgba(255,150,72,0.13) 0%, rgba(240,110,30,0.04) 45%, rgba(240,110,30,0) 100%)";
+
 const HOME_VENUE = "Wareena · Valkeakoski";
 
 // The chevron only has room for ~15 condensed characters, and the colour half of a level
@@ -99,6 +107,7 @@ const GameAds = () => {
   // the 4:3 hero box that shows the whole photo uncropped. They matter for the NEXT photo.
   const [zoom, setZoom] = useState(1); // CSS scale on the photo
   const [offsetY, setOffsetY] = useState(0); // added to object-position's 50 %
+  const [layout, setLayout] = useState("disc"); // see LAYOUTS near the bottom of this file
   const [scale, setScale] = useState(1);
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
@@ -303,7 +312,7 @@ const handleCustomBgFile = useCallback((e) => {
             >
               <div ref={exportRef} style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` }}>
                 {displayMatch && (
-                  <GameAdCanvas match={displayMatch} background={activeBackground} zoom={zoom} offsetY={offsetY} />
+                  <GameAdCanvas match={displayMatch} background={activeBackground} zoom={zoom} offsetY={offsetY} layout={layout} />
                 )}
               </div>
             </div>
@@ -318,6 +327,16 @@ const handleCustomBgFile = useCallback((e) => {
                 {/* SelectorButton is a 36 px square by default — these two carry words. */}
                 <SelectorButton onClick={() => setScope(false)} active={!includeAway} style={GA_WIDE_BTN}>Kotiottelut</SelectorButton>
                 <SelectorButton onClick={() => setScope(true)} active={includeAway} style={GA_WIDE_BTN}>Kaikki</SelectorButton>
+              </div>
+            </div>
+            <div className="ga-field-row">
+              <label className="ga-label">Tyyli</label>
+              <div className="ga-bg-btns">
+                {Object.entries(LAYOUTS).map(([key, l]) => (
+                  <SelectorButton key={key} onClick={() => setLayout(key)} active={layout === key} style={GA_WIDE_BTN}>
+                    {l.label}
+                  </SelectorButton>
+                ))}
               </div>
             </div>
             <div className="ga-field-row">
@@ -529,8 +548,8 @@ function TeamPanel({ side, logo, name, detail }) {
         border: `5px solid ${ORANGE}`,
         borderRadius: "26px",
         backgroundColor: "#0D0F11",
-        backgroundImage: texture(0.015),
-        boxShadow: "0 7px 14px rgba(0,0,0,.48), 0 0 10px rgba(240,110,30,.10), inset 0 1px 0 rgba(255,255,255,.025)",
+        backgroundImage: `${CORNER_GLOW}, ${texture(0.015)}`,
+        boxShadow: `0 7px 14px rgba(0,0,0,.48), 0 0 10px rgba(240,110,30,.10), ${CARD_HILITE}`,
       }}
     >
       <img
@@ -618,7 +637,7 @@ function MatchDisc({ dayStr, timeStr, competition }) {
         backgroundImage: `${texture(0.018)},
           radial-gradient(circle at 42% 24%, #202327 0%, #101214 49%, #08090A 100%)`,
         boxShadow:
-          "0 18px 32px rgba(0,0,0,.82), 0 5px 10px rgba(0,0,0,.70), 0 0 0 5px rgba(0,0,0,.58), 0 0 28px rgba(240,110,30,.14), inset 0 2px 3px rgba(255,255,255,.06)",
+          "0 18px 32px rgba(0,0,0,.82), 0 5px 10px rgba(0,0,0,.70), 0 0 0 5px rgba(0,0,0,.58), 0 0 34px rgba(240,110,30,.20), inset 0 3px 4px rgba(255,168,96,.16)",
       }}
     >
       {/* orange ring — inset 8 px from the border's inner edge = 10 px from the outer box */}
@@ -698,41 +717,24 @@ function MatchDisc({ dayStr, timeStr, competition }) {
         style={{
           position: "absolute",
           zIndex: 3,
-          left: "174px",
+          left: "154px",
           top: "378px",
-          width: "100px",
+          width: "140px", // wider than the solid rule was: a beam needs room to fade out
           height: "5px",
           borderRadius: "3px",
-          background: ORANGE,
-          boxShadow: "0 0 6px rgba(240,110,30,.18)",
+          background: GLOW_LINE,
         }}
       />
     </div>
   );
 }
 
-function GameAdCanvas({ match, background, zoom, offsetY }) {
-  useFontReady(`400 166px ${FONT_DISPLAY}`); // re-renders once Bebas is measurable
-  const timeStr = moment(match.date).format("HH:mm");
-  const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
-
+// Photo + its darkening gradient + the site strap. Shared by both layouts: 1080×810 is the
+// source photo's own 4:3, so at zoom 1 `cover` shows all of it and crops nothing. zoom and
+// offsetY exist because the next photo won't be 4:3.
+function Hero({ background, zoom, offsetY, shade }) {
   return (
-    <div
-      style={{
-        position: "relative",
-        isolation: "isolate",
-        width: `${CANVAS_SIZE}px`,
-        height: `${CANVAS_SIZE}px`,
-        overflow: "hidden", // clips the shadows that reach past the square
-        background: INK,
-        fontFamily: FONT_DISPLAY,
-        fontWeight: 400,
-        color: "#ffffff",
-      }}
-    >
-      {/* ── photo ──
-          1080×810 is the source photo's own 4:3, so at zoom 1 `cover` shows all of it and
-          crops nothing. zoom/offsetY exist because the next photo won't be 4:3. */}
+    <>
       <div style={{ position: "absolute", zIndex: 0, left: 0, top: 0, width: `${CANVAS_SIZE}px`, height: `${HERO_H}px`, overflow: "hidden" }}>
         <img
           data-export-bg="1"
@@ -758,11 +760,9 @@ function GameAdCanvas({ match, background, zoom, offsetY }) {
           top: 0,
           width: `${CANVAS_SIZE}px`,
           height: `${HERO_H}px`,
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 61%, rgba(21,23,27,.18) 78%, rgba(21,23,27,.85) 100%)",
+          background: `linear-gradient(to bottom, ${shade})`,
         }}
       />
-
       <div
         style={{
           position: "absolute",
@@ -782,6 +782,21 @@ function GameAdCanvas({ match, background, zoom, offsetY }) {
       >
         WWW.KIEKKO-AHMA.FI
       </div>
+    </>
+  );
+}
+
+/* ---- layout A: disc ------------------------------------------------------ */
+
+function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
+  return (
+    <>
+      <Hero
+        background={background}
+        zoom={zoom}
+        offsetY={offsetY}
+        shade="rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 61%, rgba(21,23,27,.18) 78%, rgba(21,23,27,.85) 100%"
+      />
 
       {/* ── lower card ── */}
       <div
@@ -796,18 +811,299 @@ function GameAdCanvas({ match, background, zoom, offsetY }) {
           border: "2px solid #292C31",
           borderRadius: "36px",
           backgroundColor: INK,
-          backgroundImage: `${texture(0.025)}, linear-gradient(180deg, #15171B 0%, #090A0C 100%)`,
-          boxShadow: "0 -14px 32px rgba(0,0,0,.72), inset 0 2px 0 rgba(255,255,255,.035)",
+          backgroundImage: `${CORNER_GLOW}, ${texture(0.025)}, linear-gradient(180deg, #15171B 0%, #090A0C 100%)`,
+          boxShadow: `0 -14px 32px rgba(0,0,0,.72), ${CARD_HILITE}`,
         }}
       />
+      {/* Beam along the card's top edge, brightest under the disc — the same fade-at-both-
+          ends treatment as the listing ad's first-card streak. */}
+      <div style={{ position: "absolute", zIndex: 11, left: "36px", right: "36px", top: "680px", height: "2px", background: STREAK_LINE, pointerEvents: "none" }} />
 
       <TeamPanel side="home" logo={match.home_logo} name={match.homeMain} detail={match.homeSub} />
       <TeamPanel side="away" logo={match.away_logo} name={match.awayMain} detail={match.awaySub} />
 
       <MatchDisc dayStr={dayStr} timeStr={timeStr} competition={match.level} />
 
-      {/* ── footer ── */}
       <Footer text={match.venue} />
+    </>
+  );
+}
+
+/* ---- layout B: V --------------------------------------------------------- */
+//
+// The photo meets the dark lower surface along two slanted orange bars that fall from the
+// edges to the centre, and a narrow panel tapering downwards sits on top of them. Every
+// slanted edge is a clip-path polygon — a CSS border would follow the element's rectangle,
+// not the polygon, so the 6 px orange edge is built as three identically sized stacked
+// shapes whose polygons are offset PERPENDICULARLY by 0 / 6 / 9 px. (A scale() transform
+// would give a different edge thickness on each side of a tapering shape.)
+
+// Both layouts carry the SAME information in the same places: date/time/series in the middle
+// and venue/price along the bottom. That forced two departures from the V reference, where
+// the panel ran off the bottom edge and the venue lived inside it:
+//   1. the whole lower composition moves up 55 px, because the team blocks used to end at
+//      y=1057 — on top of the shared footer;
+//   2. the panel is cut at local y=419 instead of 484, so it stops above the footer. The
+//      long edges keep the reference's angle, so the silhouette is the reference's minus the
+//      part that was being clipped by the canvas edge anyway (166 px wide here vs 145 there).
+// The inset polygons are the outer one offset PERPENDICULARLY by 6 and 9 px, recomputed for
+// the new cut — the same routine reproduces the reference spec's own numbers exactly.
+const V_SHIFT = 55;
+const V_PANEL = { x: 270, y: 640 - V_SHIFT, w: 540, h: 419 };
+const V_OUTER = "polygon(26px 0px, 514px 0px, 540px 52px, 353.102px 419px, 186.898px 419px, 0px 52px)";
+const V_INSET_6 = "polygon(29.708px 6px, 510.292px 6px, 533.279px 51.975px, 349.424px 413px, 190.576px 413px, 6.721px 51.975px)";
+const V_INSET_9 = "polygon(31.562px 9px, 508.438px 9px, 529.919px 51.963px, 347.585px 410px, 192.415px 410px, 10.081px 51.963px)";
+
+// How wide the textured face actually is at a given panel-local y. Derived from V_INSET_9's
+// two long edges rather than hard-coded, so text fitting stays honest if the shape is
+// retuned: the panel narrows by ~1.02 px for every px down, and a 416 px-wide centred text
+// box means nothing once the shape has closed in past it.
+const V_FACE_TOP_W = 529.919 - 10.081;
+const V_FACE_TAPER = (2 * (225.517 - 10.081)) / (475 - 51.963);
+const vFaceWidth = (localY) => V_FACE_TOP_W - V_FACE_TAPER * (localY - 51.963);
+const V_TEXT_PAD = 16; // keeps glyphs off the recess rather than just barely inside it
+
+// Fit to the width at the text's BOTTOM edge — that is where a tapering panel is narrowest
+// and where descender-free Bebas caps still reach.
+const fitInPanel = (text, bottomY, max, min, tracking) =>
+  fitSize(text, vFaceWidth(bottomY) - V_TEXT_PAD, max, min, tracking);
+
+function VTeam({ side, logo, name, detail }) {
+  const left = side === "home" ? 20 : 758;
+  return (
+    <div style={{ position: "absolute", zIndex: 20, top: `${778 - V_SHIFT}px`, left: `${left}px`, width: "302px", height: "279px", textAlign: "center" }}>
+      <img
+        src={logo}
+        alt=""
+        decoding="sync"
+        style={{ position: "absolute", left: "26px", top: 0, width: "250px", height: "168px", display: "block", objectFit: "contain", objectPosition: "center" }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          // No qualifier (Edustus has no age group) → centre the name in the 173–279 band
+          // instead of leaving a hole under it.
+          top: detail ? "173px" : "205px",
+          width: "302px",
+          height: "60px",
+          fontSize: `${fitSize(name, 302, 52, 36, 0.04)}px`,
+          lineHeight: "60px",
+          letterSpacing: "0.04em",
+          whiteSpace: "nowrap",
+          textShadow: "0 2px 4px rgba(0,0,0,.75)",
+        }}
+      >
+        {name}
+      </div>
+      {detail && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: "237px",
+            width: "302px",
+            height: "42px",
+            fontSize: `${fitSize(detail, 302, 42, 26, 0.06)}px`,
+            lineHeight: "42px",
+            letterSpacing: "0.06em",
+            color: ORANGE,
+            whiteSpace: "nowrap",
+            textShadow: "0 2px 4px rgba(0,0,0,.75)",
+          }}
+        >
+          {detail}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
+  const shape = { position: "absolute", inset: 0, pointerEvents: "none" };
+  const y = (n) => n - V_SHIFT; // the V composition sits 55 px higher than the reference
+
+  return (
+    <>
+      <Hero
+        background={background}
+        zoom={zoom}
+        offsetY={offsetY}
+        shade="rgba(0,0,0,.30) 0%, rgba(0,0,0,0) 16%, rgba(0,0,0,0) 80%, rgba(21,23,27,.32) 100%"
+      />
+
+      {/* Dark lower surface. The clip is on the child and the shadow on the wrapper, so the
+          shadow follows the V rather than the element's rectangle. */}
+      <div style={{ position: "absolute", zIndex: 10, inset: 0, pointerEvents: "none", filter: "drop-shadow(0 -8px 14px rgba(0,0,0,.58))" }}>
+        <div
+          style={{
+            ...shape,
+            clipPath: `polygon(0px ${y(630)}px, 540px ${y(842)}px, 1080px ${y(630)}px, 1080px 1080px, 0px 1080px)`,
+            backgroundColor: INK,
+            backgroundImage: `${texture(0.008)}, linear-gradient(180deg, #15171B 0%, #0B0D0F 100%)`,
+          }}
+        />
+      </div>
+
+      {/* Orange bars. Their lower edge shares the surface's upper points exactly, so no sliver
+          of photo can show through the join. */}
+      <div
+        style={{
+          ...shape,
+          zIndex: 12,
+          clipPath: `polygon(0px ${y(606)}px, 540px ${y(818)}px, 1080px ${y(606)}px, 1080px ${y(630)}px, 540px ${y(842)}px, 0px ${y(630)}px)`,
+          background: ORANGE,
+        }}
+      />
+      {/* Warm sheen riding the bar's top edge, brightest at the V's vertex. The bar is a
+          clip-path, so a box-shadow inset would follow the element's rectangle instead —
+          hence a second clipped band 3 px thick. */}
+      <div
+        style={{
+          ...shape,
+          zIndex: 12,
+          clipPath: `polygon(0px ${y(606)}px, 540px ${y(818)}px, 1080px ${y(606)}px, 1080px ${y(609)}px, 540px ${y(821)}px, 0px ${y(609)}px)`,
+          background: STREAK_LINE,
+        }}
+      />
+      <div
+        style={{
+          ...shape,
+          zIndex: 13,
+          clipPath: `polygon(0px ${y(648)}px, 540px ${y(860)}px, 1080px ${y(648)}px, 1080px ${y(650)}px, 540px ${y(862)}px, 0px ${y(650)}px)`,
+          background: "rgba(195,195,195,.45)",
+        }}
+      />
+
+      <VTeam side="home" logo={match.home_logo} name={match.homeMain} detail={match.homeSub} />
+      <VTeam side="away" logo={match.away_logo} name={match.awayMain} detail={match.awaySub} />
+
+      {/* Centre panel. The wrapper carries only the drop-shadows — no background, no clip,
+          no overflow — so the shadow traces the children's silhouette. It overhangs the
+          canvas by 44 px on purpose; the ad's own overflow:hidden trims it. */}
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 30,
+          isolation: "isolate",
+          left: `${V_PANEL.x}px`,
+          top: `${V_PANEL.y}px`,
+          width: `${V_PANEL.w}px`,
+          height: `${V_PANEL.h}px`,
+          filter:
+            "drop-shadow(0 14px 18px rgba(0,0,0,.82)) drop-shadow(0 4px 5px rgba(0,0,0,.65)) drop-shadow(0 0 7px rgba(240,110,30,.20))",
+        }}
+      >
+        <div style={{ ...shape, zIndex: 0, clipPath: V_OUTER, background: ORANGE }} />
+        <div style={{ ...shape, zIndex: 1, clipPath: V_INSET_6, background: "#080A0C" }} />
+        <div
+          style={{
+            ...shape,
+            zIndex: 2,
+            clipPath: V_INSET_9,
+            backgroundColor: "#101214",
+            backgroundImage: `${CORNER_GLOW}, ${texture(0.012)}, linear-gradient(155deg, #1B1E22 0%, #101214 48%, #090B0D 100%)`,
+          }}
+        />
+        {/* The panel's top edge is the one horizontal run in the shape, so the warm sheen
+            can simply be a rectangle there. */}
+        <div style={{ position: "absolute", zIndex: 2, left: "31.5px", top: "9px", width: "477px", height: "2px", background: STREAK_LINE, pointerEvents: "none" }} />
+
+        <div style={{ position: "absolute", zIndex: 3, inset: 0, clipPath: V_INSET_9 }}>
+          <div
+            style={{
+              position: "absolute",
+              left: "80px",
+              top: "26px",
+              width: "380px",
+              height: "64px",
+              textAlign: "center",
+              fontSize: `${fitInPanel(dayStr, 90, 60, 40, 0.04)}px`,
+              lineHeight: "64px",
+              letterSpacing: "0.04em",
+              whiteSpace: "nowrap",
+              textShadow: "0 3px 6px rgba(0,0,0,.70)",
+            }}
+          >
+            {dayStr}
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              left: "62px",
+              top: "90px",
+              width: "416px",
+              height: "160px",
+              textAlign: "center",
+              fontSize: `${fitInPanel(timeStr, 250, 160, 110, 0)}px`,
+              lineHeight: "160px",
+              letterSpacing: 0,
+              color: ORANGE,
+              fontVariantNumeric: "lining-nums tabular-nums",
+              whiteSpace: "nowrap",
+              textShadow: "0 3px 6px rgba(0,0,0,.70)",
+            }}
+          >
+            {timeStr}
+          </div>
+          <div style={{ position: "absolute", left: "176px", top: "263px", width: "188px", height: "4px", borderRadius: "2px", background: GLOW_LINE }} />
+          {/* Series, not the venue: the venue moved to the shared footer so both layouts
+              carry the same three things here. */}
+          {match.level && (
+            <div
+              style={{
+                position: "absolute",
+                left: "122px",
+                top: "287px",
+                width: "296px",
+                height: "52px",
+                textAlign: "center",
+                fontSize: `${fitInPanel(match.level, 339, 48, 26, 0.1)}px`,
+                lineHeight: "52px",
+                letterSpacing: "0.1em",
+                textIndent: "0.1em",
+                color: ORANGE,
+                whiteSpace: "nowrap",
+                textShadow: "0 3px 6px rgba(0,0,0,.70)",
+              }}
+            >
+              {match.level}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Footer text={match.venue} />
+    </>
+  );
+}
+
+const LAYOUTS = {
+  disc: { label: "Kiekko", Component: DiscLayout },
+  v: { label: "V", Component: VLayout },
+};
+
+function GameAdCanvas({ match, background, zoom, offsetY, layout }) {
+  useFontReady(`400 166px ${FONT_DISPLAY}`); // re-renders once Bebas is measurable
+  const timeStr = moment(match.date).format("HH:mm");
+  const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
+  const Layout = (LAYOUTS[layout] ?? LAYOUTS.disc).Component;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        isolation: "isolate",
+        width: `${CANVAS_SIZE}px`,
+        height: `${CANVAS_SIZE}px`,
+        overflow: "hidden", // clips the shadows and the V panel's overhang past the square
+        background: INK,
+        fontFamily: FONT_DISPLAY,
+        fontWeight: 400,
+        color: "#ffffff",
+      }}
+    >
+      <Layout match={match} background={background} zoom={zoom} offsetY={offsetY} dayStr={dayStr} timeStr={timeStr} />
     </div>
   );
 }
@@ -818,11 +1114,14 @@ function GameAdCanvas({ match, background, zoom, offsetY }) {
 function Footer({ text }) {
   const size = fitSize(text, 560, 28, 18, 0.18);
   const ruleTop = capCentreY(1020, 36, size) - 2; // 2 = half the rule's 4 px height
-  const rule = { position: "absolute", zIndex: 40, top: `${ruleTop}px`, width: "164px", height: "4px", borderRadius: "2px", background: ORANGE };
+  // Beams rather than solid bars, fading towards the canvas edge so they lead the eye
+  // inwards to the venue rather than pointing off the artwork.
+  const rule = { position: "absolute", zIndex: 40, top: `${ruleTop}px`, width: "164px", height: "4px", borderRadius: "2px" };
+  const fadeOut = (dir) => `linear-gradient(${dir}, rgba(240,110,30,0) 0%, #FFB87A 55%, ${ORANGE} 100%)`;
 
   return (
     <>
-      <div style={{ ...rule, left: "88px" }} />
+      <div style={{ ...rule, left: "88px", background: fadeOut("90deg") }} />
       <div
         style={{
           position: "absolute",
@@ -842,7 +1141,7 @@ function Footer({ text }) {
       >
         {text}
       </div>
-      <div style={{ ...rule, left: "828px" }} />
+      <div style={{ ...rule, left: "828px", background: fadeOut("270deg") }} />
     </>
   );
 }
