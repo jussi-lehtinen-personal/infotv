@@ -148,6 +148,11 @@ const VARIANT_WORDS = new Set([
   "team", "jr", "junior",
 ]);
 
+// Joint teams arrive as "LäKi /Rockets". Splitting on the space strands the separator at
+// the head of the sub line, which then renders as its own word ("/ROCKETS") on the match
+// ads. The two lines already say it is a combined team, so drop the stray separator.
+const trimSeparators = (s) => s.replace(/^[\s/\-–]+/, "").replace(/[\s/\-–]+$/, "");
+
 // Splits a team name into main + optional subtitle.
 // Priority 1: last word is a known color/variant → always split.
 // Priority 2: name is too long → split on last space.
@@ -159,9 +164,9 @@ export const splitTeamName = (name) => {
   if (lastSpace !== -1) {
     const lastWord = name.slice(lastSpace + 1);
     if (VARIANT_WORDS.has(lastWord.toLowerCase()) || name.length > TEAM_NAME_THRESHOLD) {
-      let main = name.slice(0, lastSpace);
+      let main = trimSeparators(name.slice(0, lastSpace));
       if (main.length > TEAM_NAME_THRESHOLD) main = main.slice(0, TEAM_NAME_THRESHOLD) + "…";
-      return { main, sub: lastWord };
+      return { main, sub: trimSeparators(lastWord) };
     }
   }
 

@@ -107,7 +107,7 @@ const GameAds = () => {
   // the 4:3 hero box that shows the whole photo uncropped. They matter for the NEXT photo.
   const [zoom, setZoom] = useState(1); // CSS scale on the photo
   const [offsetY, setOffsetY] = useState(0); // added to object-position's 50 %
-  const [layout, setLayout] = useState("disc"); // see LAYOUTS near the bottom of this file
+  const [layout, setLayout] = useState("v"); // see LAYOUTS near the bottom of this file
   const [scale, setScale] = useState(1);
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
@@ -966,12 +966,15 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
           background: STREAK_LINE,
         }}
       />
+      {/* The dark surface's own highlight, following the V. This is the disc layout's warm
+          card edge (inset 0 2px 0 rgba(255,168,96,.30)) in the only place it can show here:
+          the surface's true top edge is hidden under the orange bar. */}
       <div
         style={{
           ...shape,
           zIndex: 13,
           clipPath: `polygon(0px ${y(648)}px, 540px ${y(860)}px, 1080px ${y(648)}px, 1080px ${y(650)}px, 540px ${y(862)}px, 0px ${y(650)}px)`,
-          background: "rgba(195,195,195,.45)",
+          background: "rgba(255,168,96,.34)",
         }}
       />
 
@@ -1005,9 +1008,9 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
             backgroundImage: `${CORNER_GLOW}, ${texture(0.012)}, linear-gradient(155deg, #1B1E22 0%, #101214 48%, #090B0D 100%)`,
           }}
         />
-        {/* The panel's top edge is the one horizontal run in the shape, so the warm sheen
-            can simply be a rectangle there. */}
-        <div style={{ position: "absolute", zIndex: 2, left: "31.5px", top: "9px", width: "477px", height: "2px", background: STREAK_LINE, pointerEvents: "none" }} />
+        {/* The panel's top edge is the one horizontal run in the shape, so the bright streak
+            can simply be a rectangle — laid ON the orange border, brightest at the centre. */}
+        <div style={{ position: "absolute", zIndex: 2, left: "26px", top: "1px", width: "488px", height: "3px", background: STREAK_LINE, pointerEvents: "none" }} />
 
         <div style={{ position: "absolute", zIndex: 3, inset: 0, clipPath: V_INSET_9 }}>
           <div
@@ -1073,14 +1076,31 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
         </div>
       </div>
 
+      {/* Overlay glow, same treatment as the listing ad's first-card streak. It sits OUTSIDE
+          the panel wrapper on purpose: that wrapper's drop-shadow traces its children's
+          silhouette, so a soft box in there would smear the panel's own shadow. Centred on
+          the orange top border and spent before it reaches the date's cap line. */}
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 31,
+          left: "360px",
+          top: `${V_PANEL.y - 45}px`,
+          width: "360px",
+          height: "90px",
+          background: "radial-gradient(ellipse at center, rgba(255,186,110,0.50) 0%, rgba(240,110,30,0.14) 40%, rgba(240,110,30,0) 72%)",
+          pointerEvents: "none",
+        }}
+      />
+
       <Footer text={match.venue} />
     </>
   );
 }
 
 const LAYOUTS = {
-  disc: { label: "Kiekko", Component: DiscLayout },
   v: { label: "V", Component: VLayout },
+  disc: { label: "Kiekko", Component: DiscLayout },
 };
 
 function GameAdCanvas({ match, background, zoom, offsetY, layout }) {
