@@ -103,10 +103,10 @@ const GameAds = () => {
   const [customBg, setCustomBg] = useState(null); // Object URL for user-uploaded image
   const customBgUrlRef = useRef(null); // tracks current URL for cleanup
   const customBgInputRef = useRef(null);
-  // Photo framing. Defaults are the spec's own `cover` at 50 % 50 %: with the 4:3 source in
-  // the 4:3 hero box that shows the whole photo uncropped. They matter for the NEXT photo.
+  // Photo framing. Defaults show the whole 4:3 source uncropped in the 4:3 hero box.
   const [zoom, setZoom] = useState(1); // CSS scale on the photo
-  const [offsetY, setOffsetY] = useState(0); // added to object-position's 50 %
+  const [offsetY, setOffsetY] = useState(0); // vertical pan, canvas px
+  const [bgAspect, setBgAspect] = useState(null); // w/h of the loaded photo
   const [layout, setLayout] = useState("v"); // see LAYOUTS near the bottom of this file
   const [scale, setScale] = useState(1);
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
@@ -235,6 +235,46 @@ const GameAds = () => {
 
   const CUSTOM_IDX = BACKGROUNDS.length; // sentinel index for user-uploaded image
   const activeBackground = bgIndex === CUSTOM_IDX && customBg ? customBg : BACKGROUNDS[bgIndex];
+
+  // How far the photo can be panned depends on how much of it the crop throws away, which
+  // depends on the photo's own shape — so we have to know it.
+  useEffect(() => {
+    if (!activeBackground) return undefined;
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => { if (!cancelled) setBgAspect(probe.naturalWidth / probe.naturalHeight); };
+    probe.src = activeBackground;
+    return () => { cancelled = true; };
+  }, [activeBackground]);
+
+  // Vertical slack in canvas px, i.e. how far the photo may travel before a gap shows.
+  // `cover` scales by whichever side is short, so a photo the same shape as the box has
+  // none at zoom 1 — that is why the nudge buttons raise the zoom to make room.
+  const panLimit = useCallback(
+    (z) => {
+      const shown = Math.max(HERO_H, CANVAS_SIZE / (bgAspect || CANVAS_SIZE / HERO_H));
+      return Math.max(0, (shown * z - HERO_H) / 2);
+    },
+    [bgAspect]
+  );
+
+  const nudge = useCallback(
+    (delta) => {
+      // A photo cropped to exactly the frame has nothing to pan; zoom in a touch first so
+      // the button does something instead of looking broken.
+      const z = panLimit(zoom) > 0 ? zoom : 1.12;
+      if (z !== zoom) setZoom(z);
+      const lim = panLimit(z);
+      setOffsetY((o) => Math.max(-lim, Math.min(lim, o + delta)));
+    },
+    [panLimit, zoom]
+  );
+
+  // Zooming back out shrinks the slack; drag the pan back inside it so no gap appears.
+  useEffect(() => {
+    const lim = panLimit(zoom);
+    setOffsetY((o) => Math.max(-lim, Math.min(lim, o)));
+  }, [zoom, panLimit]);
 
 const handleCustomBgFile = useCallback((e) => {
   const file = e.target.files?.[0];
@@ -440,8 +480,8 @@ const handleCustomBgFile = useCallback((e) => {
               {/* Floor of 1: scaling below it would pull the photo off its own frame. */}
               <SelectorButton onClick={() => setZoom((z) => Math.max(1, +(z - 0.05).toFixed(2)))} title="Loitonna">−</SelectorButton>
               <SelectorButton onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.05).toFixed(2)))} title="Lähennä">+</SelectorButton>
-              <SelectorButton onClick={() => setOffsetY((o) => Math.max(-50, o - 5))} title="Siirrä ylös">↑</SelectorButton>
-              <SelectorButton onClick={() => setOffsetY((o) => Math.min(50, o + 5))} title="Siirrä alas">↓</SelectorButton>
+              <SelectorButton onClick={() => nudge(-24)} title="Siirrä ylös">↑</SelectorButton>
+              <SelectorButton onClick={() => nudge(24)} title="Siirrä alas">↓</SelectorButton>
               <SelectorButton onClick={() => { setZoom(1); setOffsetY(0); }} title="Palauta">⟲</SelectorButton>
             </div>
           </div>
@@ -493,9 +533,10 @@ function fitSize(text, maxWidth, max, min, tracking) {
 }
 
 // Bebas caps do not sit in the middle of their line box: the cap band runs from 9 % to 80 %
-// of the font size, so anything centred on the BOX lands visibly below the text. This gives
-// the y of the cap band's true centre, which is what a flanking rule has to line up with.
-const capCentreY = (boxTop, boxHeight, size) => boxTop + boxHeight / 2 - 0.055 * size;
+// of the font size, so its centre is ABOVE the box centre by this much. Anything meant to
+// read as level with the text — a flanking rule — has to be shifted by it, or it lands
+// visibly low.
+const capCentreShift = (size) => -0.055 * size;
 
 // A cold load can paint before the webfont arrives, and measuring "KIEKKO-AHMA" against the
 // fallback (~40 % wider than Bebas) would shrink a name that actually fits — permanently,
@@ -746,8 +787,12 @@ function Hero({ background, zoom, offsetY, shade }) {
             height: "100%",
             display: "block",
             objectFit: "cover",
-            objectPosition: `50% ${50 + offsetY}%`,
-            transform: `scale(${zoom})`,
+            // Pan via translate, NOT object-position: with a 4:3 photo in this 4:3 box
+            // `cover` leaves zero overflow, so object-position has nothing to shift and the
+            // nudge buttons would do nothing. translateY always moves the photo; the caller
+            // clamps it to whatever the crop actually allows. Divided by zoom because the
+            // translate happens inside the scale.
+            transform: `scale(${zoom}) translateY(${offsetY / zoom}px)`,
             transformOrigin: "center center",
           }}
         />
@@ -872,11 +917,14 @@ function VTeam({ side, logo, name, detail }) {
   const left = side === "home" ? 20 : 758;
   return (
     <div style={{ position: "absolute", zIndex: 20, top: `${778 - V_SHIFT}px`, left: `${left}px`, width: "302px", height: "279px", textAlign: "center" }}>
+      {/* Logo box sized a little inside the space it owns (was 250×168 flush to the name),
+          so the crest gets air and there is a clear gap before the team name. Centre held
+          at x=151 within the group. */}
       <img
         src={logo}
         alt=""
         decoding="sync"
-        style={{ position: "absolute", left: "26px", top: 0, width: "250px", height: "168px", display: "block", objectFit: "contain", objectPosition: "center" }}
+        style={{ position: "absolute", left: "41px", top: 0, width: "220px", height: "148px", display: "block", objectFit: "contain", objectPosition: "center" }}
       />
       <div
         style={{
@@ -1017,11 +1065,11 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
             style={{
               position: "absolute",
               left: "80px",
-              top: "26px",
+              top: "38px", // +12 on the reference: the date was crowding the orange border
               width: "380px",
               height: "64px",
               textAlign: "center",
-              fontSize: `${fitInPanel(dayStr, 90, 60, 40, 0.04)}px`,
+              fontSize: `${fitInPanel(dayStr, 102, 60, 40, 0.04)}px`,
               lineHeight: "64px",
               letterSpacing: "0.04em",
               whiteSpace: "nowrap",
@@ -1034,11 +1082,11 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
             style={{
               position: "absolute",
               left: "62px",
-              top: "90px",
+              top: "100px",
               width: "416px",
               height: "160px",
               textAlign: "center",
-              fontSize: `${fitInPanel(timeStr, 250, 160, 110, 0)}px`,
+              fontSize: `${fitInPanel(timeStr, 260, 148, 110, 0)}px`,
               lineHeight: "160px",
               letterSpacing: 0,
               color: ORANGE,
@@ -1050,14 +1098,15 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
             {timeStr}
           </div>
           <div style={{ position: "absolute", left: "176px", top: "263px", width: "188px", height: "4px", borderRadius: "2px", background: GLOW_LINE }} />
-          {/* Series, not the venue: the venue moved to the shared footer so both layouts
-              carry the same three things here. */}
+          {/* Series pushed down from the reference's 287: with the venue gone to the shared
+              footer the block sat high in the panel. The taper still leaves ~205 px of face
+              at its baseline, so it has room down here. */}
           {match.level && (
             <div
               style={{
                 position: "absolute",
                 left: "122px",
-                top: "287px",
+                top: "309px",
                 width: "296px",
                 height: "52px",
                 textAlign: "center",
@@ -1084,7 +1133,9 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
         style={{
           position: "absolute",
           zIndex: 31,
-          left: "360px",
+          // Well right of centre, like the listing ad's streak — a highlight reads as light
+          // falling across the panel, and dead-centre reads as a symmetrical decal.
+          left: "470px",
           top: `${V_PANEL.y - 45}px`,
           width: "360px",
           height: "90px",
@@ -1131,38 +1182,50 @@ function GameAdCanvas({ match, background, zoom, offsetY, layout }) {
 // Venue line flanked by two rules. The rules are placed off the text's cap centre, not the
 // line box, and the y is recomputed from the fitted size so a long venue name that shrinks
 // the type does not leave the rules behind.
+// Venue line flanked by two rules. Laid out as a centred flex row so the rules sit right
+// next to the text whatever its length — pinned to fixed x they drifted out under the team
+// blocks and read as belonging to those instead of to the venue.
 function Footer({ text }) {
-  const size = fitSize(text, 560, 28, 18, 0.18);
-  const ruleTop = capCentreY(1020, 36, size) - 2; // 2 = half the rule's 4 px height
-  // Beams rather than solid bars, fading towards the canvas edge so they lead the eye
-  // inwards to the venue rather than pointing off the artwork.
-  const rule = { position: "absolute", zIndex: 40, top: `${ruleTop}px`, width: "164px", height: "4px", borderRadius: "2px" };
+  if (!text) return null;
+  const size = fitSize(text, 520, 28, 18, 0.18);
+  const capShift = capCentreShift(size);
+  // Beams rather than solid bars, fading outwards so they lead the eye in to the venue.
   const fadeOut = (dir) => `linear-gradient(${dir}, rgba(240,110,30,0) 0%, #FFB87A 55%, ${ORANGE} 100%)`;
+  const rule = { position: "relative", top: `${capShift}px`, flex: "0 0 auto", width: "120px", height: "4px", borderRadius: "2px" };
 
   return (
-    <>
-      <div style={{ ...rule, left: "88px", background: fadeOut("90deg") }} />
+    <div
+      style={{
+        position: "absolute",
+        zIndex: 40,
+        left: 0,
+        right: 0,
+        top: "1020px",
+        height: "36px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "26px",
+      }}
+    >
+      <div style={{ ...rule, background: fadeOut("90deg") }} />
       <div
         style={{
-          position: "absolute",
-          zIndex: 40,
-          left: "260px",
-          top: "1020px",
-          width: "560px",
-          height: "36px",
-          textAlign: "center",
+          flex: "0 0 auto",
           fontSize: `${size}px`,
           lineHeight: "36px",
           letterSpacing: "0.18em",
-          textIndent: "0.18em",
+          // Letter-spacing also lands after the last glyph; without this the box is wider
+          // than what you see and the two gaps come out lopsided.
+          marginRight: "-0.18em",
           color: STEEL,
           whiteSpace: "nowrap",
         }}
       >
         {text}
       </div>
-      <div style={{ ...rule, left: "828px", background: fadeOut("270deg") }} />
-    </>
+      <div style={{ ...rule, background: fadeOut("270deg") }} />
+    </div>
   );
 }
 
