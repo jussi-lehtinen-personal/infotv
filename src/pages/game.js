@@ -345,7 +345,15 @@ function goalieGA(report, side) {
   const starter = names.find((n) => !subsIn.has(n)) || names[0];
   const tl = [{ time: 0, who: starter }];
   for (const e of gkEv) tl.push({ time: e.time, who: /pois/i.test(e.sub) ? null : e.name });
-  const whoAt = (tt) => { let w = tl[0].who; for (const s of tl) if (s.time <= tt) w = s.who; return w; };
+  // A goal logged at the same second as a keeper CHANGE belongs to the keeper who was
+  // beaten: the change is the consequence of that goal, and that is how tulospalvelu counts
+  // it. An emptied net (`pois`) is the opposite — pulling the keeper is deliberate and
+  // precedes the goal — so that entry takes effect from its own second onwards.
+  const whoAt = (tt) => {
+    let w = tl[0].who;
+    for (const s of tl) if (s.who === null ? s.time <= tt : s.time < tt) w = s.who;
+    return w;
+  };
   const ga = {};
   for (const k of t.keepers) ga[k.name] = 0;
   for (const c of conceded) { const w = whoAt(c); if (w && ga[w] != null) ga[w] += 1; }
