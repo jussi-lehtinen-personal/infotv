@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useExportPng } from "../hooks/useExportPng";
 import {
   getMockGameData,
@@ -152,6 +152,8 @@ function useSwipe(onSwipeLeft, onSwipeRight) {
 
 const AD_SIZE = 1080;
 
+const ADS_WIDE_BTN = { width: "auto", padding: "0 14px" };
+
 // Shared sx for the top-bar icon buttons (back / week nav / calendar).
 const navBtnSx = { color: "text.secondary", "&:hover": { color: "primary.main" } };
 
@@ -168,6 +170,13 @@ const Ads = () => {
   const navigate = useNavigate();
   const goBack = useGoBack("/");
   const { timestamp } = useParams();
+  const [searchParams] = useSearchParams();
+
+  // Home games only by default. Away games are opt-in (?away=1) because includeAway costs
+  // two Worker round-trips instead of one — see api/src/functions/getGames.js. The flag
+  // lives in the URL so the per-game links below keep pointing at the same list.
+  const includeAway = searchParams.get("away") === "1";
+  const awaySuffix = includeAway ? "?away=1" : "";
 
   const [matches, setMatches] = useState([]);
   const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
@@ -218,10 +227,10 @@ const Ads = () => {
       .catch(() => {}); // silently ignore — teamsMap stays empty, names fall back to match.home
   }, []);
 
-  // Fetch home games for the week (no includeAway → home only)
+  // Fetch the week's games — home only unless the away scope is on.
   useEffect(() => {
     const controller = new AbortController();
-    const uri = buildGamesQueryUri(timestamp);
+    const uri = buildGamesQueryUri(timestamp, { includeAway });
     fetch(uri, { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => setMatches(processIncomingDataEvents(d)))
@@ -230,7 +239,7 @@ const Ads = () => {
         setMatches(processIncomingDataEvents(getMockGameData()));
       });
     return () => controller.abort();
-  }, [timestamp]);
+  }, [timestamp, includeAway]);
 
   // Revoke Object URL on unmount
   useEffect(() => () => {
@@ -257,9 +266,16 @@ const Ads = () => {
     return moment(getMonday(new Date())).format("YYYY-MM-DD");
   }, [timestamp]);
 
-  // Navigate to a specific game ad
+  // Navigate to a specific game ad. The index refers to THIS list, so the scope has to
+  // travel with it or the single-game page would pick a different game.
   const onGameClick = useCallback(
-    (idx) => navigate(`/ads/${effectiveTimestamp}/${idx}`),
+    (idx) => navigate(`/ads/${effectiveTimestamp}/${idx}${awaySuffix}`),
+    [navigate, effectiveTimestamp, awaySuffix]
+  );
+
+  // Switching scope changes the list, so the old index means nothing — go back to the week.
+  const setScope = useCallback(
+    (away) => navigate(`/ads/${effectiveTimestamp}${away ? "?away=1" : ""}`, { replace: true }),
     [navigate, effectiveTimestamp]
   );
 
@@ -268,9 +284,9 @@ const Ads = () => {
     (offsetWeeks) => {
       const monday = getMonday(timestamp ? new Date(timestamp) : new Date());
       monday.setDate(monday.getDate() + offsetWeeks * 7);
-      return "/ads/" + moment(monday).format("YYYY-MM-DD");
+      return "/ads/" + moment(monday).format("YYYY-MM-DD") + awaySuffix;
     },
-    [timestamp]
+    [timestamp, awaySuffix]
   );
 
   const goNext = useCallback(
@@ -295,9 +311,9 @@ const Ads = () => {
   const onPickDate = useCallback(
     (e) => {
       const v = e.target.value;
-      if (v) navigate(`/ads/${v}`);
+      if (v) navigate(`/ads/${v}${awaySuffix}`);
     },
-    [navigate]
+    [navigate, awaySuffix]
   );
 
   // Week range label
@@ -375,7 +391,7 @@ const Ads = () => {
               }}
             >
               <div ref={exportRef} style={{ width: `${AD_SIZE}px` }}>
-                <AdContent matches={matches} teamsMap={teamsMap} onGameClick={onGameClick} background={activeBackground} timestamp={timestamp} />
+                <AdContent matches={matches} teamsMap={teamsMap} onGameClick={onGameClick} background={activeBackground} timestamp={timestamp} includeAway={includeAway} />
               </div>
             </div>
           </div>
@@ -383,6 +399,14 @@ const Ads = () => {
 
         {/* Controls */}
         <Surface className="ads-controls">
+          <div className="ads-field-row">
+            <label className="ads-label">Ottelut</label>
+            <div className="ads-bg-btns">
+              {/* SelectorButton is a 36 px square by default — these two carry words. */}
+              <SelectorButton onClick={() => setScope(false)} active={!includeAway} style={ADS_WIDE_BTN}>Kotiottelut</SelectorButton>
+              <SelectorButton onClick={() => setScope(true)} active={includeAway} style={ADS_WIDE_BTN}>Kaikki</SelectorButton>
+            </div>
+          </div>
           {matches.length > 0 && (
             <div className="ads-field-row">
               <label className="ads-label">Yksittäin</label>
@@ -485,7 +509,7 @@ function formatDayRange(first, last) {
   return `${sD}.${sM}.–${eD}.${eM}.`;
 }
 
-function AdContent({ matches, teamsMap, onGameClick, background, timestamp }) {
+function AdContent({ matches, teamsMap, onGameClick, background, timestamp, includeAway }) {
   // Header shows the whole week Mon–Sun (always ends Sunday), not the game span.
   const dateRange = useMemo(() => {
     const mon = getMonday(timestamp ? new Date(timestamp) : new Date());
@@ -535,10 +559,12 @@ function AdContent({ matches, teamsMap, onGameClick, background, timestamp }) {
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          {/* KOTIOTTELUT chip */}
+          {/* Scope chip. Says KOTIOTTELUT only when that is actually true — with away games
+              in the list the heading (and the venue line below) would otherwise be a lie
+              baked into the exported image. */}
           <div style={{ display: "flex" }}>
             <div style={{ ...chipStyle("30px", "8px", "5px"), padding: "9px 20px 5px" }}>
-              KOTIOTTELUT
+              {includeAway ? "OTTELUT" : "KOTIOTTELUT"}
             </div>
           </div>
           {/* Big date range */}
@@ -553,16 +579,18 @@ function AdContent({ matches, teamsMap, onGameClick, background, timestamp }) {
             {dateRange}
           </div>
           {/* Venue */}
-          <div
-            style={{
-              fontSize: "44px",
-              color: STEEL,
-              letterSpacing: "6px",
-              lineHeight: 1,
-            }}
-          >
-            WAREENA · VALKEAKOSKI
-          </div>
+          {!includeAway && (
+            <div
+              style={{
+                fontSize: "44px",
+                color: STEEL,
+                letterSpacing: "6px",
+                lineHeight: 1,
+              }}
+            >
+              WAREENA · VALKEAKOSKI
+            </div>
+          )}
         </div>
 
         {/* Official Kiekko-Ahma club crest — same KeyedLogo path (content-cropped) */}
@@ -619,11 +647,17 @@ function AdGameRow({ match, teamsMap, onClick }) {
   const timeStr = md.format("HH:mm");
   const dayStr = md.format("dd D.M").toUpperCase();
   const lookupKey = `${match.levelId}|${match.statGroupId}`;
+  // Which side is Ahma? Home-only weeks made this always "home", but with away games in
+  // the list that assumption printed the opponent as AHMA and drew our crest on both sides.
+  const ahmaIsHome = /kiekko-?ahma/i.test(match.home || "");
+  const ahmaRaw = ahmaIsHome ? match.home : match.away;
+  const oppRaw = ahmaIsHome ? match.away : match.home;
+
   // Ahma team designation (every team must show one). Primary source = the mapped
   // teamKey from getTeams (e.g. "U15", "U13 MUSTA", "Edustus"). Fallbacks for when
   // the map isn't loaded: the feed-name suffix ("…Oranssi"→"Oranssi"), the age from
   // the level/league ("U16"), or "Edustus" for the II-divisioona (men's) team.
-  let ahmaSub = teamsMap?.get(lookupKey) || splitTeamName(match.home).sub || "";
+  let ahmaSub = teamsMap?.get(lookupKey) || splitTeamName(ahmaRaw).sub || "";
   if (!ahmaSub) {
     const hay = `${match.level || ""} ${match.league || ""}`;
     const age = hay.match(/U\d{1,2}/i);
@@ -631,7 +665,13 @@ function AdGameRow({ match, teamsMap, onClick }) {
     else if (/divisioona|edustus/i.test(hay)) ahmaSub = "Edustus";
   }
   ahmaSub = ahmaSub.toUpperCase();
-  const { main: awayMain, sub: awaySub } = splitTeamName(match.away);
+
+  const { main: oppMain, sub: oppSub } = splitTeamName(oppRaw);
+  const ahmaBlock = { main: "AHMA", sub: ahmaSub, logo: AHMA_CREST };
+  const oppBlock = { main: oppMain, sub: oppSub, logo: ahmaIsHome ? match.away_logo : match.home_logo };
+  // Home team on the left, as a fixture listing reads.
+  const left = ahmaIsHome ? ahmaBlock : oppBlock;
+  const right = ahmaIsHome ? oppBlock : ahmaBlock;
   // Level chip = just the series; drop the "Harj.," friendly prefix. Keep the raw
   // level only if stripping would leave nothing (a bare friendly).
   const rawLevel = (match.level || "").toUpperCase();
@@ -691,10 +731,10 @@ function AdGameRow({ match, teamsMap, onClick }) {
         }}
       >
         {/* Home name — right-aligned, hugging the crest */}
-        <TeamName main="AHMA" sub={ahmaSub} align="right" />
+        <TeamName main={left.main} sub={left.sub} align="right" />
 
-        {/* Home crest — transparent official Ahma head (content-cropped, centred) */}
-        <KeyedLogo src={AHMA_CREST} size={82} />
+        {/* Home crest — our own transparent crest, or the opponent's keyed one on away days */}
+        <KeyedLogo src={left.logo} size={82} />
 
         {/* vs */}
         <div
@@ -710,11 +750,11 @@ function AdGameRow({ match, teamsMap, onClick }) {
           vs
         </div>
 
-        {/* Opponent crest — white background keyed out (content-cropped, centred) */}
-        <KeyedLogo src={match.away_logo} size={82} />
+        {/* Away crest — white background keyed out (content-cropped, centred) */}
+        <KeyedLogo src={right.logo} size={82} />
 
-        {/* Opponent name — left-aligned, hugging the crest (truncates if long) */}
-        <TeamName main={awayMain} sub={awaySub} align="left" />
+        {/* Away name — left-aligned, hugging the crest (truncates if long) */}
+        <TeamName main={right.main} sub={right.sub} align="left" />
 
         {/* Level chip — far right */}
         {level && (
