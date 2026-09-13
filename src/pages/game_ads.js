@@ -18,7 +18,9 @@ import "moment/locale/fi";
 var moment = require("moment");
 moment.locale("fi");
 
+// First entry is the default (bgIndex starts at 0).
 const BACKGROUNDS = [
+  "/ahma_logo.png",
   "/match_ad_bg1.webp",
   "/background.jpg",
   "/background3.jpg",
