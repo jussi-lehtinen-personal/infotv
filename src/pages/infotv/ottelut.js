@@ -8,6 +8,7 @@ import "moment/locale/fi";
 import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, ORANGE, STEEL } from "./InfoTvFrame";
 import { getMonday, splitTeamName } from "../../Util";
 import { KeyedLogo } from "../../components/ui/KeyedLogo";
+import { seriesLabel } from "../../lib/teamLabels";
 import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe, peekSeasonGames } from "../../lib/seasonGamesCache";
 import { isLiveMatch } from "../../hooks/useHeroMatches";
 import { JOPOX_TEAMS } from "../../data/jopoxTeams";
@@ -26,6 +27,19 @@ const initialsOf = (name) => String(name || "").split(/\s+/).filter(Boolean).sli
 
 const COLS = 3;
 const ROWS = 5;
+const GRID_GAP = 16;
+
+// Height of an item spanning `size` rows of the ROWS-row grid. Every column measures from
+// the SAME row grid, so a card's top and bottom line up with its neighbours' whatever each
+// column happens to hold. A multi-row item also swallows the gaps it spans over, or it
+// would come up short by one gap per extra row.
+//
+// The extras column used to size itself with plain `flex:<size>` (grow from a 0 basis),
+// which splits the column by how many items IT has: with three items it paid for two gaps
+// where the game columns paid for four, making every card in it ~8 px taller than the
+// match cards beside it.
+const slotHeight = (size) =>
+  `calc((100% - ${(ROWS - 1) * GRID_GAP}px) / ${ROWS} * ${size} + ${(size - 1) * GRID_GAP}px)`;
 const SLOTS = COLS * ROWS; // 3 columns × 5 rows
 const WIN = "var(--color-win)";
 const LOSS = "var(--color-loss)";
@@ -33,13 +47,6 @@ const DRAW = "var(--color-draw)";
 const LIVE = "var(--color-primary)";
 const PARTNERS_LS = "ahma.infotv.partners.v1";
 
-function simplifyLevel(level) {
-  if (!level) return "";
-  const s = String(level).trim();
-  const m = s.match(/^u\s*(\d{1,2})\b/i);
-  if (m) return `U${m[1]}`;
-  return s;
-}
 
 // Random sample of n items (Fisher–Yates) — used to rotate which partner logos
 // show up as fillers, so each page load gets a fresh couple.
@@ -82,12 +89,33 @@ export default function InfoTvOttelut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monday, version]);
 
-  // All of the week's games (home + away) — used ONLY for the summary stats.
-  const allGames = useMemo(() => {
-    const wk = gamesForWeek(monday, true);
-    return [...wk].sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Label for the window (e.g. "7.9. – 13.9."), printed on every card built from it so it
+  // is never mistaken for a season tally.
+  const windowRange = useMemo(() => {
+    const end = moment(baseDate);
+    const start = moment(baseDate).subtract(6, "days");
+    return start.format("D.M.") + " – " + end.format("D.M.");
+  }, [baseDate]);
+
+  // Every "tilanne" module on this screen measures the SAME rolling window: the last 7×24 h
+  // up to baseDate (= now on the live TV), home + away.
+  //
+  // The Mon–Sun calendar week is right for the match rail — that's the fixture list the
+  // masthead promises — but it was wrong for the stats: at 00:00 on Monday every counter
+  // fell back to zero and stayed there until the week's first game ended, so Sunday's
+  // results were on screen for a few hours and then gone. The podium already solved this
+  // the same way; now the numbers beside it agree with it.
+  const windowGames = useMemo(() => {
+    const end = baseDate.getTime();
+    const start = end - 7 * 24 * 60 * 60 * 1000;
+    return peekSeasonGames()
+      .filter((g) => {
+        const t = new Date(String(g.date || "").replace(" ", "T")).getTime();
+        return !isNaN(t) && t > start && t <= end;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monday, version]);
+  }, [baseDate, version]);
 
   const weekRange = useMemo(() => {
     const mon = getMonday(new Date(baseDate));
@@ -95,10 +123,10 @@ export default function InfoTvOttelut() {
     return moment(mon).format("D.M.") + " – " + moment(sun).format("D.M.");
   }, [baseDate]);
 
-  // Week summary — ALL finished games (home + away), from Ahma's perspective.
+  // Summary over the rolling window — ALL finished games (home + away), Ahma's perspective.
   const summary = useMemo(() => {
     let w = 0, l = 0, d = 0, gf = 0, ga = 0, played = 0, nHome = 0, nAway = 0;
-    for (const m of allGames) {
+    for (const m of windowGames) {
       if (m.ahmaHome) nHome++; else nAway++;
       const hg = parseInt(m.home_goals, 10), ag = parseInt(m.away_goals, 10);
       if (!(Number(m.finished) > 0) || isNaN(hg) || isNaN(ag)) continue;
@@ -106,23 +134,15 @@ export default function InfoTvOttelut() {
       played++; gf += af; ga += aa;
       if (af > aa) w++; else if (af < aa) l++; else d++;
     }
-    return { n: nHome + nAway, nHome, nAway, played, w, l, d, gf, ga };
-  }, [allGames]);
+    return { n: nHome + nAway, nHome, nAway, played, w, l, d, gf, ga, range: windowRange };
+  }, [windowGames, windowRange]);
 
-  // Pistenikkarit uses a ROLLING 7-day window, not the Mon–Sun calendar week the
-  // match rail shows. Otherwise the podium blanks every Monday (new week has no
-  // games yet) and Sunday's scorers vanish overnight — a rolling window keeps the
-  // last week's top scorers on screen continuously. Window = (baseDate−7d, baseDate];
-  // on the live TV baseDate is "now", so it's the last 7×24 h up to this moment.
-  const scorerGames = useMemo(() => {
-    const end = baseDate.getTime();
-    const start = end - 7 * 24 * 60 * 60 * 1000;
-    return peekSeasonGames().filter((g) => {
-      const t = new Date(String(g.date || "").replace(" ", "T")).getTime();
-      return !isNaN(t) && t > start && t <= end && Number(g.finished) > 0 && g.homeTeamId && g.awayTeamId;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseDate, version]);
+  // The podium needs the same window narrowed to games it can actually read a box score
+  // from: final, with both team ids.
+  const scorerGames = useMemo(
+    () => windowGames.filter((g) => Number(g.finished) > 0 && g.homeTeamId && g.awayTeamId),
+    [windowGames]
+  );
 
   // Stable identity for the window's game SET. The aggregation effect below must re-run
   // when a new finished game enters (or an old one leaves) the window — NOT every time the
@@ -133,13 +153,6 @@ export default function InfoTvOttelut() {
   // a final game's report never changes.
   const scorerKey = useMemo(() => scorerGames.map((g) => g.id).join(","), [scorerGames]);
 
-  // Human-readable label for the 7-day scorer window (e.g. "24.8. – 30.8.") so the
-  // podium makes clear it's last week's tally, not the season's.
-  const scorerRange = useMemo(() => {
-    const end = moment(baseDate);
-    const start = moment(baseDate).subtract(6, "days");
-    return start.format("D.M.") + " – " + end.format("D.M.");
-  }, [baseDate]);
 
   // Aggregate goals+assists per Ahma player across the window's played games
   // (box scores, KV-cached) → top 3, with Jopox roster photos matched by name.
@@ -261,7 +274,7 @@ export default function InfoTvOttelut() {
       if (s.n > 0) add("count", 1, 2);
       if (s.played > 0) { add("record", 1, 2.5); add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
-      if (topScorers.length >= 3) add("scorers", 2, 3, { list: topScorers, range: scorerRange });
+      if (topScorers.length >= 3) add("scorers", 2, 3, { list: topScorers, range: s.range });
       add("follow", 1, 1);
       add("hashtag", 1, 1);
       add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
@@ -289,7 +302,7 @@ export default function InfoTvOttelut() {
       if (partnerSize > 0) ex.push({ type: "detail", variant: "partner", size: partnerSize, key: "partner", ps: partnerPicks.slice(0, partnerSize) });
     }
     return cols;
-  }, [games, partners, summary, topScorers, scorerRange]);
+  }, [games, partners, summary, topScorers]);
 
   const loading = !isSeasonLoaded() && games.length === 0;
 
@@ -303,19 +316,15 @@ export default function InfoTvOttelut() {
         <div className="ok-grid"><div className="ok-empty">Ladataan otteluita…</div></div>
       ) : (
         <div className="ok-grid">
-          {columns.map((col, ci) => {
-            const extras = ci === COLS - 1;
-            return (
-              <div className="ok-cells" key={ci}>
-                {col.map((it) => (
-                  <div className="ok-cellwrap" key={it.key}
-                    style={{ flex: extras ? it.size : `0 0 calc((100% - ${(ROWS - 1) * 16}px) / ${ROWS} * ${it.size})` }}>
-                    <Cell it={it} summary={summary} />
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+          {columns.map((col, ci) => (
+            <div className="ok-cells" key={ci}>
+              {col.map((it) => (
+                <div className="ok-cellwrap" key={it.key} style={{ flex: `0 0 ${slotHeight(it.size)}` }}>
+                  <Cell it={it} summary={summary} />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </InfoTvStage>
@@ -331,7 +340,9 @@ function MatchCell({ m }) {
   const md = moment(String(m.date || "").replace(" ", "T"), moment.ISO_8601);
   const wd = md.isValid() ? md.format("dd").toUpperCase() : "";
   const time = md.isValid() ? md.format("HH:mm") : "";
-  const level = simplifyLevel(m.level ?? "");
+  // Shared with both ad pages — see lib/teamLabels.js. Compact because these are chips in a
+  // fixed-width column, not lines of their own.
+  const level = seriesLabel(m.level, { compact: true });
   const live = isLiveMatch(m);
   const finished = Number(m.finished) > 0;
   const show = live || finished;
@@ -350,9 +361,20 @@ function MatchCell({ m }) {
     <div className="ok-card">
       <div className="ok-line" style={{ background: line }} />
       <div className="ok-when">
-        <span className="ok-when-day">{wd}</span>
+        <span className={"ok-when-day" + (live ? " ok-when-day--live" : "")}>
+          {live ? (
+            <>
+              <span className="ok-live-dot" aria-hidden="true" />
+              LIVE
+            </>
+          ) : (
+            wd
+          )}
+        </span>
         <span className="ok-when-time">{time}</span>
-        {live ? <span className="ok-when-live">LIVE</span> : level && <span className="ok-when-level">{level}</span>}
+        {/* The chip stays put even when live — it is the only place the card says WHICH
+            team is playing, and LIVE has the weekday slot (a live game is today anyway). */}
+        {level && <span className="ok-when-level">{level}</span>}
       </div>
       <div className="ok-when-div" />
       <div className="ok-teams">
@@ -380,7 +402,7 @@ function DetailCell({ it, s }) {
     case "count":
       return (
         <div className="ok-filler">
-          <div className="ok-filler-title">Ottelut</div>
+          <FillerTitle text="Pelatut ottelut" range={s.range} />
           <div className="ok-stats">
             <Stat label="Koti" val={s.nHome} />
             <span className="ok-statdiv" />
@@ -391,7 +413,7 @@ function DetailCell({ it, s }) {
     case "record":
       return (
         <div className="ok-filler">
-          <div className="ok-filler-title">Viikon tulokset</div>
+          <FillerTitle text="Tulokset" range={s.range} />
           <div className="ok-stats">
             <Stat label="Voitot" val={<span style={{ color: WIN }}>{s.w}</span>} />
             <span className="ok-statdiv" />
@@ -404,7 +426,7 @@ function DetailCell({ it, s }) {
     case "goals":
       return (
         <div className="ok-filler">
-          <div className="ok-filler-title">Maalit</div>
+          <FillerTitle text="Maalit" range={s.range} />
           <div className="ok-goals">
             <span className="ok-goals-n" style={{ color: ORANGE }}>{s.gf}</span>
             <span className="ok-goals-dash">–</span>
@@ -416,11 +438,11 @@ function DetailCell({ it, s }) {
         </div>
       );
     case "wins":
-      return <BigStat title="Voitot" val={<><span style={{ color: WIN }}>{s.w}</span>/{s.played}</>} sub="Ottelua voitettu" />;
+      return <BigStat title="Voitot" range={s.range} val={<><span style={{ color: WIN }}>{s.w}</span>/{s.played}</>} sub="Ottelua voitettu" />;
     case "avg":
-      return <BigStat title="Maalia / ottelu" val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
+      return <BigStat title="Maalia / ottelu" range={s.range} val={s.played ? (s.gf / s.played).toFixed(1).replace(".", ",") : "0"} sub="Tehdyt keskimäärin" />;
     case "biggestWin":
-      return <MiniMatch g={it.g} title="Suurin voitto" />;
+      return <MiniMatch g={it.g} title="Suurin voitto" range={s.range} />;
     case "scorers":
       return <Scorers list={it.list} range={it.range} />;
     case "hashtag":
@@ -467,10 +489,21 @@ function Stat({ val, label }) {
   return <div className="ok-stat"><div className="ok-stat-lbl">{label}</div><div className="ok-stat-val">{val}</div></div>;
 }
 
-function BigStat({ title, val, valColor, sub }) {
+// Every card that COUNTS something prints the window it counted, so nobody has to guess
+// whether a number is this week's, the last seven days' or the whole season's.
+function FillerTitle({ text, range }) {
+  return (
+    <div className="ok-filler-title">
+      {text}
+      {range ? <span className="ok-filler-title-sub">{range}</span> : null}
+    </div>
+  );
+}
+
+function BigStat({ title, range, val, valColor, sub }) {
   return (
     <div className="ok-filler">
-      <div className="ok-filler-title">{title}</div>
+      <FillerTitle text={title} range={range} />
       <div className="ok-bigstat">
         <div className="ok-bigstat-val" style={valColor ? { color: valColor } : undefined}>{val}</div>
         {sub && <div className="ok-bigstat-sub">{sub}</div>}
@@ -485,7 +518,7 @@ function Scorers({ list, range }) {
   const podium = [{ p: b, rank: 2 }, { p: a, rank: 1 }, { p: c, rank: 3 }].filter((x) => x.p);
   return (
     <div className="ok-filler">
-      <div className="ok-filler-title">Pistenikkarit{range ? <span className="ok-filler-title-sub">{range}</span> : null}</div>
+      <FillerTitle text="Pistenikkarit" range={range} />
       <div className="ok-scorers">
         {podium.map(({ p, rank }) => (
           <div className={"ok-scorer ok-scorer--" + rank} key={rank}>
@@ -508,14 +541,16 @@ function Scorers({ list, range }) {
 
 // Big score centred + the two teams on one line below (winner bold, loser
 // lighter). "Suurin voitto" — a Kiekko-Ahma home win, so home is the winner.
-function MiniMatch({ g, title }) {
+function MiniMatch({ g, title, range }) {
   const m = g.m;
   const home = splitTeamName(m.home ?? ""), away = splitTeamName(m.away ?? "");
-  const level = simplifyLevel(m.level ?? "");
+  // Shared with both ad pages — see lib/teamLabels.js. Compact because these are chips in a
+  // fixed-width column, not lines of their own.
+  const level = seriesLabel(m.level, { compact: true });
   return (
     <div className="ok-filler">
       <div className="ok-filler-head">
-        <span className="ok-filler-title">{title}</span>
+        <FillerTitle text={title} range={range} />
         {level && <span className="ok-vs-level">{level}</span>}
       </div>
       <div className="ok-bw">
@@ -554,21 +589,35 @@ function PartnerLogo({ p }) {
 }
 
 const css = `
-.ok-grid { position:absolute; top:110px; bottom:32px; left:30px; right:30px; display:flex; gap:16px; z-index:2; }
+.ok-grid { position:absolute; top:110px; bottom:32px; left:30px; right:30px; display:flex; gap:${GRID_GAP}px; z-index:2; }
 .ok-empty { flex:1; display:flex; align-items:center; justify-content:center; font-family:${FONT_DISPLAY}; font-size:60px; color:rgba(255,255,255,0.32); }
 
-.ok-cells { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.ok-cells { flex:1; min-width:0; display:flex; flex-direction:column; gap:${GRID_GAP}px; }
 .ok-cellwrap { flex:1; min-height:0; display:flex; }
 .ok-cellwrap > * { flex:1; min-width:0; }
 
 /* match card: day+time (left) | divider | teams */
 .ok-card { position:relative; overflow:hidden; display:flex; align-items:center; gap:16px; padding:11px 22px 11px 26px; border-radius:16px; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-line { position:absolute; left:0; top:10px; bottom:10px; width:6px; border-radius:0 3px 3px 0; }
-.ok-when { flex:0 0 auto; min-width:84px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+/* Fixed width, NOT content width: the divider is a column rule down the whole list, and a
+   wider series chip on one row used to push that row's rule right of every other one. */
+.ok-when { flex:0 0 112px; width:112px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
 .ok-when-day { font-family:${FONT_DISPLAY}; font-size:31px; line-height:1; letter-spacing:0.04em; color:${ORANGE}; }
 .ok-when-time { font-family:${FONT_DISPLAY}; font-size:38px; line-height:1; letter-spacing:0.02em; color:#fff; }
-.ok-when-level { font-family:${FONT_BODY}; font-weight:700; font-size:22px; letter-spacing:0.03em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.24); border-radius:7px; padding:2px 11px; margin-top:5px; }
-.ok-when-live { font-family:${FONT_BODY}; font-weight:800; font-size:20px; letter-spacing:0.06em; color:${LOSS}; margin-top:5px; }
+.ok-when-level { max-width:100%; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:${FONT_BODY}; font-weight:700; font-size:22px; letter-spacing:0.03em; text-transform:uppercase; color:#fff; border:1px solid rgba(255,255,255,0.24); border-radius:7px; padding:2px 11px; margin-top:5px; }
+/* LIVE takes the weekday slot rather than a row of its own, so a live card is exactly as
+   tall as every other one and the packer's game count holds. */
+/* The badge is 7 px shorter than the weekday it replaces, so 5 px of air under it buys the
+   separation the smaller, heavier type needs without making a live card any taller. */
+.ok-when-day--live { display:flex; align-items:center; gap:7px; font-family:${FONT_BODY}; font-weight:800; font-size:24px; letter-spacing:0.06em; color:${LOSS}; margin-bottom:5px; }
+/* Same pulsing dot as the GameZone home hero and game page (gzLivePulse/ahmaHeroLivePulse):
+   a ring that expands out of the dot rather than the dot itself blinking. */
+.ok-live-dot { flex:0 0 auto; width:10px; height:10px; border-radius:50%; background:${LOSS}; box-shadow:0 0 0 0 rgba(239,68,68,0.55); animation:okLivePulse 1.6s ease-in-out infinite; }
+@keyframes okLivePulse {
+  0% { box-shadow:0 0 0 0 rgba(239,68,68,0.55); }
+  70% { box-shadow:0 0 0 8px rgba(239,68,68,0); }
+  100% { box-shadow:0 0 0 0 rgba(239,68,68,0); }
+}
 .ok-when-div { flex:0 0 auto; width:1.5px; align-self:stretch; margin:9px 0; background:rgba(255,255,255,0.12); }
 
 .ok-teams { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:9px; }
@@ -581,7 +630,10 @@ const css = `
 /* detail / filler modules */
 .ok-filler { display:flex; flex-direction:column; padding:13px 22px; border-radius:16px; overflow:hidden; background:rgba(20,20,24,0.66); border:1px solid rgba(255,255,255,0.09); }
 .ok-filler-title { flex:0 0 auto; font-family:${FONT_BODY}; font-weight:800; font-size:18px; letter-spacing:0.14em; text-transform:uppercase; color:${ORANGE}; }
-.ok-filler-title-sub { margin-left:8px; font-weight:700; font-size:14px; letter-spacing:0.04em; text-transform:none; color:${STEEL}; }
+/* Baseline-aligned by default, which leaves the two bands off-centre: the title's caps
+   stand 13 px above the baseline and the sub's digits only 11 px, so the smaller text reads
+   1 px low. Lift it back onto the title's centre line. */
+.ok-filler-title-sub { position:relative; top:-1px; margin-left:8px; font-weight:700; font-size:14px; letter-spacing:0.04em; text-transform:none; color:${STEEL}; }
 .ok-center { align-items:center; justify-content:center; text-align:center; }
 .ok-big { font-family:${FONT_DISPLAY}; font-size:42px; line-height:1; letter-spacing:0.03em; color:#fff; white-space:nowrap; }
 .ok-sub2 { font-family:${FONT_BODY}; font-weight:600; font-size:20px; color:${STEEL}; margin-top:8px; }
@@ -616,11 +668,14 @@ const css = `
 .ok-bw-vs { flex-shrink:0; font-family:${FONT_BODY}; font-weight:700; font-size:24px; color:${STEEL}; }
 
 /* Pistenikkarit — three cards, #1 centre (bigger + elevated), rank badge top-left */
-.ok-scorers { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:16px; }
+/* The podium is sized by WIDTH (square photo + foot), so narrower cards are shorter cards —
+   that plus the vertical padding is what keeps the row off the card's top and bottom edges
+   instead of filling it wall to wall. */
+.ok-scorers { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:16px; padding:9px 0; }
 .ok-scorer { display:flex; flex-direction:column; max-height:100%; }
 .ok-scorer-card { position:relative; width:100%; max-height:100%; display:flex; flex-direction:column; border-radius:13px; overflow:hidden; background:rgba(10,10,12,0.92); border:1.5px solid rgba(249,115,22,0.4); box-shadow:0 8px 22px rgba(0,0,0,0.5); }
-.ok-scorer { width:27%; }
-.ok-scorer--1 { width:32%; }
+.ok-scorer { width:24%; }
+.ok-scorer--1 { width:28.5%; }
 .ok-scorer--1 .ok-scorer-card { border-color:${ORANGE}; box-shadow:0 0 26px rgba(249,115,22,0.3); }
 /* Rank badge: fixed size (never grows for #1) so it stays out of the player's face */
 .ok-scorer-badge { position:absolute; top:0; left:0; z-index:2; min-width:30px; height:30px; padding:0 7px; display:flex; align-items:center; justify-content:center; border-bottom-right-radius:11px; background:rgba(15,15,17,0.96); font-family:${FONT_DISPLAY}; font-size:20px; color:#fff; }
