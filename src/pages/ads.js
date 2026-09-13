@@ -11,6 +11,7 @@ import {
 import { Box, IconButton, Typography } from "@mui/material";
 import { LuArrowLeft, LuChevronLeft, LuChevronRight, LuCalendar } from "react-icons/lu";
 import { themeCSS, COLOR_PRIMARY } from "../theme";
+import { ahmaQualifier, seriesLabel } from "../lib/teamLabels";
 import { useGoBack } from "../hooks/useGoBack";
 import { Surface } from "../components/ui/Surface";
 import { KeyedLogo } from "../components/ui/KeyedLogo";
@@ -179,7 +180,6 @@ const Ads = () => {
   const awaySuffix = includeAway ? "?away=1" : "";
 
   const [matches, setMatches] = useState([]);
-  const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
   const [scale, setScale] = useState(1);
   const [bgIndex, setBgIndex] = useState(0);
   const [customBg, setCustomBg] = useState(null);
@@ -209,22 +209,6 @@ const Ads = () => {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-
-  // Fetch teams once — build levelId|statGroupId → teamKey lookup
-  useEffect(() => {
-    fetch("/api/getTeams")
-      .then((r) => r.json())
-      .then((teams) => {
-        const map = new Map();
-        for (const team of teams) {
-          for (const g of team.levelGroups) {
-            map.set(`${g.levelId}|${g.statGroupId}`, team.teamKey);
-          }
-        }
-        setTeamsMap(map);
-      })
-      .catch(() => {}); // silently ignore — teamsMap stays empty, names fall back to match.home
   }, []);
 
   // Fetch the week's games — home only unless the away scope is on.
@@ -391,7 +375,7 @@ const Ads = () => {
               }}
             >
               <div ref={exportRef} style={{ width: `${AD_SIZE}px` }}>
-                <AdContent matches={matches} teamsMap={teamsMap} onGameClick={onGameClick} background={activeBackground} timestamp={timestamp} includeAway={includeAway} />
+                <AdContent matches={matches} onGameClick={onGameClick} background={activeBackground} timestamp={timestamp} includeAway={includeAway} />
               </div>
             </div>
           </div>
@@ -509,7 +493,7 @@ function formatDayRange(first, last) {
   return `${sD}.${sM}.–${eD}.${eM}.`;
 }
 
-function AdContent({ matches, teamsMap, onGameClick, background, timestamp, includeAway }) {
+function AdContent({ matches, onGameClick, background, timestamp, includeAway }) {
   // Header shows the whole week Mon–Sun (always ends Sunday), not the game span.
   const dateRange = useMemo(() => {
     const mon = getMonday(timestamp ? new Date(timestamp) : new Date());
@@ -610,7 +594,6 @@ function AdContent({ matches, teamsMap, onGameClick, background, timestamp, incl
           <AdGameRow
             key={i}
             match={m}
-            teamsMap={teamsMap}
             onClick={onGameClick ? () => onGameClick(i) : undefined}
           />
         ))}
@@ -642,29 +625,19 @@ function AdContent({ matches, teamsMap, onGameClick, background, timestamp, incl
   );
 }
 
-function AdGameRow({ match, teamsMap, onClick }) {
+function AdGameRow({ match, onClick }) {
   const md = moment(match.date);
   const timeStr = md.format("HH:mm");
   const dayStr = md.format("dd D.M").toUpperCase();
-  const lookupKey = `${match.levelId}|${match.statGroupId}`;
   // Which side is Ahma? Home-only weeks made this always "home", but with away games in
   // the list that assumption printed the opponent as AHMA and drew our crest on both sides.
   const ahmaIsHome = /kiekko-?ahma/i.test(match.home || "");
   const ahmaRaw = ahmaIsHome ? match.home : match.away;
   const oppRaw = ahmaIsHome ? match.away : match.home;
 
-  // Ahma team designation (every team must show one). Primary source = the mapped
-  // teamKey from getTeams (e.g. "U15", "U13 MUSTA", "Edustus"). Fallbacks for when
-  // the map isn't loaded: the feed-name suffix ("…Oranssi"→"Oranssi"), the age from
-  // the level/league ("U16"), or "Edustus" for the II-divisioona (men's) team.
-  let ahmaSub = teamsMap?.get(lookupKey) || splitTeamName(ahmaRaw).sub || "";
-  if (!ahmaSub) {
-    const hay = `${match.level || ""} ${match.league || ""}`;
-    const age = hay.match(/U\d{1,2}/i);
-    if (age) ahmaSub = age[0];
-    else if (/divisioona|edustus/i.test(hay)) ahmaSub = "Edustus";
-  }
-  ahmaSub = ahmaSub.toUpperCase();
+  // Team designation and series both come from lib/teamLabels.js, shared with the
+  // single-game ad — two copies of these rules is how the two ads drifted apart.
+  const ahmaSub = ahmaQualifier(match, ahmaRaw).toUpperCase();
 
   const { main: oppMain, sub: oppSub } = splitTeamName(oppRaw);
   const ahmaBlock = { main: "AHMA", sub: ahmaSub, logo: AHMA_CREST };
@@ -672,10 +645,7 @@ function AdGameRow({ match, teamsMap, onClick }) {
   // Home team on the left, as a fixture listing reads.
   const left = ahmaIsHome ? ahmaBlock : oppBlock;
   const right = ahmaIsHome ? oppBlock : ahmaBlock;
-  // Level chip = just the series; drop the "Harj.," friendly prefix. Keep the raw
-  // level only if stripping would leave nothing (a bare friendly).
-  const rawLevel = (match.level || "").toUpperCase();
-  const level = rawLevel.replace(/^\s*HARJ\.?,?\s*/i, "").replace(/^\s*HARJOITUSOTTELU[T]?,?\s*/i, "") || rawLevel;
+  const level = seriesLabel(match.level).toUpperCase();
 
   return (
     <div

@@ -8,6 +8,7 @@ import {
   splitTeamName,
 } from "../Util";
 import { themeCSS, COLOR_PRIMARY } from "../theme";
+import { ahmaQualifier, seriesLabel } from "../lib/teamLabels";
 import { Surface } from "../components/ui/Surface";
 import { PageHeader } from "../components/ui/PageHeader";
 import { NavButton, SelectorButton, PrimaryButton } from "../components/ui/Buttons";
@@ -40,8 +41,8 @@ const FONT_DISPLAY = "'Bebas Neue', sans-serif";
 const GA_WIDE_BTN = { width: "auto", padding: "0 14px" };
 
 // Module-level so the export hook's useCallback identity stays stable across renders.
-// 166px is the largest size on the canvas; loading one size loads the face.
-const EXPORT_FONTS = [`400 166px ${FONT_DISPLAY}`];
+// 158px is the largest size on the canvas; loading one size loads the face.
+const EXPORT_FONTS = [`400 158px ${FONT_DISPLAY}`];
 
 // The two crossing micro-textures that keep the dark surfaces from reading as flat fill.
 // `a` is the white alpha — the lower card gets 0.025, the team panels a calmer 0.015.
@@ -57,20 +58,6 @@ const STREAK_LINE = "linear-gradient(90deg, rgba(255,214,180,0) 0%, rgba(255,217
 const CORNER_GLOW = "radial-gradient(60% 100% at 18% 0%, rgba(255,150,72,0.13) 0%, rgba(240,110,30,0.04) 45%, rgba(240,110,30,0) 100%)";
 
 const HOME_VENUE = "Wareena · Valkeakoski";
-
-// The chevron only has room for ~15 condensed characters, and the colour half of a level
-// ("U14 Valkoinen") is already shown under the crest as the team's own qualifier.
-const LEVEL_VARIANT = /\s+(musta|valkoinen|oranssi|sininen|punainen|keltainen|vihreä|harmaa|violetti|black|white|orange|blue|red|yellow|green)$/i;
-const shortLevel = (level) => {
-  const s = String(level ?? "").trim();
-  // "Harjoitusottelut, U20" → "U20": on an ad the age group is the half that means something.
-  const age = s.match(/(?:^|,\s*)(U\d{1,2})\b/i);
-  if (/harjoitusottelu/i.test(s) && age) return age[1].toUpperCase();
-  return s
-    .replace(LEVEL_VARIANT, "")
-    .replace(/divisioona/i, "Div")
-    .replace(/suomi-sarja/i, "SS");
-};
 
 // Bottom strap: venue for away games, venue + admission for home games (the II-divisioona
 // home games are the ticketed ones). Always editable — `rink` is only a town for away games.
@@ -116,7 +103,6 @@ const GameAds = () => {
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
   const [editLevel, setEditLevel] = useState("");
   const [editVenue, setEditVenue] = useState("");
-  const [teamsMap, setTeamsMap] = useState(new Map()); // "levelId|statGroupId" → teamKey
   // pixelRatio 1 pins the export at exactly 1080×1080 — the default follows the screen's
   // devicePixelRatio, so the same button produced a different-sized PNG on every machine.
   const { downloading, downloadPng } = useExportPng(exportRef, "kiekko-ahma-pelimainos.png", {
@@ -130,20 +116,17 @@ const GameAds = () => {
   const levelDirtyRef = useRef(false);
   const venueDirtyRef = useRef(false);
 
-  // Label for one side of the matchup. The Ahma side is rendered as KIEKKO-AHMA + the team
-  // key ("U14"), which is why this is side-aware: in an away game Ahma is `match.away`.
-  const computeSideEdit = useCallback((m, map, which) => {
+  // Label for one side of the matchup. The Ahma side gets KIEKKO-AHMA + which team it is,
+  // which is why this is side-aware: in an away game Ahma is `match.away`.
+  const computeSideEdit = useCallback((m, which) => {
     if (!m) return { main: "", sub: "" };
     const raw = (which === "home" ? m.home : m.away) ?? "";
     const parts = splitTeamName(raw);
 
     if (/kiekko-?ahma/i.test(raw)) {
-      // getTeams only knows the sub-series our own team pages track, so friendlies and
-      // odd groups miss. Fall back to the age group in the level plus the colour in the
-      // team name ("U13 Oranssi") — the crest already says which club it is.
-      const teamKey = map?.get(`${m.levelId}|${m.statGroupId}`);
-      const age = (String(m.level ?? "").match(/U\d{1,2}/i) || [""])[0].toUpperCase();
-      return { main: "KIEKKO-AHMA", sub: teamKey || [age, parts.sub].filter(Boolean).join(" ") };
+      // Shared with the weekly listing ad — see lib/teamLabels.js. The crest already says
+      // which club it is, so this line only has to say WHICH Ahma team.
+      return { main: "KIEKKO-AHMA", sub: ahmaQualifier(m, raw) };
     }
 
     // Fallback: whatever comes from the feed
@@ -185,22 +168,6 @@ const GameAds = () => {
     return () => ro.disconnect();
   }, []);
 
-  // Fetch teams once — build levelId|statGroupId → teamKey lookup
-  useEffect(() => {
-    fetch("/api/getTeams")
-      .then((r) => r.json())
-      .then((teams) => {
-        const map = new Map();
-        for (const team of teams) {
-          for (const g of team.levelGroups ?? []) {
-            map.set(`${g.levelId}|${g.statGroupId}`, team.teamKey);
-          }
-        }
-        setTeamsMap(map);
-      })
-      .catch(() => {});
-  }, []);
-
   // Fetch game data
   useEffect(() => {
     const controller = new AbortController();
@@ -217,7 +184,7 @@ const GameAds = () => {
         levelDirtyRef.current = false;
         venueDirtyRef.current = false;
 
-        // Field updates handled by the [match, teamsMap] effect below
+        // Field updates handled by the [match] effect below
       }
     };
 
@@ -232,27 +199,26 @@ const GameAds = () => {
     return () => controller.abort();
   }, [timestamp, gameId, includeAway]);
 
-  // If teamsMap arrives later (or changes), refresh the auto labels — but only
-  // if the user hasn't edited the fields manually.
-  // Sync all editable fields when match or teamsMap changes, respecting dirty flags.
+  // Sync all editable fields when the match changes, respecting dirty flags — the user's
+  // own edits must survive a re-render.
   useEffect(() => {
     if (!match) return;
 
     if (!homeDirtyRef.current) {
-      const next = computeSideEdit(match, teamsMap, "home");
+      const next = computeSideEdit(match, "home");
       setEditHome((prev) => (prev.main === next.main && prev.sub === next.sub ? prev : next));
     }
     if (!awayDirtyRef.current) {
-      const next = computeSideEdit(match, teamsMap, "away");
+      const next = computeSideEdit(match, "away");
       setEditAway((prev) => (prev.main === next.main && prev.sub === next.sub ? prev : next));
     }
     if (!levelDirtyRef.current) {
-      setEditLevel(shortLevel(match.level));
+      setEditLevel(seriesLabel(match.level));
     }
     if (!venueDirtyRef.current) {
       setEditVenue(defaultVenue(match));
     }
-  }, [match, teamsMap, computeSideEdit]);
+  }, [match, computeSideEdit]);
 
   // Revoke Object URL on unmount to avoid memory leaks
   useEffect(() => () => {
@@ -564,6 +530,15 @@ function fitSize(text, maxWidth, max, min, tracking) {
 // visibly low.
 const capCentreShift = (size) => -0.055 * size;
 
+// Where a Bebas line actually paints inside its box, measured from the font: the baseline
+// falls 0.30·size BELOW the box's middle and the cap line 0.45·size ABOVE it. Both layouts
+// auto-fit the series, so the gap between the time and the series is a different height on
+// every game — a rule hung on a fixed y is only centred for one of them.
+const bebasBaseline = (size, lineHeight, top) => top + lineHeight / 2 + 0.3 * size;
+const bebasCapTop = (size, lineHeight, top) => top + lineHeight / 2 - 0.45 * size;
+// Digits have no descender, so the time's baseline IS its visual bottom.
+const ruleBetween = (thickness, inkAbove, inkBelow) => (inkAbove + inkBelow) / 2 - thickness / 2;
+
 // A cold load can paint before the webfont arrives, and measuring "KIEKKO-AHMA" against the
 // fallback (~40 % wider than Bebas) would shrink a name that actually fits — permanently,
 // since nothing would re-measure. Re-render once the face is genuinely available.
@@ -598,7 +573,7 @@ const LOGO_POS = {
 
 // One side of the matchup. `object-fit: contain` keeps both crests at the same height even
 // though their aspect ratios differ — that is the point, not a bug to "fix".
-function TeamPanel({ side, logo, name, detail }) {
+function TeamPanel({ side, logo, name, detail, twoLine }) {
   const home = side === "home";
   const nameSize = fitSize(name, 288, 52, 38, 0.04);
 
@@ -639,9 +614,9 @@ function TeamPanel({ side, logo, name, detail }) {
         style={{
           position: "absolute",
           zIndex: 2,
-          // Without a qualifier (Edustus has no age group) the name would hang at the top of
-          // the 191–280 band; centre it there instead of leaving a hole under it.
-          top: detail ? "191px" : "207px",
+          // Driven by both sides, not just this one, so the two names always sit on the same
+          // line — a lone qualifier would otherwise leave them a line apart.
+          top: twoLine ? "191px" : "207px",
           left: home ? "7px" : "59px",
           width: "288px",
           height: "58px",
@@ -686,6 +661,9 @@ function TeamPanel({ side, logo, name, detail }) {
 // never blurs the type.
 function MatchDisc({ dayStr, timeStr, competition }) {
   const compSize = fitSize(competition, 252, 58, 34, 0.1);
+  // Same derivation as the V panel: the rule hangs halfway between the time's baseline and
+  // the series' cap line, so it stays centred however far the series had to shrink.
+  const ruleTop = ruleBetween(5, bebasBaseline(158, 166, 132), bebasCapTop(compSize, 62, 324));
 
   return (
     <div
@@ -748,9 +726,9 @@ function MatchDisc({ dayStr, timeStr, competition }) {
           width: "372px",
           height: "166px",
           textAlign: "center",
-          fontSize: "166px",
+          fontSize: "158px",
           lineHeight: "166px",
-          letterSpacing: 0, // at 166 px the time only fits inside the ring with no tracking
+          letterSpacing: 0, // even at 158 px the time only fits inside the ring with no tracking
           color: ORANGE,
           fontVariantNumeric: "lining-nums tabular-nums",
           whiteSpace: "nowrap",
@@ -759,13 +737,27 @@ function MatchDisc({ dayStr, timeStr, competition }) {
       >
         {timeStr}
       </div>
+      {/* Beam under the time, series below it — the same order as the V panel, so the two
+          layouts read as one family. */}
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 3,
+          left: "154px",
+          top: `${ruleTop}px`,
+          width: "140px", // wider than the solid rule was: a beam needs room to fade out
+          height: "5px",
+          borderRadius: "3px",
+          background: GLOW_LINE,
+        }}
+      />
       {competition && (
         <div
           style={{
             position: "absolute",
             zIndex: 3,
             left: "98px",
-            top: "300px",
+            top: "324px",
             width: "252px",
             height: "62px",
             textAlign: "center",
@@ -780,18 +772,6 @@ function MatchDisc({ dayStr, timeStr, competition }) {
           {competition}
         </div>
       )}
-      <div
-        style={{
-          position: "absolute",
-          zIndex: 3,
-          left: "154px",
-          top: "378px",
-          width: "140px", // wider than the solid rule was: a beam needs room to fade out
-          height: "5px",
-          borderRadius: "3px",
-          background: GLOW_LINE,
-        }}
-      />
     </div>
   );
 }
@@ -860,6 +840,9 @@ function Hero({ background, zoom, offsetY, shade }) {
 /* ---- layout A: disc ------------------------------------------------------ */
 
 function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
+  // One side having a qualifier sets the block height for BOTH — see TeamPanel.
+  const twoLine = Boolean(match.homeSub || match.awaySub);
+
   return (
     <>
       <Hero
@@ -882,7 +865,9 @@ function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
           border: "2px solid #292C31",
           borderRadius: "36px",
           backgroundColor: INK,
-          backgroundImage: `${CORNER_GLOW}, ${texture(0.025)}, linear-gradient(180deg, #15171B 0%, #090A0C 100%)`,
+          // Diagonal sheen, same as the V layout's lower surface — the light reads as coming
+          // from the top-left corner instead of straight down.
+          backgroundImage: `${CORNER_GLOW}, ${texture(0.025)}, linear-gradient(155deg, #1B1E22 0%, #101214 48%, #090B0D 100%)`,
           boxShadow: `0 -14px 32px rgba(0,0,0,.72), ${CARD_HILITE}`,
         }}
       />
@@ -890,8 +875,8 @@ function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
           ends treatment as the listing ad's first-card streak. */}
       <div style={{ position: "absolute", zIndex: 11, left: "36px", right: "36px", top: "680px", height: "2px", background: STREAK_LINE, pointerEvents: "none" }} />
 
-      <TeamPanel side="home" logo={match.home_logo} name={match.homeMain} detail={match.homeSub} />
-      <TeamPanel side="away" logo={match.away_logo} name={match.awayMain} detail={match.awaySub} />
+      <TeamPanel side="home" logo={match.home_logo} name={match.homeMain} detail={match.homeSub} twoLine={twoLine} />
+      <TeamPanel side="away" logo={match.away_logo} name={match.awayMain} detail={match.awaySub} twoLine={twoLine} />
 
       <MatchDisc dayStr={dayStr} timeStr={timeStr} competition={match.level} />
 
@@ -939,7 +924,7 @@ const V_TEXT_PAD = 16; // keeps glyphs off the recess rather than just barely in
 const fitInPanel = (text, bottomY, max, min, tracking) =>
   fitSize(text, vFaceWidth(bottomY) - V_TEXT_PAD, max, min, tracking);
 
-function VTeam({ side, logo, name, detail }) {
+function VTeam({ side, logo, name, detail, twoLine }) {
   const left = side === "home" ? 20 : 758;
   return (
     <div style={{ position: "absolute", zIndex: 20, top: `${778 - V_SHIFT}px`, left: `${left}px`, width: "302px", height: "279px", textAlign: "center" }}>
@@ -956,9 +941,10 @@ function VTeam({ side, logo, name, detail }) {
         style={{
           position: "absolute",
           left: 0,
-          // No qualifier (Edustus has no age group) → centre the name in the 173–279 band
-          // instead of leaving a hole under it.
-          top: detail ? "173px" : "205px",
+          // The two sides share one band so the names always sit on the same line: a side
+          // without a qualifier only drops to the centred position when the OTHER side has
+          // none either — otherwise the pair would be a qualifier's height apart.
+          top: twoLine ? "173px" : "205px",
           width: "302px",
           height: "60px",
           fontSize: `${fitSize(name, 302, 52, 36, 0.04)}px`,
@@ -997,6 +983,15 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
   const shape = { position: "absolute", inset: 0, pointerEvents: "none" };
   const y = (n) => n - V_SHIFT; // the V composition sits 55 px higher than the reference
 
+  // Panel-local text boxes. The rule between the time and the series is derived from both
+  // fitted sizes rather than pinned, so it stays centred on games whose series is long
+  // enough to shrink ("Suomi-sarja (N)" fits at 31 px where "U16 Mestis" gets the full 42).
+  const timeSize = fitInPanel(timeStr, 260, 142, 110, 0);
+  const levelSize = fitInPanel(match.level, 339, 42, 26, 0.1);
+  const ruleTop = ruleBetween(4, bebasBaseline(timeSize, 160, 100), bebasCapTop(levelSize, 52, 309));
+  // One side having a qualifier sets the block height for BOTH — see VTeam.
+  const twoLine = Boolean(match.homeSub || match.awaySub);
+
   return (
     <>
       <Hero
@@ -1014,7 +1009,10 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
             ...shape,
             clipPath: `polygon(0px ${y(630)}px, 540px ${y(842)}px, 1080px ${y(630)}px, 1080px 1080px, 0px 1080px)`,
             backgroundColor: INK,
-            backgroundImage: `${texture(0.008)}, linear-gradient(180deg, #15171B 0%, #0B0D0F 100%)`,
+            // Same lighting as the centre panel — a diagonal sheen plus the warm corner glow —
+            // so the two dark surfaces read as one material. The element spans the whole canvas
+            // and only the V-clipped bottom shows, hence stops that start past the halfway mark.
+            backgroundImage: `${CORNER_GLOW}, ${texture(0.008)}, linear-gradient(155deg, #1B1E22 52%, #101214 76%, #090B0D 100%)`,
           }}
         />
       </div>
@@ -1052,8 +1050,8 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
         }}
       />
 
-      <VTeam side="home" logo={match.home_logo} name={match.homeMain} detail={match.homeSub} />
-      <VTeam side="away" logo={match.away_logo} name={match.awayMain} detail={match.awaySub} />
+      <VTeam side="home" logo={match.home_logo} name={match.homeMain} detail={match.homeSub} twoLine={twoLine} />
+      <VTeam side="away" logo={match.away_logo} name={match.awayMain} detail={match.awaySub} twoLine={twoLine} />
 
       {/* Centre panel. The wrapper carries only the drop-shadows — no background, no clip,
           no overflow — so the shadow traces the children's silhouette. It overhangs the
@@ -1112,7 +1110,7 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
               width: "416px",
               height: "160px",
               textAlign: "center",
-              fontSize: `${fitInPanel(timeStr, 260, 148, 110, 0)}px`,
+              fontSize: `${timeSize}px`,
               lineHeight: "160px",
               letterSpacing: 0,
               color: ORANGE,
@@ -1123,7 +1121,8 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
           >
             {timeStr}
           </div>
-          <div style={{ position: "absolute", left: "176px", top: "263px", width: "188px", height: "4px", borderRadius: "2px", background: GLOW_LINE }} />
+          {/* Halfway between the time's baseline and the series' cap line — see ruleTop. */}
+          <div style={{ position: "absolute", left: "176px", top: `${ruleTop}px`, width: "188px", height: "4px", borderRadius: "2px", background: GLOW_LINE }} />
           {/* Series pushed down from the reference's 287: with the venue gone to the shared
               footer the block sat high in the panel. The taper still leaves ~205 px of face
               at its baseline, so it has room down here. */}
@@ -1136,7 +1135,9 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
                 width: "296px",
                 height: "52px",
                 textAlign: "center",
-                fontSize: `${fitInPanel(match.level, 339, 48, 26, 0.1)}px`,
+                // Capped below the taper's own limit: a two-word series fits the face at
+                // 47 px but sits right against the slanted edges.
+                fontSize: `${levelSize}px`,
                 lineHeight: "52px",
                 letterSpacing: "0.1em",
                 textIndent: "0.1em",
@@ -1181,7 +1182,7 @@ const LAYOUTS = {
 };
 
 function GameAdCanvas({ match, background, zoom, offsetY, layout }) {
-  useFontReady(`400 166px ${FONT_DISPLAY}`); // re-renders once Bebas is measurable
+  useFontReady(`400 158px ${FONT_DISPLAY}`); // re-renders once Bebas is measurable
   const timeStr = moment(match.date).format("HH:mm");
   const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
   const Layout = (LAYOUTS[layout] ?? LAYOUTS.disc).Component;

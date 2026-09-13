@@ -3,7 +3,7 @@
 // (U-number FIRST so "U18 II-divisioona" → U18, not Edustus — U18/U20 also play
 // divisioona), and the favourite's name the same way. See memory: project_home_agenda.
 
-function ageKey(text) {
+export function ageKey(text) {
   const s = String(text || "");
   const m = s.match(/U\s*(\d+)/i);
   if (m) return `U${m[1]}`;
