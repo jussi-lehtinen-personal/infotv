@@ -9,6 +9,7 @@ import { KeyedLogo } from "../components/ui/KeyedLogo";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
 import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
+import { toSecs, keeperStats } from "../lib/goalieStats";
 import { getCachedUser, getMe } from "../auth/authClient";
 
 moment.locale("fi");
@@ -19,11 +20,6 @@ const mdate = (s) => moment(String(s || "").replace(" ", "T"), moment.ISO_8601);
 const seasonOf = (s) => {
   const d = mdate(s);
   return d.month() >= 6 ? d.year() + 1 : d.year();
-};
-// "7:02" → seconds, for merging goals + penalties into one timeline.
-const toSecs = (t) => {
-  const [m, s] = String(t || "0:0").split(":").map(Number);
-  return (m || 0) * 60 + (s || 0);
 };
 
 // ---- shared sx ----
@@ -331,35 +327,6 @@ const EventRow = ({ e }) => {
 const goalieName = (raw) =>
   String(raw || "").split(/\s+/).map((w) => (w ? w.charAt(0).toLocaleUpperCase("fi") + w.slice(1).toLocaleLowerCase("fi") : w)).join(" ").trim();
 
-// Time-attributed goals-against per keeper (matches scoring.js / the tulospalvelu MV
-// tab): a backup coming in late isn't charged the starter's goals. Returns { name: ga }.
-function goalieGA(report, side) {
-  const t = (report.goalies || []).find((x) => x.side === side);
-  if (!t || !t.keepers || !t.keepers.length) return {};
-  const oppSide = side === "home" ? "away" : "home";
-  const conceded = (report.goals || []).filter((x) => x.side === oppSide).map((x) => toSecs(x.time));
-  const gkEv = (report.extras || []).filter((x) => x.side === side && x.kind === "gk")
-    .map((x) => ({ time: toSecs(x.time), name: x.name, sub: x.sub })).sort((a, b) => a.time - b.time);
-  const names = t.keepers.map((k) => k.name);
-  const subsIn = new Set(gkEv.filter((e) => /vaihto/i.test(e.sub)).map((e) => e.name));
-  const starter = names.find((n) => !subsIn.has(n)) || names[0];
-  const tl = [{ time: 0, who: starter }];
-  for (const e of gkEv) tl.push({ time: e.time, who: /pois/i.test(e.sub) ? null : e.name });
-  // A goal logged at the same second as a keeper CHANGE belongs to the keeper who was
-  // beaten: the change is the consequence of that goal, and that is how tulospalvelu counts
-  // it. An emptied net (`pois`) is the opposite — pulling the keeper is deliberate and
-  // precedes the goal — so that entry takes effect from its own second onwards.
-  const whoAt = (tt) => {
-    let w = tl[0].who;
-    for (const s of tl) if (s.who === null ? s.time <= tt : s.time < tt) w = s.who;
-    return w;
-  };
-  const ga = {};
-  for (const k of t.keepers) ga[k.name] = 0;
-  for (const c of conceded) { const w = whoAt(c); if (w && ga[w] != null) ga[w] += 1; }
-  return ga;
-}
-
 const pctStr = (v) => `${(Math.round(v * 10) / 10).toString().replace(".", ",")} %`;
 
 const Goalies = ({ report, game }) => {
@@ -371,16 +338,10 @@ const Goalies = ({ report, game }) => {
       <Box sx={sectionTitleSx}>Maalivahdit</Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {ordered.map((t, i) => {
-          const gaMap = goalieGA(report, t.side);
           const logo = t.side === "home" ? game.home_logo : t.side === "away" ? game.away_logo : null;
-          return (t.keepers || []).map((k, j) => {
-            const per = (k.saves || []).filter((s) => Number(s.period) !== 0);
-            const totEntry = (k.saves || []).find((s) => Number(s.period) === 0);
-            const total = Number(totEntry ? totEntry.saves : per.reduce((a, s) => a + (Number(s.saves) || 0), 0)) || 0;
-            const breakdown = per.map((s) => s.saves).join(" + ");
-            const out = (k.out || []).filter(Boolean);
-            const shots = total + (gaMap[k.name] || 0);
-            const pct = shots > 0 ? (total / shots) * 100 : null;
+          // Shared with the InfoTV goalie podium — see lib/goalieStats.js.
+          return keeperStats(report, t.side).map((k, j) => {
+            const { saves: total, breakdown, out, shots, pct } = k;
             return (
               <Box key={`${i}-${j}`} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 0.25, py: 0.5 }}>
                 <KeyedLogo src={logo || ""} size={34} style={logoStyle} />

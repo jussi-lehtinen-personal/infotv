@@ -9,6 +9,7 @@ import InfoTvStage, { HeroBackdrop, Masthead, FONT_DISPLAY, FONT_BODY, ORANGE, S
 import { getMonday, splitTeamName } from "../../Util";
 import { KeyedLogo } from "../../components/ui/KeyedLogo";
 import { seriesLabel } from "../../lib/teamLabels";
+import { keeperStats } from "../../lib/goalieStats";
 import { fetchSeasonGames, gamesForWeek, mondayOf, isSeasonLoaded, subscribe, peekSeasonGames } from "../../lib/seasonGamesCache";
 import { isLiveMatch } from "../../hooks/useHeroMatches";
 import { JOPOX_TEAMS } from "../../data/jopoxTeams";
@@ -24,6 +25,12 @@ const ageOf = (level) => { const m = String(level || "").match(/U\s*(\d{1,2})/i)
 const subsiteForAge = (age) => { const t = JOPOX_TEAMS.find((x) => x.name === age); return t ? t.subsiteId : null; };
 const teamShort = (age) => (age === "Edustus naiset" ? "Naiset" : age === "Leijona-Kiekkokoulu" ? "LKK" : age || "");
 const initialsOf = (name) => String(name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+const pct1 = (v) => (Math.round(v * 10) / 10).toFixed(1).replace(".", ",");
+
+// A keeper joins the goalie podium only after this many shots across the whole window —
+// one week is short enough that a backup who faced four pucks would otherwise win it at
+// 100 %. Roughly one starter's game worth of work.
+const MIN_GOALIE_SHOTS = 20;
 
 const COLS = 3;
 const ROWS = 5;
@@ -154,15 +161,19 @@ export default function InfoTvOttelut() {
   const scorerKey = useMemo(() => scorerGames.map((g) => g.id).join(","), [scorerGames]);
 
 
-  // Aggregate goals+assists per Ahma player across the window's played games
-  // (box scores, KV-cached) → top 3, with Jopox roster photos matched by name.
+  // Aggregate goals+assists per Ahma player — and saves/shots per Ahma keeper — across the
+  // window's played games (box scores, KV-cached) → top 3 of each, with Jopox roster photos
+  // matched by name. ONE pass: both podiums read the same already-fetched reports, so the
+  // goalie card costs no extra calls.
   const [topScorers, setTopScorers] = useState([]);
+  const [topGoalies, setTopGoalies] = useState([]);
   useEffect(() => {
     let cancelled = false;
     const played = scorerGames;
-    if (!played.length) { setTopScorers([]); return; }
+    if (!played.length) { setTopScorers([]); setTopGoalies([]); return; }
     (async () => {
       const tally = {};
+      const keepers = {};
       await Promise.all(played.map(async (g) => {
         const date = String(g.date || "").slice(0, 10);
         const q = `date=${encodeURIComponent(date)}&home=${encodeURIComponent(g.homeTeamId)}&away=${encodeURIComponent(g.awayTeamId)}&extId=${encodeURIComponent(g.id)}`;
@@ -185,10 +196,32 @@ export default function InfoTvOttelut() {
           bump(goal.scorer && goal.scorer.name, 1, 0);
           for (const a of goal.assists || []) bump(a, 0, 1);
         }
+        // Keepers of the Ahma side. Goals are charged by the time-attribution rule in
+        // lib/goalieStats.js, the same one the box score shows, so a backup who came in
+        // late isn't blamed for the starter's goals.
+        for (const k of keeperStats(rep, ahmaSide)) {
+          if (!k.name || !k.shots) continue;
+          const key = nameKey(k.name);
+          let t = keepers[key];
+          if (!t) {
+            const w = String(k.name).trim().split(/\s+/); // box score = "LASTNAME Firstname"
+            t = keepers[key] = { key, first: titleName(w.slice(1).join(" ")), last: titleName(w[0] || ""), saves: 0, shots: 0, ga: 0, games: 0, age };
+          }
+          t.saves += k.saves; t.shots += k.shots; t.ga += k.ga; t.games += 1;
+        }
       }));
       const top = Object.values(tally).filter((t) => t.pts > 0)
         .sort((a, b) => b.pts - a.pts || b.goals - a.goals || (a.last || "").localeCompare(b.last || "", "fi")).slice(0, 3);
-      if (top.length < 3) { if (!cancelled) setTopScorers([]); return; }
+      // Keepers rank on save percentage — but only once they have faced enough rubber. Over
+      // a single week a backup who saw four shots would otherwise top the board at 100 %.
+      const topG = Object.values(keepers).filter((k) => k.shots >= MIN_GOALIE_SHOTS)
+        .map((k) => ({ ...k, pct: (k.saves / k.shots) * 100 }))
+        .sort((a, b) => b.pct - a.pct || b.saves - a.saves || (a.last || "").localeCompare(b.last || "", "fi")).slice(0, 3);
+      // Both cards are podiums, so neither appears without a full three.
+      const scorers = top.length >= 3 ? top : [];
+      const goalies = topG.length >= 3 ? topG : [];
+      const podium = [...scorers, ...goalies];
+      if (!podium.length) { if (!cancelled) { setTopScorers([]); setTopGoalies([]); } return; }
       // Photos: match each top scorer to a Jopox roster photo BY NAME. A player can
       // score in a game whose level maps to a different age than the team they're
       // registered under (call-ups play up/down an age group), so we don't restrict
@@ -208,16 +241,16 @@ export default function InfoTvOttelut() {
           }
         } catch { /* ignore */ }
       };
-      const involvedIds = new Set(top.map((t) => subsiteForAge(t.age)).filter(Boolean));
+      const involvedIds = new Set(podium.map((t) => subsiteForAge(t.age)).filter(Boolean));
       await Promise.all(JOPOX_TEAMS.filter((jt) => involvedIds.has(jt.subsiteId)).map(scanRoster));
-      if (top.some((t) => !photo[t.key] || !team[t.key])) { // call-up not in the game's age roster → widen the search
+      if (podium.some((t) => !photo[t.key] || !team[t.key])) { // call-up not in the game's age roster → widen the search
         await Promise.all(JOPOX_TEAMS.filter((jt) => !involvedIds.has(jt.subsiteId)).map(scanRoster));
       }
       // Show the player's actual Jopox team (t.team), not the game's level — a U20
       // scoring in a U18 game should read "U20". Falls back to the game age if the
       // player isn't found in any roster.
-      for (const t of top) { t.photo = photo[t.key] || null; t.number = num[t.key] || null; t.team = team[t.key] || t.age; if (fn[t.key] || ln[t.key]) { t.first = fn[t.key] || t.first; t.last = ln[t.key] || t.last; } }
-      if (!cancelled) setTopScorers(top);
+      for (const t of podium) { t.photo = photo[t.key] || null; t.number = num[t.key] || null; t.team = team[t.key] || t.age; if (fn[t.key] || ln[t.key]) { t.first = fn[t.key] || t.first; t.last = ln[t.key] || t.last; } }
+      if (!cancelled) { setTopScorers(scorers); setTopGoalies(goalies); }
     })();
     return () => { cancelled = true; };
     // scorerKey (not scorerGames) — see its definition: the array identity changes on every
@@ -275,6 +308,7 @@ export default function InfoTvOttelut() {
       if (s.played > 0) { add("record", 1, 2.5); add("goals", 1, 2); add("wins", 1, 2); add("avg", 1, 1.5); }
       if (biggestWin) add("biggestWin", 2, 2, { g: biggestWin });
       if (topScorers.length >= 3) add("scorers", 2, 3, { list: topScorers, range: s.range });
+      if (topGoalies.length >= 3) add("goalies", 2, 3, { list: topGoalies, range: s.range });
       add("follow", 1, 1);
       add("hashtag", 1, 1);
       add("ahmaliiga", rem >= 3 && Math.random() < 0.4 ? 3 : 2, 1.5);
@@ -302,7 +336,7 @@ export default function InfoTvOttelut() {
       if (partnerSize > 0) ex.push({ type: "detail", variant: "partner", size: partnerSize, key: "partner", ps: partnerPicks.slice(0, partnerSize) });
     }
     return cols;
-  }, [games, partners, summary, topScorers]);
+  }, [games, partners, summary, topScorers, topGoalies]);
 
   const loading = !isSeasonLoaded() && games.length === 0;
 
@@ -445,6 +479,17 @@ function DetailCell({ it, s }) {
       return <MiniMatch g={it.g} title="Suurin voitto" range={s.range} />;
     case "scorers":
       return <Scorers list={it.list} range={it.range} />;
+    case "goalies":
+      return (
+        <Scorers
+          list={it.list}
+          range={it.range}
+          title="Kovimmat molarit"
+          // Save percentage is the goalie's headline number — and what the series MV tab
+          // ranks on — so it takes the slot "3+0" has on the scorer card.
+          stat={(p) => <>{pct1(p.pct)}<span className="ok-scorer-unit">%</span></>}
+        />
+      );
     case "hashtag":
       return <div className="ok-filler ok-center"><div className="ok-big">#KIEKKOAHMA</div><div className="ok-sub2">Jaa somessa</div></div>;
     case "app":
@@ -512,13 +557,16 @@ function BigStat({ title, range, val, valColor, sub }) {
   );
 }
 
-// Pistenikkarit podium — top scorer in the MIDDLE (bigger), 2nd left, 3rd right.
-function Scorers({ list, range }) {
+// Podium — best in the MIDDLE (bigger), 2nd left, 3rd right. Shared by Pistenikkarit and
+// Kovimmat molarit; only the bottom stat line differs, so the two cards stay identical
+// twins on screen and a rotation between them doesn't jump.
+function Scorers({ list, range, title = "Pistenikkarit", stat }) {
   const [a, b, c] = list; // 1st, 2nd, 3rd (already sorted)
   const podium = [{ p: b, rank: 2 }, { p: a, rank: 1 }, { p: c, rank: 3 }].filter((x) => x.p);
+  const line = stat || ((p) => <>{p.goals}<span>+</span>{p.assists}</>);
   return (
     <div className="ok-filler">
-      <FillerTitle text="Pistenikkarit" range={range} />
+      <FillerTitle text={title} range={range} />
       <div className="ok-scorers">
         {podium.map(({ p, rank }) => (
           <div className={"ok-scorer ok-scorer--" + rank} key={rank}>
@@ -529,7 +577,7 @@ function Scorers({ list, range }) {
                 <div className="ok-scorer-name"><span>{p.first}</span><span>{p.last}</span></div>
                 {(p.team || p.age) ? <div className="ok-scorer-team">{teamShort(p.team || p.age)}</div> : null}
                 <div className="ok-scorer-div" />
-                <div className="ok-scorer-pts">{p.goals}<span>+</span>{p.assists}</div>
+                <div className="ok-scorer-pts">{line(p)}</div>
               </div>
             </div>
           </div>
@@ -692,6 +740,9 @@ const css = `
 .ok-scorer-pts { font-family:${FONT_DISPLAY}; font-size:24px; line-height:1; color:#fff; }
 .ok-scorer--1 .ok-scorer-pts { font-size:28px; }
 .ok-scorer-pts span { color:${STEEL}; padding:0 1px; }
+/* Finnish typography puts a space before the unit ("92,9 %"), unlike the scorer card's
+   tight "3+0" where the separator is the glue. */
+.ok-scorer-unit { padding-left:5px !important; }
 
 /* social follow */
 .ok-social { display:flex; gap:26px; margin:16px 0 10px; color:#fff; }
