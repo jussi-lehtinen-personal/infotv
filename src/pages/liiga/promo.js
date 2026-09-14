@@ -9,22 +9,22 @@ import { getAhmaliigaState } from "../../lib/ahmaliigaApi";
 const MONTHS = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
 const whenLabel = (s) => { const x = new Date(String(s).replace(" ", "T")); return isNaN(x) ? "" : `${x.getDate()}. ${MONTHS[x.getMonth()]}kuuta klo ${String(x.getHours()).padStart(2, "0")}.${String(x.getMinutes()).padStart(2, "0")}`; };
 
-// The beta invite headline reflects the ACTUAL season phase (so a logged-out landing
-// never claims "käynnissä" when it hasn't opened, or after it ends).
-function betaPhase(st) {
-  if (!st || !st.active) return { title: "Beta tulossa", text: "Tee käyttäjä valmiiksi — pääset mukaan heti kun peli avautuu." };
-  if (st.notStarted) return { title: "Beta alkaa pian", text: st.startAt ? `Tee käyttäjä valmiiksi — peli avautuu ${whenLabel(st.startAt)}.` : "Tee käyttäjä valmiiksi — peli avautuu pian." };
-  if (st.seasonOver) return { title: "Beta päättyi", text: "Seuraava kausi on tulossa — tee käyttäjä niin olet valmiina." };
-  return { title: "Beta on käynnissä", text: "Tee käyttäjä ja pääset heti mukaan pelaamaan." };
+// The invite headline reflects the ACTUAL season phase (so a logged-out landing never
+// claims "käynnissä" when it hasn't opened, or after it ends).
+function seasonPhase(st) {
+  if (!st || !st.active) return { title: "Kausi tulossa", text: "Tee käyttäjä valmiiksi — pääset mukaan heti kun peli avautuu." };
+  if (st.notStarted) return { title: "Kausi alkaa pian", text: st.startAt ? `Tee käyttäjä valmiiksi — peli avautuu ${whenLabel(st.startAt)}.` : "Tee käyttäjä valmiiksi — peli avautuu pian." };
+  if (st.seasonOver) return { title: "Kausi päättyi", text: "Seuraava kausi on tulossa — tee käyttäjä niin olet valmiina." };
+  return { title: "Kausi on käynnissä", text: "Tee käyttäjä ja pääset heti mukaan pelaamaan." };
 }
 
-// Ahmaliiga WhatsApp group — announcements + beta chatter.
+// Ahmaliiga WhatsApp group — announcements + league chatter.
 const WHATSAPP_GROUP = "https://chat.whatsapp.com/GCpW875ZBBD4LSG6S02omW";
 
-// Public Ahmaliiga promo / beta teaser. Admins open the game straight from the home
+// Public Ahmaliiga promo. Admins open the game straight from the home
 // banner; everyone else lands here (via the Gate). Explains what Ahmaliiga is and
-// invites beta testers: create an account now → you're in the beta that starts next
-// weekend, when it opens to everyone who has made a user.
+// invites new managers: create an account now → you're in, and the season is open to
+// everyone who has made a user.
 
 const hasAccount = (u) => !!(u && (u.hasPasskey || u.googleLinked));
 
@@ -57,7 +57,7 @@ export default function LiigaPromo() {
     return () => { cancelled = true; };
   }, []);
 
-  const beta = betaPhase(liiga);
+  const phase = seasonPhase(liiga);
 
   return (
     <Box sx={{ minHeight: "100dvh", background: "var(--bg-gradient)", color: "text.primary",
@@ -81,21 +81,21 @@ export default function LiigaPromo() {
         <Feature icon={LuStar} title="Nouse rankingissa" text="Kilpaile muita managereita vastaan jaksoittain ja koko kauden ajan." />
       </Stack>
 
-      {/* Beta invite */}
+      {/* Join invite */}
       <Box sx={{ width: "100%", maxWidth: 440, mt: 4, p: 2.5, borderRadius: "var(--radius-card)", textAlign: "center",
             bgcolor: "rgba(var(--color-primary-rgb),0.10)", border: "1px solid rgba(var(--color-primary-rgb),0.4)" }}>
-        <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "primary.main" }}>Beta</Typography>
+        <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "primary.main" }}>Ahmaliiga</Typography>
         <Typography sx={{ mt: 0.5, fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
-              fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>{beta.title}</Typography>
+              fontSize: 26, lineHeight: 1.05, color: "text.primary" }}>{phase.title}</Typography>
         <Typography sx={{ mt: 1, fontSize: 14, color: "text.secondary", lineHeight: 1.5 }}>
-          {beta.text}
+          {phase.text}
         </Typography>
 
         {registered ? (
           <Stack direction="row" spacing={1} sx={{ mt: 2.5, alignItems: "center", justifyContent: "center",
                 py: 1.25, borderRadius: "var(--radius-item)", bgcolor: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.35)" }}>
             <Box component={LuCheck} sx={{ fontSize: 20, color: "var(--color-live)", display: "block" }} />
-            <Typography sx={{ fontWeight: 800, fontSize: 15, color: "var(--color-live)" }}>Olet mukana — nähdään betassa! 🎉</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: 15, color: "var(--color-live)" }}>Olet mukana — nähdään kaukalossa! 🎉</Typography>
           </Stack>
         ) : (
           <Button fullWidth variant="contained" onClick={() => nav("/account")} startIcon={<LuLogIn size={18} />}
@@ -111,7 +111,7 @@ export default function LiigaPromo() {
         Liity Ahmaliiga-ryhmään WhatsAppissa
       </Button>
       <Typography sx={{ mt: 1.25, fontSize: 12.5, color: "text.disabled", textAlign: "center", maxWidth: 440 }}>
-        Liity WhatsApp-ryhmään niin pysyt kärryillä betasta. Tunnuksen luot hetkessä laitteesi passkeyllä — ei salasanoja.
+        Liity WhatsApp-ryhmään niin pysyt kärryillä kaudesta. Tunnuksen luot hetkessä laitteesi passkeyllä — ei salasanoja.
       </Typography>
     </Box>
   );

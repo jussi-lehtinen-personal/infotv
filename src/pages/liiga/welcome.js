@@ -44,6 +44,12 @@ export default function LiigaWelcome() {
   }, []);
 
   const startAt = state && state.startAt;
+  // Season facts come from the live state, not from constants — the round length and the
+  // number of rounds change from season to season, and hard-coded beta-era values
+  // ("~14 h", "~10 päivää") survived the official launch on this page.
+  // Until the state lands we don't know which it is, so keep the forward-looking wording.
+  const started = !!(state && !state.notStarted);
+  const roundCount = state && state.roundCount;
 
   return (
     <Screen>
@@ -61,12 +67,12 @@ export default function LiigaWelcome() {
       {/* Game facts — when it starts, how fast it runs, prizes. */}
       <Box sx={{ borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", p: 1.75, mb: 2 }}>
         <Eyebrow sx={{ mb: 0.5 }}>Pelin tiedot</Eyebrow>
-        <InfoRow icon={LuClock} label="Peli alkaa" value={startAt ? startWhen(startAt) : "Pian"} />
-        <InfoRow icon={LuCalendarDays} label="Jaksot vaihtuvat" value="~14 h välein" />
-        <InfoRow icon={LuCalendarDays} label="Kausi kestää" value="~10 päivää" />
-        <InfoRow icon={LuTrophy} label="Palkinnot" value="Ei jaeta betassa" />
+        <InfoRow icon={LuClock} label={started ? "Kausi alkoi" : "Peli alkaa"} value={startAt ? startWhen(startAt) : "Pian"} />
+        <InfoRow icon={LuCalendarDays} label="Jakson pituus" value="2 viikkoa" />
+        <InfoRow icon={LuCalendarDays} label="Kausi kestää" value={roundCount ? `${roundCount} jaksoa` : "Koko kauden"} />
+        <InfoRow icon={LuTrophy} label="Palkinnot" value="Jakson ja kauden parhaille" />
         <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mt: 1, lineHeight: 1.45 }}>
-          🧪 Beta-testipeli — palkintoja ei tällä kaudella jaeta oikeasti. Pelataan hauskuuden ja testaamisen vuoksi!
+          🏆 Voitetut palkinnot ilmestyvät Palkinnot-sivulle, ja ne lunastetaan Kiekko-Ahman kioskista näyttämällä oma QR-koodi.
         </Typography>
       </Box>
 

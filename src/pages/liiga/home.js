@@ -268,7 +268,7 @@ export default function LiigaHome() {
           sx={{ display: "flex", flexDirection: "column", alignItems: "stretch", textAlign: "left", width: "100%",
               borderRadius: "var(--radius-card)", bgcolor: "rgba(var(--color-primary-rgb),0.06)",
               border: "1px solid rgba(var(--color-primary-rgb),0.5)", p: 2, mb: 2, "&:hover": { bgcolor: "rgba(var(--color-primary-rgb),0.10)" } }}>
-          <Eyebrow sx={{ mb: 1.25 }}>Beta-testipeli · tulossa</Eyebrow>
+          <Eyebrow sx={{ mb: 1.25 }}>Uusi kausi · tulossa</Eyebrow>
           <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, minWidth: 0 }}>
               <IconCircle icon={LuRocket} size={44} />

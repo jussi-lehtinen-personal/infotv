@@ -54,7 +54,7 @@ export default function ComingSoon({ state }) {
       {/* hero */}
       <Box sx={{ textAlign: "center", mb: 3 }}>
         <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-primary)", mb: 1 }}>
-          Beta-testipeli · tulossa
+          Uusi kausi · tulossa
         </Typography>
         <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)", fontSize: "clamp(34px,9vw,52px)", lineHeight: 1, color: "text.primary" }}>
           Ahmaliiga alkaa pian
