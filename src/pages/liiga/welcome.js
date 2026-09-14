@@ -70,7 +70,7 @@ export default function LiigaWelcome() {
         <InfoRow icon={LuClock} label={started ? "Kausi alkoi" : "Peli alkaa"} value={startAt ? startWhen(startAt) : "Pian"} />
         <InfoRow icon={LuCalendarDays} label="Jakson pituus" value="2 viikkoa" />
         <InfoRow icon={LuCalendarDays} label="Kausi kestää" value={roundCount ? `${roundCount} jaksoa` : "Koko kauden"} />
-        <InfoRow icon={LuTrophy} label="Palkinnot" value="Jakson ja kauden parhaille" />
+        <InfoRow icon={LuTrophy} label="Palkinnot" value="Jakson voittajalle" />
         <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mt: 1, lineHeight: 1.45 }}>
           🏆 Voitetut palkinnot ilmestyvät Palkinnot-sivulle, ja ne lunastetaan Kiekko-Ahman kioskista näyttämällä oma QR-koodi.
         </Typography>

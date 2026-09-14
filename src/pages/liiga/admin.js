@@ -157,9 +157,12 @@ export default function LiigaAdmin() {
                   busy={busy === "settleRound"} disabled={!s} onClick={() => run("settleRound", "Jakso ratkaistu")} />
         <AdminBtn icon={LuFastForward} label="Ratkaise koko kausi loppuun"
                   busy={busy === "settleAll"} disabled={!s} onClick={() => run("settleAll", "Kausi ratkaistu")} />
-        <AdminBtn icon={LuTrophy} label={s && s.settled ? `Luo jakson ${s.settled} palkinnot (top 3)` : "Luo jakson palkinnot (top 3)"}
+        {/* top:1 explicitly — settleRound awards the round winner automatically with top:1,
+            and generateVouchers defaults to 3, so without this the manual re-run handed out
+            two prizes the game never promised. */}
+        <AdminBtn icon={LuTrophy} label={s && s.settled ? `Luo jakson ${s.settled} palkinto (voittaja)` : "Luo jakson palkinto (voittaja)"}
                   busy={busy === "genRound"} disabled={!s || !s.settled}
-                  onClick={() => run("generateVouchers", "Jakson palkinnot luotu", null, { scope: "round", round: s.settled - 1 }, "genRound")} />
+                  onClick={() => run("generateVouchers", "Jakson palkinto luotu", null, { scope: "round", round: s.settled - 1, top: 1 }, "genRound")} />
         <AdminBtn icon={LuTrophy} label="Luo kauden palkinnot (top 3)"
                   busy={busy === "genSeason"} disabled={!s}
                   onClick={() => run("generateVouchers", "Kauden palkinnot luotu", null, { scope: "season" }, "genSeason")} />

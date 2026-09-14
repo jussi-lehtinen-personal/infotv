@@ -57,7 +57,7 @@ export default function LiigaRewards() {
 
       {vouchers.length === 0 ? (
         <EmptyState icon={LuTrophy} title="Ei vielä palkintoja"
-          text="Jakson ja kauden parhaat palkitaan. Kiipeä Top 3:een niin palkinto ilmestyy tänne." />
+          text="Jakson voittaja palkitaan. Nouse jakson kärkeen, niin palkinto ilmestyy tänne." />
       ) : (
         <ListCard>
           {vouchers.map((v) => {
