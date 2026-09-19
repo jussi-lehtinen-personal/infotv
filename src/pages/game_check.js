@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Box, Card, Typography, Stack, CircularProgress, Chip, Tooltip, Collapse, IconButton } from "@mui/material";
+import { Box, Card, Typography, Stack, CircularProgress, Tooltip, Collapse, IconButton } from "@mui/material";
 import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
@@ -39,11 +39,13 @@ const STATUS_META = {
   [NA]:      { Icon: LuMinus,         color: "rgba(255,255,255,.22)", label: "Ei koske" },
 };
 
+// The ice column is wider because it prints the slot's LENGTH rather than a tick — the
+// number is the thing the office books, and the colour still carries the verdict.
 const COLUMNS = [
-  { key: "tp", label: "TP", title: "Ottelu tulospalvelussa" },
-  { key: "jopox", label: "Jopox", title: "Ottelu Jopoxissa" },
-  { key: "ice", label: "Jää", title: "Ottelulle varattu jää Tilamisussa" },
-  { key: "kiosk", label: "Kioski", title: "Kioski avoinna" },
+  { key: "tp", label: "TP", title: "Ottelu tulospalvelussa", width: 30 },
+  { key: "jopox", label: "Jopox", title: "Ottelu Jopoxissa", width: 30 },
+  { key: "ice", label: "Jää", title: "Jäävuoro Tilamisussa", width: 62 },
+  { key: "kiosk", label: "Kioski", title: "Kioski avoinna", width: 30 },
 ];
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -196,7 +198,7 @@ function checkIce(g, reservations, range) {
   const own = covering.find((r) => r.isGame);
   if (own) return { status: OK, slots: covering, slot: own };
   const block = covering.find(ahma);
-  if (block) return { status: WARN, note: "otteluvuoron sisällä", slots: covering, slot: block };
+  if (block) return { status: WARN, note: "ei omaa varausta — peli mahtuu Ahman viikkovuoroon", slots: covering, slot: block };
   // Ice IS booked for a game that day, just not around this game's time — either the
   // booking or tulospalvelu has the wrong hour, and both are worth knowing about.
   const elsewhere = sameDay.find((r) => r.isGame && ahma(r));
@@ -207,12 +209,28 @@ function checkIce(g, reservations, range) {
 // 4. Kiosk — no data source yet; the column exists so the row layout is final.
 const checkKiosk = () => ({ status: UNKNOWN, note: "ei dataa" });
 
+/* ── issues ──────────────────────────────────────────────────────────────── */
+
+// The things worth fixing, in the order someone would work through them. `test` reads the
+// row's checks, so the pills, their counts and the filtered list are all the same rule.
+const ISSUES = [
+  { key: "clash", label: "Päällekkäin", test: (c) => !!c.tp.clash },
+  { key: "noTime", label: "Aika puuttuu", test: (c) => c.tp.status === WARN && !c.tp.clash },
+  { key: "jopoxMiss", label: "Puuttuu Jopoxista", test: (c) => c.jopox.status === MISS },
+  { key: "jopoxTime", label: "Jopoxissa eri aika", test: (c) => c.jopox.status === WARN },
+  { key: "iceMiss", label: "Jää varaamatta", test: (c) => c.ice.status === MISS },
+  { key: "iceBlock", label: "Ei omaa jäävarausta", test: (c) => c.ice.status === WARN },
+];
+
 /* ── evidence ────────────────────────────────────────────────────────────── */
 
 // Every column shows the SOURCE ROWS behind its verdict, in the source's own words — a tick
 // you cannot audit is just a claim. Each row is the same three facts in the same order as
 // the feed's event card: when, where, and what the source calls it.
-const fiDate = (d) => (d ? moment(dayOf(d)).format("dd D.M.") : "");
+// "Su 4.10." — moment's Finnish weekday is lower case, which reads as a typo next to the
+// capitalised day headings.
+const capitalise = (s) => (s ? s.charAt(0).toLocaleUpperCase("fi") + s.slice(1) : s);
+const fiDate = (d) => (d ? capitalise(moment(dayOf(d)).format("dd D.M.")) : "");
 const slotLine = (r) => ({
   time: `${fiDate(r.start)} klo ${hhmm(r.start)}–${hhmm(r.end)}${r.durationMinutes ? ` (${r.durationMinutes} min)` : ""}`,
   place: "Wareena",
@@ -276,8 +294,26 @@ const SourceHeading = ({ title, status, note }) => {
 
 // Hovering (or tapping) a dot shows the data behind it — day, time, description — so the
 // answer to "why is this a cross?" never requires opening anything.
-const StatusDot = ({ status, note, title, lines = [] }) => {
+// The ice cell: the booked slot's LENGTH, coloured by the verdict. Same tooltip as a dot,
+// so the reason is one hover away — a number the office recognises beats a tick it doesn't.
+const IceCell = ({ check, title, lines }) => {
+  const meta = STATUS_META[check.status] || STATUS_META[UNKNOWN];
+  const mins = check.slot && check.slot.durationMinutes;
+  const text = mins ? `${mins} min` : check.status === NA ? "–" : check.status === MISS ? "ei jäätä" : "–";
+  return (
+    <StatusCell status={check.status} note={check.note} title={title} lines={lines} width={62}>
+      <Typography sx={{ fontSize: 12, fontWeight: 800, color: meta.color, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+        {text}
+      </Typography>
+    </StatusCell>
+  );
+};
+
+// Shared hover shell for both cell kinds: the tooltip and the tinted pill are identical,
+// only the content differs.
+const StatusCell = ({ status, note, title, lines = [], width = 30, children }) => {
   const meta = STATUS_META[status] || STATUS_META[UNKNOWN];
+  const tinted = status === OK || status === WARN || status === MISS;
   const tip = (
     <Box sx={{ py: 0.5, px: 0.25, maxWidth: 260 }}>
       <SourceHeading title={title} status={status} note={note} />
@@ -286,12 +322,21 @@ const StatusDot = ({ status, note, title, lines = [] }) => {
   );
   return (
     <Tooltip title={tip} arrow enterTouchDelay={0} leaveTouchDelay={4000}>
-      <Box sx={{ display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: "50%", flexShrink: 0, cursor: "help",
-            bgcolor: status === OK || status === WARN || status === MISS ? `color-mix(in srgb, ${meta.color} 16%, transparent)` : "transparent",
+      <Box sx={{ display: "grid", placeItems: "center", width, height: 26, borderRadius: 999, flexShrink: 0, cursor: "help",
+            bgcolor: tinted ? `color-mix(in srgb, ${meta.color} 16%, transparent)` : "transparent",
             border: `1px solid ${status === NA ? "transparent" : `color-mix(in srgb, ${meta.color} 45%, transparent)`}` }}>
-        <Box component={meta.Icon} sx={{ fontSize: 14, color: meta.color, display: "block" }} />
+        {children}
       </Box>
     </Tooltip>
+  );
+};
+
+const StatusDot = ({ status, note, title, lines = [] }) => {
+  const meta = STATUS_META[status] || STATUS_META[UNKNOWN];
+  return (
+    <StatusCell status={status} note={note} title={title} lines={lines}>
+      <Box component={meta.Icon} sx={{ fontSize: 14, color: meta.color, display: "block" }} />
+    </StatusCell>
   );
 };
 
@@ -324,10 +369,13 @@ const GameRow = ({ g, checks }) => {
           {shortTeam(g.home)} – {shortTeam(g.away)}
         </Typography>
         <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
-          {COLUMNS.map((c) => (
-            <StatusDot key={c.key} title={c.title} lines={evidenceOf(c.key, g, checks[c.key] || {})}
-              {...(checks[c.key] || { status: UNKNOWN })} />
-          ))}
+          {COLUMNS.map((c) => {
+            const check = checks[c.key] || { status: UNKNOWN };
+            const lines = evidenceOf(c.key, g, check);
+            return c.key === "ice"
+              ? <IceCell key={c.key} check={check} title={c.title} lines={lines} />
+              : <StatusDot key={c.key} title={c.title} lines={lines} {...check} />;
+          })}
         </Stack>
       </Box>
 
@@ -383,11 +431,14 @@ export default function GameCheck() {
   // "ei koske" between the ones worth reading. Home-only is the view for checking ice.
   const [venue, setVenue] = useState("home"); // home | all — the ice and kiosk columns only
                                               // mean anything at Wareena, so that is the default view
+  // Issue filters are additive: picking two shows the games that have EITHER, which is how
+  // you build a work list ("everything missing ice or missing from Jopox").
+  const [issueFilter, setIssueFilter] = useState(() => new Set());
   const [reload, setReload] = useState(0);
 
   // Rows: Ahma games, oldest first. Past games are opt-in — Jopox's calendar only returns
   // UPCOMING events, so every past row would show a red cross it cannot justify.
-  const rows = useMemo(() => {
+  const baseRows = useMemo(() => {
     const today = moment().format("YYYY-MM-DD");
     return [...games]
       .filter((g) => (scope === "all" ? true : dayOf(g.date) >= today))
@@ -432,7 +483,7 @@ export default function GameCheck() {
 
   // Clashes are a property of the SET, not of one game, so they are resolved once per row
   // list rather than inside the per-row check.
-  const clashes = useMemo(() => clashMap(rows), [rows]);
+  const clashes = useMemo(() => clashMap(baseRows), [baseRows]);
 
   const checksFor = useCallback((g) => ({
     tp: checkTp(g, clashes),
@@ -441,19 +492,34 @@ export default function GameCheck() {
     kiosk: checkKiosk(g),
   }), [teamEvents, reservations, range, clashes]);
 
-  // Headline counts — what actually needs fixing, per column.
-  const summary = useMemo(() => {
-    const s = { jopoxMiss: 0, iceMiss: 0, iceBlock: 0, noTime: 0, clash: 0 };
-    for (const g of rows) {
+  // Which issues each game has — computed once, then reused for the counts and the filter.
+  const issuesByGame = useMemo(() => {
+    const m = new Map();
+    for (const g of baseRows) {
       const c = checksFor(g);
-      if (c.tp.clash) s.clash += 1;
-      else if (c.tp.status === WARN) s.noTime += 1;
-      if (c.jopox.status === MISS) s.jopoxMiss += 1;
-      if (c.ice.status === MISS) s.iceMiss += 1;
-      if (c.ice.status === WARN) s.iceBlock += 1;
+      m.set(gameKey(g), ISSUES.filter((i) => i.test(c)).map((i) => i.key));
     }
-    return s;
-  }, [rows, checksFor]);
+    return m;
+  }, [baseRows, checksFor]);
+
+  const counts = useMemo(() => {
+    const out = {};
+    for (const list of issuesByGame.values()) for (const k of list) out[k] = (out[k] || 0) + 1;
+    return out;
+  }, [issuesByGame]);
+
+  const rows = useMemo(() => {
+    if (!issueFilter.size) return baseRows;
+    return baseRows.filter((g) => (issuesByGame.get(gameKey(g)) || []).some((k) => issueFilter.has(k)));
+  }, [baseRows, issuesByGame, issueFilter]);
+
+  const toggleIssue = useCallback((key) => {
+    setIssueFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
 
   // Group by day so the list reads like a calendar.
   const byDay = useMemo(() => {
@@ -483,8 +549,9 @@ export default function GameCheck() {
 
       <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, boxSizing: "border-box" }}>
         <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.5, mb: 1.5 }}>
-          Tulospalvelu on totuus. Jokaisen ottelun kohdalta tarkistetaan, tietävätkö muut
-          järjestelmät siitä.
+          Ottelut verrataan tulospalveluun, joka on ottelutietojen virallinen lähde.
+          Jokaisesta ottelusta tarkistetaan, onko se kirjattu joukkueen Jopox-kalenteriin,
+          onko sille varattu jää Tilamisusta ja onko kioski auki.
         </Typography>
 
         <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
@@ -498,15 +565,25 @@ export default function GameCheck() {
           ))}
         </Stack>
 
-        {/* What needs doing, in one line each. */}
+        {/* Issue filters. Each pill is one thing that needs fixing, with how many games have
+            it; several can be on at once, and the list then shows the union. Picking none
+            shows everything — that is what "Kaikki" means here. */}
         <Stack direction="row" spacing={0.75} sx={{ mb: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
-          <Chip size="small" label={`${rows.length} ottelua`} />
-          {summary.jopoxMiss > 0 && <Chip size="small" color="error" variant="outlined" label={`Jopoxista puuttuu ${summary.jopoxMiss}`} />}
-          {summary.iceMiss > 0 && <Chip size="small" color="error" variant="outlined" label={`Jää varaamatta ${summary.iceMiss}`} />}
-          {summary.iceBlock > 0 && <Chip size="small" color="warning" variant="outlined" label={`Vain otteluvuorossa ${summary.iceBlock}`} />}
-          {summary.noTime > 0 && <Chip size="small" color="warning" variant="outlined" label={`Aika puuttuu ${summary.noTime}`} />}
-          {summary.clash > 0 && <Chip size="small" color="error" variant="outlined" label={`Päällekkäisiä ${summary.clash}`} />}
+          <PillButton active={issueFilter.size === 0} onClick={() => setIssueFilter(new Set())}>
+            Kaikki
+          </PillButton>
+          {ISSUES.filter((i) => counts[i.key]).map((i) => (
+            <PillButton key={i.key} active={issueFilter.has(i.key)} onClick={() => toggleIssue(i.key)}>
+              <Box component={LuAlertTriangle} sx={{ fontSize: 13, mr: 0.6, display: "block" }} />
+              {i.label} {counts[i.key]}
+            </PillButton>
+          ))}
         </Stack>
+
+        {/* Row count, right above the list it describes. */}
+        <Typography variant="caption" sx={{ display: "block", textAlign: "right", color: "text.disabled", mb: 0.75 }}>
+          Yhteensä {rows.length} ottelua
+        </Typography>
 
         {loading && !rows.length ? (
           <Box sx={{ display: "grid", placeItems: "center", py: 6 }}><CircularProgress size={28} /></Box>
@@ -523,7 +600,7 @@ export default function GameCheck() {
               <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
                 {COLUMNS.map((c) => (
                   <Typography key={c.key} title={c.title}
-                    sx={{ width: 26, textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: ".04em",
+                    sx={{ width: c.width, textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: ".04em",
                           textTransform: "uppercase", color: "text.disabled" }}>
                     {c.label}
                   </Typography>
