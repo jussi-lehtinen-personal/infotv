@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Box, Typography, Stack, CircularProgress, Chip, ToggleButtonGroup, ToggleButton } from "@mui/material";
-import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw } from "react-icons/lu";
+import { Box, Typography, Stack, CircularProgress, Chip, ToggleButtonGroup, ToggleButton, Tooltip, Collapse, IconButton } from "@mui/material";
+import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuChevronRight, LuChevronDown } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { MuiHeader } from "../components/ui/MuiHeader";
+import { useGoBack } from "../hooks/useGoBack";
 import { fetchSeasonGames, peekSeasonGames } from "../lib/seasonGamesCache";
 import { ageKey } from "../lib/teamMatch";
 import { seriesLabel } from "../lib/teamLabels";
@@ -50,6 +51,9 @@ const dayOf = (s) => String(s || "").slice(0, 10);
 const hhmm = (s) => { const m = String(s || "").match(/\d{2}:\d{2}/); return m ? m[0] : ""; };
 const minsOf = (s) => { const t = hhmm(s); if (!t) return null; const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const isHomeGame = (g) => /valkeakos/i.test(g.rink || "");
+// Stable row identity. Friendlies occasionally arrive without an id, and a Map keyed on
+// undefined would make two of them look like the same game.
+const gameKey = (g) => String(g.id ?? `${g.date}|${g.home}|${g.away}`);
 
 // A game's Jopox team. tulospalvelu levels ("U13 Sininen") map to an age key, which is
 // the name JOPOX_TEAMS uses. Returns null when the club has no Jopox subsite for that age
@@ -67,9 +71,52 @@ const GAME_MINUTES = 75;
 
 /* ── the three checks ────────────────────────────────────────────────────── */
 
-// 1. Tulospalvelu — the source itself. The only thing that can be wrong here is a game
-//    with no kickoff time, which blocks everyone downstream from booking anything.
-const checkTp = (g) => (hhmm(g.date) ? { status: OK } : { status: WARN, note: "aika puuttuu" });
+// Full-ice game? U9–U12 play small-area games ACROSS the rink — two or three at once is the
+// format, not a clash — so they are excluded from the overlap check. U13 and up own the
+// whole sheet, and at Wareena those are consistently booked 90 minutes apart.
+const fullIce = (g) => {
+  const key = ageKey(`${g.level || ""} ${g.league || ""}`);
+  if (!key) return false;
+  const m = key.match(/^U(\d+)$/i);
+  return m ? Number(m[1]) >= 13 : true; // naiset / edustus
+};
+// Two home games starting closer together than this share the ice. The real spacing is 90.
+const CLASH_MINUTES = 75;
+
+// Home games that collide with another home game. Built once per row set, keyed by game id
+// → the games it clashes with. Ground truth disagreeing with ITSELF is the one error no
+// downstream system can absorb: whoever books the ice has to pick one.
+function clashMap(games) {
+  const byDay = {};
+  for (const g of games) {
+    if (!isHomeGame(g) || !fullIce(g) || minsOf(g.date) == null) continue;
+    (byDay[dayOf(g.date)] ||= []).push(g);
+  }
+  const out = new Map();
+  for (const list of Object.values(byDay)) {
+    for (let i = 0; i < list.length; i += 1) {
+      for (let j = i + 1; j < list.length; j += 1) {
+        if (Math.abs(minsOf(list[i].date) - minsOf(list[j].date)) >= CLASH_MINUTES) continue;
+        out.set(gameKey(list[i]), [...(out.get(gameKey(list[i])) || []), list[j]]);
+        out.set(gameKey(list[j]), [...(out.get(gameKey(list[j])) || []), list[i]]);
+      }
+    }
+  }
+  return out;
+}
+
+// 1. Tulospalvelu — the source itself. Two things can be wrong here: a game with no kickoff
+//    time (which blocks everyone downstream from booking anything), and a game booked on
+//    top of another home game.
+function checkTp(g, clashes) {
+  const clash = clashes && clashes.get(gameKey(g));
+  const noTime = !hhmm(g.date);
+  if (clash) {
+    const when = hhmm(clash[0].date);
+    return { status: WARN, note: `päällekkäin klo ${when}${noTime ? " · aika puuttuu" : ""}`, clash };
+  }
+  return noTime ? { status: WARN, note: "aika puuttuu" } : { status: OK };
+}
 
 // The opponent's club word ("HPK Oranssi" → "hpk"). The colour half is useless for
 // matching: half the teams in a junior series are somebody's "Valkoinen".
@@ -109,83 +156,181 @@ function checkJopox(g, teamEvents) {
   if (named.length && gm == null) {
     // The game is in Jopox WITH a time that tulospalvelu is missing — show it, so whoever
     // fixes tulospalvelu can just copy it across.
-    return { status: OK, note: `Jopoxissa klo ${hhmm(named[0].uiTime || named[0].date)}` };
+    return { status: OK, note: `Jopoxissa klo ${hhmm(named[0].uiTime || named[0].date)}`, events: named, team };
   }
-  if (named.some((e) => timed.includes(e))) return { status: OK };
-  if (named.length) return { status: WARN, note: `eri aika (${hhmm(named[0].uiTime || named[0].date)})` };
-  if (timed.length) return { status: OK, note: "nimi ei täsmää" };
-  return { status: MISS, note: `${sameDay.length} muuta peliä sinä päivänä` };
+  const hit = named.find((e) => timed.includes(e));
+  if (hit) return { status: OK, events: [hit], team };
+  if (named.length) return { status: WARN, note: `eri aika (${hhmm(named[0].uiTime || named[0].date)})`, events: named, team };
+  if (timed.length) return { status: OK, note: "nimi ei täsmää", events: timed, team };
+  return { status: MISS, note: `${sameDay.length} muuta peliä sinä päivänä`, events: sameDay, team };
 }
 
 // 3. Tilamisu — is the ice actually booked. Away games are somebody else's hall, so they
 //    are not applicable. A game inside the weekly "Kiekko-Ahma otteluvuoro" block counts as
 //    booked ice but NOT as a booked game: that is exactly the state the kiosk complained
 //    about, so it gets its own colour rather than a clean tick.
+//    Returns the reservations it judged on, so the row can show exactly WHAT is booked
+//    instead of only whether something is.
 function checkIce(g, reservations, range) {
-  if (!isHomeGame(g)) return { status: NA };
+  if (!isHomeGame(g)) return { status: NA, note: "vieraspeli" };
   const day = dayOf(g.date);
   if (range && (day < range.from || day > range.to)) return { status: UNKNOWN, note: "haun ulkopuolella" };
   const start = minsOf(g.date);
-  if (start == null) return { status: UNKNOWN, note: "ei kellonaikaa" };
 
   const sameDay = (reservations || []).filter((r) => dayOf(r.start) === day);
+  const ahma = (r) => /kiekko-?ahma|(^|\s)ka\s|sarjaot|ahma/i.test(r.text || "");
+  const ahmaDay = sameDay.filter(ahma);
+  // With no kickoff time we cannot say WHICH slot is this game's — but the day's Ahma ice
+  // is still worth showing, so the note and the evidence stay useful.
+  if (start == null) return { status: UNKNOWN, note: "ei kellonaikaa", slots: ahmaDay };
+
   const covers = (r) => {
     const s = minsOf(r.start), e = minsOf(r.end);
     return s != null && e != null && s <= start + 10 && e >= start + Math.min(GAME_MINUTES, 45);
   };
-  const ahma = (r) => /kiekko-?ahma|(^|\s)ka\s|sarjaot|ahma/i.test(r.text || "");
-
   const covering = sameDay.filter(covers);
-  if (covering.some((r) => r.isGame)) return { status: OK };
+  const own = covering.find((r) => r.isGame);
+  if (own) return { status: OK, slots: covering, slot: own };
   const block = covering.find(ahma);
-  if (block) return { status: WARN, note: "otteluvuoron sisällä" };
+  if (block) return { status: WARN, note: "otteluvuoron sisällä", slots: covering, slot: block };
   // Ice IS booked for a game that day, just not around this game's time — either the
   // booking or tulospalvelu has the wrong hour, and both are worth knowing about.
   const elsewhere = sameDay.find((r) => r.isGame && ahma(r));
-  if (elsewhere) return { status: WARN, note: `jää varattu klo ${hhmm(elsewhere.start)}` };
-  return { status: MISS };
+  if (elsewhere) return { status: WARN, note: `jää varattu klo ${hhmm(elsewhere.start)}`, slots: ahmaDay, slot: elsewhere };
+  return { status: MISS, slots: ahmaDay };
 }
 
 // 4. Kiosk — no data source yet; the column exists so the row layout is final.
-const checkKiosk = () => ({ status: UNKNOWN, note: "" });
+const checkKiosk = () => ({ status: UNKNOWN, note: "ei dataa" });
+
+/* ── evidence ────────────────────────────────────────────────────────────── */
+
+// Every column can show the SOURCE ROWS behind its verdict — one line each, in the source's
+// own words. A tick you cannot audit is just a claim.
+const fiDate = (d) => (d ? moment(dayOf(d)).format("dd D.M.") : "");
+const slotLine = (r) => ({
+  when: `${fiDate(r.start)} ${hhmm(r.start)}–${hhmm(r.end)}`,
+  extra: r.durationMinutes ? `${r.durationMinutes} min` : "",
+  what: [r.text, r.userGroup].filter(Boolean).join(" · "),
+});
+const eventLine = (e) => ({
+  when: `${fiDate(e.date)} ${hhmm(e.uiTime || e.date)}`,
+  extra: e.place || "",
+  what: [e.title, e.league].filter(Boolean).join(" · "),
+});
+
+// The lines a column's verdict rests on. Tulospalvelu's is the game itself.
+function evidenceOf(key, g, check) {
+  if (key === "tp") {
+    const self = { when: `${fiDate(g.date)} ${hhmm(g.date) || "(ei aikaa)"}`, extra: g.rink || "", what: [g.level, `${g.home} – ${g.away}`].filter(Boolean).join(" · ") };
+    // A clash is only legible next to the game it collides with, so both are listed.
+    const others = (check.clash || []).map((o) => ({ when: `${fiDate(o.date)} ${hhmm(o.date)}`, extra: "päällekkäinen", what: [o.level, `${o.home} – ${o.away}`].filter(Boolean).join(" · ") }));
+    return [self, ...others];
+  }
+  if (key === "jopox") return (check.events || []).map(eventLine);
+  if (key === "ice") return (check.slots || []).map(slotLine);
+  return [];
+}
+
+const EvidenceLines = ({ lines, dense }) => (
+  <Stack spacing={dense ? 0.25 : 0.5}>
+    {lines.map((l, i) => (
+      <Box key={i}>
+        <Typography sx={{ fontSize: dense ? 11.5 : 12, fontWeight: 700, color: dense ? "inherit" : "text.primary", fontVariantNumeric: "tabular-nums" }}>
+          {l.when}{l.extra ? ` · ${l.extra}` : ""}
+        </Typography>
+        {l.what && <Typography sx={{ fontSize: dense ? 11 : 11.5, color: dense ? "inherit" : "text.secondary", opacity: dense ? 0.85 : 1 }}>{l.what}</Typography>}
+      </Box>
+    ))}
+  </Stack>
+);
 
 /* ── UI bits ─────────────────────────────────────────────────────────────── */
 
-const StatusDot = ({ status, note }) => {
+// Hovering (or tapping) a dot shows the data behind it — day, time, description — so the
+// answer to "why is this a cross?" never requires opening anything.
+const StatusDot = ({ status, note, title, lines = [] }) => {
   const meta = STATUS_META[status] || STATUS_META[UNKNOWN];
+  const tip = (
+    <Box sx={{ py: 0.25 }}>
+      <Typography sx={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", mb: lines.length ? 0.5 : 0 }}>
+        {title} — {meta.label}{note ? ` (${note})` : ""}
+      </Typography>
+      {lines.length ? <EvidenceLines lines={lines} dense /> : null}
+    </Box>
+  );
   return (
-    <Box title={note ? `${meta.label} — ${note}` : meta.label}
-      sx={{ display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+    <Tooltip title={tip} arrow enterTouchDelay={0} leaveTouchDelay={4000}>
+      <Box sx={{ display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: "50%", flexShrink: 0, cursor: "help",
             bgcolor: status === OK || status === WARN || status === MISS ? `color-mix(in srgb, ${meta.color} 16%, transparent)` : "transparent",
             border: `1px solid ${status === NA ? "transparent" : `color-mix(in srgb, ${meta.color} 45%, transparent)`}` }}>
-      <Box component={meta.Icon} sx={{ fontSize: 14, color: meta.color, display: "block" }} />
-    </Box>
+        <Box component={meta.Icon} sx={{ fontSize: 14, color: meta.color, display: "block" }} />
+      </Box>
+    </Tooltip>
   );
 };
 
 const GameRow = ({ g, checks }) => {
+  const [open, setOpen] = useState(false);
   const time = hhmm(g.date);
   const notes = COLUMNS.map((c) => checks[c.key]).filter((r) => r && r.note).map((r) => r.note);
+  // The ice slot this game sits in — its length is the number the office actually books.
+  const slot = checks.ice && checks.ice.slot;
+
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, py: 1.1, px: 1.25,
-          borderBottom: "1px solid var(--color-surface-divider, rgba(255,255,255,.08))" }}>
-      <Box sx={{ width: 46, flexShrink: 0 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", color: time ? "text.primary" : "var(--color-primary)" }}>
-          {time || "—:—"}
-        </Typography>
+    <Box sx={{ borderBottom: "1px solid var(--color-surface-divider, rgba(255,255,255,.08))" }}>
+      <Box onClick={() => setOpen((v) => !v)} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }}
+        sx={{ display: "flex", alignItems: "center", gap: 1.25, py: 1.1, px: 1.25, cursor: "pointer",
+              "&:hover": { bgcolor: "rgba(255,255,255,.03)" } }}>
+        <Box component={open ? LuChevronDown : LuChevronRight} sx={{ fontSize: 15, color: "text.disabled", flexShrink: 0 }} />
+        <Box sx={{ width: 44, flexShrink: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", color: time ? "text.primary" : "var(--color-primary)" }}>
+            {time || "—:—"}
+          </Typography>
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {g.home} – {g.away}
+          </Typography>
+          <Typography sx={{ fontSize: 11.5, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {seriesLabel(g.level)} · {isHomeGame(g) ? "koti" : g.rink || "vieras"}
+            {slot && slot.durationMinutes ? ` · jäävuoro ${slot.durationMinutes} min` : ""}
+            {notes.length ? ` · ${notes.join(" · ")}` : ""}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
+          {COLUMNS.map((c) => (
+            <StatusDot key={c.key} title={c.title} lines={evidenceOf(c.key, g, checks[c.key] || {})}
+              {...(checks[c.key] || { status: UNKNOWN })} />
+          ))}
+        </Stack>
       </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {g.home} – {g.away}
-        </Typography>
-        <Typography sx={{ fontSize: 11.5, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {seriesLabel(g.level)} · {isHomeGame(g) ? "koti" : g.rink || "vieras"}
-          {notes.length ? ` · ${notes.join(" · ")}` : ""}
-        </Typography>
-      </Box>
-      <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
-        {COLUMNS.map((c) => <StatusDot key={c.key} {...(checks[c.key] || { status: UNKNOWN })} />)}
-      </Stack>
+
+      {/* Expanded: every column's source rows, in full. */}
+      <Collapse in={open} unmountOnExit>
+        <Box sx={{ px: 1.75, pb: 1.5, pt: 0.25, display: "grid", gap: 1.25 }}>
+          {COLUMNS.map((c) => {
+            const check = checks[c.key] || {};
+            const lines = evidenceOf(c.key, g, check);
+            const meta = STATUS_META[check.status] || STATUS_META[UNKNOWN];
+            return (
+              <Box key={c.key}>
+                <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 0.4 }}>
+                  <Box component={meta.Icon} sx={{ fontSize: 13, color: meta.color, display: "block" }} />
+                  <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "text.secondary" }}>
+                    {c.title}
+                  </Typography>
+                  {check.note && <Typography sx={{ fontSize: 11, color: meta.color }}>{check.note}</Typography>}
+                </Stack>
+                {lines.length
+                  ? <Box sx={{ pl: 2.5 }}><EvidenceLines lines={lines} /></Box>
+                  : <Typography sx={{ pl: 2.5, fontSize: 11.5, color: "text.disabled" }}>Ei rivejä.</Typography>}
+              </Box>
+            );
+          })}
+        </Box>
+      </Collapse>
     </Box>
   );
 };
@@ -193,12 +338,16 @@ const GameRow = ({ g, checks }) => {
 /* ── page ────────────────────────────────────────────────────────────────── */
 
 export default function GameCheck() {
+  const goBack = useGoBack("/");
   const [games, setGames] = useState(() => peekSeasonGames());
   const [teamEvents, setTeamEvents] = useState({});
   const [reservations, setReservations] = useState(null);
   const [range, setRange] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState("upcoming"); // upcoming | all
+  // Two of the four columns only mean anything at Wareena, so the away games are 91 rows of
+  // "ei koske" between the ones worth reading. Home-only is the view for checking ice.
+  const [venue, setVenue] = useState("all"); // all | home
   const [reload, setReload] = useState(0);
 
   // Rows: Ahma games, oldest first. Past games are opt-in — Jopox's calendar only returns
@@ -207,8 +356,9 @@ export default function GameCheck() {
     const today = moment().format("YYYY-MM-DD");
     return [...games]
       .filter((g) => (scope === "all" ? true : dayOf(g.date) >= today))
+      .filter((g) => (venue === "home" ? isHomeGame(g) : true))
       .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  }, [games, scope]);
+  }, [games, scope, venue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,19 +395,24 @@ export default function GameCheck() {
     return () => { cancelled = true; };
   }, [reload]);
 
+  // Clashes are a property of the SET, not of one game, so they are resolved once per row
+  // list rather than inside the per-row check.
+  const clashes = useMemo(() => clashMap(rows), [rows]);
+
   const checksFor = useCallback((g) => ({
-    tp: checkTp(g),
+    tp: checkTp(g, clashes),
     jopox: checkJopox(g, teamEvents),
     ice: checkIce(g, reservations, range),
     kiosk: checkKiosk(g),
-  }), [teamEvents, reservations, range]);
+  }), [teamEvents, reservations, range, clashes]);
 
   // Headline counts — what actually needs fixing, per column.
   const summary = useMemo(() => {
-    const s = { jopoxMiss: 0, iceMiss: 0, iceBlock: 0, noTime: 0 };
+    const s = { jopoxMiss: 0, iceMiss: 0, iceBlock: 0, noTime: 0, clash: 0 };
     for (const g of rows) {
       const c = checksFor(g);
-      if (c.tp.status === WARN) s.noTime += 1;
+      if (c.tp.clash) s.clash += 1;
+      else if (c.tp.status === WARN) s.noTime += 1;
       if (c.jopox.status === MISS) s.jopoxMiss += 1;
       if (c.ice.status === MISS) s.iceMiss += 1;
       if (c.ice.status === WARN) s.iceBlock += 1;
@@ -277,10 +432,21 @@ export default function GameCheck() {
   }, [rows]);
 
   return (
-    <Box sx={{ minHeight: "100dvh", background: "var(--bg-gradient)", pb: 6 }}>
-      <MuiHeader title="Ottelujen tarkistus" />
+    // Same shell as the other report page (/coaching) — page background, header with a
+    // working back arrow, refresh in the header slot, 640 px column.
+    <Box sx={{ minHeight: "100dvh", bgcolor: "background.default", color: "text.primary", pb: 6 }}>
+      <MuiHeader
+        title="Ottelujen tarkistus"
+        subtitle="Tulospalvelu vs. Jopox, Tilamisu ja kioski"
+        onBack={goBack}
+        right={
+          <IconButton onClick={() => setReload((n) => n + 1)} disabled={loading} aria-label="Päivitä" sx={{ color: "text.primary" }}>
+            <Box component={LuRefreshCw} sx={{ fontSize: 20, animation: loading ? "spin 0.9s linear infinite" : "none", "@keyframes spin": { to: { transform: "rotate(360deg)" } } }} />
+          </IconButton>
+        }
+      />
 
-      <Box sx={{ px: 1.5, maxWidth: 820, mx: "auto" }}>
+      <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, boxSizing: "border-box" }}>
         <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.5, mb: 1.5 }}>
           Tulospalvelu on totuus. Jokaisen ottelun kohdalta tarkistetaan, tietävätkö muut
           järjestelmät siitä.
@@ -291,13 +457,10 @@ export default function GameCheck() {
             <ToggleButton value="upcoming">Tulevat</ToggleButton>
             <ToggleButton value="all">Koko kausi</ToggleButton>
           </ToggleButtonGroup>
-          <Box sx={{ flex: 1 }} />
-          <Box component="button" onClick={() => setReload((n) => n + 1)} aria-label="Päivitä"
-            sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, px: 1.25, py: 0.6, borderRadius: 999, cursor: "pointer",
-                  bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)", color: "text.secondary" }}>
-            <Box component={LuRefreshCw} sx={{ fontSize: 14, display: "block" }} />
-            <Box component="span" sx={{ fontSize: 12.5, fontWeight: 700 }}>Päivitä</Box>
-          </Box>
+          <ToggleButtonGroup size="small" exclusive value={venue} onChange={(e, v) => v && setVenue(v)}>
+            <ToggleButton value="all">Kaikki</ToggleButton>
+            <ToggleButton value="home">Kotipelit</ToggleButton>
+          </ToggleButtonGroup>
         </Stack>
 
         {/* What needs doing, in one line each. */}
@@ -307,6 +470,7 @@ export default function GameCheck() {
           {summary.iceMiss > 0 && <Chip size="small" color="error" variant="outlined" label={`Jää varaamatta ${summary.iceMiss}`} />}
           {summary.iceBlock > 0 && <Chip size="small" color="warning" variant="outlined" label={`Vain otteluvuorossa ${summary.iceBlock}`} />}
           {summary.noTime > 0 && <Chip size="small" color="warning" variant="outlined" label={`Aika puuttuu ${summary.noTime}`} />}
+          {summary.clash > 0 && <Chip size="small" color="error" variant="outlined" label={`Päällekkäisiä ${summary.clash}`} />}
         </Stack>
 
         {/* Column key — the dots are unreadable without it. */}
@@ -338,7 +502,7 @@ export default function GameCheck() {
                     textTransform: "uppercase", color: "primary.main", bgcolor: "rgba(var(--color-primary-rgb),0.07)" }}>
                 {moment(day).format("dd D.M.YYYY")}
               </Typography>
-              {gs.map((g, i) => <GameRow key={g.id ?? i} g={g} checks={checksFor(g)} />)}
+              {gs.map((g) => <GameRow key={gameKey(g)} g={g} checks={checksFor(g)} />)}
             </Box>
           ))
         )}
