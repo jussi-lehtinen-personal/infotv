@@ -67,6 +67,13 @@ const coachAccess = (u) =>
 const valmennusAccess = (u) =>
   !!(u && (u.isEnvAdmin || u.isAdmin || (Array.isArray(u.roles) && u.roles.some((r) => r.role === "vastuuvalmentaja" || r.role === "valmentaja"))));
 
+// Game-registration audit (/gamecheck): everyone who runs a game day. The kiosk staff were
+// the ones who spotted the missing bookings in the first place, and a team's own officials
+// (joukkueenjohtaja, valmentajat) are who fix their team's rows.
+const GAMECHECK_ROLES = ["valmennuspaallikko", "kioski", "toimihenkilo", "vastuuvalmentaja", "valmentaja"];
+const gameCheckAccess = (u) =>
+  !!(u && (u.isEnvAdmin || u.isAdmin || (Array.isArray(u.roles) && u.roles.some((r) => GAMECHECK_ROLES.includes(r.role)))));
+
 export const NavDrawer = ({ open, onClose }) => {
   // Admins get an extra "Admin" row; admins + coaching managers also get the
   // enrolment-report row. Seed from the cached user for an instant paint, then
@@ -74,13 +81,15 @@ export const NavDrawer = ({ open, onClose }) => {
   const [isAdmin, setIsAdmin] = useState(() => !!(getCachedUser() || {}).isAdmin);
   const [canCoach, setCanCoach] = useState(() => coachAccess(getCachedUser()));
   const [isCoach, setIsCoach] = useState(() => valmennusAccess(getCachedUser()));
+  const [canCheck, setCanCheck] = useState(() => gameCheckAccess(getCachedUser()));
   useEffect(() => {
     if (!open) return;
     const cached = getCachedUser();
     setIsAdmin(!!(cached || {}).isAdmin);
     setCanCoach(coachAccess(cached));
     setIsCoach(valmennusAccess(cached));
-    getMe().then((u) => { setIsAdmin(!!(u && u.isAdmin)); setCanCoach(coachAccess(u)); setIsCoach(valmennusAccess(u)); }).catch(() => {});
+    setCanCheck(gameCheckAccess(cached));
+    getMe().then((u) => { setIsAdmin(!!(u && u.isAdmin)); setCanCoach(coachAccess(u)); setIsCoach(valmennusAccess(u)); setCanCheck(gameCheckAccess(u)); }).catch(() => {});
   }, [open]);
 
   // Close on Escape + lock body scroll while open.
@@ -155,12 +164,13 @@ export const NavDrawer = ({ open, onClose }) => {
               {renderRow({ href: VALMENNUS_URL, label: "Valmennus", Icon: LuDumbbell, external: true })}
             </div>
           )}
-          {/* Reports for whoever runs the week: the coaching manager as well as admins.
-              Both answer "is the club's ice sorted", so they share one gate. */}
-          {canCoach && (
+          {/* Reports for whoever runs the week. The two have different audiences: the
+              enrolment report is the coaching manager's, the audit belongs to everyone who
+              has to act on it — kiosk staff, team officials, coaches. */}
+          {(canCoach || canCheck) && (
             <div className="ui-drawer-section">
-              {renderRow({ to: "/coaching", label: "Jääilmoittautumiset", Icon: LuClipboardList })}
-              {renderRow({ to: "/gamecheck", label: "Ottelujen tarkistus", Icon: LuListChecks })}
+              {canCoach && renderRow({ to: "/coaching", label: "Jääilmoittautumiset", Icon: LuClipboardList })}
+              {canCheck && renderRow({ to: "/gamecheck", label: "Ottelujen tarkistus", Icon: LuListChecks })}
             </div>
           )}
           {isAdmin && (
