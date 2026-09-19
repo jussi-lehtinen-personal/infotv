@@ -33,6 +33,7 @@ import Partners from "./pages/partners";
 import Report from "./pages/report";
 import Authorize from "./pages/authorize";
 import TrainingEnrollments from "./pages/training_enrollments";
+import GameCheck from "./pages/game_check";
 import Stats from "./pages/stats";
 import Admin from "./pages/admin";
 import AdminUsers from "./pages/admin_users";
@@ -154,6 +155,7 @@ function App() {
 
             <Route path="/report" element={<Report />} />
             <Route path="/coaching" element={<TrainingEnrollments />} />
+            <Route path="/gamecheck" element={<GameCheck />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/users" element={<AdminUsers />} />

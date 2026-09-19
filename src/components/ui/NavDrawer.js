@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  LuHome,
-  LuTrophy,
-  LuCalendarDays,
-  LuUsers,
   LuMegaphone,
   LuShield,
   LuNewspaper,
@@ -12,11 +8,11 @@ import {
   LuHeart,
   LuAward,
   LuMessageSquare,
-  LuUser,
   LuUserCircle,
   LuCalendarClock,
   LuShieldCheck,
   LuClipboardList,
+  LuListChecks,
   LuDumbbell,
   LuX,
 } from "react-icons/lu";
@@ -26,18 +22,13 @@ import { getCachedUser, getMe } from "../../auth/authClient";
 // signs coaches in via Gamezone's /authorize handover — see valmennus/AUTH.md.
 const VALMENNUS_URL = "https://ahma-valmennus.zapmies.workers.dev";
 
-// Full navigation, in display order. `external` rows open in a new tab.
-// Section 1 mirrors the bottom bar (BottomNav) exactly; the rest are grouped by
-// theme, each rendered as its own divided section.
+// Full navigation, in display order. `external` rows open in a new tab. Grouped by theme,
+// each group rendered as its own divided section.
+//
+// The bottom bar's five destinations (Etusivu / Ottelut / Jäävuorot / Joukkueet / Minä)
+// are deliberately NOT repeated here: they are one thumb-reach away at all times, and
+// duplicating them pushed everything this drawer uniquely offers below the fold.
 const NAV_SECTIONS = [
-  // Alapalkin päänavigaatio (sama järjestys + ikonit kuin BottomNav).
-  [
-    { to: "/", label: "Etusivu", Icon: LuHome },
-    { to: "/gamezone?includeAway=1&options=1", label: "Ottelut", Icon: LuTrophy },
-    { to: "/gamezone/schedule", label: "Jäävuorot", Icon: LuCalendarDays },
-    { to: "/teams", label: "Joukkueet", Icon: LuUsers },
-    { to: "/feed", label: "Minä", Icon: LuUser },
-  ],
   // Tilavaraukset (oheistilat)
   [
     { to: "/facilities", label: "Tilavaraukset", Icon: LuCalendarClock },
@@ -171,6 +162,7 @@ export const NavDrawer = ({ open, onClose }) => {
           )}
           {isAdmin && (
             <div className="ui-drawer-section">
+              {renderRow({ to: "/gamecheck", label: "Ottelujen tarkistus", Icon: LuListChecks })}
               {renderRow({ to: "/admin", label: "Admin", Icon: LuShieldCheck })}
             </div>
           )}
