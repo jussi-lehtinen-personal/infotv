@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Box, Card, Typography, Stack, CircularProgress, Tooltip, Collapse, IconButton } from "@mui/material";
+import { Box, Card, Typography, Stack, CircularProgress, Tooltip, ClickAwayListener, useMediaQuery, Collapse, IconButton } from "@mui/material";
 import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
@@ -309,9 +309,17 @@ const IceCell = ({ check, title, lines }) => {
   );
 };
 
-// Shared hover shell for both cell kinds: the tooltip and the tinted pill are identical,
-// only the content differs.
+// Shared shell for both cell kinds: the tooltip and the tinted pill are identical, only the
+// content differs.
+//
+// Pointing device decides HOW the tooltip opens. With a mouse it is hover, as expected. On
+// a touch screen there is no hover: the browser synthesises one for any touch, so scrolling
+// the list popped tooltips open the whole way down. There the cell is a button — tap opens,
+// tap again or anywhere else closes — and the tap never reaches the row underneath, so
+// checking a verdict doesn't also expand the row.
 const StatusCell = ({ status, note, title, lines = [], width = 30, children }) => {
+  const canHover = useMediaQuery("(hover: hover) and (pointer: fine)", { noSsr: true });
+  const [open, setOpen] = useState(false);
   const meta = STATUS_META[status] || STATUS_META[UNKNOWN];
   const tinted = status === OK || status === WARN || status === MISS;
   const tip = (
@@ -320,14 +328,26 @@ const StatusCell = ({ status, note, title, lines = [], width = 30, children }) =
       {lines.length ? <Box sx={{ mt: 0.75 }}><EvidenceLines lines={lines} size={13} /></Box> : null}
     </Box>
   );
-  return (
-    <Tooltip title={tip} arrow enterTouchDelay={0} leaveTouchDelay={4000}>
-      <Box sx={{ display: "grid", placeItems: "center", width, height: 26, borderRadius: 999, flexShrink: 0, cursor: "help",
+  const cell = (
+    <Box
+      onClick={canHover ? undefined : (e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
+      sx={{ display: "grid", placeItems: "center", width, height: 26, borderRadius: 999, flexShrink: 0,
+            cursor: canHover ? "help" : "pointer",
             bgcolor: tinted ? `color-mix(in srgb, ${meta.color} 16%, transparent)` : "transparent",
             border: `1px solid ${status === NA ? "transparent" : `color-mix(in srgb, ${meta.color} 45%, transparent)`}` }}>
-        {children}
-      </Box>
-    </Tooltip>
+      {children}
+    </Box>
+  );
+
+  if (canHover) {
+    return <Tooltip title={tip} arrow disableTouchListener>{cell}</Tooltip>;
+  }
+  return (
+    <ClickAwayListener onClickAway={() => setOpen(false)}>
+      <Tooltip title={tip} arrow open={open} disableHoverListener disableFocusListener disableTouchListener>
+        {cell}
+      </Tooltip>
+    </ClickAwayListener>
   );
 };
 
