@@ -244,15 +244,7 @@ export const ListCard = ({ children, sx }) => (
 // Icon + text that is ALWAYS vertically centred on the same line. Use this for
 // every icon-next-to-text combo (labels, chips, section titles). Icon is a block
 // element (no baseline gap) and the text uses line-height 1; flex centres them.
-export const IconText = ({ icon: Icon, iconSize = 17, iconColor = "text.secondary", gap = 0.9, children, sx, textSx }) => (
-  <Box sx={{ display: "inline-flex", alignItems: "center", gap, minWidth: 0, ...sx }}>
-    <Box component={Icon} sx={{ fontSize: iconSize, color: iconColor, flexShrink: 0, display: "block" }} />
-    <Box component="span" sx={{ display: "inline-block", lineHeight: 1, minWidth: 0,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", ...textSx }}>
-      {children}
-    </Box>
-  </Box>
-);
+export { IconText } from "../../components/ui/IconText";
 
 // Labelled big-number stat card (round points / rank). Standalone number → display font.
 export const StatCard = ({ label, value, sub, accent }) => (

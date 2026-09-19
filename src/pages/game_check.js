@@ -5,6 +5,7 @@ import moment from "moment";
 import "moment/locale/fi";
 import { MuiHeader } from "../components/ui/MuiHeader";
 import { KeyedLogo } from "../components/ui/KeyedLogo";
+import { IconText, IconParagraph } from "../components/ui/IconText";
 import { PillButton } from "../components/ui/PillButton";
 import { useGoBack } from "../hooks/useGoBack";
 import { fetchSeasonGames, peekSeasonGames, seasonOf, currentSeason } from "../lib/seasonGamesCache";
@@ -256,20 +257,19 @@ function evidenceOf(key, g, check) {
   return [];
 }
 
-// One fact per line, icon + text — the feed's `Detail` row, same sizes and same muting.
-const Detail = ({ icon, children }) => (
-  <Stack direction="row" alignItems="center" spacing={1} sx={{ fontSize: 14, color: "text.secondary" }}>
-    <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0, opacity: 0.7, mt: "-1px" }}>{icon}</Box>
-    <Box component="span" sx={{ lineHeight: 1.2 }}>{children}</Box>
-  </Stack>
+// One fact per line. IconText keeps the glyphs on one centre line at any font size.
+const Detail = ({ icon, size = 15, children }) => (
+  <IconText icon={icon} iconSize={size} gap={1} sx={{ color: "text.secondary" }} textSx={{ fontSize: 14 }}>
+    {children}
+  </IconText>
 );
 
 const EvidenceLines = ({ lines, size = 15 }) => (
   <Stack spacing={1.25}>
     {lines.map((l, i) => (
       <Stack key={i} spacing={0.5}>
-        {l.time && <Detail icon={<LuClock size={size} />}>{l.time}</Detail>}
-        {l.place && <Detail icon={<LuMapPin size={size} />}>{l.place}</Detail>}
+        {l.time && <Detail icon={LuClock} size={size}>{l.time}</Detail>}
+        {l.place && <Detail icon={LuMapPin} size={size}>{l.place}</Detail>}
         {l.text && <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.45, pl: `${size + 8}px` }}>{l.text}</Typography>}
       </Stack>
     ))}
@@ -284,11 +284,13 @@ const SourceHeading = ({ title, status, note }) => {
   const meta = STATUS_META[status] || STATUS_META[UNKNOWN];
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.25 }}>
-      <Typography component="span" sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "text.primary" }}>
-        {title}
-      </Typography>
-      <Box component={meta.Icon} sx={{ fontSize: 14, color: meta.color, display: "block" }} />
-      {note && <Typography component="span" sx={{ fontSize: 11.5, color: meta.color }}>{note}</Typography>}
+      <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.6 }}>
+        <Box component="span" sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "text.primary", lineHeight: 1 }}>
+          {title}
+        </Box>
+        <Box component={meta.Icon} sx={{ fontSize: 14, color: meta.color, display: "block" }} />
+      </Box>
+      {note && <Box component="span" sx={{ fontSize: 11.5, color: meta.color, lineHeight: 1 }}>{note}</Box>}
     </Stack>
   );
 };
@@ -442,17 +444,20 @@ const GameRow = ({ g, checks, seq }) => {
             const lines = evidenceOf(c.key, g, check);
             const meta = STATUS_META[check.status] || STATUS_META[UNKNOWN];
             return (
-              <Box key={c.key} sx={{ display: "grid", gridTemplateColumns: "18px 56px minmax(0, 1fr)", gap: "10px",
+              <Box key={c.key} sx={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr)", gap: "10px",
                     alignItems: "start", py: 0.85, borderTop: "1px solid var(--color-surface-divider)" }}>
-                <Box component={meta.Icon} sx={{ fontSize: 15, color: meta.color, display: "block", mt: "1px" }} />
-                <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "text.secondary", mt: "3px" }}>
+                {/* Mark + source name as one centred unit, sitting on the first line of the
+                    content beside it. */}
+                <IconText icon={meta.Icon} iconSize={15} iconColor={meta.color} gap={0.7}
+                  sx={{ height: "1.45em" }}
+                  textSx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "text.secondary" }}>
                   {c.label}
-                </Typography>
+                </IconText>
                 <Box sx={{ minWidth: 0 }}>
                   {lines.length ? lines.map((l, i) => (
                     <Box key={i} sx={{ mb: i < lines.length - 1 ? 0.75 : 0 }}>
                       <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "text.primary" }}>{l.time}</Typography>
-                      {l.place && <Detail icon={<LuMapPin size={14} />}>{l.place}</Detail>}
+                      {l.place && <Detail icon={LuMapPin} size={14}>{l.place}</Detail>}
                       {l.text && <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.4 }}>{l.text}</Typography>}
                     </Box>
                   )) : (
@@ -483,24 +488,19 @@ const HOW_ROWS = [
 const HowItWorks = () => (
   <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mb: 2,
         bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
-    <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
-      <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-        <Box component={LuInfo} sx={{ color: "primary.main", fontSize: 17, display: "block" }} />
-      </Box>
-      <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
+    <Box sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
+      <IconText icon={LuInfo} iconSize={17} iconColor="primary.main" gap={1.25}
+        textSx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
         Näin sivu toimii
-      </Typography>
-    </Stack>
+      </IconText>
+    </Box>
+    {/* The text wraps, so the icon centres on its FIRST line rather than on the block. */}
     {HOW_ROWS.map((r) => (
-      <Stack key={r.label} direction="row" spacing={1.25}
-             sx={{ alignItems: "flex-start", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
-        <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0, mt: "2px" }}>
-          <Box component={r.icon} sx={{ color: "text.secondary", fontSize: 17, display: "block" }} />
-        </Box>
-        <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>
-          <Box component="span" sx={{ fontWeight: 800, color: "text.primary" }}>{r.label}.</Box> {r.text}
-        </Typography>
-      </Stack>
+      <IconParagraph key={r.label} icon={r.icon} iconSize={17} gap={1.25}
+        sx={{ px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}
+        textSx={{ fontSize: 14, color: "text.secondary" }}>
+        <Box component="span" sx={{ fontWeight: 800, color: "text.primary" }}>{r.label}.</Box> {r.text}
+      </IconParagraph>
     ))}
     {/* The marks themselves — the same components the table uses, so the key cannot drift. */}
     {/* A fixed 2×2 (4 across once there is room) rather than wrapping: free wrapping left
