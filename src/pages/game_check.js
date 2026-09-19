@@ -527,9 +527,21 @@ function sequenceMap(games) {
 const GameRow = ({ g, checks, seq }) => {
   const [open, setOpen] = useState(false);
   const time = hhmm(g.date);
+  // A row that came from anywhere BUT tulospalvelu is outlined: it is not a fixture, it is
+  // something one system believes in and the source of truth does not.
+  const foreign = !!g.kind;
 
   return (
-    <Box sx={{ borderTop: "1px solid var(--color-surface-divider)", "&:first-of-type": { borderTop: 0 } }}>
+    <Box sx={{
+      borderTop: "1px solid var(--color-surface-divider)",
+      "&:first-of-type": { borderTop: 0 },
+      ...(foreign && {
+        border: "1px solid color-mix(in srgb, var(--color-loss) 55%, transparent)",
+        borderRadius: "var(--radius-item)",
+        bgcolor: "color-mix(in srgb, var(--color-loss) 7%, transparent)",
+        m: "6px 8px",
+      }),
+    }}>
       <Box component="button" type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
         sx={{ ...ROW_GRID, width: "100%", p: "10px 12px", bgcolor: open ? "rgba(255,255,255,.03)" : "transparent",
               border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
