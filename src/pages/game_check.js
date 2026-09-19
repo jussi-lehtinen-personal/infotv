@@ -212,8 +212,8 @@ function checkIce(g, reservations, range) {
 //    A shift opens before the game it serves, so "covers" is generous at the front. A shift
 //    with nobody signed up is not the same as no shift: the first is a gap in the rota, the
 //    second may simply mean the kiosk does not open for that game.
-const KIOSK_OPENS_BEFORE = 90;  // a shift may start this much before the puck drops
-const KIOSK_ASSUMED_LENGTH = 180; // when the sheet has a start but no end
+// A shift that has a start but no end (the sheet has a few) is assumed to run this long.
+const KIOSK_ASSUMED_LENGTH = 180;
 
 function checkKiosk(g, shifts) {
   if (!isHomeGame(g)) return { status: NA, note: "vieraspeli" };
@@ -226,10 +226,13 @@ function checkKiosk(g, shifts) {
       ? { status: UNKNOWN, note: "ei kellonaikaa", shifts: sameDay }
       : { status: UNKNOWN, note: "ei kellonaikaa" };
   }
+  // The question is simply "is the kiosk open while this game is being played". A shift
+  // opening well before the game still covers it, so there is no earliest-start limit —
+  // an earlier version had one and would have rejected a long all-day shift.
   const covers = (s) => {
     const st = s.startMinutes;
     const en = s.endMinutes != null ? s.endMinutes : (st != null ? st + KIOSK_ASSUMED_LENGTH : null);
-    return st != null && en != null && st <= start + 15 && en >= start + 15 && st >= start - KIOSK_OPENS_BEFORE - 60;
+    return st != null && en != null && st <= start + 15 && en >= start + 15;
   };
   const covering = sameDay.filter(covers);
   if (!covering.length) {
