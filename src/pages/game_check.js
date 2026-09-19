@@ -363,7 +363,7 @@ const StatusDot = ({ status, note, title, lines = [] }) => {
 // The row grid, shared by the header and every game row so the columns actually line up.
 // "Kiekko-Ahma" is shortened to "Ahma" here only — it is on both sides of half the fixtures
 // and eats the width the opponent needs.
-const ROW_GRID = { display: "grid", gridTemplateColumns: "52px 52px minmax(0, 1fr) auto", alignItems: "center", gap: "10px" };
+const ROW_GRID = { display: "grid", gridTemplateColumns: "58px minmax(0, 1fr) auto", alignItems: "center", gap: "12px" };
 const shortTeam = (s) => String(s || "").replace(/kiekko-?ahma/i, "Ahma").trim();
 
 // One game. The closed row is the table: time, series, teams, four verdicts. Everything a
@@ -379,15 +379,24 @@ const GameRow = ({ g, checks }) => {
         sx={{ ...ROW_GRID, width: "100%", p: "10px 12px", bgcolor: open ? "rgba(255,255,255,.03)" : "transparent",
               border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
               WebkitTapHighlightColor: "transparent", "&:hover": { bgcolor: "rgba(255,255,255,.05)" } }}>
-        <Typography sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", color: time ? "text.primary" : "primary.main" }}>
-          {time || "—:—"}
-        </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {seriesLabel(g.level)}
-        </Typography>
-        <Typography sx={{ fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {shortTeam(g.home)} – {shortTeam(g.away)}
-        </Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1.25, color: time ? "text.primary" : "primary.main" }}>
+            {time || "—:—"}
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {seriesLabel(g.level)}
+          </Typography>
+        </Box>
+        {/* Home over away, as the fixture list shows them — two club names on one line get
+            truncated to uselessness on a phone. */}
+        <Box sx={{ minWidth: 0 }}>
+          {[g.home, g.away].map((t, i) => (
+            <Typography key={i}
+              sx={{ fontWeight: 700, lineHeight: 1.25, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {shortTeam(t)}
+            </Typography>
+          ))}
+        </Box>
         <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
           {COLUMNS.map((c) => {
             const check = checks[c.key] || { status: UNKNOWN };
@@ -612,7 +621,7 @@ export default function GameCheck() {
             {/* Header: names the columns once, so every dot below is readable without a
                 legend and the two halves of the table (the game / the systems) are labelled. */}
             <Box sx={{ ...ROW_GRID, p: "8px 12px", borderBottom: "1px solid var(--color-surface-divider)" }}>
-              {["Aika", "Sarja", "Ottelu"].map((h) => (
+              {["Aika", "Ottelu"].map((h) => (
                 <Typography key={h} sx={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "text.disabled" }}>
                   {h}
                 </Typography>
