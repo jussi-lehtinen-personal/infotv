@@ -83,6 +83,31 @@ const jopoxTeamOf = (game) => {
 // the game, so it is deliberately generous at the short end.
 const GAME_MINUTES = 75;
 
+// The label a row is filed under in the team filter. Free-text shift rows ("messut + U13",
+// "edustus") are normalised to a known team when they name one, and left alone otherwise —
+// the kiosk opens for things that are not a team's game.
+const OTHER_TEAM = "Muu";
+function teamOfRow(g) {
+  if (g.kind === "jopox") return g.jopoxTeam.name;
+  if (g.kind === "shift") {
+    const raw = String(g.shift.team || "");
+    const age = raw.match(/U\s*(\d{1,2})/i);
+    if (age) {
+      const name = `U${age[1]}`;
+      const t = JOPOX_TEAMS.find((x) => x.name === (SERIES_TO_JOPOX[name] || name));
+      return t ? t.name : name;
+    }
+    if (/nais/i.test(raw)) return "Edustus naiset";
+    if (/edustus|miehet/i.test(raw)) return "Edustus";
+    return OTHER_TEAM;
+  }
+  const t = jopoxTeamOf(g);
+  if (t) return t.name;
+  const key = ageKey(`${g.level || ""} ${g.league || ""}`);
+  if (!key) return OTHER_TEAM;
+  return key === "naiset" ? "Edustus naiset" : key === "edustus" ? "Edustus" : key;
+}
+
 /* ── the three checks ────────────────────────────────────────────────────── */
 
 // Full-ice game? U9–U12 play small-area games ACROSS the rink — two or three at once is the
@@ -721,6 +746,7 @@ export default function GameCheck() {
   // Issue filters are additive: picking two shows the games that have EITHER, which is how
   // you build a work list ("everything missing ice or missing from Jopox").
   const [issueFilter, setIssueFilter] = useState(() => new Set());
+  const [teamFilter, setTeamFilter] = useState(() => new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [reload, setReload] = useState(0);
 
@@ -831,6 +857,15 @@ export default function GameCheck() {
     return m;
   }, [baseRows, checksFor]);
 
+  // Teams that actually appear, ordered as the club lists them; anything unrecognised last.
+  const teams = useMemo(() => {
+    const present = new Set(baseRows.map(teamOfRow));
+    const ordered = JOPOX_TEAMS.map((t) => t.name).filter((n) => present.has(n));
+    if (present.has(OTHER_TEAM)) ordered.push(OTHER_TEAM);
+    for (const n of present) if (!ordered.includes(n)) ordered.push(n);
+    return ordered;
+  }, [baseRows]);
+
   const counts = useMemo(() => {
     const out = {};
     for (const list of issuesByGame.values()) for (const k of list) out[k] = (out[k] || 0) + 1;
@@ -838,21 +873,28 @@ export default function GameCheck() {
   }, [issuesByGame]);
 
   const rows = useMemo(() => {
-    if (!issueFilter.size) return baseRows;
-    return baseRows.filter((g) => (issuesByGame.get(gameKey(g)) || []).some((k) => issueFilter.has(k)));
-  }, [baseRows, issuesByGame, issueFilter]);
+    let out = baseRows;
+    if (teamFilter.size) out = out.filter((g) => teamFilter.has(teamOfRow(g)));
+    if (issueFilter.size) out = out.filter((g) => (issuesByGame.get(gameKey(g)) || []).some((k) => issueFilter.has(k)));
+    return out;
+  }, [baseRows, issuesByGame, issueFilter, teamFilter]);
 
   // What the button badge counts: anything that is not the default view.
-  const activeCount = issueFilter.size + (scope === "upcoming" ? 0 : 1) + (venue === "home" ? 0 : 1);
-  const resetFilters = useCallback(() => { setIssueFilter(new Set()); setScope("upcoming"); setVenue("home"); }, []);
+  const activeCount = issueFilter.size + teamFilter.size + (scope === "upcoming" ? 0 : 1) + (venue === "home" ? 0 : 1);
+  const resetFilters = useCallback(() => { setIssueFilter(new Set()); setTeamFilter(new Set()); setScope("upcoming"); setVenue("home"); }, []);
 
-  const toggleIssue = useCallback((key) => {
-    setIssueFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }, []);
+  // Both multi-selects toggle the same way. Written out twice rather than through a
+  // factory: a factory hides the dependency list from the hook linter.
+  const toggleIssue = useCallback((key) => setIssueFilter((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  }), []);
+  const toggleTeam = useCallback((key) => setTeamFilter((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  }), []);
 
   // Group by day so the list reads like a calendar.
   const byDay = useMemo(() => {
@@ -911,6 +953,12 @@ export default function GameCheck() {
             <FilterGroup label="Ottelut">
               {[{ k: "home", l: "Kotipelit" }, { k: "all", l: "Kaikki" }].map((o) => (
                 <PillButton key={o.k} active={venue === o.k} onClick={() => setVenue(o.k)}>{o.l}</PillButton>
+              ))}
+            </FilterGroup>
+            <FilterGroup label="Joukkue">
+              <PillButton active={teamFilter.size === 0} onClick={() => setTeamFilter(new Set())}>Kaikki</PillButton>
+              {teams.map((t) => (
+                <PillButton key={t} active={teamFilter.has(t)} onClick={() => toggleTeam(t)}>{t}</PillButton>
               ))}
             </FilterGroup>
             {/* Issue filters are additive: several on at once shows the union, which is how
