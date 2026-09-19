@@ -208,8 +208,39 @@ function checkIce(g, reservations, range) {
   return { status: MISS, slots: ahmaDay };
 }
 
-// 4. Kiosk — no data source yet; the column exists so the row layout is final.
-const checkKiosk = () => ({ status: UNKNOWN, note: "ei dataa" });
+// 4. Kiosk — the club's own shift roster (a Google Sheet, mirrored by /api/getKioskShifts).
+//    A shift opens before the game it serves, so "covers" is generous at the front. A shift
+//    with nobody signed up is not the same as no shift: the first is a gap in the rota, the
+//    second may simply mean the kiosk does not open for that game.
+const KIOSK_OPENS_BEFORE = 90;  // a shift may start this much before the puck drops
+const KIOSK_ASSUMED_LENGTH = 180; // when the sheet has a start but no end
+
+function checkKiosk(g, shifts) {
+  if (!isHomeGame(g)) return { status: NA, note: "vieraspeli" };
+  if (!shifts) return { status: UNKNOWN, note: "ei haettu" };
+  const day = dayOf(g.date);
+  const start = minsOf(g.date);
+  const sameDay = shifts.filter((s) => s.date === day);
+  if (start == null) {
+    return sameDay.length
+      ? { status: UNKNOWN, note: "ei kellonaikaa", shifts: sameDay }
+      : { status: UNKNOWN, note: "ei kellonaikaa" };
+  }
+  const covers = (s) => {
+    const st = s.startMinutes;
+    const en = s.endMinutes != null ? s.endMinutes : (st != null ? st + KIOSK_ASSUMED_LENGTH : null);
+    return st != null && en != null && st <= start + 15 && en >= start + 15 && st >= start - KIOSK_OPENS_BEFORE - 60;
+  };
+  const covering = sameDay.filter(covers);
+  if (!covering.length) {
+    return sameDay.length
+      ? { status: MISS, note: "vuoro eri aikaan", shifts: sameDay }
+      : { status: MISS, shifts: [] };
+  }
+  const staffed = covering.filter((s) => s.people.length);
+  if (staffed.length) return { status: OK, shifts: covering };
+  return { status: WARN, note: "vuorolle ei tekijöitä", shifts: covering };
+}
 
 /* ── issues ──────────────────────────────────────────────────────────────── */
 
@@ -222,6 +253,8 @@ const ISSUES = [
   { key: "jopoxTime", label: "Jopoxissa eri aika", test: (c) => c.jopox.status === WARN },
   { key: "iceMiss", label: "Jää varaamatta", test: (c) => c.ice.status === MISS },
   { key: "iceBlock", label: "Ei omaa jäävarausta", test: (c) => c.ice.status === WARN },
+  { key: "kioskMiss", label: "Ei kioskivuoroa", test: (c) => c.kiosk.status === MISS },
+  { key: "kioskEmpty", label: "Kioskivuoro ilman tekijöitä", test: (c) => c.kiosk.status === WARN },
 ];
 
 /* ── evidence ────────────────────────────────────────────────────────────── */
@@ -237,6 +270,11 @@ const slotLine = (r) => ({
   time: `${fiDate(r.start)} klo ${hhmm(r.start)}–${hhmm(r.end)}${r.durationMinutes ? ` (${r.durationMinutes} min)` : ""}`,
   place: "Wareena",
   text: [r.text, r.userGroup].filter(Boolean).join(" · "),
+});
+const shiftLine = (s) => ({
+  time: `${fiDate(s.date)} klo ${s.start || "—"}${s.end ? `–${s.end}` : ""}`,
+  place: s.team ? `Vuorossa: ${s.team}` : "",
+  text: s.people.length ? s.people.join(", ") : "Ei tekijöitä",
 });
 const eventLine = (e) => ({
   time: `${fiDate(e.date)} klo ${hhmm(e.uiTime || e.date) || "—"}`,
@@ -254,6 +292,7 @@ function evidenceOf(key, g, check) {
   }
   if (key === "jopox") return (check.events || []).map(eventLine);
   if (key === "ice") return (check.slots || []).map(slotLine);
+  if (key === "kiosk") return (check.shifts || []).map(shiftLine);
   return [];
 }
 
@@ -482,7 +521,7 @@ const HOW_ROWS = [
   { icon: LuTrophy, label: "Tulospalvelu", text: "Ottelutietojen virallinen lähde. Muut sarakkeet vastaavat vain, tietääkö kyseinen järjestelmä ottelusta saman." },
   { icon: LuCalendarDays, label: "Jopox", text: "Onko ottelu joukkueen omassa kalenterissa kiekko-ahma.fi:ssä — oikeana päivänä ja oikeaan aikaan." },
   { icon: LuSnowflake, label: "Jää", text: "Onko ottelulle varattu jää Tilamisusta. Luku on varatun vuoron pituus." },
-  { icon: LuStore, label: "Kioski", text: "Onko kioski auki ottelun aikaan. Odottaa vielä aukiolotietoja." },
+  { icon: LuStore, label: "Kioski", text: "Onko ottelulle kioskivuoro seuran vuorolistassa ja onko sille ilmoittautunut tekijöitä." },
 ];
 
 const HowItWorks = () => (
@@ -539,6 +578,7 @@ export default function GameCheck() {
   const [games, setGames] = useState(() => peekSeasonGames());
   const [teamEvents, setTeamEvents] = useState({});
   const [reservations, setReservations] = useState(null);
+  const [shifts, setShifts] = useState(null);
   const [range, setRange] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState("upcoming"); // upcoming | all
@@ -578,6 +618,12 @@ export default function GameCheck() {
       const days = list.map((g) => dayOf(g.date)).filter(Boolean).sort();
       const from = moment().format("YYYY-MM-DD");
       const to = days.length ? days[days.length - 1] : from;
+      // Kiosk shift roster (Google Sheet mirror, server-cached 15 min).
+      fetch("/api/getKioskShifts")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled) setShifts((d && d.shifts) || []); })
+        .catch(() => { if (!cancelled) setShifts([]); });
+
       fetch(`/api/getReservations?from=${from}&to=${to}`)
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => { if (!cancelled) { setReservations(Array.isArray(d) ? d : []); setRange({ from, to }); } })
@@ -610,8 +656,8 @@ export default function GameCheck() {
     tp: checkTp(g, clashes),
     jopox: checkJopox(g, teamEvents),
     ice: checkIce(g, reservations, range),
-    kiosk: checkKiosk(g),
-  }), [teamEvents, reservations, range, clashes]);
+    kiosk: checkKiosk(g, shifts),
+  }), [teamEvents, reservations, range, clashes, shifts]);
 
   // Which issues each game has — computed once, then reused for the counts and the filter.
   const issuesByGame = useMemo(() => {
