@@ -66,10 +66,16 @@ const gameKey = (g) => String(g.id ?? `${g.date}|${g.home}|${g.away}`);
 // A game's Jopox team. tulospalvelu levels ("U13 Sininen") map to an age key, which is
 // the name JOPOX_TEAMS uses. Returns null when the club has no Jopox subsite for that age
 // — which is itself worth reporting, since those games can never be checked.
+// A team does not always play its own age series. Kiekko-Ahma's U13 Valkoinen plays the
+// U12 series, so a "U12 sarja" fixture is the Jopox U13 team's game — and Jopox has no U12
+// subsite at all. Explicit mapping, because guessing across calendars would sooner or later
+// credit one team's game to another.
+const SERIES_TO_JOPOX = { U12: "U13" };
 const jopoxTeamOf = (game) => {
   const key = ageKey(`${game.level || ""} ${game.league || ""}`);
   if (!key) return null;
-  const name = key === "naiset" ? "Edustus naiset" : key === "edustus" ? "Edustus" : key;
+  const name = SERIES_TO_JOPOX[key]
+    || (key === "naiset" ? "Edustus naiset" : key === "edustus" ? "Edustus" : key);
   return JOPOX_TEAMS.find((t) => t.name === name) || null;
 };
 
@@ -97,7 +103,7 @@ const CLASH_MINUTES = 75;
 function clashMap(games) {
   const byDay = {};
   for (const g of games) {
-    if (!isHomeGame(g) || !fullIce(g) || minsOf(g.date) == null) continue;
+    if (g.kind === "shift" || !isHomeGame(g) || !fullIce(g) || minsOf(g.date) == null) continue;
     (byDay[dayOf(g.date)] ||= []).push(g);
   }
   const out = new Map();
@@ -245,6 +251,37 @@ function checkKiosk(g, shifts) {
   return { status: WARN, note: "vuorolle ei tekijöitä", shifts: covering };
 }
 
+// Kiosk shifts that cover no game, turned into rows. The club opens the kiosk for things
+// that are not fixtures (a sports fair, say), but a shift with nobody playing is usually a
+// game whose time tulospalvelu is missing — so it belongs in the same list, not a footnote.
+function orphanShiftRows(shifts, homeGames) {
+  if (!shifts) return [];
+  const gamesByDay = {};
+  for (const g of homeGames) (gamesByDay[dayOf(g.date)] ||= []).push(g);
+  const out = [];
+  for (const s of shifts) {
+    const sameDay = gamesByDay[s.date] || [];
+    const end = s.endMinutes != null ? s.endMinutes : (s.startMinutes != null ? s.startMinutes + KIOSK_ASSUMED_LENGTH : null);
+    const covers = sameDay.some((g) => {
+      const gs = minsOf(g.date);
+      return gs != null && s.startMinutes != null && end != null && s.startMinutes <= gs + 15 && end >= gs + 15;
+    });
+    if (covers) continue;
+    out.push({
+      kind: "shift",
+      shift: s,
+      // Shaped like a game so the grouping, sorting and row grid need no special cases.
+      id: `shift|${s.date}|${s.start || "?"}|${s.team || ""}`,
+      date: s.start ? `${s.date} ${s.start}` : s.date,
+      rink: "Valkeakoski",
+      level: null,
+      home: null,
+      away: null,
+    });
+  }
+  return out;
+}
+
 /* ── issues ──────────────────────────────────────────────────────────────── */
 
 // The things worth fixing, in the order someone would work through them. `test` reads the
@@ -258,6 +295,7 @@ const ISSUES = [
   { key: "iceBlock", label: "Ei omaa jäävarausta", test: (c) => c.ice.status === WARN },
   { key: "kioskMiss", label: "Ei kioskivuoroa", test: (c) => c.kiosk.status === MISS },
   { key: "kioskEmpty", label: "Kioskivuoro ilman tekijöitä", test: (c) => c.kiosk.status === WARN },
+  { key: "shiftNoGame", label: "Vuoro ilman ottelua", test: (c, g) => g.kind === "shift" },
 ];
 
 /* ── evidence ────────────────────────────────────────────────────────────── */
@@ -303,9 +341,11 @@ function evidenceOf(key, g, check) {
   return [];
 }
 
-// One fact per line. IconText keeps the glyphs on one centre line at any font size.
+// One fact per line. IconText is inline-flex by design (it is meant to sit inside a
+// sentence), so each Detail has to be made block-level — otherwise consecutive facts flow
+// onto the same line, which is exactly what happened to "Vastuujoukkue" and the name.
 const Detail = ({ icon, size = 15, children }) => (
-  <IconText icon={icon} iconSize={size} gap={1} sx={{ color: "text.secondary" }} textSx={{ fontSize: 14 }}>
+  <IconText icon={icon} iconSize={size} gap={1} sx={{ display: "flex", color: "text.secondary" }} textSx={{ fontSize: 14 }}>
     {children}
   </IconText>
 );
@@ -423,6 +463,7 @@ const shortTeam = (s) => String(s || "").replace(/kiekko-?ahma/i, "Ahma").trim()
 function sequenceMap(games) {
   const byMatch = {};
   for (const g of games) {
+    if (g.kind === "shift") continue;
     const k = `${dayOf(g.date)}|${g.home}|${g.away}`;
     (byMatch[k] ||= []).push(g);
   }
@@ -454,11 +495,21 @@ const GameRow = ({ g, checks, seq }) => {
             {time || "—:—"}
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {seriesLabel(g.level)}
+            {g.kind === "shift" ? "Kioski" : seriesLabel(g.level)}
           </Typography>
         </Box>
-        {/* Home over away with their crests, as the fixture list shows them — two club names
-            on one line get truncated to uselessness on a phone. */}
+        {/* A kiosk shift with no game behind it has no teams to show: it is a row precisely
+            because tulospalvelu has nothing. Say what it is instead. */}
+        {g.kind === "shift" ? (
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, lineHeight: 1.3, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Kioskivuoro{g.shift.team ? `: ${g.shift.team}` : ""}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {g.shift.people.length ? g.shift.people.join(", ") : "Ei tekijöitä"}
+            </Typography>
+          </Box>
+        ) : (
         <Box sx={{ minWidth: 0 }}>
           {[[g.home, g.home_logo], [g.away, g.away_logo]].map(([t, logo], i) => (
             <Stack key={i} direction="row" spacing={0.9} sx={{ alignItems: "center", minWidth: 0 }}>
@@ -472,6 +523,7 @@ const GameRow = ({ g, checks, seq }) => {
             </Stack>
           ))}
         </Box>
+        )}
         <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
           {COLUMNS.map((c) => {
             const check = checks[c.key] || { status: UNKNOWN };
@@ -565,6 +617,10 @@ const HowItWorks = () => (
         ))}
       </Box>
       <Typography variant="body2" sx={{ color: "text.disabled", mt: 1 }}>
+        Lähteet haetaan välimuistin kautta, joten juuri tehty muutos näkyy tässä noin 15
+        minuutin viiveellä. Oikean yläkulman päivitysnappi hakee kaikki lähteet heti uudelleen.
+      </Typography>
+      <Typography variant="body2" sx={{ color: "text.disabled", mt: 1 }}>
         "Ei tietoa" ei ole virhe: Jopoxin kalenterista saa vain tulevat tapahtumat ja rajallisen
         määrän kerrallaan, joten kauas tulevaisuuteen menevistä otteluista ei voi sanoa mitään.
       </Typography>
@@ -608,19 +664,24 @@ export default function GameCheck() {
   const baseRows = useMemo(() => {
     const today = moment().format("YYYY-MM-DD");
     const season = currentSeason();
-    return [...games]
-      // The cache keeps last season as well, so "koko kausi" has to say WHICH one.
-      .filter((g) => seasonOf(g.date) === season)
+    // The cache keeps last season as well, so "koko kausi" has to say WHICH one.
+    const seasonGames = games.filter((g) => seasonOf(g.date) === season);
+    // Orphan shifts are judged against EVERY home game of the season, never against the
+    // filtered view — a filter must not invent orphans.
+    const orphans = orphanShiftRows(shifts, seasonGames.filter(isHomeGame));
+    return [...seasonGames, ...orphans]
       .filter((g) => (scope === "all" ? true : dayOf(g.date) >= today))
       .filter((g) => (venue === "home" ? isHomeGame(g) : true))
       .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  }, [games, scope, venue]);
+  }, [games, shifts, scope, venue]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const season = await fetchSeasonGames().catch(() => peekSeasonGames());
+      // Only a deliberate press bypasses the caches; the first load takes what is there.
+      const bust = reload > 0 ? "?fresh=1" : "";
+      const season = await fetchSeasonGames({ maxAge: reload > 0 ? 0 : undefined }).catch(() => peekSeasonGames());
       if (cancelled) return;
       const list = Array.isArray(season) ? season : peekSeasonGames();
       setGames(list);
@@ -630,12 +691,12 @@ export default function GameCheck() {
       const from = moment().format("YYYY-MM-DD");
       const to = days.length ? days[days.length - 1] : from;
       // Kiosk shift roster (Google Sheet mirror, server-cached 15 min).
-      fetch("/api/getKioskShifts")
+      fetch(`/api/getKioskShifts${bust}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (!cancelled) setShifts((d && d.shifts) || []); })
         .catch(() => { if (!cancelled) setShifts([]); });
 
-      fetch(`/api/getReservations?from=${from}&to=${to}`)
+      fetch(`/api/getReservations?from=${from}&to=${to}${bust ? "&fresh=1" : ""}`)
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => { if (!cancelled) { setReservations(Array.isArray(d) ? d : []); setRange({ from, to }); } })
         .catch(() => { if (!cancelled) setReservations([]); });
@@ -644,7 +705,7 @@ export default function GameCheck() {
       // for; beyond it a missing game means "truncated", not "not entered".
       await Promise.all(JOPOX_TEAMS.map(async (t) => {
         try {
-          const d = await fetch(`/api/getTeamEvents?subsiteId=${t.subsiteId}`).then((r) => (r.ok ? r.json() : null));
+          const d = await fetch(`/api/getTeamEvents?subsiteId=${t.subsiteId}${bust ? "&fresh=1" : ""}`).then((r) => (r.ok ? r.json() : null));
           const ev = (d && (Array.isArray(d) ? d : d.events)) || [];
           const dates = ev.map((e) => dayOf(e.date)).filter(Boolean).sort();
           if (!cancelled) {
@@ -663,19 +724,33 @@ export default function GameCheck() {
   // Which games are one half of a same-day double-header (U11/U12).
   const sequences = useMemo(() => sequenceMap(baseRows), [baseRows]);
 
-  const checksFor = useCallback((g) => ({
-    tp: checkTp(g, clashes),
-    jopox: checkJopox(g, teamEvents),
-    ice: checkIce(g, reservations, range),
-    kiosk: checkKiosk(g, shifts),
-  }), [teamEvents, reservations, range, clashes, shifts]);
+  const checksFor = useCallback((g) => {
+    if (g.kind === "shift") {
+      // There is no fixture behind this row — that IS the finding. The ice is still a fair
+      // question (is the hall even booked?), and the shift answers for itself.
+      return {
+        tp: { status: MISS, note: "ei ottelua tähän aikaan" },
+        jopox: { status: MISS, note: "ei ottelua" },
+        ice: checkIce(g, reservations, range),
+        kiosk: g.shift.people.length
+          ? { status: OK, shifts: [g.shift] }
+          : { status: WARN, note: "vuorolle ei tekijöitä", shifts: [g.shift] },
+      };
+    }
+    return {
+      tp: checkTp(g, clashes),
+      jopox: checkJopox(g, teamEvents),
+      ice: checkIce(g, reservations, range),
+      kiosk: checkKiosk(g, shifts),
+    };
+  }, [teamEvents, reservations, range, clashes, shifts]);
 
   // Which issues each game has — computed once, then reused for the counts and the filter.
   const issuesByGame = useMemo(() => {
     const m = new Map();
     for (const g of baseRows) {
       const c = checksFor(g);
-      m.set(gameKey(g), ISSUES.filter((i) => i.test(c)).map((i) => i.key));
+      m.set(gameKey(g), ISSUES.filter((i) => i.test(c, g)).map((i) => i.key));
     }
     return m;
   }, [baseRows, checksFor]);

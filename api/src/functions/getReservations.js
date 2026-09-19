@@ -53,8 +53,9 @@ app.http('getReservations', {
         const toStr = moment(toDate).format('YYYY-MM-DD');
 
         const cacheKey = `${fromStr}|${toStr}`;
+        const fresh = request.query.get('fresh') === '1';
         const cached = rangeCache.get(cacheKey);
-        if (cached && (Date.now() - cached.timestamp) < TTL) {
+        if (!fresh && cached && (Date.now() - cached.timestamp) < TTL) {
             context.log('Reservations cache hit for range: ' + cacheKey);
             return { jsonBody: cached.data };
         }

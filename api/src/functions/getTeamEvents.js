@@ -135,8 +135,9 @@ app.http('getTeamEvents', {
                 return { status: 400, jsonBody: { error: 'subsiteId (numeric) required' } };
             }
 
+            const fresh = request.query.get('fresh') === '1';
             const cached = cache.get(subsiteId);
-            if (cached && (Date.now() - cached.timestamp) < TTL) {
+            if (!fresh && cached && (Date.now() - cached.timestamp) < TTL) {
                 context.log('Events cache hit for subsite: ' + subsiteId);
                 return { jsonBody: cached.data };
             }

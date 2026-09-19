@@ -85,7 +85,8 @@ app.http('getKioskShifts', {
             return now.getMonth() >= 6 ? now.getFullYear() + 1 : now.getFullYear();
         })();
 
-        if (cache && cache.season === season && Date.now() - cache.timestamp < TTL) {
+        const fresh = request.query.get('fresh') === '1';
+        if (!fresh && cache && cache.season === season && Date.now() - cache.timestamp < TTL) {
             return { jsonBody: { ...cache.data, cached: true } };
         }
 
