@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Box, Card, Typography, Stack, CircularProgress, Chip, ToggleButtonGroup, ToggleButton, Tooltip, Collapse, IconButton } from "@mui/material";
-import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuChevronDown, LuClock, LuMapPin } from "react-icons/lu";
+import { Box, Card, Typography, Stack, CircularProgress, Chip, Tooltip, Collapse, IconButton } from "@mui/material";
+import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { MuiHeader } from "../components/ui/MuiHeader";
+import { PillButton } from "../components/ui/PillButton";
 import { useGoBack } from "../hooks/useGoBack";
 import { fetchSeasonGames, peekSeasonGames } from "../lib/seasonGamesCache";
 import { ageKey } from "../lib/teamMatch";
@@ -294,69 +295,77 @@ const StatusDot = ({ status, note, title, lines = [] }) => {
   );
 };
 
-// One game. The closed row carries only what identifies it — time, teams, series, home/away
-// and the ice slot's length. Every per-source remark lives behind its own dot (hover) or in
-// the expanded block, so the row stays one line of plain facts instead of a pile of notes
-// in four colours.
+// The row grid, shared by the header and every game row so the columns actually line up.
+// "Kiekko-Ahma" is shortened to "Ahma" here only — it is on both sides of half the fixtures
+// and eats the width the opponent needs.
+const ROW_GRID = { display: "grid", gridTemplateColumns: "52px 52px minmax(0, 1fr) auto", alignItems: "center", gap: "10px" };
+const shortTeam = (s) => String(s || "").replace(/kiekko-?ahma/i, "Ahma").trim();
+
+// One game. The closed row is the table: time, series, teams, four verdicts. Everything a
+// source has to SAY about the game lives behind its dot (hover) or in the expanded block,
+// so the row itself never turns into a pile of notes in four colours.
 const GameRow = ({ g, checks }) => {
   const [open, setOpen] = useState(false);
   const time = hhmm(g.date);
-  // The ice slot this game sits in — its length is the number the office actually books.
-  const slot = checks.ice && checks.ice.slot;
 
   return (
-    // Same card as the feed's event row — outlined, self-contained, one per game.
-    <Card variant="outlined" sx={{ overflow: "hidden" }}>
+    <Box sx={{ borderTop: "1px solid var(--color-surface-divider)", "&:first-of-type": { borderTop: 0 } }}>
       <Box component="button" type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-        sx={{ display: "flex", alignItems: "center", gap: 1.25, width: "100%", p: "11px 14px", bgcolor: "transparent",
+        sx={{ ...ROW_GRID, width: "100%", p: "10px 12px", bgcolor: open ? "rgba(255,255,255,.03)" : "transparent",
               border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
-              WebkitTapHighlightColor: "transparent", "&:hover": { bgcolor: "rgba(255,255,255,.03)" } }}>
-        <Box sx={{ width: 46, flexShrink: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: time ? "text.primary" : "primary.main" }}>
-            {time || "—:—"}
-          </Typography>
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {g.home} – {g.away}
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {[
-              seriesLabel(g.level),
-              isHomeGame(g) ? "koti" : g.rink || "vieras",
-              slot && slot.durationMinutes ? `jäävuoro ${slot.durationMinutes} min` : null,
-            ].filter(Boolean).join(" · ")}
-          </Typography>
-        </Box>
+              WebkitTapHighlightColor: "transparent", "&:hover": { bgcolor: "rgba(255,255,255,.05)" } }}>
+        <Typography sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", color: time ? "text.primary" : "primary.main" }}>
+          {time || "—:—"}
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {seriesLabel(g.level)}
+        </Typography>
+        <Typography sx={{ fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {shortTeam(g.home)} – {shortTeam(g.away)}
+        </Typography>
         <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
           {COLUMNS.map((c) => (
             <StatusDot key={c.key} title={c.title} lines={evidenceOf(c.key, g, checks[c.key] || {})}
               {...(checks[c.key] || { status: UNKNOWN })} />
           ))}
         </Stack>
-        <LuChevronDown size={18} style={{ flexShrink: 0, opacity: 0.5, transition: "transform .18s ease", transform: open ? "rotate(180deg)" : "none" }} />
       </Box>
 
-      {/* Expanded: every column's source rows, in full. */}
+      {/* Expanded: one line per source, all four times in the SAME column — the whole point
+          of the page is comparing them, and that only works if they are under each other. */}
       <Collapse in={open} unmountOnExit>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.75, p: "12px 14px 14px", borderTop: "1px solid var(--color-surface-divider)" }}>
+        <Box sx={{ p: "4px 12px 14px" }}>
           {COLUMNS.map((c) => {
             const check = checks[c.key] || {};
             const lines = evidenceOf(c.key, g, check);
+            const meta = STATUS_META[check.status] || STATUS_META[UNKNOWN];
             return (
-              <Box key={c.key}>
-                <SourceHeading title={c.title} status={check.status} note={check.note} />
-                <Box sx={{ mt: 0.75 }}>
-                  {lines.length
-                    ? <EvidenceLines lines={lines} />
-                    : <Typography variant="body2" sx={{ color: "text.disabled" }}>Ei rivejä.</Typography>}
+              <Box key={c.key} sx={{ display: "grid", gridTemplateColumns: "18px 56px minmax(0, 1fr)", gap: "10px",
+                    alignItems: "start", py: 0.85, borderTop: "1px solid var(--color-surface-divider)" }}>
+                <Box component={meta.Icon} sx={{ fontSize: 15, color: meta.color, display: "block", mt: "1px" }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "text.secondary", mt: "3px" }}>
+                  {c.label}
+                </Typography>
+                <Box sx={{ minWidth: 0 }}>
+                  {lines.length ? lines.map((l, i) => (
+                    <Box key={i} sx={{ mb: i < lines.length - 1 ? 0.75 : 0 }}>
+                      <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "text.primary" }}>{l.time}</Typography>
+                      {l.place && <Detail icon={<LuMapPin size={14} />}>{l.place}</Detail>}
+                      {l.text && <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.4 }}>{l.text}</Typography>}
+                    </Box>
+                  )) : (
+                    <Typography variant="body2" sx={{ color: "text.disabled" }}>{check.note || "Ei rivejä."}</Typography>
+                  )}
+                  {lines.length > 0 && check.note && (
+                    <Typography variant="body2" sx={{ color: meta.color, mt: 0.25 }}>{check.note}</Typography>
+                  )}
                 </Box>
               </Box>
             );
           })}
         </Box>
       </Collapse>
-    </Card>
+    </Box>
   );
 };
 
@@ -372,7 +381,8 @@ export default function GameCheck() {
   const [scope, setScope] = useState("upcoming"); // upcoming | all
   // Two of the four columns only mean anything at Wareena, so the away games are 91 rows of
   // "ei koske" between the ones worth reading. Home-only is the view for checking ice.
-  const [venue, setVenue] = useState("all"); // all | home
+  const [venue, setVenue] = useState("home"); // home | all — the ice and kiosk columns only
+                                              // mean anything at Wareena, so that is the default view
   const [reload, setReload] = useState(0);
 
   // Rows: Ahma games, oldest first. Past games are opt-in — Jopox's calendar only returns
@@ -477,15 +487,15 @@ export default function GameCheck() {
           järjestelmät siitä.
         </Typography>
 
-        <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
-          <ToggleButtonGroup size="small" exclusive value={scope} onChange={(e, v) => v && setScope(v)}>
-            <ToggleButton value="upcoming">Tulevat</ToggleButton>
-            <ToggleButton value="all">Koko kausi</ToggleButton>
-          </ToggleButtonGroup>
-          <ToggleButtonGroup size="small" exclusive value={venue} onChange={(e, v) => v && setVenue(v)}>
-            <ToggleButton value="all">Kaikki</ToggleButton>
-            <ToggleButton value="home">Kotipelit</ToggleButton>
-          </ToggleButtonGroup>
+        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+          {[{ k: "upcoming", l: "Tulevat" }, { k: "all", l: "Koko kausi" }].map((o) => (
+            <PillButton key={o.k} active={scope === o.k} onClick={() => setScope(o.k)} sx={{ flex: 1, py: 0.9 }}>{o.l}</PillButton>
+          ))}
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+          {[{ k: "home", l: "Kotipelit" }, { k: "all", l: "Kaikki" }].map((o) => (
+            <PillButton key={o.k} active={venue === o.k} onClick={() => setVenue(o.k)} sx={{ flex: 1, py: 0.9 }}>{o.l}</PillButton>
+          ))}
         </Stack>
 
         {/* What needs doing, in one line each. */}
@@ -498,29 +508,40 @@ export default function GameCheck() {
           {summary.clash > 0 && <Chip size="small" color="error" variant="outlined" label={`Päällekkäisiä ${summary.clash}`} />}
         </Stack>
 
-        {/* Column key: the four dots in row order. Plain text, no bar — the dots each carry
-            their own tooltip and the expanded row names its source in full. */}
-        <Typography variant="caption" sx={{ display: "block", color: "text.disabled", mb: 1.5 }}>
-          Merkit vasemmalta oikealle: {COLUMNS.map((c) => c.label).join(" · ")}
-        </Typography>
-
         {loading && !rows.length ? (
           <Box sx={{ display: "grid", placeItems: "center", py: 6 }}><CircularProgress size={28} /></Box>
         ) : (
-          // Day grouping exactly as the feed does it: a sticky plain label, then the day's
-          // cards. No container box per day — that was the odd rounding.
-          byDay.map(({ day, games: gs }) => (
-            <Box key={day} sx={{ mb: 2.25 }}>
-              <Box sx={{ position: "sticky", top: 0, zIndex: 2, px: 0.25, pt: 0.75, pb: 1, fontSize: 14, fontWeight: 800,
-                    letterSpacing: ".04em", textTransform: "uppercase", color: "primary.main",
-                    background: "linear-gradient(180deg, var(--color-bg) 70%, rgba(17,17,17,0))" }}>
-                {moment(day).format("dd D.M.YYYY")}
-              </Box>
-              <Stack spacing={1}>
-                {gs.map((g) => <GameRow key={gameKey(g)} g={g} checks={checksFor(g)} />)}
+          <Card variant="outlined" sx={{ overflow: "hidden" }}>
+            {/* Header: names the columns once, so every dot below is readable without a
+                legend and the two halves of the table (the game / the systems) are labelled. */}
+            <Box sx={{ ...ROW_GRID, p: "8px 12px", borderBottom: "1px solid var(--color-surface-divider)" }}>
+              {["Aika", "Sarja", "Ottelu"].map((h) => (
+                <Typography key={h} sx={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "text.disabled" }}>
+                  {h}
+                </Typography>
+              ))}
+              <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
+                {COLUMNS.map((c) => (
+                  <Typography key={c.key} title={c.title}
+                    sx={{ width: 26, textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: ".04em",
+                          textTransform: "uppercase", color: "text.disabled" }}>
+                    {c.label}
+                  </Typography>
+                ))}
               </Stack>
             </Box>
-          ))
+
+            {byDay.map(({ day, games: gs }) => (
+              <Box key={day}>
+                <Typography sx={{ px: 1.5, py: 0.75, fontSize: 12.5, fontWeight: 800, letterSpacing: ".04em",
+                      textTransform: "uppercase", color: "primary.main", bgcolor: "rgba(var(--color-primary-rgb),0.08)",
+                      borderTop: "1px solid var(--color-surface-divider)" }}>
+                  {moment(day).format("dd D.M.YYYY")}
+                </Typography>
+                {gs.map((g) => <GameRow key={gameKey(g)} g={g} checks={checksFor(g)} />)}
+              </Box>
+            ))}
+          </Card>
         )}
 
         {loading && rows.length > 0 && (

@@ -43,5 +43,27 @@ export const muiTheme = createTheme({
         root: { "&:hover, &:focus, &:visited": { textDecoration: "none" } },
       },
     },
+    // MUI's default tooltip is a light-grey slab with white text — on this dark UI it reads
+    // as a foreign element. Give it the same surface, border and radius as every card, so a
+    // tooltip looks like the app rather than like the component library.
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          backgroundColor: "var(--color-surface-solid)",
+          color: "var(--color-secondary)",
+          border: "1px solid var(--color-surface-border)",
+          borderRadius: "var(--radius-small)",
+          boxShadow: "var(--shadow-card)",
+          fontSize: "0.8125rem",
+          lineHeight: 1.45,
+          padding: "8px 10px",
+          maxWidth: 300,
+        },
+        arrow: {
+          color: "var(--color-surface-solid)",
+          "&::before": { border: "1px solid var(--color-surface-border)" },
+        },
+      },
+    },
   },
 });

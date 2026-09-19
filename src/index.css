@@ -16,6 +16,9 @@
 
   --color-bg:              #15171B;                    /* Ink — Kiekko-Ahma BrandBook (sivun tausta) */
   --color-surface:         rgba(255, 255, 255, 0.03);  /* Kortti-tausta */
+  --color-surface-solid:   #1E2126;                    /* Läpinäkymätön pinta — kelluvat elementit
+                                                          (tooltip, popover) joiden läpi ei saa nähdä;
+                                                          --color-surface on lähes läpinäkyvä */
   --color-surface-border:  rgba(255, 255, 255, 0.14);  /* Kortti-reuna */
   --color-surface-divider: rgba(255, 255, 255, 0.08);  /* Sisäiset erottimet */
 

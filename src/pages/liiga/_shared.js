@@ -405,11 +405,6 @@ export const AccentPanel = ({ children, onClick, sx }) => {
 
 // Rounded pill toggle used by tab/filter rows. `active` tints it orange. Extra sx
 // (e.g. flex:1 for full-width tabs) and handlers pass through.
-export const PillButton = ({ active, children, sx, ...rest }) => (
-  <ButtonBase {...rest} sx={{ px: 1.5, py: 0.7, borderRadius: 999, whiteSpace: "nowrap", fontSize: 13, fontWeight: 700,
-        border: "1px solid", borderColor: active ? "primary.main" : "var(--color-surface-border)",
-        bgcolor: active ? "rgba(var(--color-primary-rgb),0.15)" : "transparent",
-        color: active ? "primary.main" : "text.secondary", ...sx }}>
-    {children}
-  </ButtonBase>
-);
+// Moved to components/ui/PillButton so pages outside Ahmaliiga can use the same selector
+// instead of growing their own; re-exported here so every existing import keeps working.
+export { PillButton } from "../../components/ui/PillButton";
