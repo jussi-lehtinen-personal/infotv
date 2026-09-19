@@ -8,7 +8,7 @@ import { SwipeableTabs } from "../components/ui/SwipeableTabs";
 import { KeyedLogo } from "../components/ui/KeyedLogo";
 import { useGoBack } from "../hooks/useGoBack";
 import { splitTeamName } from "../Util";
-import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded } from "../lib/seasonGamesCache";
+import { peekSeasonGames, fetchSeasonGames, isSeasonLoaded, seasonOf } from "../lib/seasonGamesCache";
 import { toSecs, keeperStats } from "../lib/goalieStats";
 import { getCachedUser, getMe } from "../auth/authClient";
 
@@ -16,11 +16,6 @@ moment.locale("fi");
 
 // "YYYY-MM-DD HH:mm" (space, not T) → moment (Safari-safe).
 const mdate = (s) => moment(String(s || "").replace(" ", "T"), moment.ISO_8601);
-// season = spring year (for the tulospalvelu game-page link).
-const seasonOf = (s) => {
-  const d = mdate(s);
-  return d.month() >= 6 ? d.year() + 1 : d.year();
-};
 
 // ---- shared sx ----
 const surfaceCardSx = { borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid rgba(255,255,255,0.10)" };

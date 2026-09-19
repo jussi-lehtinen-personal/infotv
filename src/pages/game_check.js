@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Box, Card, Typography, Stack, CircularProgress, Tooltip, ClickAwayListener, useMediaQuery, Collapse, IconButton } from "@mui/material";
-import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin, LuInfo, LuTrophy, LuCalendarDays, LuSnowflake, LuStore } from "react-icons/lu";
+import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin, LuInfo, LuTrophy, LuCalendarDays, LuSnowflake, LuStore, LuListFilter } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { MuiHeader } from "../components/ui/MuiHeader";
+import { KeyedLogo } from "../components/ui/KeyedLogo";
 import { PillButton } from "../components/ui/PillButton";
 import { useGoBack } from "../hooks/useGoBack";
-import { fetchSeasonGames, peekSeasonGames } from "../lib/seasonGamesCache";
+import { fetchSeasonGames, peekSeasonGames, seasonOf, currentSeason } from "../lib/seasonGamesCache";
 import { ageKey } from "../lib/teamMatch";
 import { seriesLabel } from "../lib/teamLabels";
 import { JOPOX_TEAMS } from "../data/jopoxTeams";
@@ -379,22 +380,24 @@ const GameRow = ({ g, checks }) => {
         sx={{ ...ROW_GRID, width: "100%", p: "10px 12px", bgcolor: open ? "rgba(255,255,255,.03)" : "transparent",
               border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
               WebkitTapHighlightColor: "transparent", "&:hover": { bgcolor: "rgba(255,255,255,.05)" } }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1.25, color: time ? "text.primary" : "primary.main" }}>
+        <Box sx={{ minWidth: 0, textAlign: "center" }}>
+          <Typography sx={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1.3, color: time ? "text.primary" : "primary.main" }}>
             {time || "—:—"}
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {seriesLabel(g.level)}
           </Typography>
         </Box>
-        {/* Home over away, as the fixture list shows them — two club names on one line get
-            truncated to uselessness on a phone. */}
+        {/* Home over away with their crests, as the fixture list shows them — two club names
+            on one line get truncated to uselessness on a phone. */}
         <Box sx={{ minWidth: 0 }}>
-          {[g.home, g.away].map((t, i) => (
-            <Typography key={i}
-              sx={{ fontWeight: 700, lineHeight: 1.25, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {shortTeam(t)}
-            </Typography>
+          {[[g.home, g.home_logo], [g.away, g.away_logo]].map(([t, logo], i) => (
+            <Stack key={i} direction="row" spacing={0.9} sx={{ alignItems: "center", minWidth: 0 }}>
+              <KeyedLogo src={logo || ""} size={18} style={{ flexShrink: 0 }} />
+              <Typography sx={{ fontWeight: 700, lineHeight: 1.3, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {shortTeam(t)}
+              </Typography>
+            </Stack>
           ))}
         </Box>
         <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
@@ -478,18 +481,32 @@ const HowItWorks = () => (
       </Stack>
     ))}
     {/* The marks themselves — the same components the table uses, so the key cannot drift. */}
-    <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, flexWrap: "wrap", rowGap: 1 }}>
-      {Object.entries(STATUS_META).filter(([k]) => k !== NA).map(([k, m]) => (
-        <Stack key={k} direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
-          <StatusDot status={k} title="Merkki" />
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>{m.label}</Typography>
-        </Stack>
-      ))}
-      <Typography variant="body2" sx={{ color: "text.disabled", width: "100%" }}>
+    {/* A fixed 2×2 (4 across once there is room) rather than wrapping: free wrapping left
+        three on the first line and "Ei tietoa" alone on the second. */}
+    <Box sx={{ px: 2, py: 1.1 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1 }}>
+        {Object.entries(STATUS_META).filter(([k]) => k !== NA).map(([k, m]) => (
+          <Stack key={k} direction="row" spacing={0.6} sx={{ alignItems: "center", minWidth: 0 }}>
+            <StatusDot status={k} title="Merkki" />
+            <Typography variant="body2" sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.label}</Typography>
+          </Stack>
+        ))}
+      </Box>
+      <Typography variant="body2" sx={{ color: "text.disabled", mt: 1 }}>
         "Ei tietoa" ei ole virhe: Jopoxin kalenterista saa vain tulevat tapahtumat ja rajallisen
         määrän kerrallaan, joten kauas tulevaisuuteen menevistä otteluista ei voi sanoa mitään.
       </Typography>
-    </Stack>
+    </Box>
+  </Box>
+);
+
+// One labelled row of pills inside the filter panel.
+const FilterGroup = ({ label, last, children }) => (
+  <Box sx={{ mb: last ? 0 : 1.5 }}>
+    <Typography sx={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "text.disabled", mb: 0.75 }}>
+      {label}
+    </Typography>
+    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", rowGap: 0.75 }}>{children}</Stack>
   </Box>
 );
 
@@ -510,13 +527,17 @@ export default function GameCheck() {
   // Issue filters are additive: picking two shows the games that have EITHER, which is how
   // you build a work list ("everything missing ice or missing from Jopox").
   const [issueFilter, setIssueFilter] = useState(() => new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [reload, setReload] = useState(0);
 
   // Rows: Ahma games, oldest first. Past games are opt-in — Jopox's calendar only returns
   // UPCOMING events, so every past row would show a red cross it cannot justify.
   const baseRows = useMemo(() => {
     const today = moment().format("YYYY-MM-DD");
+    const season = currentSeason();
     return [...games]
+      // The cache keeps last season as well, so "koko kausi" has to say WHICH one.
+      .filter((g) => seasonOf(g.date) === season)
       .filter((g) => (scope === "all" ? true : dayOf(g.date) >= today))
       .filter((g) => (venue === "home" ? isHomeGame(g) : true))
       .sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -589,6 +610,10 @@ export default function GameCheck() {
     return baseRows.filter((g) => (issuesByGame.get(gameKey(g)) || []).some((k) => issueFilter.has(k)));
   }, [baseRows, issuesByGame, issueFilter]);
 
+  // What the button badge counts: anything that is not the default view.
+  const activeCount = issueFilter.size + (scope === "upcoming" ? 0 : 1) + (venue === "home" ? 0 : 1);
+  const resetFilters = useCallback(() => { setIssueFilter(new Set()); setScope("upcoming"); setVenue("home"); }, []);
+
   const toggleIssue = useCallback((key) => {
     setIssueFilter((prev) => {
       const next = new Set(prev);
@@ -626,36 +651,49 @@ export default function GameCheck() {
       <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, boxSizing: "border-box" }}>
         <HowItWorks />
 
-        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-          {[{ k: "upcoming", l: "Tulevat" }, { k: "all", l: "Koko kausi" }].map((o) => (
-            <PillButton key={o.k} active={scope === o.k} onClick={() => setScope(o.k)} sx={{ flex: 1, py: 0.9 }}>{o.l}</PillButton>
-          ))}
-        </Stack>
-        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-          {[{ k: "home", l: "Kotipelit" }, { k: "all", l: "Kaikki" }].map((o) => (
-            <PillButton key={o.k} active={venue === o.k} onClick={() => setVenue(o.k)} sx={{ flex: 1, py: 0.9 }}>{o.l}</PillButton>
-          ))}
-        </Stack>
-
-        {/* Issue filters. Each pill is one thing that needs fixing, with how many games have
-            it; several can be on at once, and the list then shows the union. Picking none
-            shows everything — that is what "Kaikki" means here. */}
-        <Stack direction="row" spacing={0.75} sx={{ mb: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
-          <PillButton active={issueFilter.size === 0} onClick={() => setIssueFilter(new Set())}>
-            Kaikki
+        {/* One filter button instead of three rows of pills: the choices are set once and
+            then read, so they do not need to occupy the top of the screen permanently. The
+            button shows how many are active, so a filtered list can never look like the
+            whole list. */}
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+          <PillButton active={filtersOpen || activeCount > 0} onClick={() => setFiltersOpen((v) => !v)}>
+            <Box component={LuListFilter} sx={{ fontSize: 15, mr: 0.7, display: "block" }} />
+            Suodattimet{activeCount > 0 ? ` (${activeCount})` : ""}
           </PillButton>
-          {ISSUES.filter((i) => counts[i.key]).map((i) => (
-            <PillButton key={i.key} active={issueFilter.has(i.key)} onClick={() => toggleIssue(i.key)}>
-              <Box component={LuAlertTriangle} sx={{ fontSize: 13, mr: 0.6, display: "block" }} />
-              {i.label} {counts[i.key]}
-            </PillButton>
-          ))}
+          {activeCount > 0 && (
+            <PillButton onClick={resetFilters}>Tyhjennä</PillButton>
+          )}
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="caption" sx={{ color: "text.disabled", whiteSpace: "nowrap" }}>
+            Yhteensä {rows.length} ottelua
+          </Typography>
         </Stack>
 
-        {/* Row count, right above the list it describes. */}
-        <Typography variant="caption" sx={{ display: "block", textAlign: "right", color: "text.disabled", mb: 0.75 }}>
-          Yhteensä {rows.length} ottelua
-        </Typography>
+        <Collapse in={filtersOpen} unmountOnExit>
+          <Box sx={{ mb: 1.5, p: 1.5, borderRadius: "var(--radius-card)", bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+            <FilterGroup label="Ajanjakso">
+              {[{ k: "upcoming", l: "Tulevat" }, { k: "all", l: "Koko kausi" }].map((o) => (
+                <PillButton key={o.k} active={scope === o.k} onClick={() => setScope(o.k)}>{o.l}</PillButton>
+              ))}
+            </FilterGroup>
+            <FilterGroup label="Ottelut">
+              {[{ k: "home", l: "Kotipelit" }, { k: "all", l: "Kaikki" }].map((o) => (
+                <PillButton key={o.k} active={venue === o.k} onClick={() => setVenue(o.k)}>{o.l}</PillButton>
+              ))}
+            </FilterGroup>
+            {/* Issue filters are additive: several on at once shows the union, which is how
+                you build a work list ("everything missing ice or missing from Jopox"). */}
+            <FilterGroup label="Näytä vain" last>
+              <PillButton active={issueFilter.size === 0} onClick={() => setIssueFilter(new Set())}>Kaikki</PillButton>
+              {ISSUES.filter((i) => counts[i.key]).map((i) => (
+                <PillButton key={i.key} active={issueFilter.has(i.key)} onClick={() => toggleIssue(i.key)}>
+                  <Box component={LuAlertTriangle} sx={{ fontSize: 13, mr: 0.6, display: "block" }} />
+                  {i.label} {counts[i.key]}
+                </PillButton>
+              ))}
+            </FilterGroup>
+          </Box>
+        </Collapse>
 
         {loading && !rows.length ? (
           <Box sx={{ display: "grid", placeItems: "center", py: 6 }}><CircularProgress size={28} /></Box>

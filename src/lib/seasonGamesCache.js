@@ -202,6 +202,17 @@ function notify() {
   }
 }
 
+// Which season a date belongs to. The Finnish hockey season runs July→June and is named
+// by the SPRING year, so a game in August 2026 is season 2027. This cache deliberately
+// holds more than one season at a time (last season's results are still wanted), which is
+// why anything showing "the season" has to filter explicitly — otherwise it shows two.
+export const seasonOf = (date) => {
+  const d = date instanceof Date ? date : new Date(String(date || "").replace(" ", "T"));
+  if (isNaN(d.getTime())) return null;
+  return d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear();
+};
+export const currentSeason = () => seasonOf(new Date());
+
 // All season games (empty array until loaded). Synchronous — render from this.
 export function peekSeasonGames() {
   return games || [];
