@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Box, Card, Typography, Stack, CircularProgress, Tooltip, ClickAwayListener, useMediaQuery, Collapse, IconButton } from "@mui/material";
-import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin } from "react-icons/lu";
+import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin, LuInfo, LuTrophy, LuCalendarDays, LuSnowflake, LuStore } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { MuiHeader } from "../components/ui/MuiHeader";
@@ -446,6 +446,53 @@ const GameRow = ({ g, checks }) => {
   );
 };
 
+// What each column means and what the marks stand for. Built like Ahmaliiga's info boxes
+// (predict.js "Näin pisteitä kertyy"): an orange uppercase header row, then divided rows.
+const HOW_ROWS = [
+  { icon: LuTrophy, label: "Tulospalvelu", text: "Ottelutietojen virallinen lähde. Muut sarakkeet vastaavat vain, tietääkö kyseinen järjestelmä ottelusta saman." },
+  { icon: LuCalendarDays, label: "Jopox", text: "Onko ottelu joukkueen omassa kalenterissa kiekko-ahma.fi:ssä — oikeana päivänä ja oikeaan aikaan." },
+  { icon: LuSnowflake, label: "Jää", text: "Onko ottelulle varattu jää Tilamisusta. Luku on varatun vuoron pituus." },
+  { icon: LuStore, label: "Kioski", text: "Onko kioski auki ottelun aikaan. Odottaa vielä aukiolotietoja." },
+];
+
+const HowItWorks = () => (
+  <Box sx={{ borderRadius: "var(--radius-card)", overflow: "hidden", mb: 2,
+        bgcolor: "var(--color-surface)", border: "1px solid var(--color-surface-border)" }}>
+    <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
+      <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+        <Box component={LuInfo} sx={{ color: "primary.main", fontSize: 17, display: "block" }} />
+      </Box>
+      <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "primary.main" }}>
+        Näin sivu toimii
+      </Typography>
+    </Stack>
+    {HOW_ROWS.map((r) => (
+      <Stack key={r.label} direction="row" spacing={1.25}
+             sx={{ alignItems: "flex-start", px: 2, py: 1.1, borderBottom: "1px solid var(--color-surface-divider)" }}>
+        <Box sx={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0, mt: "2px" }}>
+          <Box component={r.icon} sx={{ color: "text.secondary", fontSize: 17, display: "block" }} />
+        </Box>
+        <Typography variant="body2" sx={{ flex: 1, minWidth: 0, color: "text.secondary" }}>
+          <Box component="span" sx={{ fontWeight: 800, color: "text.primary" }}>{r.label}.</Box> {r.text}
+        </Typography>
+      </Stack>
+    ))}
+    {/* The marks themselves — the same components the table uses, so the key cannot drift. */}
+    <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", px: 2, py: 1.1, flexWrap: "wrap", rowGap: 1 }}>
+      {Object.entries(STATUS_META).filter(([k]) => k !== NA).map(([k, m]) => (
+        <Stack key={k} direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
+          <StatusDot status={k} title="Merkki" />
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>{m.label}</Typography>
+        </Stack>
+      ))}
+      <Typography variant="body2" sx={{ color: "text.disabled", width: "100%" }}>
+        "Ei tietoa" ei ole virhe: Jopoxin kalenterista saa vain tulevat tapahtumat ja rajallisen
+        määrän kerrallaan, joten kauas tulevaisuuteen menevistä otteluista ei voi sanoa mitään.
+      </Typography>
+    </Stack>
+  </Box>
+);
+
 /* ── page ────────────────────────────────────────────────────────────────── */
 
 export default function GameCheck() {
@@ -577,11 +624,7 @@ export default function GameCheck() {
       />
 
       <Box sx={{ maxWidth: 640, mx: "auto", px: 1.5, boxSizing: "border-box" }}>
-        <Typography sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.5, mb: 1.5 }}>
-          Ottelut verrataan tulospalveluun, joka on ottelutietojen virallinen lähde.
-          Jokaisesta ottelusta tarkistetaan, onko se kirjattu joukkueen Jopox-kalenteriin,
-          onko sille varattu jää Tilamisusta ja onko kioski auki.
-        </Typography>
+        <HowItWorks />
 
         <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
           {[{ k: "upcoming", l: "Tulevat" }, { k: "all", l: "Koko kausi" }].map((o) => (
@@ -654,19 +697,7 @@ export default function GameCheck() {
           <Typography sx={{ fontSize: 12, color: "text.secondary", textAlign: "center", py: 1 }}>Haetaan lähteitä…</Typography>
         )}
 
-        <Stack spacing={0.5} sx={{ mt: 2, px: 0.5 }}>
-          {Object.entries(STATUS_META).map(([k, m]) => (
-            <Stack key={k} direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <StatusDot status={k} />
-              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{m.label}</Typography>
-            </Stack>
-          ))}
-          <Typography sx={{ fontSize: 11.5, color: "text.disabled", lineHeight: 1.5, mt: 1 }}>
-            Jopoxin kalenterista saadaan vain tulevat tapahtumat ja rajallinen määrä kerrallaan,
-            joten kauas tulevaisuuteen menevät ottelut jäävät "ei tietoa" -tilaan. Kioski-sarake
-            odottaa vielä aukiolodataa.
-          </Typography>
-        </Stack>
+
       </Box>
     </Box>
   );
