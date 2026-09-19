@@ -367,10 +367,29 @@ const StatusDot = ({ status, note, title, lines = [] }) => {
 const ROW_GRID = { display: "grid", gridTemplateColumns: "58px minmax(0, 1fr) auto", alignItems: "center", gap: "12px" };
 const shortTeam = (s) => String(s || "").replace(/kiekko-?ahma/i, "Ahma").trim();
 
+// U11 and U12 play the same opponent twice on the same day (back-to-back games, one fixture
+// id each). With no kickoff time — which is common in those series — the two rows look
+// identical and read as a bug, so each gets its place in the pair.
+function sequenceMap(games) {
+  const byMatch = {};
+  for (const g of games) {
+    const k = `${dayOf(g.date)}|${g.home}|${g.away}`;
+    (byMatch[k] ||= []).push(g);
+  }
+  const out = new Map();
+  for (const list of Object.values(byMatch)) {
+    if (list.length < 2) continue;
+    // Time first when it exists, id as the stable tie-breaker when it does not.
+    const ordered = [...list].sort((a, b) => (minsOf(a.date) ?? 9999) - (minsOf(b.date) ?? 9999) || String(a.id).localeCompare(String(b.id)));
+    ordered.forEach((g, i) => out.set(gameKey(g), `${i + 1}/${ordered.length}`));
+  }
+  return out;
+}
+
 // One game. The closed row is the table: time, series, teams, four verdicts. Everything a
 // source has to SAY about the game lives behind its dot (hover) or in the expanded block,
 // so the row itself never turns into a pile of notes in four colours.
-const GameRow = ({ g, checks }) => {
+const GameRow = ({ g, checks, seq }) => {
   const [open, setOpen] = useState(false);
   const time = hhmm(g.date);
 
@@ -396,6 +415,9 @@ const GameRow = ({ g, checks }) => {
               <KeyedLogo src={logo || ""} size={18} style={{ flexShrink: 0 }} />
               <Typography sx={{ fontWeight: 700, lineHeight: 1.3, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {shortTeam(t)}
+                {i === 1 && seq && (
+                  <Box component="span" sx={{ fontWeight: 700, color: "text.disabled" }}> · peli {seq}</Box>
+                )}
               </Typography>
             </Stack>
           ))}
@@ -581,6 +603,8 @@ export default function GameCheck() {
   // Clashes are a property of the SET, not of one game, so they are resolved once per row
   // list rather than inside the per-row check.
   const clashes = useMemo(() => clashMap(baseRows), [baseRows]);
+  // Which games are one half of a same-day double-header (U11/U12).
+  const sequences = useMemo(() => sequenceMap(baseRows), [baseRows]);
 
   const checksFor = useCallback((g) => ({
     tp: checkTp(g, clashes),
@@ -725,7 +749,7 @@ export default function GameCheck() {
                       borderTop: "1px solid var(--color-surface-divider)" }}>
                   {moment(day).format("dd D.M.YYYY")}
                 </Typography>
-                {gs.map((g) => <GameRow key={gameKey(g)} g={g} checks={checksFor(g)} />)}
+                {gs.map((g) => <GameRow key={gameKey(g)} g={g} checks={checksFor(g)} seq={sequences.get(gameKey(g))} />)}
               </Box>
             ))}
           </Card>
