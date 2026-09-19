@@ -282,6 +282,49 @@ function orphanShiftRows(shifts, homeGames) {
   return out;
 }
 
+// Jopox calendar games that no tulospalvelu fixture accounts for — the mirror of the orphan
+// shifts. Either the fixture is missing from tulospalvelu (U9/U10 have no published series
+// this season, yet they play) or the calendar entry is wrong. Both are worth a row.
+function orphanJopoxRows(teamEvents, seasonGames) {
+  const rows = [];
+  // Index the season's games by the Jopox team they belong to, so each calendar is only
+  // compared against its OWN fixtures — U12's games hang off the U13 team, see SERIES_TO_JOPOX.
+  const byTeamDay = {};
+  for (const g of seasonGames) {
+    const t = jopoxTeamOf(g);
+    if (!t) continue;
+    (byTeamDay[`${t.subsiteId}|${dayOf(g.date)}`] ||= []).push(g);
+  }
+  for (const t of JOPOX_TEAMS) {
+    const ev = teamEvents[t.subsiteId];
+    if (!ev) continue;
+    for (const e of ev.list) {
+      if (e.type !== "game") continue;
+      const day = dayOf(e.date);
+      const em = minsOf(e.uiTime || e.date);
+      const sameTeamDay = byTeamDay[`${t.subsiteId}|${day}`] || [];
+      const accounted = sameTeamDay.some((g) => {
+        const gm = minsOf(g.date);
+        const cw = clubWord(/kiekko-?ahma/i.test(g.home || "") ? g.away : g.home);
+        return (cw && jopoxTeamsText(e).includes(cw)) || (gm != null && em != null && Math.abs(gm - em) <= 45);
+      });
+      if (accounted) continue;
+      rows.push({
+        kind: "jopox",
+        event: e,
+        jopoxTeam: t,
+        id: `jopox|${t.subsiteId}|${e.eventId ?? `${day}|${e.title}`}`,
+        date: em != null ? `${day} ${hhmm(e.uiTime || e.date)}` : day,
+        rink: e.place || "",
+        level: t.name,
+        home: null,
+        away: null,
+      });
+    }
+  }
+  return rows;
+}
+
 /* ── issues ──────────────────────────────────────────────────────────────── */
 
 // The things worth fixing, in the order someone would work through them. `test` reads the
@@ -296,6 +339,7 @@ const ISSUES = [
   { key: "kioskMiss", label: "Ei kioskivuoroa", test: (c) => c.kiosk.status === MISS },
   { key: "kioskEmpty", label: "Kioskivuoro ilman tekijöitä", test: (c) => c.kiosk.status === WARN },
   { key: "shiftNoGame", label: "Vuoro ilman ottelua", test: (c, g) => g.kind === "shift" },
+  { key: "jopoxOnly", label: "Vain Jopoxissa", test: (c, g) => g.kind === "jopox" },
 ];
 
 /* ── evidence ────────────────────────────────────────────────────────────── */
@@ -495,7 +539,7 @@ const GameRow = ({ g, checks, seq }) => {
             {time || "—:—"}
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {g.kind === "shift" ? "Kioski" : seriesLabel(g.level)}
+            {g.kind === "shift" ? "Kioski" : g.kind === "jopox" ? g.level : seriesLabel(g.level)}
           </Typography>
         </Box>
         {/* A kiosk shift with no game behind it has no teams to show: it is a row precisely
@@ -507,6 +551,15 @@ const GameRow = ({ g, checks, seq }) => {
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {g.shift.people.length ? g.shift.people.join(", ") : "Ei tekijöitä"}
+            </Typography>
+          </Box>
+        ) : g.kind === "jopox" ? (
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, lineHeight: 1.3, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {g.event.title || "Ottelu"}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Vain Jopox-kalenterissa{g.event.place ? ` · ${g.event.place}` : ""}
             </Typography>
           </Box>
         ) : (
@@ -669,11 +722,12 @@ export default function GameCheck() {
     // Orphan shifts are judged against EVERY home game of the season, never against the
     // filtered view — a filter must not invent orphans.
     const orphans = orphanShiftRows(shifts, seasonGames.filter(isHomeGame));
-    return [...seasonGames, ...orphans]
+    const jopoxOnly = orphanJopoxRows(teamEvents, seasonGames);
+    return [...seasonGames, ...orphans, ...jopoxOnly]
       .filter((g) => (scope === "all" ? true : dayOf(g.date) >= today))
       .filter((g) => (venue === "home" ? isHomeGame(g) : true))
       .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  }, [games, shifts, scope, venue]);
+  }, [games, shifts, teamEvents, scope, venue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -725,6 +779,16 @@ export default function GameCheck() {
   const sequences = useMemo(() => sequenceMap(baseRows), [baseRows]);
 
   const checksFor = useCallback((g) => {
+    if (g.kind === "jopox") {
+      // Jopox has the game, tulospalvelu does not. Ice and kiosk are still fair questions
+      // when it is played at Wareena.
+      return {
+        tp: { status: MISS, note: "vain Jopoxissa" },
+        jopox: { status: OK, events: [g.event], team: g.jopoxTeam },
+        ice: checkIce(g, reservations, range),
+        kiosk: checkKiosk(g, shifts),
+      };
+    }
     if (g.kind === "shift") {
       // There is no fixture behind this row — that IS the finding. The ice is still a fair
       // question (is the hall even booked?), and the shift answers for itself.
