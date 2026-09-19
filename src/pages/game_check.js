@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Box, Card, Typography, Stack, CircularProgress, Tooltip, ClickAwayListener, useMediaQuery, Collapse, IconButton } from "@mui/material";
-import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin, LuInfo, LuTrophy, LuCalendarDays, LuSnowflake, LuStore, LuListFilter } from "react-icons/lu";
+import { LuCheck, LuX, LuMinus, LuAlertTriangle, LuRefreshCw, LuClock, LuMapPin, LuInfo, LuTrophy, LuCalendarDays, LuSnowflake, LuStore, LuListFilter, LuUsers, LuUser } from "react-icons/lu";
 import moment from "moment";
 import "moment/locale/fi";
 import { MuiHeader } from "../components/ui/MuiHeader";
@@ -276,8 +276,12 @@ const slotLine = (r) => ({
 });
 const shiftLine = (s) => ({
   time: `${fiDate(s.date)} klo ${s.start || "—"}${s.end ? `–${s.end}` : ""}`,
-  place: s.team ? `Vuorossa: ${s.team}` : "",
+  // "Vuorossa" reads as the person on duty, so the team gets its own word — and a team
+  // icon, because a map pin promised a place and delivered an age group.
+  place: s.team ? `Vastuujoukkue: ${s.team}` : "",
+  placeIcon: LuUsers,
   text: s.people.length ? s.people.join(", ") : "Ei tekijöitä",
+  textIcon: LuUser,
 });
 const eventLine = (e) => ({
   time: `${fiDate(e.date)} klo ${hhmm(e.uiTime || e.date) || "—"}`,
@@ -311,8 +315,10 @@ const EvidenceLines = ({ lines, size = 15 }) => (
     {lines.map((l, i) => (
       <Stack key={i} spacing={0.5}>
         {l.time && <Detail icon={LuClock} size={size}>{l.time}</Detail>}
-        {l.place && <Detail icon={LuMapPin} size={size}>{l.place}</Detail>}
-        {l.text && <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.45, pl: `${size + 8}px` }}>{l.text}</Typography>}
+        {l.place && <Detail icon={l.placeIcon || LuMapPin} size={size}>{l.place}</Detail>}
+        {l.text && (l.textIcon
+          ? <Detail icon={l.textIcon} size={size}>{l.text}</Detail>
+          : <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.45, pl: `${size + 8}px` }}>{l.text}</Typography>)}
       </Stack>
     ))}
   </Stack>
@@ -499,8 +505,10 @@ const GameRow = ({ g, checks, seq }) => {
                   {lines.length ? lines.map((l, i) => (
                     <Box key={i} sx={{ mb: i < lines.length - 1 ? 0.75 : 0 }}>
                       <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "text.primary" }}>{l.time}</Typography>
-                      {l.place && <Detail icon={LuMapPin} size={14}>{l.place}</Detail>}
-                      {l.text && <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.4 }}>{l.text}</Typography>}
+                      {l.place && <Detail icon={l.placeIcon || LuMapPin} size={14}>{l.place}</Detail>}
+                      {l.text && (l.textIcon
+                        ? <Detail icon={l.textIcon} size={14}>{l.text}</Detail>
+                        : <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.4 }}>{l.text}</Typography>)}
                     </Box>
                   )) : (
                     <Typography variant="body2" sx={{ color: "text.disabled" }}>{check.note || "Ei rivejä."}</Typography>
