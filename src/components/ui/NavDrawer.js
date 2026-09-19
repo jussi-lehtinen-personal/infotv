@@ -155,14 +155,16 @@ export const NavDrawer = ({ open, onClose }) => {
               {renderRow({ href: VALMENNUS_URL, label: "Valmennus", Icon: LuDumbbell, external: true })}
             </div>
           )}
+          {/* Reports for whoever runs the week: the coaching manager as well as admins.
+              Both answer "is the club's ice sorted", so they share one gate. */}
           {canCoach && (
             <div className="ui-drawer-section">
               {renderRow({ to: "/coaching", label: "Jääilmoittautumiset", Icon: LuClipboardList })}
+              {renderRow({ to: "/gamecheck", label: "Ottelujen tarkistus", Icon: LuListChecks })}
             </div>
           )}
           {isAdmin && (
             <div className="ui-drawer-section">
-              {renderRow({ to: "/gamecheck", label: "Ottelujen tarkistus", Icon: LuListChecks })}
               {renderRow({ to: "/admin", label: "Admin", Icon: LuShieldCheck })}
             </div>
           )}
