@@ -36,6 +36,8 @@ export default function LiigaAdmin() {
   const [msg, setMsg] = useState(null);
   const [seedOpen, setSeedOpen] = useState(false);
   const [seedText, setSeedText] = useState("");
+  // null = dialog closed; "" or an id = open. Cards are removed by id ("T:U9", "P:Nimi Nimi").
+  const [deleteId, setDeleteId] = useState(null);
 
   const load = useCallback(() => {
     ahmaliigaAdmin("status").then(setStatus).catch(() => setStatus(null));
@@ -106,6 +108,19 @@ export default function LiigaAdmin() {
     } catch (e) { setMsg({ type: "error", text: e.message }); } finally { setBusy(""); }
   };
 
+  // Remove a single card. The API refuses when the card has owners, so a card someone has
+  // bought cannot vanish from under them.
+  const removeCard = async () => {
+    const id = String(deleteId || "").trim();
+    if (!id) return;
+    setBusy("deleteCard"); setMsg(null);
+    try {
+      const r = await ahmaliigaAdmin("deleteCard", { cardId: id });
+      setMsg({ type: "success", text: `Kortti poistettu: ${r.name || id} ✓` });
+      setDeleteId(null); load();
+    } catch (e) { setMsg({ type: "error", text: e.message }); } finally { setBusy(""); }
+  };
+
   if (status === undefined) return <Loading screen />;
   const s = status && status.active ? status : null;
 
@@ -166,6 +181,8 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuTrophy} label="Luo kauden palkinto (voittaja)"
                   busy={busy === "genSeason"} disabled={!s}
                   onClick={() => run("generateVouchers", "Kauden palkinto luotu", null, { scope: "season", top: 1 }, "genSeason")} />
+        <AdminBtn icon={LuTrash2} label="Poista kortti…"
+                  busy={busy === "deleteCard"} disabled={!s} onClick={() => setDeleteId("")} />
         <AdminBtn icon={LuImage} label="Hae pelaajakuvat (Jopox)"
                   busy={busy === "enrichPhotos"} disabled={!s} onClick={() => run("enrichPhotos", "Kuvat haettu")} />
         <AdminBtn icon={LuRefreshCw} label="Päivitä trendit + kausipisteet"
@@ -218,6 +235,24 @@ export default function LiigaAdmin() {
           Aja ensin <b>Synkkaa pelit</b> (hakee otteluohjelman workerista). Tulokset lasketaan tulospalvelusta automaattisesti kun jakso ratkeaa — ei esiseedattua dataa.
         </Typography>
       )}
+
+      <Dialog open={deleteId !== null} onClose={() => busy !== "deleteCard" && setDeleteId(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Poista kortti</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
+            Kortin tunnus, esim. <b>T:U9</b> (joukkue) tai <b>P:Etunimi Sukunimi</b> (pelaaja).
+            Kortti jolla on omistajia ei poistu.
+          </Typography>
+          <TextField autoFocus fullWidth size="small" value={deleteId || ""}
+            onChange={(e) => setDeleteId(e.target.value)} placeholder="T:U9" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteId(null)} disabled={busy === "deleteCard"}>Peruuta</Button>
+          <Button onClick={removeCard} disabled={busy === "deleteCard" || !String(deleteId || "").trim()} color="error" variant="contained">
+            Poista
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={seedOpen} onClose={() => setSeedOpen(false)} fullWidth maxWidth="sm"
               slotProps={{ paper: { sx: { bgcolor: "var(--color-bg)", backgroundImage: "none", border: "1px solid var(--color-surface-border)" } } }}>

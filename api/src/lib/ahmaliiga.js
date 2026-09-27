@@ -1434,6 +1434,13 @@ function effectiveSquad(game, lineupsMap, fallbackIds, fallbackCaptain) {
 // precomputed results-<season>.json. See scoring.js + roundResults.js. =====
 
 const FRIENDLY_RE = /harjoitus/i;
+// U9/U10 Leijonaliiga is a no-result format: the league deliberately records no scores.
+// Verified over the whole 2025-26 season — 84 games, not one marked finished and not one
+// score — while every series from U11 up recorded 100 %. Such a game can never produce a
+// point, so it has no business in a fantasy league: it would only spawn team cards that sit
+// at their seed price forever and trap whoever buys one. Excluded from Ahmaliiga ONLY —
+// the fixtures stay in the season cache and on the Ottelut pages.
+const NO_RESULT_RE = /leijonaliiga/i;
 
 // Schedule sync: pull the season's whole game list from the Worker (1 cached call)
 // and UPSERT into AhmaliigaGames with the team ids (needed to fetch box scores) and
@@ -1461,6 +1468,7 @@ async function syncSeasonGames(seasonId) {
   const games = all.filter((g) => {
     // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or the
     // U9-U10 Leijonaliiga no-score format. `== 1` DROPPED every OT/shootout game before.
+    if (NO_RESULT_RE.test(g.league || '') || NO_RESULT_RE.test(g.level || '')) return false;
     const isFriendly = FRIENDLY_RE.test(g.league || '') || FRIENDLY_RE.test(g.level || '');
     // keepAll = keep everything; else beta = friendly-ONLY, real season = series-only (drop friendlies).
     if (!keepAll && (keepFriendlies ? !isFriendly : isFriendly)) return false;
