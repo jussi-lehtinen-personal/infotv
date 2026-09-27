@@ -118,6 +118,13 @@ export const shortDate = (d) => {
   return m ? `${Number(m[3])}.${Number(m[2])}.${m[4] ? " " + m[4] : ""}` : "";
 };
 
+// ISO timestamp → "3.10. klo 23.59" — when a jakso held for late results closes for good.
+export const deadlineWhen = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return `${d.getDate()}.${d.getMonth() + 1}. klo ${String(d.getHours()).padStart(2, "0")}.${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
 // Hockey result from our goals vs opponent goals → { label, color }.
 export const gameResult = (a, o) => {
   if (a > o) return { label: o === 0 ? "Voitto (nollapeli)" : (a - o >= 3 ? "Voitto (iso)" : "Voitto"), color: "var(--color-live)" };

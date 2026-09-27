@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getCards, getRounds, getRoundGames, liveRoundCardPoints, lockGamesByTeam, isCardTradeLocked } = require('../lib/ahmaliiga');
+const { getActiveSeason, getCards, getRounds, getRoundGames, liveRoundCardPoints, lockGamesByTeam, isCardTradeLocked, liveRoundRow } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/cards?filter=team|player|goalie — the active season's card
 // pool (Korttimarkkina). Public. filter omitted/all = every card.
@@ -21,7 +21,7 @@ app.http('ahmaliigaCards', {
       // game is played. While it's the current round, the "Jakso" column shows its LIVE
       // points (0 until games are played, then accumulating) instead of the last settled
       // round's. Only falls back to the last settled round once the season is over.
-      const cur = rounds.find((j) => j.status !== 'settled');
+      const cur = liveRoundRow(rounds); // skips a round held for late results
       const roundLive = !!cur;
       // Current round's live points per card, computed ON DEMAND (tick-independent,
       // memoised 30 s). Fall back to the tick-persisted liveRoundPts if it fails.

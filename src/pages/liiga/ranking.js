@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase, Collapse } from "@mui/material";
-import { LuChevronDown, LuArrowRight } from "react-icons/lu";
-import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural } from "./_shared";
+import { LuChevronDown, LuArrowRight, LuHourglass } from "react-icons/lu";
+import { Screen, PageHead, RankBadge, RowValue, PillButton, Loading, CardAvatar, initialsNatural, deadlineWhen } from "./_shared";
 import { getAhmaliigaRanking, getAhmaliigaRounds } from "../../lib/ahmaliigaApi";
 
 // Ranking — leaderboard (last settled round / whole season) + an all-rounds tab
@@ -80,9 +80,9 @@ const RoundCard = ({ j, defaultOpen }) => {
           <Typography sx={{ fontSize: 12, color: "text.disabled" }}>{fmtShort(j.startDate)}–{fmtShort(j.endDate)} · {games.length} ottelua</Typography>
         </Box>
         <Box sx={{ px: 1, py: 0.35, borderRadius: "999px", fontSize: 11, fontWeight: 800, flexShrink: 0,
-              bgcolor: j.settled ? "rgba(var(--color-primary-rgb),0.15)" : "rgba(255,255,255,0.06)",
-              color: j.settled ? "primary.main" : "text.disabled" }}>
-          {j.settled ? "Pelattu" : "Tulossa"}
+              bgcolor: j.settled || j.pending ? "rgba(var(--color-primary-rgb),0.15)" : "rgba(255,255,255,0.06)",
+              color: j.settled || j.pending ? "primary.main" : "text.disabled" }}>
+          {j.settled ? "Pelattu" : j.pending ? "Tuloksia kesken" : "Tulossa"}
         </Box>
         {j.settled && j.me ? <RowValue color="primary.main">{j.me.total}</RowValue> : null}
         <Box component={LuChevronDown} sx={{ fontSize: 20, color: "text.disabled", display: "block", flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }} />
@@ -144,6 +144,9 @@ export default function LiigaRanking() {
   const rows = resp && resp.rows;
   const isLive = tab === "live" && !!(resp && resp.live);
   const liveEmpty = isLive && resp.playedGames === 0;
+  // "Viime jakso" while that jakso is HELD for late results: the order is provisional, the
+  // leader is leading — not the winner — and the closing date is shown so nobody has to ask.
+  const held = resp && resp.pending ? resp.pending : null;
 
   return (
     <Screen>
@@ -188,6 +191,26 @@ export default function LiigaRanking() {
             <Typography sx={{ mb: 1.5, fontSize: 12.5, fontWeight: 700, color: "primary.main", textAlign: "center" }}>
               Alustava järjestys — päivittyy otteluiden myötä
             </Typography>
+          )}
+          {held && (
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, mb: 2, p: 1.5,
+                  borderRadius: "var(--radius-item)",
+                  background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.18), rgba(var(--color-primary-rgb),0.04))",
+                  border: "1px solid rgba(var(--color-primary-rgb),0.45)" }}>
+              <Box component={LuHourglass} sx={{ fontSize: 18, color: "primary.main", display: "block", flexShrink: 0, mt: "1px" }} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 800, color: "text.primary", lineHeight: 1.35 }}>
+                  Jakso on yhä auki — kärjessä ei vielä voittaja
+                </Typography>
+                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.4, lineHeight: 1.45 }}>
+                  {held.missing > 0
+                    ? `${held.missing} ottelun tulos puuttuu tulospalvelusta. `
+                    : "Kaikkien otteluiden tuloksia ei ole vielä kirjattu. "}
+                  Järjestys on alustava eikä palkintoa ole jaettu.
+                  {held.deadline ? ` Jakso ratkeaa viimeistään ${deadlineWhen(held.deadline)}.` : ""}
+                </Typography>
+              </Box>
+            </Box>
           )}
           {rows.map((r) => (
             <Box key={r.userId} sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5, py: 1, px: 1.25,

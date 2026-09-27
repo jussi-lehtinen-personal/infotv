@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Stack, ButtonBase, Button, Skeleton } from "@mui/material";
-import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair, LuRocket } from "react-icons/lu";
+import { LuCalendarDays, LuTrophy, LuClipboardList, LuChevronRight, LuCrosshair, LuRocket, LuHourglass } from "react-icons/lu";
 import { SiWhatsapp } from "react-icons/si";
 import PushPrompt from "./PushPrompt";
-import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle } from "./_shared";
+import { Screen, Eyebrow, ListCard, ListRow, RankBadge, RowValue, IconCircle, AccentPanel, deadlineWhen } from "./_shared";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
 import { splitTeamName, logoProxy } from "../../Util";
 import { getAhmaliigaState, getAhmaliigaRanking, getAhmaliigaSummary, getMySquad, getAhmaliigaRoundProgress, getAhmaliigaPrediction, getAhmaliigaVouchers, clearAhmaliigaCache, peekCached } from "../../lib/ahmaliigaApi";
@@ -223,6 +223,9 @@ export default function LiigaHome() {
   // round countdown / prediction / events — there's no live jakso to count down or predict.
   const round = state && state.active && !seasonOver && !notStarted ? state.currentRound : null;
   const prev = state && state.active ? state.prevRound : null;
+  // A finished round still waiting for late results: not scored, no prize yet. Managers see
+  // this instead of an "Edellinen jakso" card that would otherwise just be missing.
+  const pending = state && state.active ? state.pendingRound : null;
   const unclaimed = rewards ? (rewards.vouchers || []).filter((v) => v.status === "issued").length : 0;
   // realClock → real wall-clock (simDate is day-granular, for replays only): keeps the
   // countdown live-ticking and the timeline's "Jakso päättyy" from flipping a day early.
@@ -421,6 +424,30 @@ export default function LiigaHome() {
           </Box>
         );
       })()}
+
+      {/* A held jakso — some results from it are still missing, so nothing is final and no
+          prize has been awarded. Links to that jakso's provisional ranking. */}
+      {pending && pending.no != null && (
+        <AccentPanel onClick={() => nav(`/ahmaliiga/ranking?tab=round`)} sx={{ mb: 2.5, alignItems: "flex-start" }}>
+          <IconCircle icon={LuHourglass} size={44} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+                  fontSize: 22, lineHeight: 1, color: "text.primary" }}>Jakso {pending.no + 1} yhä auki</Typography>
+            <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.6, lineHeight: 1.45 }}>
+              {pending.missing > 0
+                ? `${pending.missing} ottelun tulos puuttuu vielä tulospalvelusta. `
+                : "Kaikkien otteluiden tuloksia ei ole vielä kirjattu. "}
+              Pisteet eivät ole lopullisia eikä palkintoa ole jaettu.
+            </Typography>
+            {pending.deadline && (
+              <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "primary.main", mt: 0.6 }}>
+                Ratkeaa viimeistään {deadlineWhen(pending.deadline)}
+              </Typography>
+            )}
+          </Box>
+          <Box component={LuChevronRight} sx={{ fontSize: 20, color: "text.disabled", flexShrink: 0, display: "block", mt: 1.5 }} />
+        </AccentPanel>
+      )}
 
       {/* Previous round — the whole card is one button to its summary.
           Guard prev.no (avoid "Jakso NaN" if a stale bundle sees a differently

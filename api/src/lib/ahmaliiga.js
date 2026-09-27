@@ -694,9 +694,82 @@ async function recomputeSeasonScores(seasonId, uptoRound) {
 // Settle one round: freeze each manager's lineup (once), score from the historical
 // results, rank, recompute the season table, then reband card prices for the next
 // round and advance the pointer. Idempotent (re-running recomputes cleanly).
-async function settleRound(seasonId, round) {
+// --- Late results: a round waits before it closes -------------------------------------
+// U11/U12 scorekeepers often file a result a day or two after the game. A round that closed
+// on schedule would hand the prize to whoever led the games that WERE filed — and that
+// cannot be undone: a voucher is keyed by (user, prize), so re-settling issues a SECOND
+// voucher to the real winner instead of moving the first one. So a round with a played-but
+// -unscored game is HELD: the next round starts on time and points stay visible, but the
+// round is not scored, priced or paid out until the last result lands — or the wait runs
+// out, whichever comes first. A week (user 2026-09-27) is deliberately generous; results
+// normally land within hours, and the hold ends the moment they do, not at the deadline.
+const SETTLE_GRACE_MS = 7 * 24 * 60 * 60_000;
+
+// When the wait for round `jrow` runs out: the end of its last FINNISH day + the grace
+// period (helsinkiMs, not a hardcoded +03:00 — the offset is +02:00 in winter).
+// 23:59 (not midnight) so it reads as an evening, not the small hours of the next day.
+const settleDeadlineMs = (jrow) =>
+  helsinkiMs(`${jrow.endDate} 23:59`) + SETTLE_GRACE_MS;
+
+// Games of a round that have started but carry no result yet. Sim/replay seasons have every
+// result stored up front, so this is empty there — a backtest never waits.
+const awaitingResults = (games, simDate) =>
+  (games || []).filter((g) => kickedOff(g, simDate) && !hasResult(g));
+
+// Should this round be held instead of settled? Returns null when it is ready to close, or
+// the reason it is not — what is missing and when the wait ends (both shown to managers, so
+// nobody has to guess when their prize is decided).
+async function settleHold(seasonId, seasonRow, round, rounds) {
+  const jrow = (rounds || await getRounds(seasonId)).find((j) => Number(j.rowKey) === round);
+  if (!jrow || !jrow.endDate) return null;
+  // Already closed → never re-open it. The admin's "päivitä trendit" re-settles every past
+  // round; that must stay idempotent, not send an old jakso back into waiting.
+  if (jrow.status === 'settled') return null;
+  if (Date.now() >= settleDeadlineMs(jrow)) return null; // waited long enough — late results are then final
+  const simDate = seasonRow && seasonRow.simMode ? seasonRow.simDate : null;
+  const missing = awaitingResults(await getRoundGames(seasonId, round), simDate);
+  if (!missing.length) return null;
+  return {
+    pending: true, round, missing: missing.length,
+    deadline: new Date(settleDeadlineMs(jrow)).toISOString(),
+    games: missing.map((g) => ({ date: g.date, home: g.home, away: g.away, level: g.level })),
+  };
+}
+
+// Hold the round: flag it (so every view can say "not final yet, decided by <date>") and
+// still open the NEXT round — the calendar moves on even when the paperwork doesn't, so
+// transfers and lineups are never blocked by someone else's missing result.
+async function holdRound(seasonId, seasonRow, round, hold) {
+  const rounds = await getRounds(seasonId);
+  const jrow = rounds.find((j) => Number(j.rowKey) === round);
+  if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'pending',
+    settleDeadline: hold.deadline, settleMissing: hold.missing });
+  const nextNo = Math.min(round + 1, rounds.length - 1);
+  // Forward only: never rewind a pointer an admin moved further ahead.
+  if (Number(seasonRow.currentRound || 0) < nextNo) {
+    await upsertEntity(T.season, { ...seasonRow, currentRound: nextNo });
+  }
+  return hold;
+}
+
+// The round the app treats as LIVE: the first that is neither settled nor held. Without the
+// `pending` skip, a held round would keep being rebanded and shown as the current one while
+// its successor was already being played.
+const liveRoundRow = (rounds) => rounds.find((j) => j.status !== 'settled' && j.status !== 'pending');
+
+// The held round (at most one), for the dashboard / ranking notice.
+const pendingRoundRow = (rounds) => rounds.find((j) => j.status === 'pending');
+
+async function settleRound(seasonId, round, opts = {}) {
   const seasonRow = await getEntity(T.season, 'season', seasonId);
   if (!seasonRow) throw badRequest('Kausi puuttuu.');
+  // Hold the WHOLE settle, not just the prize: settleRound also steps card prices from
+  // their current value, so running it twice would move them twice and there is no clean
+  // undo. `force` = an admin deciding to close it now.
+  if (!opts.force) {
+    const hold = await settleHold(seasonId, seasonRow, round);
+    if (hold) return holdRound(seasonId, seasonRow, round, hold);
+  }
   // LIVE pool: reconcile the roster FIRST so a player added just before their game has a
   // card in time for name-match scoring (no orphan points). No-op for non-live seasons.
   try { await reconcileCards(seasonId); } catch (e) { /* best-effort */ }
@@ -874,7 +947,8 @@ async function settleRound(seasonId, round) {
   }
 
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
-  if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'settled' });
+  // Clear the hold marks with the same write — a settled round has no deadline left.
+  if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'settled', settleDeadline: '', settleMissing: 0 });
   const nextRound = Math.min(round + 1, rounds.length - 1);
   // Advance the sim clock to the next round's start so a MANUAL "Ratkaise jakso" moves
   // the game forward (pointer + clock stay in sync) — settling a round used to leave the
@@ -1099,6 +1173,9 @@ async function getRoundList(seasonId, userId) {
     out.push({
       no, startDate: j.startDate || '', endDate: j.endDate || '',
       status: j.status || 'open', settled, winner, me, games,
+      // Played but waiting for late results: the list must not label it "Tulossa".
+      pending: j.status === 'pending',
+      settleDeadline: j.settleDeadline || null,
     });
   }
   return out.sort((a, b) => a.no - b.no);
@@ -2012,7 +2089,7 @@ async function getCardDetail(seasonId, cardId) {
   // The CURRENT round = first non-settled round (the "current jakso" the app shows,
   // even before its first game) → append its live points as a current-round bar on the
   // card's per-round points, alongside the settled history. 0 until games are played.
-  const curRound = rounds.find((j) => j.status !== 'settled');
+  const curRound = liveRoundRow(rounds);
   // Whether the live round has actually moved any price yet (vs sitting at the settled
   // anchor) — decides if the trend arrow shows this jakso's live move or the last settled
   // jakso's direction (see the card return). Right after a settle nothing has moved → show
@@ -2450,6 +2527,15 @@ const voucherSort = (a, b) => (a.status === b.status ? a.rank - b.rank : a.statu
 async function generateVouchers(seasonId, { scope, round, prizes, top = 1 } = {}) {
   const sc = scope === 'season' ? 'season' : 'round';
   const rnd = sc === 'season' ? -1 : Number(round);
+  // Never award a round that is still waiting for late results: issuing a voucher cannot be
+  // taken back (it is keyed by user+prize, so a later re-settle would issue a SECOND one to
+  // the real winner) — so the standings must be final first.
+  if (sc === 'round') {
+    const jrow = (await getRounds(seasonId)).find((j) => Number(j.rowKey) === rnd);
+    if (jrow && jrow.status === 'pending') {
+      throw badRequest(`Jakso ${rnd + 1} odottaa puuttuvia tuloksia — palkintoa ei voi vielä jakaa.`);
+    }
+  }
   const rows = await getLeaderboard(seasonId, sc, rnd);
   const winners = rows.filter((r) => r.rank >= 1 && r.rank <= top).sort((a, b) => a.rank - b.rank);
   const managers = await listManagers();
@@ -2758,10 +2844,15 @@ async function stepSim(seasonId, days = 1) {
   // (endDate <= sim) stays correct and is left unchanged (frozen backtest invariant).
   const ended = season.realClock ? (j) => j.endDate && j.endDate < sim : (j) => j.endDate && j.endDate <= sim;
   const settled = [];
+  const held = [];
   for (const j of rounds) {
     if (j.status === 'settled') continue;
-    if (ended(j)) { await settleRound(seasonId, Number(j.rowKey)); settled.push(Number(j.rowKey)); }
-    else break;
+    if (!ended(j)) break;
+    // A round waiting for late results holds the queue: rounds settle in order (card prices
+    // step from the previous round's), so the next one must not be scored ahead of it.
+    const r = await settleRound(seasonId, Number(j.rowKey));
+    if (r && r.pending) { held.push(r); break; }
+    settled.push(Number(j.rowKey));
   }
 
   // settleRound rewrote currentRound; re-read, store the new date, and stop auto
@@ -2773,12 +2864,12 @@ async function stepSim(seasonId, days = 1) {
   // U5: live reband the IN-PROGRESS round (started, not settled) so card prices move
   // mid-round with the games played so far. Best-effort — never breaks the tick.
   try {
-    const cur = roundsAfter.find((j) => j.status !== 'settled');
+    const cur = liveRoundRow(roundsAfter);
     if (cur && (!cur.startDate || cur.startDate <= sim)) await liveReband(seasonId, Number(cur.rowKey));
   } catch (e) { /* best-effort */ }
   // B8: emit round/lock/season reminders (best-effort — never breaks the tick).
   try { await emitRoundReminders(seasonId); } catch (e) { /* best-effort */ }
-  return { simDate: sim, settled, done: allSettled, mode: season.realClock ? 'real' : 'sim' };
+  return { simDate: sim, settled, held, done: allSettled, mode: season.realClock ? 'real' : 'sim' };
 }
 
 // F2.5: opt a season into the REAL clock (tick syncs to today's date instead of
@@ -2816,6 +2907,7 @@ async function getSimStatus(seasonId) {
   const rounds = await getRounds(seasonId);
   const managers = await listManagers();
   const settled = rounds.filter((j) => j.status === 'settled').length;
+  const pendRow = pendingRoundRow(rounds);
   const resultsLoaded = (await listByPartition(T.results, `${seasonId}|0`)).length > 0;
   const gamesLoaded = (await listByPartition(T.games, `${seasonId}|0`)).length > 0;
   // Managers who have actually built a squad (≥1 card) — the real participant count vs.
@@ -2836,6 +2928,10 @@ async function getSimStatus(seasonId) {
     simDate: (season && season.simDate) || '',
     autoStep: !!(season && season.autoStep),
     realClock: !!(season && season.realClock),
+    // A jakso held for late results (settleHold) — the panel shows it so the operator knows
+    // why the round count stopped moving.
+    pending: pendRow ? { round: Number(pendRow.rowKey), missing: Number(pendRow.settleMissing) || 0,
+      deadline: pendRow.settleDeadline || null } : null,
     // live-beta fields
     startAt: (season && season.startAt) || '',
     livePool: !!(season && season.livePool),
@@ -2901,6 +2997,7 @@ module.exports = {
   getManager, joinManager, getSquad, saveSquad,
   loadResults, getResults, getResultsFull, settleRound, resetPrices, resetTransfers, seedBots, resetSim, recomputeBanks, stepSim, setAutoStep, setStart, setRealClock, getSimStatus, enrichPhotos,
   gameStarted, hasResult, cardTeamKeyOf, lockGamesByTeam, isCardTradeLocked,
+  liveRoundRow, pendingRoundRow, settleHold,
   getLeaderboard, getLiveLeaderboard, liveReband, liveRoundCardPoints, getStanding, getRoundScore, listManagers, refundPenalty, pruneRounds,
   loadGames, getRoundGames, getPrediction, savePrediction, predictionBonus, getCardDetail, getRoundList,
   captureRosters, getTeamRoster, emitRoundReminders,

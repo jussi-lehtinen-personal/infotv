@@ -4,7 +4,7 @@ import { Box, Typography, Stack, ButtonBase } from "@mui/material";
 import { LuClock, LuStar, LuGoal, LuTrophy } from "react-icons/lu";
 import {
   Screen, PageHead, Loading, AccentPanel, CardAvatar,
-  StatCard, ListCard, ListRow, RowValue, signed,
+  StatCard, ListCard, ListRow, RowValue, signed, deadlineWhen,
 } from "./_shared";
 import { SwipeableTabs } from "../../components/ui/SwipeableTabs";
 import { buildEvents, EventRow, squadTeamKeys } from "./events";
@@ -36,15 +36,20 @@ const CaptainTag = () => (
 function ResultsTab({ summary, progress, isCurrent }) {
   const nav = useNavigate();
   const settled = !!(summary && summary.settled);
+  // A jakso HELD for late results: over, but not scored — show the same provisional
+  // per-card points a live jakso shows, plus when it closes.
+  const held = !settled && !!(progress && progress.pending);
   // Live (in-progress) round → per-card points from progress.cards; final once settled.
-  const liveCards = !settled && isCurrent && progress && progress.cards ? progress.cards : null;
+  const liveCards = !settled && (isCurrent || held) && progress && progress.cards ? progress.cards : null;
   if (!settled && !(liveCards && liveCards.length)) {
     return (
       <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
         <Typography variant="body2" sx={{ maxWidth: 320, mx: "auto" }}>
           {isCurrent
             ? "Pisteet korteittain ilmestyvät kun jakson otteluita on pelattu. Katso otteluohjelma Aikajanalta."
-            : "Jaksoa ei ole vielä ratkaistu."}
+            : held
+              ? "Jakso odottaa puuttuvia tuloksia — pisteet eivät ole vielä lopullisia."
+              : "Jaksoa ei ole vielä ratkaistu."}
         </Typography>
       </Box>
     );
@@ -56,8 +61,10 @@ function ResultsTab({ summary, progress, isCurrent }) {
   return (
     <>
       {!settled && (
-        <Typography sx={{ mb: 1.75, fontSize: 12.5, fontWeight: 700, color: "primary.main", textAlign: "center" }}>
-          Alustava — päivittyy otteluiden myötä
+        <Typography sx={{ mb: 1.75, fontSize: 12.5, fontWeight: 700, color: "primary.main", textAlign: "center", lineHeight: 1.45 }}>
+          {held
+            ? `Alustava — ${progress.settleMissing > 0 ? `${progress.settleMissing} ottelun tulos puuttuu` : "tuloksia puuttuu"}${progress.settleDeadline ? `, jakso ratkeaa viimeistään ${deadlineWhen(progress.settleDeadline)}` : ""}`
+            : "Alustava — päivittyy otteluiden myötä"}
         </Typography>
       )}
       <Stack direction="row" spacing={1.25} sx={{ mb: 2.5 }}>

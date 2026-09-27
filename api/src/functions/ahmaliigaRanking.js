@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { getActiveSeason, getRounds, activeRoundNo, getLeaderboard, getLiveLeaderboard } = require('../lib/ahmaliiga');
+const { getActiveSeason, getRounds, activeRoundNo, getLeaderboard, getLiveLeaderboard, pendingRoundRow } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/ranking?scope=live|round|season[&round=N] — leaderboard. Marks the
 // signed-in manager's own row (me) when authed. scope=live = the CURRENT round's
@@ -37,6 +37,16 @@ app.http('ahmaliigaRanking', {
 
       const settledNo = curSettled ? curNo : Math.max(0, curNo - 1);
       const round = request.query?.get('round') != null ? Number(request.query.get('round')) : settledNo;
+      // A round HELD for late results has no final standings — show the provisional ones
+      // (computed from the results that ARE in) plus when the wait ends, so the leader can
+      // see they are leading without being told they won.
+      const pendRow = scope === 'round' ? pendingRoundRow(rounds) : null;
+      if (pendRow && Number(pendRow.rowKey) === round) {
+        const { rows } = await getLiveLeaderboard(season.rowKey, round);
+        return { jsonBody: { scope, round, live: true, provisional: true,
+          pending: { deadline: pendRow.settleDeadline || null, missing: Number(pendRow.settleMissing) || 0 },
+          rows: mark(rows) } };
+      }
       const rows = await getLeaderboard(season.rowKey, scope, round);
       return { jsonBody: { scope, round, rows: mark(rows) } };
     } catch (err) {

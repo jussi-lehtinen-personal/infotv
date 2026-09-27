@@ -54,6 +54,11 @@ app.http('ahmaliigaRoundProgress', {
           startDate: roundRow ? roundRow.startDate : null,
           endDate: roundRow ? roundRow.endDate : null,
           isCurrent: round === curNo && !(roundRow && roundRow.status === 'settled'),
+          // Held for late results (see settleHold): the page shows provisional points + the
+          // date the jakso closes instead of a bare "not settled yet".
+          pending: !!(roundRow && roundRow.status === 'pending'),
+          settleDeadline: (roundRow && roundRow.settleDeadline) || null,
+          settleMissing: Number(roundRow && roundRow.settleMissing) || 0,
           simMode, realClock: !!season.realClock, simDate, daysLeft, games,
         },
       };

@@ -257,7 +257,9 @@ app.http('manageAhmaliiga', {
         const last = rounds.length - 1;
         if (action === 'settleRound') {
           const j = body.round != null ? Number(body.round) : activeRoundNo(season, rounds);
-          const result = await settleRound(season.rowKey, j);
+          // force = close a jakso that is still waiting for late results (settleHold). The
+          // panel asks first; everything automatic leaves it held.
+          const result = await settleRound(season.rowKey, j, { force: !!body.force });
           return { jsonBody: { ok: true, ...result } };
         }
         // settleAll: from the current pointer to the last round

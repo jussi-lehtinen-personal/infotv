@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
-const { ECON, getActiveSeason, getRounds, activeRoundNo, getStanding, getRoundGames, shapeGamesForClient } = require('../lib/ahmaliiga');
+const { ECON, getActiveSeason, getRounds, activeRoundNo, getStanding, getRoundGames, shapeGamesForClient, pendingRoundRow } = require('../lib/ahmaliiga');
 
 // GET /api/ahmaliiga/state — active season + current round (admin pointer in
 // sim/replay, else by date) + config. If authed, also the manager's standing
@@ -36,8 +36,20 @@ app.http('ahmaliigaState', {
         ? Math.max(0, Math.round((new Date(cur.endDate + 'T00:00:00').getTime() - clockMs) / 86400000))
         : null;
 
+      // A round HELD for late results (see settleHold): the next round is already running,
+      // but this one is not scored or paid out yet. The dashboard shows it as an open round
+      // with the date its wait ends — managers would otherwise just see their prize vanish.
+      const pendRow = pendingRoundRow(rounds);
+      const pendingRound = pendRow ? {
+        no: Number(pendRow.rowKey), startDate: pendRow.startDate, endDate: pendRow.endDate,
+        deadline: pendRow.settleDeadline || null, missing: Number(pendRow.settleMissing) || 0,
+      } : null;
+
       // The last SETTLED round (previous-round dashboard card); null before any settle.
-      const settledNo = cur && cur.status === 'settled' ? curNo : Math.max(0, curNo - 1);
+      // Read from the statuses, not curNo − 1: a held round sits between the two and its
+      // standings do not exist yet, so counting back one round would show an empty card.
+      const lastSettledRow = [...rounds].reverse().find((j) => j.status === 'settled');
+      const settledNo = lastSettledRow ? Number(lastSettledRow.rowKey) : 0;
       const prevRow = rounds.find((j) => Number(j.rowKey) === settledNo);
       const prevRound = prevRow && prevRow.status === 'settled'
         ? { no: Number(prevRow.rowKey), startDate: prevRow.startDate, endDate: prevRow.endDate }
@@ -86,6 +98,7 @@ app.http('ahmaliigaState', {
             ? { no: Number(cur.rowKey), startDate: cur.startDate, endDate: cur.endDate, status: cur.status, predictGameId: cur.predictGameId || null }
             : null,
           prevRound,
+          pendingRound,
           daysLeft,
           games,
           standing,
