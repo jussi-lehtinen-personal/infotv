@@ -2437,7 +2437,9 @@ const voucherSort = (a, b) => (a.status === b.status ? a.rank - b.rank : a.statu
 // Award top-`top` prize vouchers for a settled round (scope 'round') or the whole
 // season (scope 'season', round = -1) from the leaderboard. Idempotent per
 // (scope|round|rank); notifies each fresh winner. Bots are skipped.
-async function generateVouchers(seasonId, { scope, round, prizes, top = 3 } = {}) {
+// Default 1: both the round and the season reward the WINNER only (user 2026-09-27). It was
+// 3, which silently contradicted the automatic round award (top: 1) and the game's own copy.
+async function generateVouchers(seasonId, { scope, round, prizes, top = 1 } = {}) {
   const sc = scope === 'season' ? 'season' : 'round';
   const rnd = sc === 'season' ? -1 : Number(round);
   const rows = await getLeaderboard(seasonId, sc, rnd);

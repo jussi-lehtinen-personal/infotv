@@ -163,9 +163,9 @@ export default function LiigaAdmin() {
         <AdminBtn icon={LuTrophy} label={s && s.settled ? `Luo jakson ${s.settled} palkinto (voittaja)` : "Luo jakson palkinto (voittaja)"}
                   busy={busy === "genRound"} disabled={!s || !s.settled}
                   onClick={() => run("generateVouchers", "Jakson palkinto luotu", null, { scope: "round", round: s.settled - 1, top: 1 }, "genRound")} />
-        <AdminBtn icon={LuTrophy} label="Luo kauden palkinnot (top 3)"
+        <AdminBtn icon={LuTrophy} label="Luo kauden palkinto (voittaja)"
                   busy={busy === "genSeason"} disabled={!s}
-                  onClick={() => run("generateVouchers", "Kauden palkinnot luotu", null, { scope: "season" }, "genSeason")} />
+                  onClick={() => run("generateVouchers", "Kauden palkinto luotu", null, { scope: "season", top: 1 }, "genSeason")} />
         <AdminBtn icon={LuImage} label="Hae pelaajakuvat (Jopox)"
                   busy={busy === "enrichPhotos"} disabled={!s} onClick={() => run("enrichPhotos", "Kuvat haettu")} />
         <AdminBtn icon={LuRefreshCw} label="Päivitä trendit + kausipisteet"

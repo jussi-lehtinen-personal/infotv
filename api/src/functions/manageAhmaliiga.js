@@ -163,8 +163,8 @@ app.http('manageAhmaliiga', {
         return { jsonBody: { ok: true, ...result } };
       }
 
-      // F10: award top-3 prize vouchers for a round (scope 'round' + round=N) or
-      // the whole season (scope 'season'). Idempotent; notifies winners.
+      // F10: award the prize voucher for a round (scope 'round' + round=N) or the whole
+      // season (scope 'season'). Winner only unless `top` says otherwise. Idempotent.
       if (action === 'generateVouchers') {
         const season = await getActiveSeason();
         if (!season) return { status: 400, jsonBody: { error: 'Ei aktiivista kautta.' } };

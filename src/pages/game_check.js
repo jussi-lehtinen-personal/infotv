@@ -58,7 +58,15 @@ const dayOf = (s) => String(s || "").slice(0, 10);
 // time comparison silently fail and stamped "eri aika" on games that were perfectly fine.
 const hhmm = (s) => { const m = String(s || "").match(/(\d{1,2})[:.](\d{2})/); return m ? `${m[1].padStart(2, "0")}:${m[2]}` : ""; };
 const minsOf = (s) => { const t = hhmm(s); if (!t) return null; const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-const isHomeGame = (g) => /valkeakos/i.test(g.rink || "");
+// "Wareena" too: a Jopox-only row carries the calendar's own place name, not a rink code.
+const isHomeGame = (g) => /valkeakos|wareena/i.test(g.rink || "");
+// Leijonaliiga tournament days are published with 06:00 as a placeholder until the host
+// club sets the real times. Every kickoff before 07:00 in the whole season is one of these
+// (37 of them, all 06:00); the earliest genuine start is 07:00. A placeholder must not be
+// compared against ice or kiosk — nobody plays at six in the morning, and doing so would
+// paint a dozen home games red for a time that was never meant literally.
+const PLACEHOLDER_BEFORE = 7 * 60;
+const isPlaceholderTime = (d) => { const m = minsOf(d); return m != null && m < PLACEHOLDER_BEFORE; };
 // Stable row identity. Friendlies occasionally arrive without an id, and a Map keyed on
 // undefined would make two of them look like the same game.
 const gameKey = (g) => String(g.id ?? `${g.date}|${g.home}|${g.away}`);
@@ -128,7 +136,7 @@ const CLASH_MINUTES = 75;
 function clashMap(games) {
   const byDay = {};
   for (const g of games) {
-    if (g.kind === "shift" || !isHomeGame(g) || !fullIce(g) || minsOf(g.date) == null) continue;
+    if (g.kind || !isHomeGame(g) || !fullIce(g) || minsOf(g.date) == null || isPlaceholderTime(g.date)) continue;
     (byDay[dayOf(g.date)] ||= []).push(g);
   }
   const out = new Map();
@@ -149,6 +157,7 @@ function clashMap(games) {
 //    top of another home game.
 function checkTp(g, clashes) {
   const clash = clashes && clashes.get(gameKey(g));
+  if (isPlaceholderTime(g.date)) return { status: WARN, note: `aika vahvistamatta (${hhmm(g.date)})` };
   const noTime = !hhmm(g.date);
   if (clash) {
     const when = hhmm(clash[0].date);
@@ -214,14 +223,14 @@ function checkIce(g, reservations, range) {
   if (!isHomeGame(g)) return { status: NA, note: "vieraspeli" };
   const day = dayOf(g.date);
   if (range && (day < range.from || day > range.to)) return { status: UNKNOWN, note: "haun ulkopuolella" };
-  const start = minsOf(g.date);
+  const start = isPlaceholderTime(g.date) ? null : minsOf(g.date);
 
   const sameDay = (reservations || []).filter((r) => dayOf(r.start) === day);
   const ahma = (r) => /kiekko-?ahma|(^|\s)ka\s|sarjaot|ahma/i.test(r.text || "");
   const ahmaDay = sameDay.filter(ahma);
   // With no kickoff time we cannot say WHICH slot is this game's — but the day's Ahma ice
   // is still worth showing, so the note and the evidence stay useful.
-  if (start == null) return { status: UNKNOWN, note: "ei kellonaikaa", slots: ahmaDay };
+  if (start == null) return { status: UNKNOWN, note: isPlaceholderTime(g.date) ? "aika vahvistamatta" : "ei kellonaikaa", slots: ahmaDay };
 
   const covers = (r) => {
     const s = minsOf(r.start), e = minsOf(r.end);
@@ -250,12 +259,11 @@ function checkKiosk(g, shifts) {
   if (!isHomeGame(g)) return { status: NA, note: "vieraspeli" };
   if (!shifts) return { status: UNKNOWN, note: "ei haettu" };
   const day = dayOf(g.date);
-  const start = minsOf(g.date);
+  const start = isPlaceholderTime(g.date) ? null : minsOf(g.date);
   const sameDay = shifts.filter((s) => s.date === day);
   if (start == null) {
-    return sameDay.length
-      ? { status: UNKNOWN, note: "ei kellonaikaa", shifts: sameDay }
-      : { status: UNKNOWN, note: "ei kellonaikaa" };
+    const note = isPlaceholderTime(g.date) ? "aika vahvistamatta" : "ei kellonaikaa";
+    return sameDay.length ? { status: UNKNOWN, note, shifts: sameDay } : { status: UNKNOWN, note };
   }
   // The question is simply "is the kiosk open while this game is being played". A shift
   // opening well before the game still covers it, so there is no earliest-start limit —
@@ -356,7 +364,7 @@ function orphanJopoxRows(teamEvents, seasonGames) {
 // row's checks, so the pills, their counts and the filtered list are all the same rule.
 const ISSUES = [
   { key: "clash", label: "Päällekkäin", test: (c) => !!c.tp.clash },
-  { key: "noTime", label: "Aika puuttuu", test: (c) => c.tp.status === WARN && !c.tp.clash },
+  { key: "noTime", label: "Aika puuttuu tai vahvistamatta", test: (c) => c.tp.status === WARN && !c.tp.clash },
   { key: "jopoxMiss", label: "Puuttuu Jopoxista", test: (c) => c.jopox.status === MISS },
   { key: "jopoxTime", label: "Jopoxissa eri aika", test: (c) => c.jopox.status === WARN },
   { key: "iceMiss", label: "Jää varaamatta", test: (c) => c.ice.status === MISS },
@@ -532,7 +540,7 @@ const shortTeam = (s) => String(s || "").replace(/kiekko-?ahma/i, "Ahma").trim()
 function sequenceMap(games) {
   const byMatch = {};
   for (const g of games) {
-    if (g.kind === "shift") continue;
+    if (g.kind) continue;
     const k = `${dayOf(g.date)}|${g.home}|${g.away}`;
     (byMatch[k] ||= []).push(g);
   }
