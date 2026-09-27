@@ -37,18 +37,20 @@ app.http('ahmaliigaRanking', {
 
       const settledNo = curSettled ? curNo : Math.max(0, curNo - 1);
       const round = request.query?.get('round') != null ? Number(request.query.get('round')) : settledNo;
-      // A round HELD for late results has no final standings — show the provisional ones
-      // (computed from the results that ARE in) plus when the wait ends, so the leader can
-      // see they are leading without being told they won.
-      const pendRow = scope === 'round' ? pendingRoundRow(rounds) : null;
-      if (pendRow && Number(pendRow.rowKey) === round) {
+      // A round HELD for late results (settleHold) never has final standings.
+      const pendRow = pendingRoundRow(rounds);
+      const pending = pendRow ? { round: Number(pendRow.rowKey),
+        deadline: pendRow.settleDeadline || null, missing: Number(pendRow.settleMissing) || 0 } : null;
+      // That round's own tab: show the PROVISIONAL order (computed from the results that ARE
+      // in) so the leader can see they lead without being told they won.
+      if (pending && scope === 'round' && pending.round === round) {
         const { rows } = await getLiveLeaderboard(season.rowKey, round);
-        return { jsonBody: { scope, round, live: true, provisional: true,
-          pending: { deadline: pendRow.settleDeadline || null, missing: Number(pendRow.settleMissing) || 0 },
-          rows: mark(rows) } };
+        return { jsonBody: { scope, round, live: true, provisional: true, pending, rows: mark(rows) } };
       }
       const rows = await getLeaderboard(season.rowKey, scope, round);
-      return { jsonBody: { scope, round, rows: mark(rows) } };
+      // Season table: a held round's points are NOT in it yet (they are only written when the
+      // round is scored), so say so rather than letting the totals look complete.
+      return { jsonBody: { scope, round, rows: mark(rows), ...(scope === 'season' && pending ? { pending } : {}) } };
     } catch (err) {
       context.log('ahmaliigaRanking failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };

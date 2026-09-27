@@ -144,9 +144,15 @@ export default function LiigaRanking() {
   const rows = resp && resp.rows;
   const isLive = tab === "live" && !!(resp && resp.live);
   const liveEmpty = isLive && resp.playedGames === 0;
-  // "Viime jakso" while that jakso is HELD for late results: the order is provisional, the
-  // leader is leading — not the winner — and the closing date is shown so nobody has to ask.
+  // A jakso HELD for late results. On its own tab the order itself is provisional; on the
+  // season tab the held round's points are simply not in the totals yet. Both need the
+  // closing date, so neither leaves anyone guessing.
   const held = resp && resp.pending ? resp.pending : null;
+  const heldNote = !held ? null : tab === "season"
+    ? { title: `Jakson ${held.round + 1} pisteet eivät ole vielä mukana`,
+        body: `${held.missing > 0 ? `${held.missing} ottelun tulos puuttuu tulospalvelusta` : "Kaikkia tuloksia ei ole vielä kirjattu"} — pisteet lisätään kokonaispisteisiin kun jakso ratkeaa${held.deadline ? `, viimeistään ${deadlineWhen(held.deadline)}` : ""}.` }
+    : { title: "Jakso on yhä auki — kärjessä ei vielä voittaja",
+        body: `${held.missing > 0 ? `${held.missing} ottelun tulos puuttuu tulospalvelusta. ` : "Kaikkien otteluiden tuloksia ei ole vielä kirjattu. "}Järjestys on alustava eikä palkintoa ole jaettu.${held.deadline ? ` Jakso ratkeaa viimeistään ${deadlineWhen(held.deadline)}.` : ""}` };
 
   return (
     <Screen>
@@ -192,23 +198,15 @@ export default function LiigaRanking() {
               Alustava järjestys — päivittyy otteluiden myötä
             </Typography>
           )}
-          {held && (
+          {heldNote && (
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, mb: 2, p: 1.5,
                   borderRadius: "var(--radius-item)",
                   background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.18), rgba(var(--color-primary-rgb),0.04))",
                   border: "1px solid rgba(var(--color-primary-rgb),0.45)" }}>
               <Box component={LuHourglass} sx={{ fontSize: 18, color: "primary.main", display: "block", flexShrink: 0, mt: "1px" }} />
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 800, color: "text.primary", lineHeight: 1.35 }}>
-                  Jakso on yhä auki — kärjessä ei vielä voittaja
-                </Typography>
-                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.4, lineHeight: 1.45 }}>
-                  {held.missing > 0
-                    ? `${held.missing} ottelun tulos puuttuu tulospalvelusta. `
-                    : "Kaikkien otteluiden tuloksia ei ole vielä kirjattu. "}
-                  Järjestys on alustava eikä palkintoa ole jaettu.
-                  {held.deadline ? ` Jakso ratkeaa viimeistään ${deadlineWhen(held.deadline)}.` : ""}
-                </Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 800, color: "text.primary", lineHeight: 1.35 }}>{heldNote.title}</Typography>
+                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.4, lineHeight: 1.45 }}>{heldNote.body}</Typography>
               </Box>
             </Box>
           )}
