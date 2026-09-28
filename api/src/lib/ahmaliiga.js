@@ -736,14 +736,90 @@ async function settleHold(seasonId, seasonRow, round, rounds) {
   };
 }
 
+// The captain in force when round `round` ended: the one set by the manager's last edit
+// made DURING or BEFORE that round (the audit log carries a captainId per edit). Falls back
+// to the current captain for a manager who has never edited that far back.
+async function captainAtRoundEnd(seasonId, userId, sq, round) {
+  try {
+    const rows = await listByPartition(T.squadLog, `${seasonId}|${userId}`);
+    const past = rows.filter((r) => Number(r.round) <= round)
+      .sort((a, b) => String(a.ts || '').localeCompare(String(b.ts || '')));
+    if (past.length) return past[past.length - 1].captainId || null;
+  } catch (e) { /* fall back to the current captain */ }
+  return (sq && sq.captainId) || null;
+}
+
+// Transfers a manager used in `round`, read back from the append-only edit log (the squad
+// row keeps the counter only for the round it is currently on). Last edit of that round
+// carries the final count.
+async function transfersUsedInRound(seasonId, userId, round) {
+  try {
+    const rows = await listByPartition(T.squadLog, `${seasonId}|${userId}`);
+    const mine = rows.filter((r) => Number(r.round) === round)
+      .sort((a, b) => String(a.ts || '').localeCompare(String(b.ts || '')));
+    if (mine.length) return Number(mine[mine.length - 1].transfersUsedThisRound) || 0;
+  } catch (e) { /* no log → no penalty evidence */ }
+  return 0;
+}
+
+// Freeze the held round's lineups at the squad each manager had when the round ENDED — not
+// the squad they have whenever the round finally closes. Without this a hold would score a
+// week-old round against squads already rebuilt for the next one: the rolling lock only
+// snapshots a game when its owner saves during that round, and everything unfrozen falls
+// back to the CURRENT squad at settlement. Snapshots are insert-once, so the genuine
+// mid-round freezes always win over this reconstruction.
+async function freezeHeldLineups(seasonRow, round, games) {
+  const seasonId = seasonRow.rowKey;
+  const managers = await listManagers();
+  let frozen = 0;
+  // Batched: one partition read + one batched write per manager, run in parallel chunks.
+  // Snapshot-by-snapshot (freezeStartedGames) would be ~1 read per manager per game — with
+  // a full pool that is thousands of round-trips in a single tick.
+  await inChunks(managers, 8, async (m) => {
+    try {
+      const sq = await getSquad(m.userId);
+      if (!sq || !sq.cards || !sq.cards.length) return;
+      // A manager who has already edited for a LATER round carries their pre-edit squad in
+      // `roundStart` (re-anchored on the first save of each round) — that IS the squad they
+      // ended this round with. One who hasn't edited since still holds it in `cards`.
+      const ids = (Number(sq.roundNo) > round && Array.isArray(sq.roundStart) && sq.roundStart.length)
+        ? sq.roundStart
+        : sq.cards.map((c) => c.id);
+      const captainId = await captainAtRoundEnd(seasonId, m.userId, sq, round);
+      // Insert-once semantics, kept by filtering against what is already there: a genuine
+      // mid-round freeze (the manager edited while the round ran) must never be overwritten.
+      const have = new Set((await listByPartition(T.lineups, `${seasonId}|${m.userId}`)).map((r) => r.rowKey));
+      const rows = [];
+      for (const g of games) {
+        const key = kickoffKey(g.date);
+        if (have.has(key)) continue;
+        have.add(key); // two games can share a kickoff moment
+        rows.push(lineupRow(seasonId, m.userId, key, g.date, round, ids, captainId));
+      }
+      if (games.length && !have.has(captainKey(round))) {
+        rows.push(lineupRow(seasonId, m.userId, captainKey(round), '', round, [], captainId));
+      }
+      if (rows.length) { await upsertBatch(T.lineups, rows); frozen += rows.length; }
+    } catch (e) { /* best-effort per manager — never blocks the hold */ }
+  });
+  return frozen;
+}
+
 // Hold the round: flag it (so every view can say "not final yet, decided by <date>") and
 // still open the NEXT round — the calendar moves on even when the paperwork doesn't, so
 // transfers and lineups are never blocked by someone else's missing result.
 async function holdRound(seasonId, seasonRow, round, hold) {
   const rounds = await getRounds(seasonId);
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
+  // Lineups are frozen ONCE per held round (`lineupsFrozen`), on the first tick that sees
+  // it held — after that the snapshots exist and re-running would only cost reads.
+  let froze = 0;
+  if (jrow && !jrow.lineupsFrozen) {
+    try { froze = await freezeHeldLineups(seasonRow, round, await getRoundGames(seasonId, round)); }
+    catch (e) { /* best-effort */ }
+  }
   if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'pending',
-    settleDeadline: hold.deadline, settleMissing: hold.missing });
+    settleDeadline: hold.deadline, settleMissing: hold.missing, lineupsFrozen: true });
   const nextNo = Math.min(round + 1, rounds.length - 1);
   // Forward only: never rewind a pointer an admin moved further ahead.
   if (Number(seasonRow.currentRound || 0) < nextNo) {
@@ -842,6 +918,10 @@ async function settleRound(seasonId, round, opts = {}) {
     const lineups = await getLineupsMap(seasonId, m.userId);
 
     const breakdown = {}; let total = 0;
+    // What the round is scored AGAINST: the effective (rolling-lock) squad and the round
+    // captain, not the manager's squad today. They differ whenever settlement happens after
+    // the manager has moved on — always, once a round can be HELD for late results.
+    let effIds = curIds, effCaptain = curCaptain;
     if (perGame) {
       // Score each game against the squad frozen at ITS kickoff (rolling lock), but the
       // CAPTAIN is round-wide (locked at the first kickoff), not per-game.
@@ -858,6 +938,7 @@ async function settleRound(seasonId, round, opts = {}) {
         }
       }
       for (const id of owned) ownerCount[id] = (ownerCount[id] || 0) + 1;
+      effIds = [...owned]; effCaptain = roundCaptain;
     } else {
       // Fallback (no per-game data): aggregate scoring with the current/frozen squad.
       let ids = curIds, captainId = curCaptain;
@@ -867,20 +948,29 @@ async function settleRound(seasonId, round, opts = {}) {
         breakdown[id] = eff; total += eff;
         ownerCount[id] = (ownerCount[id] || 0) + 1;
       }
+      effIds = ids; effCaptain = captainId;
     }
 
     // Transfer penalty: reuse the frozen value on re-settle (the current squad may
-    // have moved to a later round), else compute from transfers made this round.
+    // have moved to a later round), else compute from transfers made this round. The squad
+    // row only carries the counter for the round it is CURRENTLY on, so once the manager
+    // has saved for a later round it is gone — read it back from the audit log instead, or
+    // a jakso settled late would quietly forgive every extra transfer made in it.
     let penalty = 0;
     if (existing && existing.penalty != null && existing.penalty !== '') penalty = Number(existing.penalty) || 0;
-    else if (sq && Number(sq.roundNo) === round) penalty = ECON.transferPenalty * Math.max(0, (sq.transfersUsedThisRound || 0) - ECON.transfersPerRound);
+    else {
+      const used = (sq && Number(sq.roundNo) === round)
+        ? (Number(sq.transfersUsedThisRound) || 0)
+        : await transfersUsedInRound(seasonId, m.userId, round);
+      penalty = ECON.transferPenalty * Math.max(0, used - ECON.transfersPerRound);
+    }
 
     const pred = predMap[m.userId];
     const pbonus = pred ? predictionBonus(pred, gameMap[pred.gameId]) : 0;
     if (pbonus) { breakdown._predict = pbonus; total += pbonus; }
     if (penalty) { breakdown._transfers = -penalty; total -= penalty; }
     for (const k of Object.keys(breakdown)) breakdown[k] = Math.round(breakdown[k] * 10) / 10;
-    roundRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids: curIds, captainId: curCaptain, breakdown, penalty });
+    roundRows.push({ userId: m.userId, total: Math.round(total * 10) / 10, ids: effIds, captainId: effCaptain || null, breakdown, penalty });
   }
   roundRows.sort((a, b) => b.total - a.total);
   roundRows.forEach((r, i) => { r.rank = i + 1; });
@@ -948,7 +1038,7 @@ async function settleRound(seasonId, round, opts = {}) {
 
   const jrow = rounds.find((j) => Number(j.rowKey) === round);
   // Clear the hold marks with the same write — a settled round has no deadline left.
-  if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'settled', settleDeadline: '', settleMissing: 0 });
+  if (jrow) await upsertEntity(T.rounds, { ...jrow, status: 'settled', settleDeadline: '', settleMissing: 0, lineupsFrozen: false });
   const nextRound = Math.min(round + 1, rounds.length - 1);
   // Advance the sim clock to the next round's start so a MANUAL "Ratkaise jakso" moves
   // the game forward (pointer + clock stay in sync) — settling a round used to leave the
@@ -1339,7 +1429,12 @@ async function getLiveLeaderboard(seasonId, round) {
     if (pred && pred.gameId && playedGames.some((g) => String(g.gameId) === String(pred.gameId))) {
       total += predictionBonus({ gameId: pred.gameId, homeGoals: pred.homeGoals, awayGoals: pred.awayGoals }, gameMap[pred.gameId]);
     }
-    const penalty = (sq && Number(sq.roundNo) === round) ? ECON.transferPenalty * Math.max(0, (sq.transfersUsedThisRound || 0) - ECON.transfersPerRound) : 0;
+    // Same source as settlement (see transfersUsedInRound): once a manager has saved for a
+    // later round their squad row no longer carries this round's counter.
+    const penaltyUsed = (sq && Number(sq.roundNo) === round)
+      ? (Number(sq.transfersUsedThisRound) || 0)
+      : await transfersUsedInRound(seasonId, m.userId, round);
+    const penalty = ECON.transferPenalty * Math.max(0, penaltyUsed - ECON.transfersPerRound);
     scored.push({ userId: m.userId, nickname: m.nickname, total: Math.round((total - penalty) * 10) / 10 });
   }
   // Same rank rule as settleRound: sort desc, rank = index + 1.
@@ -1460,13 +1555,16 @@ function isCardTradeLocked(card, byTeam) {
 
 // One frozen snapshot per (manager, kickoff moment). Insert-once — never overwrite,
 // so the squad as it stood at a game's kickoff stays immutable.
+function lineupRow(seasonId, userId, key, kickoff, round, ids, captainId) {
+  return {
+    partitionKey: `${seasonId}|${userId}`, rowKey: key, kickoff: kickoff || '', round,
+    cards: JSON.stringify(ids || []), captainId: captainId || '', frozenAt: new Date().toISOString(),
+  };
+}
 async function freezeLineup(seasonId, userId, key, kickoff, round, ids, captainId) {
   const pk = `${seasonId}|${userId}`;
   if (await getEntity(T.lineups, pk, key)) return false;
-  await upsertEntity(T.lineups, {
-    partitionKey: pk, rowKey: key, kickoff: kickoff || '', round,
-    cards: JSON.stringify(ids || []), captainId: captainId || '', frozenAt: new Date().toISOString(),
-  });
+  await upsertEntity(T.lineups, lineupRow(seasonId, userId, key, kickoff, round, ids, captainId));
   return true;
 }
 
@@ -2006,8 +2104,10 @@ async function roundProgress(seasonId, round, userId) {
   // Pending transfer penalty for THIS round (extra transfers beyond the free
   // allowance) — subtract it live too, so the dashboard's running points match what
   // settlement + the ranking already apply. Only for the current round's own squad.
-  const transferPenalty = (Number(squad.roundNo) === round)
-    ? ECON.transferPenalty * Math.max(0, (squad.transfersUsedThisRound || 0) - ECON.transfersPerRound) : 0;
+  const progressUsed = (Number(squad.roundNo) === round)
+    ? (Number(squad.transfersUsedThisRound) || 0)
+    : await transfersUsedInRound(seasonId, userId, round); // squad moved on (held round) → audit log
+  const transferPenalty = ECON.transferPenalty * Math.max(0, progressUsed - ECON.transfersPerRound);
   if (transferPenalty) livePoints -= transferPenalty;
   livePoints = Math.round(livePoints * 10) / 10;
 
