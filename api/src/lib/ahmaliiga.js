@@ -154,10 +154,15 @@ function activeRoundNo(season, rounds) {
   return currentRoundNo(rounds);
 }
 
-// Upsert many same-partition entities in ≤100-row transactional batches.
+// Upsert many same-partition entities in ≤100-row transactional batches. De-duplicated by
+// rowKey (last wins): a transaction REJECTS a batch that touches the same row twice, and one
+// duplicate would take the whole 100-row chunk down with it.
 async function upsertBatch(table, entities) {
-  for (let i = 0; i < entities.length; i += 100) {
-    const chunk = entities.slice(i, i + 100).map((e) => ['upsert', e, 'Replace']);
+  const byKey = new Map();
+  for (const e of entities) byKey.set(`${e.partitionKey}|${e.rowKey}`, e);
+  const rows = [...byKey.values()];
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100).map((e) => ['upsert', e, 'Replace']);
     if (chunk.length) await transact(table, chunk);
   }
 }
@@ -2434,11 +2439,21 @@ async function reconcileCards(seasonId) {
   const existingById = new Map(existing.map((c) => [c.rowKey, c]));
   const liveUpdates = []; // existing cards whose Jopox pelipaikka / team (sub) changed — DISPLAY/tag only
   const roster = []; // {id, name, isGoalie, photo, age, flat, prior}
+  // A player CAN sit in two Jopox rosters — a dual-rostered junior plays up (2026-09: Mäkinen
+  // Samu is Edustus/puolustaja AND U20/hyökkääjä, Manninen Oskari is in both goalie groups).
+  // First roster wins (AGE_SUBSITE order = senior first). Without this the two rosters wrote
+  // conflicting patches for the SAME card: two rows with one rowKey, which a Table transaction
+  // rejects outright ("multiple changes with same row key") — so EVERY position/team refresh
+  // in the batch was lost, every tick, silently. And the two patches fought each other, so the
+  // card's team flip-flopped hourly.
+  const seenPlayer = new Set();
   for (const age of rosterAges) {
     let list = [];
     try { list = await fetchRosterPlayers(AGE_SUBSITE[age]); } catch { continue; }
     for (const p of list) {
       const id = 'P:' + p.name;
+      if (seenPlayer.has(id)) continue; // already taken by an earlier (more senior) roster
+      seenPlayer.add(id);
       if (have.has(id)) {
         // Existing card: never touch price/history/squad — but keep the pelipaikka AND the
         // team (`sub`) LIVE from Jopox, so a tagged position or a team move (e.g. U18→U20)
