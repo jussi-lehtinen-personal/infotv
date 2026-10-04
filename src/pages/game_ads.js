@@ -35,10 +35,11 @@ const ORANGE = COLOR_PRIMARY;
 // V/disc geometry for a taller canvas would mean re-tuning dozens of hand-placed values,
 // and the square is the shape both layouts were drawn for.
 const STORY_H = 1920;
-// Card placed a little above centre: 360 px of band above, 480 below. Instagram's own UI
-// (profile row at the top, reply bar at the bottom) eats more at the bottom than the top,
-// so a centred card sits visually low and risks the reply bar.
-const STORY_CARD_TOP = 360;
+// What the story format adds on top of the square. The composition is NOT scaled: the lower
+// half (card, teams, clock, footer) keeps its exact square geometry anchored to the bottom
+// edge, and the photo grows upwards by this much to fill the rest. So nothing has to be
+// re-tuned, and the ad still fills the frame edge to edge.
+const STORY_EXTRA = STORY_H - CANVAS_SIZE;
 const FORMATS = {
   square: { label: "Neliö", h: CANVAS_SIZE, file: "kiekko-ahma-pelimainos.png" },
   story: { label: "Tarina", h: STORY_H, file: "kiekko-ahma-pelimainos-tarina.png" },
@@ -259,12 +260,15 @@ const GameAds = () => {
   // Vertical slack in canvas px, i.e. how far the photo may travel before a gap shows.
   // `cover` scales by whichever side is short, so a photo the same shape as the box has
   // none at zoom 1 — that is why the nudge buttons raise the zoom to make room.
+  // The photo box is taller in the story format, so the slack must be measured against the
+  // box actually in use — otherwise the nudge buttons clamp to the square's numbers.
+  const heroH = HERO_H + (format === "story" ? STORY_EXTRA : 0);
   const panLimit = useCallback(
     (z) => {
-      const shown = Math.max(HERO_H, CANVAS_SIZE / (bgAspect || CANVAS_SIZE / HERO_H));
-      return Math.max(0, (shown * z - HERO_H) / 2);
+      const shown = Math.max(heroH, CANVAS_SIZE / (bgAspect || CANVAS_SIZE / heroH));
+      return Math.max(0, (shown * z - heroH) / 2);
     },
-    [bgAspect]
+    [bgAspect, heroH]
   );
 
   const nudge = useCallback(
@@ -806,10 +810,16 @@ function MatchDisc({ dayStr, timeStr, competition }) {
 // Photo + its darkening gradient + the site strap. Shared by both layouts: 1080×810 is the
 // source photo's own 4:3, so at zoom 1 `cover` shows all of it and crops nothing. zoom and
 // offsetY exist because the next photo won't be 4:3.
-function Hero({ background, zoom, offsetY, shade }) {
+// `extendTop` grows the photo UPWARDS out of the square (story format): the photo box and
+// its shade start that much higher and the site strap travels with the photo's top edge.
+// Everything below the photo is untouched, which is what keeps the two formats identical
+// from the lower card down.
+function Hero({ background, zoom, offsetY, shade, extendTop = 0 }) {
+  const top = -extendTop;
+  const height = HERO_H + extendTop;
   return (
     <>
-      <div style={{ position: "absolute", zIndex: 0, left: 0, top: 0, width: `${CANVAS_SIZE}px`, height: `${HERO_H}px`, overflow: "hidden" }}>
+      <div style={{ position: "absolute", zIndex: 0, left: 0, top: `${top}px`, width: `${CANVAS_SIZE}px`, height: `${height}px`, overflow: "hidden" }}>
         <img
           data-export-bg="1"
           decoding="sync"
@@ -835,9 +845,9 @@ function Hero({ background, zoom, offsetY, shade }) {
           position: "absolute",
           zIndex: 1,
           left: 0,
-          top: 0,
+          top: `${top}px`,
           width: `${CANVAS_SIZE}px`,
-          height: `${HERO_H}px`,
+          height: `${height}px`,
           background: `linear-gradient(to bottom, ${shade})`,
         }}
       />
@@ -846,7 +856,7 @@ function Hero({ background, zoom, offsetY, shade }) {
           position: "absolute",
           zIndex: 3,
           left: "90px",
-          top: "14px",
+          top: `${14 + top}px`,
           width: "900px",
           height: "46px",
           textAlign: "center",
@@ -866,7 +876,7 @@ function Hero({ background, zoom, offsetY, shade }) {
 
 /* ---- layout A: disc ------------------------------------------------------ */
 
-function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
+function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr, extendTop = 0 }) {
   // One side having a qualifier sets the block height for BOTH — see TeamPanel.
   const twoLine = Boolean(match.homeSub || match.awaySub);
 
@@ -876,6 +886,7 @@ function DiscLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
         background={background}
         zoom={zoom}
         offsetY={offsetY}
+        extendTop={extendTop}
         shade="rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 61%, rgba(21,23,27,.18) 78%, rgba(21,23,27,.85) 100%"
       />
 
@@ -1006,7 +1017,7 @@ function VTeam({ side, logo, name, detail, twoLine }) {
   );
 }
 
-function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
+function VLayout({ match, background, zoom, offsetY, dayStr, timeStr, extendTop = 0 }) {
   const shape = { position: "absolute", inset: 0, pointerEvents: "none" };
   const y = (n) => n - V_SHIFT; // the V composition sits 55 px higher than the reference
 
@@ -1025,6 +1036,7 @@ function VLayout({ match, background, zoom, offsetY, dayStr, timeStr }) {
         background={background}
         zoom={zoom}
         offsetY={offsetY}
+        extendTop={extendTop}
         shade="rgba(0,0,0,.30) 0%, rgba(0,0,0,0) 16%, rgba(0,0,0,0) 80%, rgba(21,23,27,.32) 100%"
       />
 
@@ -1214,83 +1226,50 @@ function GameAdCanvas({ match, background, zoom, offsetY, layout, format = "squa
   const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
   const Layout = (LAYOUTS[layout] ?? LAYOUTS.disc).Component;
 
-  const square = (
+  // The composition itself is always the square's geometry — the story format only lets the
+  // photo grow upwards (extendTop) and anchors the whole block to the frame's bottom edge.
+  // Nothing is scaled, so the type, the V and the disc keep the sizes they were drawn at.
+  const story = format === "story";
+  const inner = (
     <div
       style={{
-        position: "relative",
-        isolation: "isolate",
+        position: "absolute",
+        left: 0,
+        top: `${story ? STORY_EXTRA : 0}px`,
         width: `${CANVAS_SIZE}px`,
         height: `${CANVAS_SIZE}px`,
-        overflow: "hidden", // clips the shadows and the V panel's overhang past the square
-        background: INK,
-        fontFamily: FONT_DISPLAY,
-        fontWeight: 400,
-        color: "#ffffff",
+        // The story photo reaches ABOVE this box, so it must not be clipped here — the
+        // frame below does the clipping instead.
+        overflow: story ? "visible" : "hidden",
       }}
     >
-      <Layout match={match} background={background} zoom={zoom} offsetY={offsetY} dayStr={dayStr} timeStr={timeStr} />
+      <Layout
+        match={match}
+        background={background}
+        zoom={zoom}
+        offsetY={offsetY}
+        dayStr={dayStr}
+        timeStr={timeStr}
+        extendTop={story ? STORY_EXTRA : 0}
+      />
     </div>
   );
 
-  if (format !== "story") return square;
-
-  // 1080×1920: the square card on a backdrop made from its own photo. The bands are left
-  // free of type on purpose — that is where Instagram draws the profile row and the reply
-  // bar, and anything put there gets covered or looks crowded by their chrome.
   return (
     <div
       style={{
         position: "relative",
         isolation: "isolate",
         width: `${CANVAS_SIZE}px`,
-        height: `${STORY_H}px`,
-        overflow: "hidden",
+        height: `${story ? STORY_H : CANVAS_SIZE}px`,
+        overflow: "hidden", // clips the shadows, the V panel's overhang and the tall photo
         background: INK,
         fontFamily: FONT_DISPLAY,
         fontWeight: 400,
         color: "#ffffff",
       }}
     >
-      {/* Same photo, blurred and pushed back, so the bands read as part of the shot rather
-          than as empty letterboxing. scale hides the blur's own soft edge at the frame. */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: `url(${background})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          filter: "blur(34px) saturate(0.8)",
-          transform: "scale(1.18)",
-        }}
-      />
-      {/* Darkened towards both ends: keeps the card the brightest thing in the frame and
-          gives the overlaid Instagram UI a calm surface to sit on. */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(180deg, rgba(10,11,13,0.86) 0%, rgba(10,11,13,0.52) 24%, rgba(10,11,13,0.52) 76%, rgba(10,11,13,0.90) 100%)",
-        }}
-      />
-      {/* Same warm corner light as the square's own surfaces — the two formats read as one
-          family rather than as a square dropped onto a neutral grey. */}
-      <div style={{ position: "absolute", inset: 0, background: CORNER_GLOW }} />
-      <div
-        style={{
-          position: "absolute",
-          top: `${STORY_CARD_TOP}px`,
-          left: 0,
-          width: `${CANVAS_SIZE}px`,
-          height: `${CANVAS_SIZE}px`,
-          borderRadius: "36px",
-          overflow: "hidden",
-          boxShadow: "0 40px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07)",
-        }}
-      >
-        {square}
-      </div>
+      {inner}
     </div>
   );
 }
