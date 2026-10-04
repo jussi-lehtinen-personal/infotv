@@ -158,8 +158,10 @@ const GameAds = () => {
   // Deliberately NOT a ResizeObserver on the wrapper: setting the scale changes that very
   // element's height, so observing it makes it retrigger itself ("ResizeObserver loop
   // completed with undelivered notifications"). Window resize covers the user resizing, and
-  // the headerH dependency covers the one other thing that moves the wrapper's width — the
-  // header measurement below feeding the wide-screen CSS.
+  // the headerH + format dependencies cover the two other things that move the wrapper's
+  // width — the header measurement below feeding the wide-screen CSS, and the format, which
+  // narrows the wrapper for the 9:16 preview. Without `format` the canvas kept the previous
+  // format's scale and the narrower wrapper simply clipped its right-hand side.
   useEffect(() => {
     const update = () => {
       if (wrapperRef.current) setScale(wrapperRef.current.offsetWidth / CANVAS_SIZE);
@@ -167,7 +169,7 @@ const GameAds = () => {
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [headerH]);
+  }, [headerH, format]);
 
   // Publish the page header's real height so the wide-screen CSS can size the ad against
   // it. The game picker wraps to a second row once the week has enough games, so a
@@ -1378,11 +1380,14 @@ html, body, #root {
 
 /* Tarina-muoto on 9:16, eli samalla leveydellä lähes kaksi kertaa korkeampi. Kapeampi
    esikatselu pitää koko työkalun (kuva + säätimet) puhelimen ruudulla ilman loputonta
-   vieritystä. */
-.ga-display-wrap--story {
-  max-width: 340px;
-  margin-left: auto;
-  margin-right: auto;
+   vieritystä. VAIN kapealla ruudulla: työpöydällä leveyden määrää --ga-canvas, joka ottaa
+   korkeuden jo huomioon, ja 340px kutistaisi esikatselun turhaan. */
+@media (max-width: 999px) {
+  .ga-display-wrap--story {
+    max-width: 340px;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 /* ga-controls — ui-surface antaa bg/border/radius/shadow */
