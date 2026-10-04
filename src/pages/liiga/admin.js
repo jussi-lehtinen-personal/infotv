@@ -49,7 +49,12 @@ export default function LiigaAdmin() {
     setBusy(busyKey || action); setMsg(null);
     try {
       const r = await ahmaliigaAdmin(action, extra);
-      setMsg({ type: "success", text: `${label} ✓ ${JSON.stringify(r).replace(/[{}"]/g, "").slice(0, 120)}` });
+      // A settle can come back HELD (jakso waiting for late results) — that is not a failure,
+      // but it is not "ratkaistu" either, so say what actually happened.
+      const info = JSON.stringify(r).replace(/[{}"]/g, "").slice(0, 120);
+      setMsg(r && r.pending
+        ? { type: "warning", text: `Jakso ${Number(r.round) + 1} odottaa puuttuvia tuloksia — ei ratkaistu. ${info}` }
+        : { type: "success", text: `${label} ✓ ${info}` });
       load();
     } catch (e) {
       setMsg({ type: "error", text: e.message });
@@ -137,6 +142,7 @@ export default function LiigaAdmin() {
           <Row k="Kello" v={s.realClock ? "REAALI (oikea päivä)" : "sim (replay)"} />
           <Row k="Nykyinen jakso" v={`${s.currentRound + 1} / ${s.roundCount}`} />
           <Row k="Ratkaistu" v={`${s.settled} / ${s.roundCount}`} />
+          {s.pending && <Row k="Odottaa tuloksia" v={`Jakso ${s.pending.round + 1} · ${s.pending.missing} ottelua · viim. ${s.pending.deadline ? new Date(s.pending.deadline).toLocaleString("fi-FI", { dateStyle: "short", timeStyle: "short" }) : "—"}`} />}
           <Row k="Pelaajia" v={`${s.humans} rekisteröitynyt · ${s.squadsBuilt ?? 0} pakkaa rakennettu`} />
           <Row k="Pelit synkattu" v={s.gamesLoaded ? "kyllä" : "EI"} />
           {s.livePool && <Row k="Live-pooli" v={`${s.players ?? 0} pelaajaa · ${s.teams ?? 0} joukkuetta`} />}
@@ -170,6 +176,15 @@ export default function LiigaAdmin() {
                   onClick={() => run("step", "Steppasi 1 vk", null, { days: 7 }, "step7")} />
         <AdminBtn icon={LuPlay} label={s ? `Ratkaise jakso ${s.currentRound + 1}` : "Ratkaise jakso"}
                   busy={busy === "settleRound"} disabled={!s} onClick={() => run("settleRound", "Jakso ratkaistu")} />
+        {/* Only when a jakso is held: close it NOW with the results that are in. Irreversible
+            — the prize is issued to whoever leads at that moment. */}
+        {s && s.pending && (
+          <AdminBtn icon={LuPlay} label={`Ratkaise jakso ${s.pending.round + 1} silti (ohita odotus)`}
+                    busy={busy === "forceSettle"} disabled={!s}
+                    onClick={() => run("settleRound", "Jakso ratkaistu",
+                      `Jaksosta ${s.pending.round + 1} puuttuu ${s.pending.missing} ottelun tulos. Ratkaistaanko silti NYT? Palkinto menee nykyiselle kärjelle eikä sitä voi siirtää jälkikäteen.`,
+                      { round: s.pending.round, force: true }, "forceSettle")} />
+        )}
         <AdminBtn icon={LuFastForward} label="Ratkaise koko kausi loppuun"
                   busy={busy === "settleAll"} disabled={!s} onClick={() => run("settleAll", "Kausi ratkaistu")} />
         {/* top:1 explicitly — settleRound awards the round winner automatically with top:1,
