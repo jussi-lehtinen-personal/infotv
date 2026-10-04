@@ -639,7 +639,9 @@ function AdGameRow({ match, onClick }) {
   // single-game ad — two copies of these rules is how the two ads drifted apart.
   const ahmaSub = ahmaQualifier(match, ahmaRaw).toUpperCase();
 
-  const { main: oppMain, sub: oppSub } = splitTeamName(oppRaw);
+  // No character cap: the row ellipsises at its REAL width (overflow + text-overflow), so
+  // the name should be cut by the space that is actually left, not by a blind 12 characters.
+  const { main: oppMain, sub: oppSub } = splitTeamName(oppRaw, { maxMain: null });
   const ahmaBlock = { main: "AHMA", sub: ahmaSub, logo: AHMA_CREST };
   const oppBlock = { main: oppMain, sub: oppSub, logo: ahmaIsHome ? match.away_logo : match.home_logo };
   // Home team on the left, as a fixture listing reads.

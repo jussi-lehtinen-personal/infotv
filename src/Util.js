@@ -157,21 +157,27 @@ const trimSeparators = (s) => s.replace(/^[\s/\-–]+/, "").replace(/[\s/\-–]+
 // Priority 1: last word is a known color/variant → always split.
 // Priority 2: name is too long → split on last space.
 // Returns { main: string, sub: string | null }
-export const splitTeamName = (name) => {
+// `maxMain` caps the main part with an ellipsis. That cap is for the narrow match rows this
+// was written for, where the type cannot shrink — it is NOT a property of the name. Pass
+// `{ maxMain: null }` wherever the consumer fits the text to its own box (the ads scale the
+// type down, or ellipsise at the real width): otherwise a long club name arrives with a "…"
+// already baked into the data and gets cut at 12 characters with room to spare.
+// The SPLIT decision keeps using the constant — that is about when a trailing word is a
+// variant ("Siniset", "Akatemia"), not about how much room there is.
+export const splitTeamName = (name, { maxMain = TEAM_NAME_THRESHOLD } = {}) => {
   if (!name) return { main: "", sub: null };
+  const clip = (s) => (maxMain && s.length > maxMain ? s.slice(0, maxMain) + "…" : s);
 
   const lastSpace = name.lastIndexOf(" ");
   if (lastSpace !== -1) {
     const lastWord = name.slice(lastSpace + 1);
     if (VARIANT_WORDS.has(lastWord.toLowerCase()) || name.length > TEAM_NAME_THRESHOLD) {
-      let main = trimSeparators(name.slice(0, lastSpace));
-      if (main.length > TEAM_NAME_THRESHOLD) main = main.slice(0, TEAM_NAME_THRESHOLD) + "…";
-      return { main, sub: trimSeparators(lastWord) };
+      return { main: clip(trimSeparators(name.slice(0, lastSpace))), sub: trimSeparators(lastWord) };
     }
   }
 
-  if (name.length > TEAM_NAME_THRESHOLD * 2) {
-    return { main: name.slice(0, TEAM_NAME_THRESHOLD) + "…", sub: null };
+  if (maxMain && name.length > maxMain * 2) {
+    return { main: name.slice(0, maxMain) + "…", sub: null };
   }
   return { main: name, sub: null };
 };

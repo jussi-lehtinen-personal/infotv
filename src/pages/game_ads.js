@@ -139,7 +139,9 @@ const GameAds = () => {
   const computeSideEdit = useCallback((m, which) => {
     if (!m) return { main: "", sub: "" };
     const raw = (which === "home" ? m.home : m.away) ?? "";
-    const parts = splitTeamName(raw);
+    // No character cap: the ad fits the name to the panel by shrinking the type, so a cap
+    // here would print "HC NOKIA /VA…" on the image with room left over.
+    const parts = splitTeamName(raw, { maxMain: null });
 
     if (/kiekko-?ahma/i.test(raw)) {
       // Shared with the weekly listing ad — see lib/teamLabels.js. The crest already says
