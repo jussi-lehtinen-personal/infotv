@@ -30,6 +30,20 @@ const BACKGROUNDS = [
 const CANVAS_SIZE = 1080;
 const ORANGE = COLOR_PRIMARY;
 
+// Export formats. The square is the original ad; the story is the SAME square composition
+// framed into 1080×1920 (Instagram/WhatsApp stories) — not a second layout. Reworking the
+// V/disc geometry for a taller canvas would mean re-tuning dozens of hand-placed values,
+// and the square is the shape both layouts were drawn for.
+const STORY_H = 1920;
+// Card placed a little above centre: 360 px of band above, 480 below. Instagram's own UI
+// (profile row at the top, reply bar at the bottom) eats more at the bottom than the top,
+// so a centred card sits visually low and risks the reply bar.
+const STORY_CARD_TOP = 360;
+const FORMATS = {
+  square: { label: "Neliö", h: CANVAS_SIZE, file: "kiekko-ahma-pelimainos.png" },
+  story: { label: "Tarina", h: STORY_H, file: "kiekko-ahma-pelimainos-tarina.png" },
+};
+
 // Layout geometry, all in CSS px on the 1080×1080 base (see docs: the ad is built from
 // plain boxes, not from a pre-rendered artwork plate, so every piece stays editable).
 const HERO_H = 810; // photo area; 1080×810 is the source photo's own 4:3, so cover ≠ crop
@@ -97,15 +111,18 @@ const GameAds = () => {
   const [offsetY, setOffsetY] = useState(0); // vertical pan, canvas px
   const [bgAspect, setBgAspect] = useState(null); // w/h of the loaded photo
   const [layout, setLayout] = useState("v"); // see LAYOUTS near the bottom of this file
+  const [format, setFormat] = useState("square"); // see FORMATS at the top of this file
   const [scale, setScale] = useState(1);
   const [headerH, setHeaderH] = useState(null); // feeds --ga-header on wide screens
   const [editHome, setEditHome] = useState({ main: "", sub: "" });
   const [editAway, setEditAway] = useState({ main: "", sub: "" });
   const [editLevel, setEditLevel] = useState("");
   const [editVenue, setEditVenue] = useState("");
-  // pixelRatio 1 pins the export at exactly 1080×1080 — the default follows the screen's
-  // devicePixelRatio, so the same button produced a different-sized PNG on every machine.
-  const { downloading, downloadPng } = useExportPng(exportRef, "kiekko-ahma-pelimainos.png", {
+  // pixelRatio 1 pins the export at exactly the canvas size — the default follows the
+  // screen's devicePixelRatio, so the same button produced a different-sized PNG on every
+  // machine. The PNG takes its size from the captured node, so the format drives both.
+  const canvasH = (FORMATS[format] ?? FORMATS.square).h;
+  const { downloading, downloadPng } = useExportPng(exportRef, (FORMATS[format] ?? FORMATS.square).file, {
     pixelRatio: 1,
     fonts: EXPORT_FONTS,
   });
@@ -308,7 +325,7 @@ const handleCustomBgFile = useCallback((e) => {
   return (
     <div>
       <style>{css}</style>
-      <div className="ga-root" style={headerH ? { "--ga-header": `${headerH}px` } : undefined}>
+      <div className={`ga-root${format === "story" ? " ga-root--story" : ""}`} style={headerH ? { "--ga-header": `${headerH}px` } : undefined}>
 
         {/* Header */}
         <Surface className="ga-page-header">
@@ -330,8 +347,8 @@ const handleCustomBgFile = useCallback((e) => {
         </Surface>
 
         {/* Canvas preview */}
-        <div className="ga-display-wrap" ref={wrapperRef}>
-          <div style={{ height: `${scale * CANVAS_SIZE}px`, position: "relative" }}>
+        <div className={`ga-display-wrap${format === "story" ? " ga-display-wrap--story" : ""}`} ref={wrapperRef}>
+          <div style={{ height: `${scale * canvasH}px`, position: "relative" }}>
             <div
               style={{
                 position: "absolute",
@@ -342,9 +359,9 @@ const handleCustomBgFile = useCallback((e) => {
                 transformOrigin: "top left",
               }}
             >
-              <div ref={exportRef} style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` }}>
+              <div ref={exportRef} style={{ width: `${CANVAS_SIZE}px`, height: `${canvasH}px` }}>
                 {displayMatch && (
-                  <GameAdCanvas match={displayMatch} background={activeBackground} zoom={zoom} offsetY={offsetY} layout={layout} />
+                  <GameAdCanvas match={displayMatch} background={activeBackground} zoom={zoom} offsetY={offsetY} layout={layout} format={format} />
                 )}
               </div>
             </div>
@@ -367,6 +384,16 @@ const handleCustomBgFile = useCallback((e) => {
                 {Object.entries(LAYOUTS).map(([key, l]) => (
                   <SelectorButton key={key} onClick={() => setLayout(key)} active={layout === key} style={GA_WIDE_BTN}>
                     {l.label}
+                  </SelectorButton>
+                ))}
+              </div>
+            </div>
+            <div className="ga-field-row">
+              <label className="ga-label">Muoto</label>
+              <div className="ga-bg-btns">
+                {Object.entries(FORMATS).map(([key, f]) => (
+                  <SelectorButton key={key} onClick={() => setFormat(key)} active={format === key} style={GA_WIDE_BTN}>
+                    {f.label}
                   </SelectorButton>
                 ))}
               </div>
@@ -1181,13 +1208,13 @@ const LAYOUTS = {
   disc: { label: "Kiekko", Component: DiscLayout },
 };
 
-function GameAdCanvas({ match, background, zoom, offsetY, layout }) {
+function GameAdCanvas({ match, background, zoom, offsetY, layout, format = "square" }) {
   useFontReady(`400 158px ${FONT_DISPLAY}`); // re-renders once Bebas is measurable
   const timeStr = moment(match.date).format("HH:mm");
   const dayStr = moment(match.date).format("dd D.M.").toUpperCase();
   const Layout = (LAYOUTS[layout] ?? LAYOUTS.disc).Component;
 
-  return (
+  const square = (
     <div
       style={{
         position: "relative",
@@ -1202,6 +1229,68 @@ function GameAdCanvas({ match, background, zoom, offsetY, layout }) {
       }}
     >
       <Layout match={match} background={background} zoom={zoom} offsetY={offsetY} dayStr={dayStr} timeStr={timeStr} />
+    </div>
+  );
+
+  if (format !== "story") return square;
+
+  // 1080×1920: the square card on a backdrop made from its own photo. The bands are left
+  // free of type on purpose — that is where Instagram draws the profile row and the reply
+  // bar, and anything put there gets covered or looks crowded by their chrome.
+  return (
+    <div
+      style={{
+        position: "relative",
+        isolation: "isolate",
+        width: `${CANVAS_SIZE}px`,
+        height: `${STORY_H}px`,
+        overflow: "hidden",
+        background: INK,
+        fontFamily: FONT_DISPLAY,
+        fontWeight: 400,
+        color: "#ffffff",
+      }}
+    >
+      {/* Same photo, blurred and pushed back, so the bands read as part of the shot rather
+          than as empty letterboxing. scale hides the blur's own soft edge at the frame. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `url(${background})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "blur(34px) saturate(0.8)",
+          transform: "scale(1.18)",
+        }}
+      />
+      {/* Darkened towards both ends: keeps the card the brightest thing in the frame and
+          gives the overlaid Instagram UI a calm surface to sit on. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(10,11,13,0.86) 0%, rgba(10,11,13,0.52) 24%, rgba(10,11,13,0.52) 76%, rgba(10,11,13,0.90) 100%)",
+        }}
+      />
+      {/* Same warm corner light as the square's own surfaces — the two formats read as one
+          family rather than as a square dropped onto a neutral grey. */}
+      <div style={{ position: "absolute", inset: 0, background: CORNER_GLOW }} />
+      <div
+        style={{
+          position: "absolute",
+          top: `${STORY_CARD_TOP}px`,
+          left: 0,
+          width: `${CANVAS_SIZE}px`,
+          height: `${CANVAS_SIZE}px`,
+          borderRadius: "36px",
+          overflow: "hidden",
+          boxShadow: "0 40px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07)",
+        }}
+      >
+        {square}
+      </div>
     </div>
   );
 }
@@ -1308,6 +1397,15 @@ html, body, #root {
   box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
 }
 
+/* Tarina-muoto on 9:16, eli samalla leveydellä lähes kaksi kertaa korkeampi. Kapeampi
+   esikatselu pitää koko työkalun (kuva + säätimet) puhelimen ruudulla ilman loputonta
+   vieritystä. */
+.ga-display-wrap--story {
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ga-controls — ui-surface antaa bg/border/radius/shadow */
 .ga-controls {
   width: 100%;
@@ -1351,6 +1449,18 @@ html, body, #root {
     justify-content: center;
     gap: 16px;
   }
+  /* Tarina on 9:16, eli sama leveys tuottaa 1,78x korkeuden. Korkeusraja jaetaan sillä,
+     ettei esikatselu kasva ikkunan yli — leveysraja jää ennalleen. Tämän on oltava
+     .ga-root:n JÄLKEEN: sama tarkkuus, joten järjestys ratkaisee. */
+  .ga-root--story {
+    --ga-canvas: min(
+      calc(100vw - 540px),
+      calc((100dvh - var(--ga-header) - var(--ui-bottom-nav-clearance, 80px) - 40px) / 1.78)
+    );
+  }
+  /* Säädinpaneeli seuraa neliön korkeutta; tarinassa kortti on korkeampi kuin leveä, joten
+     symmetria otetaan leveydestä eikä pakoteta paneelia 1,78-kertaiseksi. */
+  .ga-root--story .ga-controls { min-height: var(--ga-canvas); }
   .ga-page-header { grid-area: header; max-width: none; }
   .ga-controls {
     grid-area: controls;
