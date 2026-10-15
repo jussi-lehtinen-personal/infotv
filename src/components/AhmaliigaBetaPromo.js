@@ -19,14 +19,58 @@ function countdown(startAt) {
   return `${mins} min`;
 }
 
-const StaticBanner = () => (
-  <Box component={Link} to="/ahmaliiga" aria-label="Siirry Ahmaliigaan"
-    sx={{ display: "block", lineHeight: 0, overflow: "hidden", borderRadius: "var(--radius-card)",
-          border: "1px solid rgba(var(--color-primary-rgb),0.35)", boxShadow: "0 14px 34px rgba(var(--color-primary-rgb),0.18)" }}>
-    <Box component="img" src="/ahmaliiga_hero.png" alt="Ahmaliiga — kokoa unelmajoukkueesi ja kerää pisteitä"
-         sx={{ width: "100%", height: "auto", display: "block" }} />
+// The artwork's own ratio. Reserving it means the link OWNS its space from the first paint:
+// before this the box was `height: auto` around a not-yet-decoded image, so until the bytes
+// arrived the whole Ahmaliiga link was simply absent from the page — and if the image failed,
+// `lineHeight: 0` + `overflow: hidden` squashed the alt text into an unreadable sliver.
+const HERO_RATIO = "1536 / 1024";
+
+// Shown underneath the artwork: visible while the image loads, and the whole banner if it
+// never arrives. A promo nobody can see is worse than a plain one.
+const HeroFallback = () => (
+  <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", gap: 1.75, px: 2,
+        lineHeight: 1.25, color: "#fff" }}>
+    <Box component="img" src="/ahmaliiga_logo.webp" alt=""
+         sx={{ flexShrink: 0, width: "clamp(72px, 22vw, 110px)", height: "auto" }} />
+    <Box sx={{ minWidth: 0 }}>
+      <Typography sx={{ fontFamily: "var(--font-family-display)", letterSpacing: "var(--font-display-tracking)",
+            fontSize: "clamp(20px,5.6vw,28px)", lineHeight: 1.05 }}>
+        Ahmaliiga
+      </Typography>
+      <Typography sx={{ fontSize: 13, fontWeight: 600, opacity: 0.9, mt: 0.4 }}>
+        Kokoa unelmajoukkueesi ja kerää pisteitä
+      </Typography>
+      <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 1, fontSize: 13, fontWeight: 800,
+            color: "primary.main" }}>
+        Siirry Ahmaliigaan <LuArrowRight size={15} />
+      </Box>
+    </Box>
   </Box>
 );
+
+const StaticBanner = () => {
+  const [failed, setFailed] = useState(false);
+  return (
+    <Box component={Link} to="/ahmaliiga" aria-label="Siirry Ahmaliigaan"
+      sx={{ display: "block", position: "relative", lineHeight: 0, overflow: "hidden",
+            aspectRatio: HERO_RATIO, textDecoration: "none",
+            borderRadius: "var(--radius-card)",
+            border: "1px solid rgba(var(--color-primary-rgb),0.35)",
+            boxShadow: "0 14px 34px rgba(var(--color-primary-rgb),0.18)",
+            background: "linear-gradient(135deg, rgba(var(--color-primary-rgb),0.18) 0%, rgba(var(--color-primary-rgb),0.05) 60%, var(--color-surface, rgba(255,255,255,0.03)) 100%)" }}>
+      <HeroFallback />
+      {!failed && (
+        <Box component="picture" sx={{ position: "absolute", inset: 0, display: "block" }}>
+          {/* 203 kB WebP instead of the 2.2 MB PNG — the PNG stays as the fallback source. */}
+          <source srcSet="/ahmaliiga_hero.webp" type="image/webp" />
+          <Box component="img" src="/ahmaliiga_hero.png" alt="Ahmaliiga — kokoa unelmajoukkueesi ja kerää pisteitä"
+               onError={() => setFailed(true)} decoding="async"
+               sx={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }} />
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 export default function AhmaliigaBetaPromo() {
   const [state, setState] = useState(() => peekCached("state") || null);

@@ -189,14 +189,19 @@ export default function CardList({ cards, settled, roundLive, onPick, canPick, h
                             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ln}</Typography>
                     ))
                   )}
+                  {/* The team ALWAYS wins the space race. `noWrap` gives the team label
+                      overflow:hidden, which lets a flex item shrink to nothing, while the
+                      trend tag (no overflow → min-width:auto) refused to give up a pixel —
+                      so on a narrow row "U18 · ▼ Laskussa" lost the team and left "U".
+                      The trend is decoration; it clips first. */}
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.3, minWidth: 0, overflow: "hidden" }}>
-                    <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.2 }}>
+                    <Typography noWrap variant="caption" sx={{ color: "text.disabled", lineHeight: 1.2, flexShrink: 0 }}>
                       {c.kind === "team" ? "Joukkue" : c.sub}
                     </Typography>
                     {(c.trend === "up" || c.trend === "down") && (
                       <>
-                        <Box component="span" sx={{ color: "text.disabled", fontSize: 12, lineHeight: 1 }}>·</Box>
-                        <TrendTag trend={c.trend} sx={{ fontSize: 12 }} />
+                        <Box component="span" sx={{ color: "text.disabled", fontSize: 12, lineHeight: 1, flexShrink: 0 }}>·</Box>
+                        <TrendTag trend={c.trend} sx={{ fontSize: 12, minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" }} />
                       </>
                     )}
                   </Box>
