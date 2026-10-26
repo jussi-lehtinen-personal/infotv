@@ -10,6 +10,13 @@
  * Re-run it after changing the address, the crest or the copy. The output is
  * committed, so nobody needs Node to use the poster — this script only exists so
  * the file can be regenerated instead of hand-edited.
+ *
+ * To check a layout change without printing anything, let Chrome render it:
+ *
+ *   chrome --headless=new --disable-gpu --window-size=794,1123  *     --screenshot=poster.png file:///<abs path>/ahmaliiga-poster.html
+ *
+ * and --print-to-pdf for what the printer actually gets (one A4 page, no blank
+ * second sheet).
  */
 
 const fs = require("fs");
@@ -25,6 +32,8 @@ const OUT = path.join(ROOT, "public", "print", "ahmaliiga-poster.html");
 const TARGET_URL = "https://gamezone.kiekko-ahma.fi/ahmaliiga";
 const URL_HOST = "gamezone.kiekko-ahma.fi";
 const URL_PATH = "/ahmaliiga";
+// Broken by hand rather than left to the browser: at any size that fills the sheet
+// the natural wrap strands "pisteitä" alone on the second line.
 const HEADLINE_LEAD = "Kokoa unelmajoukkueesi ja";
 const HEADLINE_ACCENT = "kerää pisteitä";
 
@@ -215,12 +224,13 @@ html[data-theme="paper"] .crest { filter: drop-shadow(0 10px 26px rgba(14,14,15,
   align-self: stretch;
   margin-top: 16px;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 48px;
-  line-height: 0.94;
+  font-size: 54px;
+  line-height: 0.96;
   letter-spacing: 0.03em;
   text-align: center;
   color: var(--text);
 }
+.headline .line { white-space: nowrap; }
 .headline .accent { color: var(--orange); }
 
 .qr-card {
@@ -240,7 +250,7 @@ html[data-theme="paper"] .crest { filter: drop-shadow(0 10px 26px rgba(14,14,15,
   align-self: stretch;
   margin-top: 18px;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 32px;
+  font-size: 36px;
   line-height: 1;
   letter-spacing: 0.02em;
   text-align: center;
@@ -288,7 +298,10 @@ html[data-theme="paper"] .crest { filter: drop-shadow(0 10px 26px rgba(14,14,15,
 
     <img class="crest" src="${crest}" alt="Ahmaliiga">
 
-    <div class="headline">${HEADLINE_LEAD} <span class="accent">${HEADLINE_ACCENT}</span></div>
+    <div class="headline">
+      <div class="line">${HEADLINE_LEAD}</div>
+      <div class="line accent">${HEADLINE_ACCENT}</div>
+    </div>
 
     <div class="qr-card">${qrSvg}</div>
 
