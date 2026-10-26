@@ -1,23 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useExportPng } from "../hooks/useExportPng";
-import { FEATURES } from "./infotv/ahmaliiga";
 import "@fontsource/bebas-neue";
 
 /**
- * Printable Ahmaliiga poster (A4 portrait) — the paper sibling of the 1920x1080
- * signage ad at /infotv/ahmaliiga. Same artwork and copy, re-cut for a wall next
- * to the kiosk, and built around a QR big enough to scan from a few metres.
+ * Printable Ahmaliiga poster (A4 portrait) for the wall next to the kiosk.
+ *
+ * Deliberately bare: crest, headline, a QR big enough to scan on the way past,
+ * and the address under it. The 1920x1080 signage ad at /infotv/ahmaliiga is the
+ * place for the body copy and the three selling points — a poster somebody walks
+ * past has about two seconds to work.
  *
  * The sheet is authored in a fixed 794x1123 px box. CSS px are 1/96 in by spec,
  * so that box prints as exact A4 under `@page { size: A4; margin: 0 }` with no
- * scaling anywhere in the print path — the on-screen preview is the only thing
- * that is transformed, and `@media print` drops that transform.
+ * scaling in the print path — the on-screen preview is the only thing that is
+ * transformed, and `@media print` drops that transform.
  *
  * Two outputs:
  *   - Tulosta  → straight to the printer / "Save as PDF"
- *   - Lataa PNG → the same sheet rasterised at 300 dpi (2481x3509), i.e. a file a
- *     print shop can blow up to A3/A2 without it going soft.
+ *   - Lataa PNG → the same sheet at 300 dpi (2481x3509), i.e. a file a print shop
+ *     can blow up to A3/A2 without it going soft.
  *
  * The QR is drawn as SVG (qrcode.react), not the 296x296 png the TV ad uses, so
  * it stays crisp at any physical size.
@@ -35,9 +37,9 @@ const URL_PATH = "/ahmaliiga";
 const ORANGE = "#F06E1E";
 const BEBAS = "var(--font-family-display)";
 const BARLOW = "var(--font-family-base)";
-const EXPORT_FONTS = ["400 62px 'Bebas Neue'", "700 19px 'Barlow'", "500 19px 'Barlow'"];
+const EXPORT_FONTS = ["400 62px 'Bebas Neue'", "600 17px 'Barlow'"];
 
-const QR_SIZE = 236; // ≈62 mm printed — reads from several metres
+const QR_SIZE = 396; // ≈105 mm printed — scannable while walking past
 
 // Ink is the brand look; Paper is the toner-friendly cut for an office printer,
 // which also sidesteps the white edge a borderless-incapable printer leaves.
@@ -47,13 +49,9 @@ const THEMES = {
     bg: "#0B0B0C",
     ember: true,
     text: "#FFFFFF",
-    body: "#B5B5B5",
-    kicker: "#9A9A9A",
-    divider: "#3C3C40",
+    muted: "#9A9A9A",
     qrCard: "#F4F4F4",
     qrBorder: "transparent",
-    bar: "#141414",
-    barText: "#C3C3C3",
     clawOpacity: 0.05,
   },
   paper: {
@@ -61,13 +59,9 @@ const THEMES = {
     bg: "#FFFFFF",
     ember: false,
     text: "#0E0E0F",
-    body: "#53535A",
-    kicker: "#7A7A82",
-    divider: "#D7D7DC",
+    muted: "#7A7A82",
     qrCard: "#FFFFFF",
     qrBorder: "#D7D7DC",
-    bar: "#F4F4F5",
-    barText: "#53535A",
     clawOpacity: 0.06,
   },
 };
@@ -145,7 +139,7 @@ export default function AhmaliigaPoster() {
             className="pp-sheet"
             style={{ ...S.sheet, background: t.bg, transform: `scale(${scale})` }}
           >
-            {/* Background layers — mirrors the signage ad's ember backdrop. */}
+            {/* Background layers — the signage ad's ember backdrop. */}
             {t.ember && (
               <>
                 <div style={S.bgRadial} />
@@ -154,79 +148,27 @@ export default function AhmaliigaPoster() {
             )}
             <img src="/infotv/claw.png" alt="" style={{ ...S.claw, opacity: t.clawOpacity }} />
 
-            {/* Brand line */}
-            <div style={S.brand}>
-              <img src="/infotv/wolverine.png" alt="" style={{ width: 44, height: "auto" }} />
-              <div style={{ ...S.brandLabel, color: t.text }}>
-                <span style={S.rule} />
-                Valkeakosken Kiekko-Ahma
-              </div>
-            </div>
-
-            {/* Crest */}
             <img src="/infotv/ahmaliiga_wordmark.png" alt="Ahmaliiga" style={S.crest(t)} />
 
-            {/* Copy */}
-            <div style={S.eyebrow}>
-              <span style={S.rule} />
-              Kiekko-Ahman oma fantasialiiga
-              <span style={S.rule} />
-            </div>
-
             <div style={{ ...S.headline, color: t.text }}>
-              Kokoa unelma&shy;joukkueesi ja <span style={{ color: ORANGE }}>kerää pisteitä</span>
+              Kokoa unelmajoukkueesi ja <span style={{ color: ORANGE }}>kerää pisteitä</span>
             </div>
 
-            <div style={{ ...S.body, color: t.body }}>
-              Kokoa unelmajoukkue Kiekko-Ahman pelaajakorteista. Kun Ahman joukkueet pelaavat
-              oikeita pelejä, sinä keräät niistä pisteitä. Eniten pisteitä kerännyt voittaa.
+            <div style={{ ...S.qrCard, background: t.qrCard, borderColor: t.qrBorder }}>
+              <QRCodeSVG
+                value={TARGET_URL}
+                size={QR_SIZE}
+                level="Q"
+                bgColor="#FFFFFF"
+                fgColor="#0E0E0F"
+                style={{ display: "block" }}
+              />
             </div>
 
-            <div style={S.features}>
-              {FEATURES.map((f, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <div style={{ ...S.featureDivider, background: t.divider }} />}
-                  <div style={S.feature}>
-                    <f.icon size={42} />
-                    <div style={{ ...S.featureLabel, color: t.text }}>
-                      {f.label[0]}
-                      <br />
-                      <span style={{ color: ORANGE }}>{f.label[1]}</span>
-                    </div>
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-
-            {/* Call to action — the reason the poster exists. */}
-            <div style={S.ctaWrap}>
-              <div style={{ ...S.qrCard, background: t.qrCard, borderColor: t.qrBorder }}>
-                <QRCodeSVG
-                  value={TARGET_URL}
-                  size={QR_SIZE}
-                  level="Q"
-                  bgColor="#FFFFFF"
-                  fgColor="#0E0E0F"
-                  style={{ display: "block" }}
-                />
-              </div>
-              <div style={S.ctaText}>
-                <div style={{ ...S.ctaKicker, color: t.kicker }}>Skannaa tai kirjoita</div>
-                <div style={{ ...S.ctaUrl, color: t.text }}>
-                  {URL_HOST}
-                  <br />
-                  <span style={{ color: ORANGE }}>{URL_PATH}</span>
-                </div>
-                <div style={{ ...S.ctaFree, color: t.body }}>Ilmainen — selaimessa tai appina</div>
-              </div>
-            </div>
-
-            {/* Bottom bar */}
-            <div style={{ ...S.bar, background: t.bar }}>
-              <span style={S.barDiamond} />
-              <span style={{ ...S.barText, color: t.barText }}>
-                Pelaa koko kausi — uusi jakso alkaa aina kahden viikon välein
-              </span>
+            {/* Full sheet width, so the address never has to wrap. */}
+            <div style={{ ...S.url, color: t.text }}>
+              {URL_HOST}
+              <span style={{ color: ORANGE }}>{URL_PATH}</span>
             </div>
           </div>
         </div>
@@ -244,7 +186,7 @@ const S = {
     height: SHEET_H,
     overflow: "hidden",
     boxSizing: "border-box",
-    padding: "46px 54px 0",
+    padding: "60px 54px 54px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -257,12 +199,12 @@ const S = {
   bgRadial: {
     position: "absolute",
     inset: 0,
-    background: "radial-gradient(62% 46% at 50% 34%, #3A2415 0%, #17130F 44%, #0B0B0C 78%)",
+    background: "radial-gradient(62% 46% at 50% 30%, #3A2415 0%, #17130F 44%, #0B0B0C 78%)",
   },
   bgGlow: {
     position: "absolute",
     left: -170,
-    top: 60,
+    top: 20,
     width: 760,
     height: 640,
     borderRadius: "50%",
@@ -279,133 +221,45 @@ const S = {
     pointerEvents: "none",
   },
 
-  brand: { position: "relative", display: "flex", alignItems: "center", gap: 14 },
-  brandLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    fontWeight: 700,
-    fontSize: 15,
-    letterSpacing: "0.26em",
-    textTransform: "uppercase",
-  },
-  rule: { display: "block", width: 24, height: 2.5, background: ORANGE, flexShrink: 0 },
-
   crest: (t) => ({
     position: "relative",
     width: 300,
     height: "auto",
-    marginTop: 10,
     filter: t.ember
       ? "drop-shadow(0 0 54px rgba(240,110,30,0.5)) drop-shadow(0 18px 40px rgba(0,0,0,0.65))"
       : "drop-shadow(0 10px 26px rgba(14,14,15,0.18))",
   }),
 
-  eyebrow: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 14,
-    fontWeight: 700,
-    fontSize: 16,
-    letterSpacing: "0.24em",
-    textTransform: "uppercase",
-    color: ORANGE,
-  },
   headline: {
     position: "relative",
-    marginTop: 16,
+    marginTop: 18,
+    maxWidth: 640,
     fontFamily: BEBAS,
     fontSize: 62,
     lineHeight: 0.94,
     letterSpacing: "0.03em",
     textAlign: "center",
   },
-  body: {
-    position: "relative",
-    marginTop: 16,
-    maxWidth: 600,
-    fontWeight: 500,
-    fontSize: 19,
-    lineHeight: 1.4,
-    textAlign: "center",
-  },
 
-  features: {
-    position: "relative",
-    display: "flex",
-    alignItems: "stretch",
-    alignSelf: "stretch",
-    marginTop: 26,
-  },
-  feature: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 10,
-    padding: "0 14px",
-    boxSizing: "border-box",
-  },
-  featureDivider: { width: 2, flexShrink: 0 },
-  featureLabel: {
-    textAlign: "center",
-    fontFamily: BEBAS,
-    fontSize: 26,
-    lineHeight: 1,
-    letterSpacing: "0.04em",
-  },
-
-  ctaWrap: {
+  qrCard: {
     position: "relative",
     marginTop: "auto",
-    marginBottom: 26,
-    display: "flex",
-    alignItems: "center",
-    gap: 30,
-  },
-  qrCard: {
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 18,
     border: "2px solid transparent",
     boxSizing: "border-box",
     display: "flex",
-    flexShrink: 0,
   },
-  ctaText: { display: "flex", flexDirection: "column", gap: 8 },
-  ctaKicker: {
-    fontWeight: 700,
-    fontSize: 15,
-    letterSpacing: "0.2em",
-    textTransform: "uppercase",
-  },
-  ctaUrl: { fontFamily: BEBAS, fontSize: 44, lineHeight: 0.98, letterSpacing: "0.03em" },
-  ctaFree: { fontWeight: 600, fontSize: 17, lineHeight: 1.2 },
 
-  bar: {
-    position: "absolute",
-    left: 0,
-    bottom: 0,
-    width: "100%",
-    height: 62,
-    borderTop: `4px solid ${ORANGE}`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    padding: "0 54px",
-    boxSizing: "border-box",
+  url: {
+    position: "relative",
+    marginTop: 22,
+    fontFamily: BEBAS,
+    fontSize: 42,
+    lineHeight: 1,
+    letterSpacing: "0.02em",
+    textAlign: "center",
   },
-  barDiamond: {
-    display: "block",
-    width: 11,
-    height: 11,
-    background: ORANGE,
-    transform: "rotate(45deg)",
-    flexShrink: 0,
-  },
-  barText: { fontFamily: BEBAS, fontSize: 25, lineHeight: 1, letterSpacing: "0.04em" },
 };
 
 /* ── Screen chrome (toolbar + preview frame). Removed entirely for print. ── */
