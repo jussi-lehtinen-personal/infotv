@@ -44,6 +44,7 @@ import InfoTvOttelut from "./pages/infotv/ottelut";
 import InfoTvJaavuorot from "./pages/infotv/jaavuorot";
 import InfoTvKotipeli from "./pages/infotv/kotipeli";
 import InfoTvAhmaliiga from "./pages/infotv/ahmaliiga";
+import AhmaliigaPoster from "./pages/ahmaliiga_poster";
 import InfoTvTilastot from "./pages/infotv/tilastot";
 import InfoTvKumppanit from "./pages/infotv/kumppanit";
 import InfoTvKannattajat from "./pages/infotv/kannattajat";
@@ -172,6 +173,10 @@ function App() {
             <Route path="/infotv/tilastot" element={<InfoTvTilastot />} />
             <Route path="/infotv/kumppanit" element={<InfoTvKumppanit />} />
             <Route path="/infotv/kannattajat" element={<InfoTvKannattajat />} />
+
+            {/* Printable posters — same artwork as the signage pages, cut for A4
+                paper. Direct URI only, like the InfoTV screens themselves. */}
+            <Route path="/print/ahmaliiga" element={<AhmaliigaPoster />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route
                 path="/sign-up"
