@@ -233,7 +233,7 @@ const S = {
   headline: {
     position: "relative",
     marginTop: 18,
-    maxWidth: 640,
+    alignSelf: "stretch",
     fontFamily: BEBAS,
     fontSize: 62,
     lineHeight: 0.94,
@@ -254,8 +254,9 @@ const S = {
   url: {
     position: "relative",
     marginTop: 22,
+    alignSelf: "stretch",
     fontFamily: BEBAS,
-    fontSize: 42,
+    fontSize: 36,
     lineHeight: 1,
     letterSpacing: "0.02em",
     textAlign: "center",
