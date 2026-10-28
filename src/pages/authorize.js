@@ -36,6 +36,7 @@ export default function Authorize() {
 
   const [phase, setPhase] = useState("checking"); // checking | signin | handover | error
   const [error, setError] = useState("");
+  const [legacyRetry, setLegacyRetry] = useState(false);
   const [busy, setBusy] = useState(false);
   const [clientId, setClientId] = useState("");
   const supported = browserSupportsWebAuthn();
@@ -85,11 +86,16 @@ export default function Authorize() {
       await handover();
     } catch (e) {
       setError(e.message || "Kirjautuminen epäonnistui.");
+      // Passkey from before the relying-party id was unified — see authClient.
+      setLegacyRetry(!!e.retryLegacy);
       setBusy(false);
     }
   }, [handover]);
 
-  const onPasskey = () => afterSignIn(() => loginPasskey());
+  const onPasskey = (legacy = false) => {
+    setLegacyRetry(false);
+    return afterSignIn(() => loginPasskey({ legacy }));
+  };
   const onGoogle = (credential) => afterSignIn(() => loginGoogle(credential));
 
   return (
@@ -116,7 +122,7 @@ export default function Authorize() {
             {!supported && <Box sx={{ mb: 2 }}><ErrorBox>Laitteesi tai selaimesi ei tue passkey-kirjautumista.</ErrorBox></Box>}
 
             {clientId && <Box sx={{ display: "flex", justifyContent: "center", mb: 1.25 }}><GoogleButton clientId={clientId} onCredential={onGoogle} text="signin_with" /></Box>}
-            <Button onClick={onPasskey} disabled={busy || !supported} sx={authBtnSx}>Kirjaudu passkeyllä</Button>
+            <Button onClick={() => onPasskey()} disabled={busy || !supported} sx={authBtnSx}>Kirjaudu passkeyllä</Button>
 
             <Stack direction="row" alignItems="center" spacing={1.5} sx={{ color: "text.secondary", fontSize: 12, my: 2 }}>
               <Divider sx={{ flex: 1, borderColor: "var(--color-surface-divider)" }} /><span>Gamezone</span><Divider sx={{ flex: 1, borderColor: "var(--color-surface-divider)" }} />
@@ -126,6 +132,11 @@ export default function Authorize() {
             </Typography>
 
             {error && <Box sx={{ mt: 2 }}><ErrorBox>{error}</ErrorBox></Box>}
+            {legacyRetry && (
+              <Box sx={{ mt: 1.5 }}>
+                <Button onClick={() => onPasskey(true)} disabled={busy} sx={authBtnSx}>Kokeile vanhaa passkeytä</Button>
+              </Box>
+            )}
           </>
         )}
 

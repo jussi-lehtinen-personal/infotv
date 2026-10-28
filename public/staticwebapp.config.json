@@ -1,6 +1,13 @@
 {
     "routes": [
         {
+            "route": "/.well-known/webauthn",
+            "headers": {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, max-age=3600"
+            }
+        },
+        {
             "route": "/api/getImage/*",
             "headers": {
               "Cache-Control": "public, max-age=604800"
@@ -15,7 +22,7 @@
     ],
     "navigationFallback": {
        "rewrite": "index.html",
-       "exclude": ["/static/media/*.{png,jpg,jpeg,gif,bmp}",   "/static/css/*"]
+       "exclude": ["/static/media/*.{png,jpg,jpeg,gif,bmp}",   "/static/css/*", "/.well-known/*"]
     },
     "mimeTypes": {
         ".json": "text/json"

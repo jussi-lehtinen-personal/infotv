@@ -67,8 +67,17 @@ function mapError(e) {
   const msg = (e && e.message) || "";
   if (name === "UnknownError" || /credential/i.test(msg))
     return "Avainhallinta ei vastannut. Yritä hetken kuluttua uudelleen.";
+  // The browser refused the relying-party id. Only reachable on an old browser
+  // without Related Origin Requests, after the legacy retry has failed too.
+  if (name === "SecurityError")
+    return "Selaimesi ei tue kirjautumista tässä osoitteessa. Avaa gamezone.kiekko-ahma.fi.";
   return msg || "Passkey-toiminto epäonnistui.";
 }
+
+// A SecurityError means the browser rejected the relying-party id before showing
+// the user anything, which happens when it is too old for Related Origin Requests.
+// Retrying on the legacy rpID is therefore invisible — no second key sheet.
+const rpRefused = (e) => e && e.name === "SecurityError";
 
 // Shared POST that optionally attaches the session token (authed register =
 // add a passkey to the current account).
@@ -88,16 +97,17 @@ async function postAuthed(url, body, authed) {
   return data;
 }
 
-async function doRegister(body, authed) {
-  const { options, challengeToken } = await postAuthed(
+async function doRegister(body, authed, legacy) {
+  const { options, challengeToken, hasLegacy } = await postAuthed(
     "/api/auth/passkey/register/options",
-    body,
+    { ...body, legacy: !!legacy },
     authed
   );
   let response;
   try {
     response = await startRegistration(options);
   } catch (e) {
+    if (rpRefused(e) && hasLegacy) return doRegister(body, authed, true);
     throw new Error(mapError(e));
   }
   const { token, user } = await postAuthed(
@@ -116,16 +126,23 @@ export const registerPasskey = (nickname) => doRegister({ nickname }, false);
 // Add a passkey to the currently signed-in account (e.g. Google-only user).
 export const addPasskey = () => doRegister({}, true);
 
-export async function loginPasskey() {
-  const { options, challengeToken } = await postJson(
+// `legacy` looks for a passkey created on the club's other hostname before the
+// relying-party id was unified. The UI offers it as a second, explicit attempt:
+// a failure here has already shown the user a key sheet, so retrying by itself
+// would pop a second one unasked.
+export async function loginPasskey({ legacy = false } = {}) {
+  const { options, challengeToken, hasLegacy } = await postJson(
     "/api/auth/passkey/login/options",
-    {}
+    { legacy }
   );
   let response;
   try {
     response = await startAuthentication(options);
   } catch (e) {
-    throw new Error(mapError(e));
+    if (rpRefused(e) && hasLegacy) return loginPasskey({ legacy: true });
+    const err = new Error(mapError(e));
+    err.retryLegacy = !!hasLegacy;
+    throw err;
   }
   const { token, user } = await postJson(
     "/api/auth/passkey/login/verify",

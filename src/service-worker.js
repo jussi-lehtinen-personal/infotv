@@ -43,6 +43,8 @@ registerRoute(
       /\/asset-manifest\.json$/,
       /\/favicon\.ico$/,
       /\/robots\.txt$/,
+      // Browser-internal fetch (WebAuthn related origins) — never the app shell.
+      /\/\.well-known\//,
       /\/apple-touch-icon.*\.png$/,
     ],
   })

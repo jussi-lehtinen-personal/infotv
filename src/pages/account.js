@@ -75,6 +75,7 @@ const Account = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [legacyRetry, setLegacyRetry] = useState(false);
   const [notice, setNotice] = useState("");
   const [nickname, setNickname] = useState("");
   const [clientId, setClientId] = useState("");
@@ -115,13 +116,18 @@ const Account = () => {
     setBusy(false);
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (legacy = false) => {
     setError("");
+    setLegacyRetry(false);
     setBusy(true);
     try {
-      setUser(await loginPasskey());
+      setUser(await loginPasskey({ legacy }));
     } catch (err) {
       setError(err.message);
+      // The key may predate the unified relying-party id and live under the
+      // club's other hostname. Offer the one retry that can still find it
+      // instead of leaving an empty key picker as a dead end.
+      setLegacyRetry(!legacy && !!err.retryLegacy);
     }
     setBusy(false);
   };
@@ -314,7 +320,7 @@ const Account = () => {
                 <Typography sx={{ fontWeight: 800, fontSize: 18 }}>Kirjaudu</Typography>
                 <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, mb: 1.5 }}>Onko sinulla jo tili? Kirjaudu sisään</Typography>
                 {clientId && <Box sx={{ display: "flex", justifyContent: "center", mb: 1.25 }}><GoogleButton clientId={clientId} onCredential={handleLoginGoogle} text="signin_with" /></Box>}
-                <Button onClick={handleLogin} disabled={busy} sx={authBtnSx}>Kirjaudu passkeyllä</Button>
+                <Button onClick={() => handleLogin()} disabled={busy} sx={authBtnSx}>Kirjaudu passkeyllä</Button>
 
                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ color: "text.secondary", fontSize: 12, my: 2 }}>
                   <Divider sx={{ flex: 1, borderColor: "var(--color-surface-divider)" }} /><span>tai</span><Divider sx={{ flex: 1, borderColor: "var(--color-surface-divider)" }} />
@@ -326,7 +332,19 @@ const Account = () => {
             )}
 
             {notice && <Box sx={{ mt: 2 }}><Notice>{notice}</Notice></Box>}
-            {error && !showCreate && <Box sx={{ mt: 2 }}><ErrorBox>{error}</ErrorBox></Box>}
+            {error && !showCreate && (
+              <Box sx={{ mt: 2 }}>
+                <ErrorBox>{error}</ErrorBox>
+                {legacyRetry && (
+                  <Box sx={{ textAlign: "center", mt: 1.5 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
+                      Eikö avainta löytynyt? Jos teit tilin aiemmin, avain voi olla tallessa vanhalla osoitteella.
+                    </Typography>
+                    <Button onClick={() => handleLogin(true)} disabled={busy} sx={authBtnSx}>Kokeile vanhaa passkeytä</Button>
+                  </Box>
+                )}
+              </Box>
+            )}
           </Box>
         </Box>
       )}

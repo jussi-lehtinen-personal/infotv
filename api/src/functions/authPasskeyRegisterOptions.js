@@ -60,7 +60,11 @@ app.http('authPasskeyRegisterOptions', {
         userId = crypto.randomUUID();
       }
 
-      const { origin, rpID: rId } = rpFromRequest(request);
+      // New keys go into the canonical namespace. `legacy` exists only for a
+      // browser too old for Related Origin Requests, which refuses the canonical
+      // rpID outright on the non-canonical hostname (see lib/webauthn) — without
+      // the retry, signing up there would simply fail.
+      const { origin, rpID: rId, legacyRpID } = rpFromRequest(request, { legacy: !!(body && body.legacy) });
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: rId,
@@ -84,7 +88,7 @@ app.http('authPasskeyRegisterOptions', {
         origin,
       });
 
-      return { jsonBody: { options, challengeToken } };
+      return { jsonBody: { options, challengeToken, hasLegacy: !body.legacy && !!legacyRpID } };
     } catch (err) {
       context.log('register/options failed: ' + (err && err.stack || err));
       return { status: 500, jsonBody: { error: String(err && err.message || err) } };
