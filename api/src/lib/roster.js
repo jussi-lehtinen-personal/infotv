@@ -1,8 +1,9 @@
 const fetch = require('node-fetch');
+const { pageProps } = require('./jopoxSite');
 
 // Public Jopox roster reader for role tagging (player vs official). Source: the
-// club site www.kiekko-ahma.fi embeds team data as JSON in the __NEXT_DATA__
-// script on /joukkueet/<subsiteId> (same source as functions/getTeamRoster.js).
+// club site www.kiekko-ahma.fi embeds team data as JSON in the page (see
+// lib/jopoxSite) on /joukkueet/<subsiteId> (same source as functions/getTeamRoster.js).
 // Here we only need NAME SETS to classify a person from the enrolment export as
 // a player, an official (huoltaja/valmentaja/jojo), or unknown.
 // See memory: reference_jopox_kiekkoahma.
@@ -76,12 +77,10 @@ async function fetchRoster(subsiteId) {
     const res = await fetch(`${BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
     if (!res.ok) return empty;
     const html = await res.text();
-    const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!m) return empty;
-    const pageProps = JSON.parse(m[1]).props?.pageProps || {};
+    const pp = pageProps(html);
     const players = new Set();
     const goalies = new Set();
-    for (const group of pageProps.players || []) {
+    for (const group of pp.players || []) {
       // The roster groups players by position; the group name (and the per-player
       // position attribute) is "Maalivahti" for goalies. Confirmed on every team.
       const goalGroup = /maalivahti/i.test(group.name || '');
@@ -93,7 +92,7 @@ async function fetchRoster(subsiteId) {
       }
     }
     const officials = new Map();
-    for (const o of pageProps.officials || []) {
+    for (const o of pp.officials || []) {
       const nm = o.personName || `${o.personFirstname || ''} ${o.personLastname || ''}`;
       const k = nameKey(nm);
       if (k && !officials.has(k)) officials.set(k, officialCategory(o.role));

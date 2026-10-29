@@ -1,9 +1,10 @@
 const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
+const { pageProps } = require('../lib/jopoxSite');
 
 // Club news — the SINGLE SOURCE OF TRUTH is kiekko-ahma.fi (no local JSON to
-// maintain). The front page embeds the latest news in __NEXT_DATA__
-// props.pageProps.news (same read pattern as getPartners' sponsors). We map each
+// maintain). The front page embeds the latest news in its page payload (see
+// lib/jopoxSite) as `news` (same read pattern as getPartners' sponsors). We map each
 // item to the shape NewsCard expects + cache 6 h. Azure reaches kiekko-ahma.fi
 // directly (not behind the tulospalvelu WAF). See reference_jopox_kiekkoahma +
 // project_content_management.
@@ -74,9 +75,7 @@ app.http('getNews', {
             if (!res.ok) throw new Error(`kiekko-ahma.fi -> HTTP ${res.status}`);
             const html = await res.text();
 
-            const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-            if (!m) throw new Error('__NEXT_DATA__ not found');
-            const pp = JSON.parse(m[1]).props?.pageProps || {};
+            const pp = pageProps(html);
 
             const news = (pp.news || [])
                 .map(mapNews)

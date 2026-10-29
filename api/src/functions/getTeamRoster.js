@@ -1,9 +1,10 @@
 const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
+const { pageProps } = require('../lib/jopoxSite');
 
 // Team roster + officials for a Jopox team page. Source: the club site
-// www.kiekko-ahma.fi (Jopox + Next.js) embeds the data as JSON in the
-// __NEXT_DATA__ script on /joukkueet/<subsiteId>. We fetch that page, parse the
+// www.kiekko-ahma.fi (Jopox) embeds the data as JSON in the page payload (see
+// lib/jopoxSite) on /joukkueet/<subsiteId>. We fetch that page, parse the
 // blob, and return a trimmed payload. (kiekko-ahma.fi is NOT behind the
 // tulospalvelu WAF, so Azure should reach it directly; if that ever changes,
 // route this through the Cloudflare Worker like getGames/getTeams.)
@@ -145,11 +146,7 @@ app.http('getTeamRoster', {
             if (!res.ok) throw new Error(`kiekko-ahma.fi -> HTTP ${res.status}`);
             const html = await res.text();
 
-            const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-            if (!m) throw new Error('__NEXT_DATA__ not found');
-            const pageProps = JSON.parse(m[1]).props?.pageProps || {};
-
-            const data = transform(pageProps, html);
+            const data = transform(pageProps(html), html);
             cache.set(subsiteId, { data, timestamp: Date.now() });
             return { jsonBody: data };
         } catch (err) {

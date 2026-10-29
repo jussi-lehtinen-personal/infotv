@@ -4,6 +4,7 @@ const { requireAuth } = require('../lib/auth');
 const { ensureTables } = require('../lib/tables');
 const { isAdmin } = require('../lib/admin');
 const { listUsers } = require('../lib/graph');
+const { pageProps } = require('../lib/jopoxSite');
 
 // GET /api/accountAudit — ADMIN-ONLY. Cross-references the club's Microsoft 365
 // accounts (Graph /users, needs the app's User.Read.All application permission)
@@ -42,9 +43,7 @@ async function fetchOfficials() {
       const res = await fetch(`${ROSTER_BASE}/joukkueet/${id}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
       if (!res.ok) continue;
       const html = await res.text();
-      const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-      if (!m) continue;
-      const pp = (JSON.parse(m[1]).props || {}).pageProps || {};
+      const pp = pageProps(html);
       for (const o of pp.officials || []) {
         const name = clean(o.personName) || clean(`${o.personFirstname || ''} ${o.personLastname || ''}`);
         if (!name) continue;

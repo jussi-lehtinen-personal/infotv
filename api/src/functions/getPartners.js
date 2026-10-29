@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
+const { pageProps } = require('../lib/jopoxSite');
 
 // Optional: decode logos to detect light/white wordmarks (they vanish on the
 // white logo box → they get a dark box instead). Degrade gracefully if jimp
@@ -7,9 +8,9 @@ const fetch = require("node-fetch");
 let Jimp = null;
 try { Jimp = require('jimp'); } catch { /* analysis skipped */ }
 
-// Club partners / sponsors from the front page of www.kiekko-ahma.fi (Jopox +
-// Next.js). The homepage embeds `topsponsors` + `centersponsors` in
-// __NEXT_DATA__ — each { sponsorName, sponsorImage, sponsorWww }. Image is a
+// Club partners / sponsors from the front page of www.kiekko-ahma.fi (Jopox).
+// The homepage embeds the top + center sponsors in its page payload (see
+// lib/jopoxSite) — each { sponsorName, sponsorImage, sponsorWww }. Image is a
 // filename in the Jopox imagebank. See reference_jopox_kiekkoahma.
 
 const TTL = 6 * 60 * 60_000; // 6 h
@@ -72,11 +73,14 @@ app.http('getPartners', {
             if (!res.ok) throw new Error(`kiekko-ahma.fi -> HTTP ${res.status}`);
             const html = await res.text();
 
-            const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-            if (!m) throw new Error('__NEXT_DATA__ not found');
-            const pp = JSON.parse(m[1]).props?.pageProps || {};
+            const pp = pageProps(html);
 
-            const raw = [...(pp.topsponsors || []), ...(pp.centersponsors || [])];
+            // Nuxt camel-cases what Next had in lower case; accept both so a
+            // rollback on Jopox's side doesn't empty the partner list.
+            const raw = [
+                ...(pp.topsponsors || pp.topSponsors || []),
+                ...(pp.centersponsors || pp.centerSponsors || []),
+            ];
             const seen = new Set();
             const partners = [];
             for (const s of raw) {

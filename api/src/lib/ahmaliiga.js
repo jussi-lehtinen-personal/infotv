@@ -6,6 +6,7 @@ const { computeRoundPoints, teamKey, isPlayerEligible } = require('./roundResult
 const { posName, SCORING } = require('./scoring');
 const { sendPush } = require('./push');
 const { envAdminIds } = require('./admin');
+const { pageProps: jopoxPageProps } = require('./jopoxSite');
 
 // Ahmaliiga data access + LOCKED economy constants. Mirrors tools/lib/model.js CFG
 // (numbers locked — see docs/ahmaliiga-plan.md). M0 scope: season/rounds/cards +
@@ -2345,12 +2346,10 @@ const normName = (s) => String(s || '').toLocaleLowerCase('fi')
 // {normalizedName: photoUrl} for a Jopox team roster (both name orders keyed).
 async function fetchRosterPhotos(subsiteId) {
   const res = await fetch(`${ROSTER_BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': ROSTER_UA, Accept: 'text/html' } });
-  if (!res.ok) return {};
-  const html = await res.text();
-  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) return {};
-  let pageProps;
-  try { pageProps = JSON.parse(m[1]).props && JSON.parse(m[1]).props.pageProps || {}; } catch { return {}; }
+  if (!res.ok) throw new Error(`Jopox roster ${subsiteId} -> HTTP ${res.status}`);
+  // Deliberately NOT caught: a parse failure must reach enrichPhotos, which would
+  // otherwise read it as "this team has no photos" and blank the ones it has.
+  const pageProps = jopoxPageProps(await res.text());
   const map = {};
   for (const group of pageProps.players || []) {
     for (const p of group.players || []) {
@@ -2374,11 +2373,7 @@ const safeJson = (s, d) => { try { return JSON.parse(s || ''); } catch { return 
 async function fetchRosterPlayers(subsiteId) {
   const res = await fetch(`${ROSTER_BASE}/joukkueet/${subsiteId}`, { headers: { 'User-Agent': ROSTER_UA, Accept: 'text/html' } });
   if (!res.ok) return [];
-  const html = await res.text();
-  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) return [];
-  let pageProps;
-  try { pageProps = (JSON.parse(m[1]).props || {}).pageProps || {}; } catch { return []; }
+  const pageProps = jopoxPageProps(await res.text());
   const out = [];
   for (const group of pageProps.players || []) {
     // Position from the Jopox roster group title (Maalivahdit / Puolustajat / Hyökkääjät).
@@ -2543,9 +2538,20 @@ async function enrichPhotos(seasonId) {
   // a combined union (fallback for moved-up players).
   const subs = [...new Set(Object.values(AGE_SUBSITE))];
   const maps = {};
-  await inChunks(subs, 4, async (s) => { try { maps[s] = await fetchRosterPhotos(s); } catch { maps[s] = {}; } });
+  const failed = [];
+  await inChunks(subs, 4, async (s) => {
+    try { maps[s] = await fetchRosterPhotos(s); } catch (e) { maps[s] = {}; failed.push(`${s}: ${(e && e.message) || e}`); }
+  });
   const combined = {};
   for (const s of subs) Object.assign(combined, maps[s]);
+
+  // Refuse to write when the SOURCE came back empty. On 2026-10-29 Jopox moved the
+  // club site to Nuxt, every roster fetch silently yielded {}, and this ran anyway —
+  // blanking the photo on all 84 cards. An empty source means "we cannot see Jopox",
+  // never "nobody has a photo", and the two must not look the same to this function.
+  if (!Object.keys(combined).length) {
+    throw new Error(`Jopox-rostereista ei saatu yhtään kuvaa (${subs.length} joukkuetta)${failed.length ? ' — ' + failed.join('; ') : ''}`);
+  }
 
   let matched = 0;
   const updates = [];
@@ -2555,15 +2561,22 @@ async function enrichPhotos(seasonId) {
     const photo = (declared && maps[declared] && maps[declared][norm]) || combined[norm] || '';
     if (photo) matched++;
     updates.push({
+      // Spread the existing card FIRST: this is a Replace-upsert, so every field
+      // missing from the list below would be WIPED — which is how `position` /
+      // `posOverride` were lost on 2026-10-29. Same guard as settleRound's.
+      ...c,
       partitionKey: seasonId, rowKey: c.rowKey, kind: c.kind, name: c.name, sub: c.sub || '',
       teamKey: c.teamKey || '', personName: c.personName || '', age: c.age || '',
       band: c.band, price: c.price, ownerCount: c.ownerCount || 0, lastPts: c.lastPts || 0,
       seasonPts: c.seasonPts || 0, trend: c.trend || '', priorForm: c.priorForm ?? null,
-      seedPrice: c.seedPrice ?? c.price, seedBand: c.seedBand || c.band, photo,
+      seedPrice: c.seedPrice ?? c.price, seedBand: c.seedBand || c.band,
+      // No match keeps whatever the card already had. A player missing from the
+      // roster this minute (moved up, page half-rendered) must not lose his face.
+      photo: photo || c.photo || '',
     });
   }
   await upsertBatch(T.cards, updates);
-  return { players: players.length, matched, subsites: subs.length };
+  return { players: players.length, matched, subsites: subs.length, failed };
 }
 
 // A manager's per-round score row (total, rank, per-card breakdown, lineup).

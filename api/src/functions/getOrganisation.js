@@ -1,9 +1,10 @@
 const { app } = require('@azure/functions');
 const fetch = require("node-fetch");
+const { pageProps } = require('../lib/jopoxSite');
 
 // Organisation contacts (board etc.) from the club site www.kiekko-ahma.fi
-// (Jopox + Next.js). The /organisaatio page embeds `officials` in __NEXT_DATA__,
-// same shape as team officials. Unlike team pages, ALL roles show contacts here
+// (Jopox). The /organisaatio page embeds the officials in its page payload (see
+// lib/jopoxSite), same item shape as team officials. Unlike team pages, ALL roles show contacts here
 // (these are the public organisation contacts). See reference_jopox_kiekkoahma.
 
 const TTL = 6 * 60 * 60_000; // 6 h
@@ -35,11 +36,14 @@ app.http('getOrganisation', {
             if (!res.ok) throw new Error(`kiekko-ahma.fi -> HTTP ${res.status}`);
             const html = await res.text();
 
-            const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-            if (!m) throw new Error('__NEXT_DATA__ not found');
-            const pageProps = JSON.parse(m[1]).props?.pageProps || {};
+            const pp = pageProps(html);
+            // Unlike a team page, this one's payload is ONE bare list of officials
+            // under its own cache key, so pick it by shape rather than by name.
+            const list = pp.officials
+                || Object.values(pp).find((v) => Array.isArray(v) && v.some((o) => o && (o.personName || o.personLastname)))
+                || [];
 
-            const officials = (pageProps.officials || []).map((o) => ({
+            const officials = list.map((o) => ({
                 name: clean(o.personName) || clean(`${o.personFirstname} ${o.personLastname}`),
                 role: clean(o.role),
                 email: clean(o.email) || null,
