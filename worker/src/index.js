@@ -669,8 +669,10 @@ async function handleGetGameReport(url, env, ctx, ip) {
 //   /getTeamSeries — the season's series for an age from the 24 h game list
 //     (0 tulospalvelu calls) + ONE resolve per series cluster (reusing the box
 //     score's district scan → subSerieId, KV-PERMANENT per game).
-//   /getSeriesTable — ONE table (standings|scorers|goalies) = ONE call, cached
-//     long. The client fetches these lazily, per tab, per selected series.
+//   /getSeriesTable — ONE table (standings|scorers|goalies|games) = ONE call,
+//     cached long. The client fetches these lazily, per tab, per selected series.
+//     `games` is the whole lohko's schedule (all teams, played + upcoming) — still
+//     one call, because getgames takes a subSerieId and no date window.
 
 // Same mapping as the client's teamMatch.js ageKey (U-number first, then
 // naiset / edustus) so game.level → the Jopox age the page asked for.
@@ -751,6 +753,40 @@ async function fetchGoalies(season, subSerieId, levelId) {
     gp: p.GoaliePlayedGames, saves: p.GoalieSaves, ga: p.GoalieGoalsAgainst,
     savePct: p.GoalieSavesPerc, ga60: p.GoalieGA60Min,
   }));
+}
+
+// The WHOLE sub-series: every pairing in the lohko, played and upcoming, in ONE
+// getgames call (gamedays=-1 with an empty dog = no date window at all — 42 games
+// for the U15 lohko). This is a different axis from fetchDay: there we ask "one
+// day, one district, Ahma only" and have to repeat it per day; here one series
+// answers the whole schedule, so there is no scan to minimise.
+async function fetchSeriesGames(season, subSerieId) {
+  const data = await tpGet("helpers/getgames", {
+    season, subSerieId, teamid: 0, districtid: 0, gamedays: -1, dog: "", levelid: -1,
+  });
+  const out = [];
+  for (const level of Array.isArray(data) ? data : []) {
+    for (const g of level.Games || []) {
+      out.push({
+        id: g.GameID,
+        date: `${g.GameDateDB} ${String(g.GameTime || "").slice(0, 5)}`, // GameTime carries seconds we drop
+        home: g.HomeTeamAbbrv,
+        away: g.AwayTeamAbbrv,
+        homeTeamId: g.HomeTeam,
+        awayTeamId: g.AwayTeam,
+        // ⚠️ A SCHEDULED game reads 0–0, not null — `finished` (FinishedType) is the
+        // only discriminator. See memory reference_ahmaliiga_realclock_timezone.
+        home_goals: g.HomeGoals,
+        away_goals: g.AwayGoals,
+        finished: g.FinishedType,
+        rink: g.RinkName,
+        isAhma: isAhmaAss(g.HomeAssociationID) || isAhmaAss(g.AwayAssociationID)
+          || isAhmaName(g.HomeTeamAbbrv) || isAhmaName(g.AwayTeamAbbrv),
+      });
+    }
+  }
+  // "YYYY-MM-DD HH:MM" sorts chronologically as a plain string.
+  return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 // Resolve ONE Ahma HOME game's real subSerieId — EXACTLY ONE getgames call to the
@@ -885,7 +921,7 @@ async function handleGetTeamSeries(url, env) {
   };
 }
 
-// ONE table for one series = ONE getstandings/getplayers/getgoalkeepers call. If
+// ONE table for one series = ONE getstandings/getplayers/getgoalkeepers/getgames call. If
 // the series isn't resolved yet (a non-active one the user just opened), the
 // client passes the rep game identity → we resolve it here (one KV-permanent
 // call), then fetch the table. Still no loop.
@@ -907,6 +943,7 @@ async function handleGetSeriesTable(url, env) {
   const base = { tab, subSerieId, levelId, subSerieName };
   if (tab === "scorers") return { ...base, scorers: await fetchScorers(season, subSerieId) };
   if (tab === "goalies") return { ...base, goalies: await fetchGoalies(season, subSerieId, levelId) };
+  if (tab === "games") return { ...base, games: await fetchSeriesGames(season, subSerieId) };
   return { ...base, tab: "standings", standings: await fetchStandings(season, subSerieId) };
 }
 
