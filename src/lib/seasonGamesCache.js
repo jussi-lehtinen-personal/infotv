@@ -10,7 +10,7 @@ import { getMonday, processIncomingDataEvents } from "../Util";
 // overlay. In-memory + localStorage (instant paint) + subscribe/notify.
 // See memory: project_home_agenda.
 
-const VERSION = 4; // v4: logo proxy URLs changed (two-mode keying + &v cache-bust) — invalidate old
+const VERSION = 5; // v5: tulospalvelu moved its logos to a CDN, so every stored logo URL 404s (v4: two-mode proxy keying)
 const LS_KEY = `ahma.seasonGames.v${VERSION}`;
 // Client revalidation window. The long 24 h cache lives in the worker only (to
 // avoid layered TTLs compounding); Azure + browser stay at 5 min. The client can

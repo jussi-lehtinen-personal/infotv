@@ -38,7 +38,9 @@ function simplifyLevel(level) {
 // (e.g. "10114407.png") — NOT the per-game teamId. The same team appears under
 // many teamIds, so a teamId key fragmented the browser/SW/function caches and
 // made identical logos on later weeks refetch (and sometimes drop). Keying by the
-// image makes a logo load once and reuse everywhere.
+// image makes a logo load once and reuse everywhere. (Since tulospalvelu's 2026-11
+// CDN move a team with its OWN crest is served as "<teamId>.png" by them, so those
+// key per team — that is their filename, not our teamId, and the crests differ.)
 // Proxy an image through /api/getImage, which keys the white background out +
 // crops (server-side, cached). tp=1 = LOGO mode (crisp, keeps interior/near-white
 // logo parts); tp=2 = PHOTO mode (guided-filter matting for people/hair). Pass
@@ -50,7 +52,9 @@ export const logoProxy = (url, photo = false) => {
   if (!file) return url; // no image filename -> leave as-is
   // &v busts the browser cache when the keying algorithm changes (same tp URL
   // otherwise). Per-mode so a photo-only change doesn't force every logo to refetch.
-  return "/api/getImage/" + file + "?uri=" + url + (photo ? "&tp=2&v=3" : "&tp=1&v=2");
+  // encodeURIComponent: the CDN logo URLs carry their own query string
+  // ("?associationId=..."), which would otherwise run into our &tp/&v params.
+  return "/api/getImage/" + file + "?uri=" + encodeURIComponent(url) + (photo ? "&tp=2&v=3" : "&tp=1&v=2");
 };
 
 export const processIncomingDataEvents = (events) => {

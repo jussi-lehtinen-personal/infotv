@@ -4,6 +4,9 @@ const fetch = require("node-fetch");
 // Team logos live on tulospalvelu, whose WAF blocks our Azure egress (it returns
 // a 919-byte HTML block page instead of the PNG). So we fetch the image through
 // the Cloudflare Worker, same as getGames/getTeams. Response is cached here.
+// Since 2026-11-06 the logos themselves sit on tulospalvelu's CloudFront image
+// CDN; we route those through the Worker too rather than bet on Azure egress
+// reaching a host that the same WAF fronts.
 //
 // ?tp=1 returns a TRANSPARENT variant: the solid (near-)white background is keyed
 // out server-side (once, cached) so crests can sit on a dark surface without a
@@ -192,12 +195,13 @@ app.http("getImage", {
     // Whitelist the image hosts we serve (avoid an open SSRF proxy).
     const host = (() => { try { return new URL(uri).hostname.toLowerCase(); } catch { return ""; } })();
     const isTulospalvelu = /(^|\.)tulospalvelu\.leijonat\.fi$/.test(host);
+    const isTpImageCdn = host === "d3lct1h2t2q714.cloudfront.net"; // their image CDN
     const isJopox = /(^|\.)jopox\.fi$/.test(host);
-    if (!isTulospalvelu && !isJopox) return { status: 400, body: "Host not allowed" };
+    if (!isTulospalvelu && !isTpImageCdn && !isJopox) return { status: 400, body: "Host not allowed" };
 
     // tulospalvelu's WAF blocks our Azure egress → fetch via the Cloudflare Worker.
     // jopox (player photos) is directly reachable, so fetch it straight.
-    const response = isTulospalvelu
+    const response = (isTulospalvelu || isTpImageCdn)
       ? await fetch(`${PROXY_URL}/getImage?uri=${encodeURIComponent(uri)}`, { headers: PROXY_KEY ? { "x-proxy-key": PROXY_KEY } : {} })
       : await fetch(uri);
     const contentType = response.headers.get("content-type") || "";

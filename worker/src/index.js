@@ -18,7 +18,15 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 const ACCEPT_LANG = "fi-FI,fi;q=0.9,en;q=0.8";
-const IMAGE_URI = `${ORIGIN}/images/associations/weblogos/200x200/`;
+// tulospalvelu moved its static images to a CloudFront distribution (noticed
+// 2026-11-06, window.STATIC_ASSETS_IMAGE_BASE_URL on their pages). The old origin
+// path still serves the files it had, but never received the new season's — so
+// every current logo 404'd while the previous season's kept working. The API hands
+// back a season-prefixed RELATIVE path ("2027/10114407.png", or
+// "2027/teams/<teamId>.png?associationId=<assId>" when a team has its own crest),
+// which resolves ONLY under this base.
+const IMAGE_BASE = "https://d3lct1h2t2q714.cloudfront.net/transform/tulospalvelu/images/";
+const IMAGE_URI = `${IMAGE_BASE}associations/weblogos/200x200/`;
 const HOME_DISTRICT_ID = 2;
 const DISTRICTS_ALL = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -1000,7 +1008,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "19";
+const CACHE_VERSION = "20";  // 20: logo URLs repointed to tulospalvelu's CDN
 const NEGATIVE_TTL_S = 60; // how long a FAILED compute is remembered (see cachedJson)
 
 /* ------------------------------ rate limiting ----------------------------- */
@@ -1113,7 +1121,11 @@ export default {
     // return it with CORS so the Azure proxy / canvas pages can use it.
     if (url.pathname === "/getImage") {
       const target = url.searchParams.get("uri");
-      if (!target || !target.startsWith(ORIGIN + "/")) return json({ error: "bad uri" }, 400);
+      // The origin OR the CloudFront image CDN the logos moved to. Prefix match on
+      // an absolute URL, so this stays a two-host proxy and not an open one.
+      if (!target || !(target.startsWith(ORIGIN + "/") || target.startsWith(IMAGE_BASE))) {
+        return json({ error: "bad uri" }, 400);
+      }
       if (!(await rateLimitOK(env, ip))) return tooMany();
       try {
         const img = await fetch(target, { headers: { "User-Agent": UA, Accept: "image/avif,image/webp,image/png,*/*;q=0.8" } });
