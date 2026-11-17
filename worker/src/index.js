@@ -273,6 +273,13 @@ function buildExtGame(g) {
     rink,
     level: g.LevelName,
     levelId: String(g.LevelID),
+    // Small-area game (pienpeli): a cross-ice format played alongside the real
+    // fixture, mostly in U9-U12. The league records almost no results for them
+    // (2026-27: 2 results in 29 played, vs 129/129 for normal games), so
+    // Ahmaliiga drops them. Passed through here because only the upstream knows
+    // it - the flag is PER GAME, not per level: U11/U12 mix both kinds in one
+    // series, so a level-name filter would wrongly drop their scoring fixtures.
+    smallArea: !!g.SmallAreaGame,
     // Which side is Ahma (for the "my team" cards); home venue = Valkeakoski.
     ahmaHome: g.HomeAssociation === ASSOCIATION_ID,
     isHomeGame: !!(rink && /valkeakos/i.test(rink)),
@@ -1008,7 +1015,7 @@ function weekTtlSeconds(url) {
 // cached). Keyed by URL only (the x-proxy-key header is excluded).
 // Bump to bust the Cache-API entries after a response-shape change (Cache-API
 // entries survive worker deploys, so a code change alone won't refresh them).
-const CACHE_VERSION = "20";  // 20: logo URLs repointed to tulospalvelu's CDN
+const CACHE_VERSION = "21";  // 21: getSeasonGames carries smallArea (20: logo URLs -> CDN)
 const NEGATIVE_TTL_S = 60; // how long a FAILED compute is remembered (see cachedJson)
 
 /* ------------------------------ rate limiting ----------------------------- */

@@ -1622,6 +1622,16 @@ const FRIENDLY_RE = /harjoitus/i;
 // at their seed price forever and trap whoever buys one. Excluded from Ahmaliiga ONLY —
 // the fixtures stay in the season cache and on the Ottelut pages.
 const NO_RESULT_RE = /leijonaliiga/i;
+// Pienpelit (small-area games): the same no-result problem, but the flag is PER GAME,
+// so it cannot be expressed as a level regex. U9/U10 are 100 % small-area (already
+// caught by NO_RESULT_RE above), while U11/U12 run BOTH kinds in one series - the pair
+// plays a normal game and a small-area game on the same day against the same opponent.
+// Measured over 2026-27: small-area 2 results in 29 played (7 %), everything else
+// 129/129 (100 %). A card can score nothing from these, so they are excluded - the same
+// reasoning that already excludes Leijonaliiga. The flag comes from the Worker's
+// buildExtGame (tulospalvelu SmallAreaGame). Excluded from Ahmaliiga ONLY: the fixtures
+// stay in the season cache and on the Ottelut pages.
+const isSmallArea = (g) => !!g.smallArea;
 
 // Schedule sync: pull the season's whole game list from the Worker (1 cached call)
 // and UPSERT into AhmaliigaGames with the team ids (needed to fetch box scores) and
@@ -1650,6 +1660,7 @@ async function syncSeasonGames(seasonId) {
     // completed = regulation (1) / overtime (2) / shootout (3); 0 = no result yet, or the
     // U9-U10 Leijonaliiga no-score format. `== 1` DROPPED every OT/shootout game before.
     if (NO_RESULT_RE.test(g.league || '') || NO_RESULT_RE.test(g.level || '')) return false;
+    if (isSmallArea(g)) return false;
     const isFriendly = FRIENDLY_RE.test(g.league || '') || FRIENDLY_RE.test(g.level || '');
     // keepAll = keep everything; else beta = friendly-ONLY, real season = series-only (drop friendlies).
     if (!keepAll && (keepFriendlies ? !isFriendly : isFriendly)) return false;
